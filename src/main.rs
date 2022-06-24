@@ -2,26 +2,15 @@ use poise::serenity_prelude as serenity;
 use dotenv::dotenv;
 use log::{error, info};
 use sqlx::postgres::PgPoolOptions;
-use std::fmt::Write as _; // import without risk of name clashing
-use serenity::id::UserId;
+
+mod staff;
+mod checks;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pool: sqlx::PgPool,
-}
-
-/// Check for staff_server
-async fn staff_server(ctx: Context<'_>) -> Result<bool, Error> {
-    let in_staff_server = match ctx.guild_id() {
-        Some(guild_id) => {
-            guild_id.0.to_string() == std::env::var("STAFF_SERVER")?
-        }
-        None => false,
-    };
-    
-    Ok(in_staff_server)
 }
 
 /// Displays your or another user's account creation date
@@ -84,47 +73,6 @@ async fn help(
     Ok(())
 }
 
-#[poise::command(track_edits, prefix_command, slash_command, check = "staff_server")]
-async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    // Get list of users with staff flag set to true
-    let data = ctx.data();
-
-    let staffs = sqlx::query!(
-        "SELECT user_id, username FROM users WHERE staff = true ORDER BY user_id ASC"
-    )
-    .fetch_all(&data.pool)
-    .await?;
-
-    let mut staff_list = "**Staff List**\n".to_string();
-    let mut not_in_staff_server = "**Not in staff server (based on cache, may be inaccurate)**\n".to_string();
-
-    let guild = ctx.guild().unwrap();
-
-    for staff in staffs.iter() {
-        // Convert ID to u64
-        let user_id = staff.user_id.parse::<u64>()?;
-
-        let cache_user = ctx.discord().cache.member(guild.id, UserId(user_id));
-
-        let user = match cache_user {
-            Some(user) => user.user,
-            None => {
-                // User not found in cache, fetch from API
-                let user = UserId(user_id).to_user(&ctx.discord().http).await?;
-
-                write!(not_in_staff_server, "{} ({})", user.id.0, user.name)?;
-                user
-            }
-        };
-
-        writeln!(staff_list, "{} ({})", staff.user_id, user.name)?;
-    }
-
-    ctx.say(staff_list + "\n" + &not_in_staff_server).await?;
-
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() {
     const MAX_CONNECTIONS: u32 = 3; // max connections to the database, we don't need too many here
@@ -145,7 +93,7 @@ async fn main() {
                 age(), 
                 register(),
                 help(),
-                staff()
+                staff::staff()
             ],
             /// This code is run before every command
             pre_command: |ctx| {

@@ -1,4 +1,3 @@
-
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
 
@@ -12,4 +11,33 @@ pub async fn staff_server(ctx: Context<'_>) -> Result<bool, Error> {
     };
     
     Ok(in_staff_server)
+}
+
+/// Check if user is staff
+/// 
+/// This check checks if the user has the `staff` bit set
+pub async fn is_staff(ctx: Context<'_>) -> Result<bool, Error> {
+    let data = ctx.data();
+    
+    let staff = sqlx::query!(
+        "SELECT staff FROM users WHERE user_id = $1",
+        ctx.author().id.0.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await?;
+    
+    Ok(staff.staff)
+}
+
+pub async fn is_admin_dev(ctx: Context<'_>) -> Result<bool, Error> {
+    let data = ctx.data();
+    
+    let staff = sqlx::query!(
+        "SELECT admin, ibldev FROM users WHERE user_id = $1",
+        ctx.author().id.0.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await?;
+    
+    Ok(staff.admin || staff.ibldev)
 }

@@ -4,6 +4,7 @@ use log::{error, info};
 use sqlx::postgres::PgPoolOptions;
 
 mod staff;
+mod tests;
 mod checks;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -93,7 +94,9 @@ async fn main() {
                 age(), 
                 register(),
                 help(),
-                staff::staff()
+                staff::staff(),
+                tests::test_staffcheck(),
+                tests::test_admin_dev(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {

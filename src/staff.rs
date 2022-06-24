@@ -14,10 +14,10 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("staff_list")
+    subcommands("staff_list", "staff_recalc")
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Available options are ``staff list``").await?;
+    ctx.say("Available options are ``staff list``, ``staff recalc`` (dev/admin/soon to be owner only)").await?;
     Ok(())
 }
 
@@ -27,7 +27,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     let data = ctx.data();
 
     let staffs = sqlx::query!(
-        "SELECT user_id, username FROM users WHERE staff = true ORDER BY user_id ASC"
+        "SELECT user_id, username, admin, developer FROM users WHERE staff = true ORDER BY user_id ASC"
     )
     .fetch_all(&data.pool)
     .await?;
@@ -54,10 +54,110 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             }
         };
 
-        writeln!(staff_list, "{} ({})", staff.user_id, user.name)?;
+        writeln!(staff_list, "{} ({}) [admin={}, developer={}]", staff.user_id, user.name, staff.admin, staff.developer)?;
     }
 
     ctx.say(staff_list + "\n" + &not_in_staff_server).await?;
+
+    Ok(())
+}
+
+/// Recalculates the list of staff and developers based on their roles
+#[poise::command(rename = "recalc", track_edits, prefix_command, slash_command, check = "checks::is_admin_dev")]
+pub async fn staff_recalc(ctx: Context<'_>) -> Result<(), Error> {
+    if !checks::staff_server(ctx).await? {
+        return Ok(())
+    }
+
+    // Ask if the user truly wishes to continue
+    let mut msg = ctx.send(|m| {
+        m.content(r#"
+Continuing will change the PostgreSQL database and recalculate the list of staff/admins/developers based on their roles. This is dangerous but sometimes needed for the manager bot to work correctly!
+
+**Current recalculation system**
+
+``Staff Manager`` = admin flag
+``Developer`` | ``Head Developer`` = ibldev flag
+``Website Moderator`` = staff flag
+
+**This only affects v4 and later**
+
+During beta testing, this is available to admins and devs, but once second final migration happens, it will only be available for Toxic Dev
+"#)
+        .components(|c| {
+            c.create_action_row(|r| {
+                r.create_button(|b| {
+                    b.custom_id("continue")
+                    .label("Continue")
+                })
+                .create_button(|b| {
+                    b.custom_id("cancel")
+                        .label("Cancel")
+                        .style(serenity::ButtonStyle::Danger)
+                })
+            })
+        })
+    })
+    .await?
+    .message()
+    .await?;
+
+    let interaction = msg
+        .await_component_interaction(ctx.discord())
+        .author_id(ctx.author().id)
+        .await;
+        msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+
+    let pressed_button_id = match &interaction {
+        Some(m) => &m.data.custom_id,
+        None => {
+            ctx.say("You didn't interact in time").await?;
+            return Ok(());
+        }
+    };
+
+    if pressed_button_id == "cancel" {
+        ctx.say("Cancelled").await?;
+        return Ok(());
+    } else {
+        ctx.say("Recalculating staff list").await?;
+
+        // Get all members on staff server
+        let guild = ctx.guild().unwrap();
+
+        let dev_role = poise::serenity_prelude::RoleId(std::env::var("DEV_ROLE")?.parse::<u64>()?);
+        let head_dev_role = poise::serenity_prelude::RoleId(std::env::var("HEAD_DEV_ROLE")?.parse::<u64>()?);
+        let staff_man_role = poise::serenity_prelude::RoleId(std::env::var("STAFF_MAN_ROLE")?.parse::<u64>()?);
+        let web_mod_role = poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
+
+
+        // First unset all staff
+        sqlx::query!("UPDATE users SET staff = false, ibldev = false, admin = true")
+            .execute(&ctx.data().pool)
+            .await?;
+
+        for member in guild.members.values() {
+            if member.roles.contains(&dev_role) {
+                sqlx::query!("UPDATE users SET staff = true, ibldev = true WHERE user_id = $1", member.user.id.0.to_string())
+                    .execute(&ctx.data().pool)
+                    .await?;
+            } else if member.roles.contains(&head_dev_role) {
+                sqlx::query!("UPDATE users SET staff = true, ibldev = true WHERE user_id = $1", member.user.id.0.to_string())
+                    .execute(&ctx.data().pool)
+                    .await?;
+            } else if member.roles.contains(&staff_man_role) {
+                sqlx::query!("UPDATE users SET staff = true, admin = true WHERE user_id = $1", member.user.id.0.to_string())
+                    .execute(&ctx.data().pool)
+                    .await?;
+            } else if member.roles.contains(&web_mod_role) {
+                sqlx::query!("UPDATE users SET staff = true WHERE user_id = $1", member.user.id.0.to_string())
+                    .execute(&ctx.data().pool)
+                    .await?;
+            }
+        }
+
+        ctx.say("Recalculated staff list").await?;
+    }
 
     Ok(())
 }

@@ -26,6 +26,12 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     // Get list of users with staff flag set to true
     let data = ctx.data();
 
+    sqlx::query!(
+        "UPDATE users SET user_id = TRIM(user_id)"
+    )
+    .execute(&data.pool)
+    .await?;
+
     let staffs = sqlx::query!(
         "SELECT user_id, username, staff, admin, ibldev, iblhdev FROM users WHERE (staff = true OR admin = true OR ibldev = true OR iblhdev = true) ORDER BY user_id ASC"
     )
@@ -39,7 +45,30 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
     for staff in staffs.iter() {
         // Convert ID to u64
-        let user_id = staff.user_id.parse::<u64>()?;
+
+        if staff.user_id.is_empty() {
+            // Remove user and warn
+            sqlx::query!("DELETE FROM users WHERE user_id = $1", staff.user_id)
+            .execute(&data.pool)
+            .await?;
+
+            ctx.say("Removed user with empty ID from database").await?;
+            continue
+        }
+
+        let user_id = staff.user_id.parse::<u64>();
+
+        if user_id.is_err() {
+            // Remove user and warn
+            sqlx::query!("DELETE FROM users WHERE user_id = $1", staff.user_id)
+            .execute(&data.pool)
+            .await?;
+
+            ctx.say("Removed user with invalid ID from database: ".to_owned() + &staff.user_id).await?;
+            continue
+        }
+
+        let user_id = user_id?;
 
         let cache_user = ctx.discord().cache.member(guild.id, UserId(user_id));
 
@@ -141,7 +170,7 @@ During beta testing, this is available to admins and devs, but once second final
         let web_mod_role = poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
 
         // First unset all staff
-        sqlx::query!("UPDATE users SET staff = false, ibldev = false, admin = true")
+        sqlx::query!("UPDATE users SET staff = false, ibldev = false, admin = false")
             .execute(&ctx.data().pool)
             .await?;
 

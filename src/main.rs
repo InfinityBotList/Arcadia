@@ -7,7 +7,8 @@ mod staff;
 mod tests;
 mod checks;
 mod testing;
-
+mod _utils;
+ 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
@@ -124,6 +125,7 @@ async fn main() {
                 staff::staff(),
                 testing::invite(),
                 testing::claim(),
+                testing::unclaim(),
                 testing::queue(),
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),

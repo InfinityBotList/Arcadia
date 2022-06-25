@@ -147,6 +147,14 @@ pub async fn claim(
         .execute(&data.pool)
         .await?;
 
+        crate::_utils::add_action_log(
+            &data.pool, 
+            bot.user.id.0.to_string(),
+            ctx.author().id.0.to_string(), 
+            "Claimed".to_string(),
+            "claim".to_string()
+        ).await?;
+
         ctx.send(|m| {
             m.embed(|e| {
                 e.title("Bot Claimed")
@@ -161,7 +169,7 @@ pub async fn claim(
 
         private_channel.send_message(discord, |m| {
             m.embed(|e| {
-                e.title("Bot Reclaimed!");
+                e.title("Bot Claimed!");
                 e.description(format!("<@{}> has claimed <@{}>", ctx.author().id.0, bot.user.id.0));
                 e.footer(|f| {
                     f.text("This is completely normal, don't worry!");
@@ -231,6 +239,13 @@ pub async fn claim(
                 .execute(&data.pool)
                 .await?;
 
+                crate::_utils::add_action_log(
+                    &data.pool, 
+                    bot.user.id.0.to_string(),
+                    ctx.author().id.0.to_string(),
+                    "Force claim since previous staff did not finish reviewing bot".to_string(),
+                    "claim".to_string()).await?;
+
                 let private_channel = owner.create_dm_channel(discord).await?;
 
                 private_channel.send_message(discord, |m| {
@@ -259,6 +274,85 @@ pub async fn claim(
         }
 
         return Ok(())
+    }
+
+    Ok(())
+}
+
+/// Unclaims a bot
+#[poise::command(
+    prefix_command,
+    slash_command,
+    guild_cooldown = 10,
+    check = "checks::is_staff"
+)]
+pub async fn unclaim(
+    ctx: Context<'_>, 
+    #[description = "The bot you wish to unclaim"]
+    bot: serenity::Member
+    ) -> Result<(), Error> {
+    let data = ctx.data();
+    let discord = ctx.discord();
+
+    if !checks::testing_server(ctx).await? {
+        return Err("You are not in the testing server".into());
+    }
+
+    sqlx::query!(
+        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+    )
+    .execute(&data.pool)
+    .await?;
+
+    let claimed = sqlx::query!(
+        "SELECT claimed_by, owner FROM bots WHERE bot_id = $1",
+        bot.user.id.0.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await?;
+
+    // Get main owner
+    let owner = UserId(claimed.owner.parse::<u64>()?);
+
+    if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
+        ctx.say(
+            format!("<@{}> is not claimed", bot.user.id.0)
+        ).await?;
+    } else {
+        sqlx::query!(
+            "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
+            bot.user.id.0.to_string()
+        )
+        .execute(&data.pool)
+        .await?;
+
+        crate::_utils::add_action_log(
+            &data.pool, 
+            bot.user.id.0.to_string(),
+            ctx.author().id.0.to_string(), 
+            "Unclaimed bot".to_string(),
+            "unclaim".to_string()
+        ).await?;
+
+        let private_channel = owner.create_dm_channel(discord).await?;
+
+        private_channel.send_message(discord, |m| {
+            m.embed(|e| {
+                e.title("Bot Unclaimed!");
+                e.description(format!("<@{}> has unclaimed <@{}>", ctx.author().id.0, bot.user.id.0));
+                e.footer(|f| {
+                    f.text("This is completely normal, don't worry!");
+                    f
+                });
+                e
+            });
+            m
+        })
+        .await?;
+
+        ctx.say(
+            format!("You have unclaimed <@{}>", bot.user.id.0)
+        ).await?;
     }
 
     Ok(())

@@ -104,7 +104,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 #[poise::command(rename = "recalc", track_edits, prefix_command, slash_command, check = "checks::is_admin_dev")]
 pub async fn staff_recalc(ctx: Context<'_>) -> Result<(), Error> {
     if !checks::staff_server(ctx).await? {
-        return Ok(())
+        return Err("You are not in the staff server".into());
     }
 
     // Ask if the user truly wishes to continue
@@ -179,15 +179,18 @@ During beta testing, this is available to admins and devs, but once second final
                 sqlx::query!("UPDATE users SET staff = true, ibldev = true WHERE user_id = $1", member.user.id.0.to_string())
                     .execute(&ctx.data().pool)
                     .await?;
-            } else if member.roles.contains(&head_dev_role) {
+            } 
+            if member.roles.contains(&head_dev_role) {
                 sqlx::query!("UPDATE users SET staff = true, ibldev = true, iblhdev = true WHERE user_id = $1", member.user.id.0.to_string())
                     .execute(&ctx.data().pool)
                     .await?;
-            } else if member.roles.contains(&staff_man_role) {
+            }
+            if member.roles.contains(&staff_man_role) {
                 sqlx::query!("UPDATE users SET staff = true, admin = true WHERE user_id = $1", member.user.id.0.to_string())
                     .execute(&ctx.data().pool)
                     .await?;
-            } else if member.roles.contains(&web_mod_role) {
+            }
+            if member.roles.contains(&web_mod_role) {
                 sqlx::query!("UPDATE users SET staff = true WHERE user_id = $1", member.user.id.0.to_string())
                     .execute(&ctx.data().pool)
                     .await?;
@@ -207,9 +210,9 @@ pub async fn staff_add(
     #[description = "The user ID of the user to add"]
     member: serenity::Member) -> Result<(), Error> {
     if !checks::staff_server(ctx).await? {
-        return Ok(())
+        return Err("You are not in the staff server".into());
     }
-
+    
     let web_mod_role = poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
 
     if !member.roles.contains(&web_mod_role) {
@@ -232,9 +235,9 @@ pub async fn staff_del(
     #[description = "The user ID of the user to remove staff from"]
     member: serenity::Member) -> Result<(), Error> {
     if !checks::staff_server(ctx).await? {
-        return Ok(())
+        return Err("You are not in the staff server".into());
     }
-
+    
     let staff_man_role = poise::serenity_prelude::RoleId(std::env::var("STAFF_MAN_ROLE")?.parse::<u64>()?);
     let owner_role = poise::serenity_prelude::RoleId(std::env::var("OWNER_ROLE")?.parse::<u64>()?);
 

@@ -6,6 +6,7 @@ use sqlx::postgres::PgPoolOptions;
 mod staff;
 mod tests;
 mod checks;
+mod testing;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
@@ -95,6 +96,7 @@ async fn main() {
                 register(),
                 help(),
                 staff::staff(),
+                testing::claim(),
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
                 tests::test_admin(),

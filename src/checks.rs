@@ -13,6 +13,18 @@ pub async fn staff_server(ctx: Context<'_>) -> Result<bool, Error> {
     Ok(in_staff_server)
 }
 
+/// Check for staff_server
+pub async fn testing_server(ctx: Context<'_>) -> Result<bool, Error> {
+    let in_testing_server = match ctx.guild_id() {
+        Some(guild_id) => {
+            guild_id.0.to_string() == std::env::var("TESTING_SERVER")?
+        }
+        None => false,
+    };
+    
+    Ok(in_testing_server)
+}
+
 /// Check if user is staff
 /// 
 /// This check checks if the user has the `staff` bit set

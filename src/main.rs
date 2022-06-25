@@ -97,6 +97,7 @@ async fn main() {
                 staff::staff(),
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
+                tests::test_admin(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {

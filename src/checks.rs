@@ -41,3 +41,17 @@ pub async fn is_admin_dev(ctx: Context<'_>) -> Result<bool, Error> {
     
     Ok(staff.admin || staff.ibldev)
 }
+
+pub async fn is_admin(ctx: Context<'_>) -> Result<bool, Error> {
+    let data = ctx.data();
+    
+    let staff = sqlx::query!(
+        "SELECT admin, ibldev FROM users WHERE user_id = $1",
+        ctx.author().id.0.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await?;
+    
+    Ok(staff.admin || staff.ibldev)
+}
+

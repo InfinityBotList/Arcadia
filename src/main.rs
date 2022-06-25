@@ -75,6 +75,29 @@ async fn help(
     Ok(())
 }
 
+async fn event_listener(
+    _ctx: &serenity::Context,
+    event: &poise::Event<'_>,
+    user_data: &Data,
+) -> Result<(), Error> {
+    match event {
+        poise::Event::Ready {data_about_bot } => {
+            info!("{} is ready! Doing some minor DB fixes", data_about_bot.user.name);
+            sqlx::query!(
+                "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+            )
+            .execute(&user_data.pool)
+            .await?;
+        },
+        poise::Event::CacheReady { guilds } => {
+            info!("Cache ready with {} guilds", guilds.len());
+        },
+        _ => {},
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     const MAX_CONNECTIONS: u32 = 3; // max connections to the database, we don't need too many here
@@ -91,12 +114,17 @@ async fn main() {
                 prefix: Some("ibb!".into()),
                 ..poise::PrefixFrameworkOptions::default()
             },
+            listener: |ctx, event, _framework, user_data| {
+                Box::pin(event_listener(ctx, event, user_data))
+            },
             commands: vec![
                 age(), 
                 register(),
                 help(),
                 staff::staff(),
+                testing::invite(),
                 testing::claim(),
+                testing::queue(),
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
                 tests::test_admin(),

@@ -27,7 +27,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     let data = ctx.data();
 
     let staffs = sqlx::query!(
-        "SELECT user_id, username, admin, ibldev FROM users WHERE staff = true ORDER BY user_id ASC"
+        "SELECT user_id, username, staff, admin, ibldev, iblhdev FROM users WHERE (staff = true OR admin = true OR ibldev = true OR iblhdev = true) ORDER BY user_id ASC"
     )
     .fetch_all(&data.pool)
     .await?;
@@ -54,7 +54,16 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             }
         };
 
-        writeln!(staff_list, "{} ({}) [admin={}, ibldev={}]", staff.user_id, user.name, staff.admin, staff.ibldev)?;
+        writeln!(
+            staff_list, 
+            "{user_id} ({username}) [staff={staff}, admin={admin}, ibldev={ibldev}, iblhdev={iblhdev}]", 
+            user_id=staff.user_id, 
+            username=user.name, 
+            staff=staff.staff, 
+            admin=staff.admin, 
+            ibldev=staff.ibldev,
+            iblhdev=staff.iblhdev,
+        )?;
     }
 
     ctx.say(staff_list + "\n" + &not_in_staff_server).await?;

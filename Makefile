@@ -4,7 +4,7 @@ RUSTFLAGS_LOCAL="-C target-cpu=native $(RUSTFLAGS) -C link-arg=-fuse-ld=lld"
 CARGO_TARGET_GNU_LINKER="x86_64-unknown-linux-gnu-gcc"
 
 # Some sensible defaults, should be overrided per-project
-BIN_NAME ?= sovngarde
+BIN_NAME ?= arcadia
 PROJ_NAME ?= $(BIN_NAME)
 HOST ?= 100.86.85.125
 

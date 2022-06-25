@@ -78,9 +78,9 @@ async fn help(
 async fn main() {
     const MAX_CONNECTIONS: u32 = 3; // max connections to the database, we don't need too many here
 
-    std::env::set_var("RUST_LOG", "sovngarde=debug");
+    std::env::set_var("RUST_LOG", "arcadia=debug");
     env_logger::init();
-    info!("Starting Sovngarde...");
+    info!("Starting Arcadia...");
 
     dotenv().ok();
 

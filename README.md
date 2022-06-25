@@ -1,4 +1,13 @@
-# Sovngarde
+<h2 align='center'>
+  <img src="https://cdn.infinitybots.xyz/images/png/Infinity5.png" height='100px' width='100px' />
+  <br> 
+  Arcadia
+</h2>
+<p align="center">
+ Rewrite of the Discord Bot used for Managing the Infinity Bot List Servers.
+</p>
+
+<hr>
 
 ## MacOS cross compile
 

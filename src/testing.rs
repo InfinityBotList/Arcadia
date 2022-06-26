@@ -1,6 +1,6 @@
 use crate::checks;
 use poise::serenity_prelude as serenity;
-use poise::serenity_prelude::UserId;
+use poise::serenity_prelude::{ChannelId, UserId};
 
 use std::fmt::Write;
 
@@ -11,7 +11,8 @@ type Context<'a> = crate::Context<'a>;
 #[poise::command(
     prefix_command,
     slash_command,
-    guild_cooldown = 10,
+    user_cooldown = 10,
+    category = "Testing"
 )]
 pub async fn invite(
     ctx: Context<'_>, 
@@ -34,7 +35,8 @@ pub async fn invite(
 #[poise::command(
     prefix_command,
     slash_command,
-    guild_cooldown = 10,
+    user_cooldown = 10,
+    category = "Testing"
 )]
 pub async fn queue(
     ctx: Context<'_>, 
@@ -102,7 +104,8 @@ pub async fn queue(
 #[poise::command(
     prefix_command,
     slash_command,
-    guild_cooldown = 10,
+    user_cooldown = 10,
+    category = "Testing",
     check = "checks::is_staff"
 )]
 pub async fn claim(
@@ -222,11 +225,14 @@ pub async fn claim(
         if let Some(m) = &interaction {
             let id = &m.data.custom_id;
 
+            let claimed_by = claimed.claimed_by.unwrap();
+
             if id == "remind" {
+                crate::_utils::add_action_log(&data.pool, bot.user.id.0.to_string(), claimed_by.clone(), "User reminder".to_string(), "reminder".to_string()).await?;
                 ctx.say(
                     format!(
-                        "<@{claimed_by}>, did you forgot to finish testing <@{bot_id}>?", 
-                        claimed_by = claimed.claimed_by.unwrap(),
+                        "<@{claimed_by}>, did you forgot to finish testing <@{bot_id}>? This reminder has been recorded internally for staff activity tracking purposes!", 
+                        claimed_by = claimed_by,
                         bot_id = bot.user.id.0
                     )
                 ).await?;
@@ -252,7 +258,7 @@ pub async fn claim(
                 private_channel.send_message(discord, |m| {
                     m.embed(|e| {
                         e.title("Bot Reclaimed!");
-                        e.description(format!("<@{}> has reclaimed <@{}> from <{}>", ctx.author().id.0, bot.user.id.0, claimed.claimed_by.unwrap()));
+                        e.description(format!("<@{}> has reclaimed <@{}> from <{}>", ctx.author().id.0, bot.user.id.0, claimed_by));
                         e.footer(|f| {
                             f.text("This is completely normal, don't worry!");
                             f
@@ -284,7 +290,8 @@ pub async fn claim(
 #[poise::command(
     prefix_command,
     slash_command,
-    guild_cooldown = 10,
+    user_cooldown = 10,
+    category = "Testing",
     check = "checks::is_staff"
 )]
 pub async fn unclaim(
@@ -350,6 +357,95 @@ pub async fn unclaim(
 
         ctx.say(
             format!("You have unclaimed <@{}>", bot.user.id.0)
+        ).await?;
+    }
+
+    Ok(())
+}
+
+/// Approves a bot
+#[poise::command(
+    prefix_command,
+    slash_command,
+    user_cooldown = 10,
+    category = "Testing",
+    check = "checks::is_staff"
+)]
+pub async fn approve(
+    ctx: Context<'_>, 
+    #[description = "The bot you wish to unclaim"]
+    bot: serenity::Member,
+    #[description = "The reason for approval"]
+    reason: String
+    ) -> Result<(), Error> {
+    let data = ctx.data();
+    let discord = ctx.discord();
+
+    if !checks::testing_server(ctx).await? {
+        return Err("You are not in the testing server".into());
+    }
+
+    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
+
+    sqlx::query!(
+        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+    )
+    .execute(&data.pool)
+    .await?;
+
+    let claimed = sqlx::query!(
+        "SELECT claimed_by, owner FROM bots WHERE bot_id = $1",
+        bot.user.id.0.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await?;
+
+    // Get main owner
+    let owner = UserId(claimed.owner.parse::<u64>()?);
+
+    if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
+        ctx.say(
+            format!("<@{}> is not claimed? Do ``/claim`` to claim this bot first!", bot.user.id.0)
+        ).await?;
+    } else {
+        crate::_utils::add_action_log(
+            &data.pool, 
+            bot.user.id.0.to_string(),
+            ctx.author().id.0.to_string(), 
+            reason.to_string(),
+            "approve".to_string()
+        ).await?;
+
+        let private_channel = owner.create_dm_channel(discord).await?;
+
+        private_channel.send_message(discord, |m| {
+            m.embed(|e| {
+                e.title("Bot Approved!")
+                .description(format!("<@{}> has approved <@{}>", ctx.author().id.0, bot.user.id.0))
+                .field("Reason", reason.clone(), true)
+                .footer(|f| {
+                    f.text("Well done, young traveller!")
+                })
+                .color(0x00ff00)
+            })
+        })
+        .await?;
+
+        modlogs.send_message(discord, |m| {
+            m.embed(|e| {
+                e.title("Bot Approved!")
+                .description(format!("<@{}> has approved <@{}>", ctx.author().id.0, bot.user.id.0))
+                .field("Reason", reason, true)
+                .footer(|f| {
+                    f.text("Congratulations on your achievement!")
+                })
+                .color(0x00ff00)
+            })
+        })
+        .await?;
+
+        ctx.say(
+            format!("You have approved <@{}>. The owners have been successfully notified", bot.user.id.0)
         ).await?;
     }
 

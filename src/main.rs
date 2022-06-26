@@ -11,7 +11,9 @@ mod staff;
 mod tests;
 mod checks;
 mod testing;
+mod admin;
 mod _utils;
+mod _onboarding;
  
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
@@ -293,6 +295,7 @@ async fn main() {
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
                 tests::test_admin(),
+                admin::update_field()
             ],
             /// This code is run before every command
             pre_command: |ctx| {

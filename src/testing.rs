@@ -48,6 +48,10 @@ pub async fn invite(
 pub async fn queue(
     ctx: Context<'_>, 
 ) -> Result<(), Error> {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+        return Ok(())
+    }
+
     let data = ctx.data();
 
     sqlx::query!(
@@ -122,6 +126,10 @@ pub async fn claim(
     ) -> Result<(), Error> {
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
+    }
+
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+        return Ok(())
     }
 
     // Check if its claimed by someone
@@ -313,6 +321,10 @@ pub async fn unclaim(
         return Err("You are not in the testing server".into());
     }
 
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+        return Ok(())
+    }
+
     sqlx::query!(
         "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
     )
@@ -390,6 +402,10 @@ pub async fn approve(
 
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
+    }
+
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+        return Ok(())
     }
 
     let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
@@ -515,6 +531,10 @@ pub async fn deny(
 
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
+    }
+
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+        return Ok(())
     }
 
     let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);

@@ -1,11 +1,17 @@
 use crate::checks;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::{ChannelId, UserId};
-
+use serde::Serialize;
+use log::info;
 use std::fmt::Write;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
+
+#[derive(Serialize)]
+struct Reason {
+    reason: String
+}
 
 /// Gets the invite to a bot
 #[poise::command(
@@ -394,7 +400,7 @@ pub async fn approve(
     .await?;
 
     let claimed = sqlx::query!(
-        "SELECT claimed_by, owner FROM bots WHERE bot_id = $1",
+        "SELECT claimed_by, owner, last_claimed FROM bots WHERE bot_id = $1",
         bot.user.id.0.to_string()
     )
     .fetch_one(&data.pool)
@@ -403,11 +409,18 @@ pub async fn approve(
     // Get main owner
     let owner = UserId(claimed.owner.parse::<u64>()?);
 
-    if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
+    if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() || claimed.last_claimed.is_none() {
         ctx.say(
             format!("<@{}> is not claimed? Do ``/claim`` to claim this bot first!", bot.user.id.0)
         ).await?;
     } else {
+        let start_time = chrono::offset::Utc::now();
+        let last_claimed = claimed.last_claimed.unwrap();
+
+        if (start_time - last_claimed).num_minutes() < 15 {
+            return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve it!".into());
+        }
+
         crate::_utils::add_action_log(
             &data.pool, 
             bot.user.id.0.to_string(),
@@ -415,6 +428,13 @@ pub async fn approve(
             reason.to_string(),
             "approve".to_string()
         ).await?;
+
+        sqlx::query!(
+            "UPDATE bots SET type = 'approved', claimed_by = NULL, claimed = false WHERE bot_id = $1",
+            bot.user.id.0.to_string()
+        )
+        .execute(&data.pool)
+        .await?;
 
         let private_channel = owner.create_dm_channel(discord).await?;
 
@@ -435,7 +455,7 @@ pub async fn approve(
             m.embed(|e| {
                 e.title("Bot Approved!")
                 .description(format!("<@{}> has approved <@{}>", ctx.author().id.0, bot.user.id.0))
-                .field("Reason", reason, true)
+                .field("Reason", &reason, true)
                 .footer(|f| {
                     f.text("Congratulations on your achievement!")
                 })
@@ -444,9 +464,28 @@ pub async fn approve(
         })
         .await?;
 
-        ctx.say(
-            format!("You have approved <@{}>. The owners have been successfully notified", bot.user.id.0)
-        ).await?;
+        // Send to metro
+        let request = reqwest::Client::new().post(format!(
+            "https://catnip.metrobots.xyz/bots/{}/approve", 
+            bot.user.id.0
+        ))
+        .query(&[("list_id", std::env::var("LIST_ID")?)])
+        .query(&[("reviewer", ctx.author().id.0.to_string())])
+        .header("Authorization", std::env::var("SECRET_KEY")?)
+        .json(&Reason {
+            reason: reason.clone(),
+        })
+        .send()
+        .await?;
+
+        if request.status().is_success() {
+            info!("Successfully approved bot {} on metro", bot.user.id.0);
+            ctx.say(
+                format!("You have approved <@{}>. The owners have been successfully notified", bot.user.id.0)
+            ).await?;    
+        } else {
+            return Err("Failed to approve bot on metro (but successful approval on IBL".into());
+        }
     }
 
     Ok(())

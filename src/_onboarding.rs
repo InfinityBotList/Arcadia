@@ -8,7 +8,7 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
 
     let _cmd_name = ctx.command().name;
 
-    info!(_cmd_name);
+    info!("{}", _cmd_name);
 
     let data = ctx.data();
 

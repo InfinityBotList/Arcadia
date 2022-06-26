@@ -91,6 +91,7 @@ pub async fn queue(
             .footer(|f| {
                 f.text("Use ibb!invite or /invite to get the bots invite")
             })
+            .color(0xA020F0)
         })
     }).await?;
 
@@ -140,7 +141,7 @@ pub async fn claim(
     if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
         // Claim it
         sqlx::query!(
-            "UPDATE bots SET claimed = true, claimed_by = $1 WHERE bot_id = $2",
+            "UPDATE bots SET claimed = true, last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
             ctx.author().id.0.to_string(),
             bot.user.id.0.to_string()
         )
@@ -232,7 +233,7 @@ pub async fn claim(
             } else {
                 // Force claim
                 sqlx::query!(
-                    "UPDATE bots SET claimed = true, claimed_by = $1 WHERE bot_id = $2",
+                    "UPDATE bots SET claimed = true, last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
                     ctx.author().id.0.to_string(),
                     bot.user.id.0.to_string()
                 )
@@ -338,15 +339,12 @@ pub async fn unclaim(
 
         private_channel.send_message(discord, |m| {
             m.embed(|e| {
-                e.title("Bot Unclaimed!");
-                e.description(format!("<@{}> has unclaimed <@{}>", ctx.author().id.0, bot.user.id.0));
-                e.footer(|f| {
-                    f.text("This is completely normal, don't worry!");
-                    f
-                });
-                e
-            });
-            m
+                e.title("Bot Unclaimed!")
+                .description(format!("<@{}> has unclaimed <@{}>", ctx.author().id.0, bot.user.id.0))
+                .footer(|f| {
+                    f.text("This is completely normal, don't worry!")
+                })
+            })
         })
         .await?;
 

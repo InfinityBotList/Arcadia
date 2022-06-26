@@ -1,7 +1,11 @@
+use std::{sync::Arc, time::Duration};
+
 use poise::serenity_prelude as serenity;
 use dotenv::dotenv;
 use log::{error, info};
 use sqlx::postgres::PgPoolOptions;
+
+use poise::serenity_prelude::{UserId, ChannelId};
 
 mod staff;
 mod tests;
@@ -77,7 +81,7 @@ async fn help(
 }
 
 async fn event_listener(
-    _ctx: &serenity::Context,
+    ctx: &serenity::Context,
     event: &poise::Event<'_>,
     user_data: &Data,
 ) -> Result<(), Error> {
@@ -89,6 +93,13 @@ async fn event_listener(
             )
             .execute(&user_data.pool)
             .await?;
+
+            let _ctx = ctx.to_owned();
+            let pool = user_data.pool.clone();
+
+            tokio::task::spawn(async move {
+                autounclaim(pool, _ctx.http).await;
+            });
         },
         poise::Event::CacheReady { guilds } => {
             info!("Cache ready with {} guilds", guilds.len());
@@ -97,6 +108,156 @@ async fn event_listener(
     }
 
     Ok(())
+}
+
+async fn autounclaim(
+    pool: sqlx::PgPool,
+    http: Arc<serenity::http::Http>,
+) {
+    let mut interval = tokio::time::interval(Duration::from_millis(10000));
+
+    let lounge_channel_id = ChannelId(std::env::var("LOUNGE_CHANNEL").unwrap().parse::<u64>().unwrap());
+
+    loop {
+        interval.tick().await;
+        info!("Checking for claimed bots greater than 1 hour claim interval");
+
+        let res = sqlx::query!(
+            "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE claimed = true AND NOW() - last_claimed > INTERVAL '1 hour'",
+        )
+        .fetch_all(&pool)
+        .await;
+
+        if res.is_err() {
+            error!("Error while checking for claimed bots: {:?}", res.unwrap_err());
+            continue;
+        }
+
+        let bots = res.unwrap();
+
+        for bot in bots {
+            if bot.claimed_by.is_none() {
+                info!("Unclaiming bot {} because it has no staff who has claimed it", bot.bot_id);
+                let res = sqlx::query!(
+                    "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
+                    bot.bot_id
+                )
+                .execute(&pool)
+                .await;
+
+                if res.is_err() {
+                    error!("Error while unclaiming bot {}: {:?}", bot.bot_id, res.unwrap_err());
+                    continue;
+                }
+                
+                continue;
+            }
+
+            if bot.last_claimed.is_none() {
+                info!("Unclaiming bot {} because it has no last_claimed time", bot.bot_id);
+                let res = sqlx::query!(
+                    "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
+                    bot.bot_id
+                )
+                .execute(&pool)
+                .await;
+
+                if res.is_err() {
+                    error!("Error while unclaiming bot {}: {:?}", bot.bot_id, res.unwrap_err());
+                    continue;
+                }
+                
+                continue;
+            }
+
+            let claimed_by = bot.claimed_by.unwrap();
+            let last_claimed = bot.last_claimed.unwrap();
+
+            info!("Unclaiming bot {} because it was claimed by {} and never unclaimed", bot.bot_id, claimed_by);
+            let res = sqlx::query!(
+                "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
+               bot. bot_id
+            )
+            .execute(&pool)
+            .await;
+
+            if res.is_err() {
+                error!("Error while unclaiming bot {}: {:?}", bot.bot_id, res.unwrap_err());
+                continue;
+            }
+
+            let start_time = chrono::offset::Utc::now();
+
+            // Now send message in #lounge
+            let err = lounge_channel_id.send_message(&http, |m| {
+                m.content(format!("<@{}>", claimed_by))
+                .embed(|e| {
+                    e.title("Auto-Unclaimed Bot")
+                        .description(
+                            format!(
+                                "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed at {} ({}).", 
+                                bot.bot_id, 
+                                claimed_by,
+                                last_claimed.format("%Y-%m-%d %H:%M:%S"),
+                                (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
+                            ))
+                        .color(0xFF0000)
+                    })
+            })
+            .await;
+
+            if err.is_err() {
+                error!("Error while sending message to lounge: {:?}", err.unwrap_err());
+                continue;
+            }
+
+            let owner = bot.owner.parse::<u64>();
+
+            if let Ok(owner) = owner {
+                let private_channel = UserId(owner).create_dm_channel(&http).await;
+
+                if private_channel.is_err() {
+                    error!("Error while sending message to owner: {:?}", private_channel.unwrap_err());
+                    continue;
+                }
+
+                let private_channel = private_channel.unwrap();
+
+                let err = private_channel.send_message(&http, |m| {
+                    m.embed(|e| {
+                        e.title("Bot Unclaimed!");
+                        e.description(
+                            format!(
+                                r#"<@{}> has been unclaimed as it was not being actively reviewed. 
+                                
+                                Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
+                                
+                                For more information, you can contact the current reviewer <@{}>
+                                
+                                *This bot was claimed at {} ({}). This is a automated message letting you know about whats going on...*
+                                "#, 
+                                bot.bot_id,
+                                claimed_by,
+                                last_claimed.format("%Y-%m-%d %H:%M:%S"),
+                                (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
+                            ));
+                        e.footer(|f| {
+                            f.text("This is completely normal, don't worry!");
+                            f
+                        });
+                        e
+                    });
+                    m
+                })
+                .await;   
+                
+                if err.is_err() {
+                    error!("Error while sending message to owner: {:?}", err.unwrap_err());
+                    continue;
+                }
+            }
+        }
+    }
 }
 
 #[tokio::main]

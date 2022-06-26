@@ -1,0 +1,7 @@
+[
+        {
+                "name": "arcadia",
+                "script": "unbuffer ./arcadia",
+                "cwd": "/root/arcadia/"
+        }
+]

@@ -288,6 +288,7 @@ async fn main() {
                 testing::claim(),
                 testing::unclaim(),
                 testing::queue(),
+                testing::approve(),
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
                 tests::test_admin(),

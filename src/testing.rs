@@ -421,6 +421,8 @@ pub async fn approve(
             return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve it!".into());
         }
 
+        ctx.say("Approving bot... Please wait...").await?;
+
         crate::_utils::add_action_log(
             &data.pool, 
             bot.user.id.0.to_string(),

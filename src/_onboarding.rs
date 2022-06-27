@@ -140,7 +140,10 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
             Ok(false)
         },
         "staff-guide" => {
-            Ok(false)
+            Ok(true)
+        },
+        "staff-guide-viewed" => {
+            Ok(true)
         },
         "complete" => Ok(true),
         _ => {

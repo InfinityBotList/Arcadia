@@ -55,6 +55,13 @@ pub async fn staffguide(
     let msgs = vec![r#"
 **Welcome to the Infinity Bot List Staff Team**
 
+*All commands below are shown in slash command form however prefix commands are well supported as well in case slash commands don't work*
+
+**Logging**
+
+All staff actions are logged to our database. In the past, staff activity was a huge problem. We hope doing this will
+allow us to better manage Infinity Bot List to make it a truly wonderful place.
+
 **Your Role**
 
 Being a Website Moderator is also being the forefront of Infinity Bot List.
@@ -68,23 +75,38 @@ straightforward process.
 
 When a bot gets added to the bot queue it'll show up in the #bot-logs
 channel in the Infinity Bot List Server. Here you will get a ping (``@Website Moderators``) and you 
-will be able to view the bot profile page (which you must do while testing a bot).
+will be able to view the bot profile page (which you must do while testing a bot)."#,r#"
 
 **Resubmissions**
 
 Resubmitted means for some reason the bot has been either denied before or deleted from the list. Such bots can be
-resubmitted by the owner of the bot.
+resubmitted by the owner of the bot. (An example of this is ``Ninja Bot`` from the training sandbox)
 
-During all bot approvals and denials, regardless of whether it is resubmitted or not, please ensure that the owner/
-developer of the bot is a member of Infinity Bot List. There will be a tag with the word “Member”.
-If the owner/developer is not in Infinity Bot List the bot should get immediately denied.
+During all bot approvals and denials, regardless of whether it is resubmitted or not, the owner/developer of the bot 
+must be a member of Infinity Bot List. *Arcadia (our management bot) will not let you approve/deny the bot otherwise*
 
 Head to Verification Center. In the #queue channel in Verification Center, you can then use ``/queue`` to get the
 bots pending verification.
 
 **Queue Order**
 
-Please go in Queue order. A bot thats in #2 position should not be done before #1
+Please go in Queue order. A bot thats in #2 position should not be done before a bot that is in #1 position! This is to
+ensure that everyone has their bot reviewed fairly. If you see a ticket of the form "Why was my bot not yet tested", please
+be sure to check the queue order and then inform accordingly. As of now, this queue order is public (by running ``/queue``)
+
+**Inviting the bot**
+
+You can use the ``/invite`` command to get the invite to the bot based on its Bot ID, Name or Vanity. 
+
+**Claim the bot**
+
+To limit confusion amongst other Website Moderators, Infinity Bot List has a claim system. Using ``/claim`` 
+avoids multiple mods testing the same bot. Please if it turns out that you cannot test it after
+you've claimed it (ex. Something in real life came up that'll take longer than 30 minutes), use ``/unclaim``. 
+We want to avoid bots sitting claimed for days with no testing being done.
+
+*One difference from v3 in claims is the addition of "Force Claim" and "Remind" in ``/claim``. "Force Claim" allows 
+you to forcibly claim a bot when it is currently being reviewed by someone else*
 "#];
     
     for msg in msgs {
@@ -210,6 +232,11 @@ pub async fn claim(
 
     if claimed.r#type != "pending" {
         return Err("This bot is not pending review".into());
+    }
+
+    // Make sure a owner is in the server
+    if !crate::_utils::bot_owner_in_server(&ctx, &bot.user.id.0.to_string()).await? {
+        return Err("The bot owner is in the server".into());
     }
 
     // Get main owner
@@ -482,6 +509,11 @@ pub async fn approve(
     .fetch_one(&data.pool)
     .await?;
 
+    // Make sure a owner is in the server
+    if !crate::_utils::bot_owner_in_server(&ctx, &bot.user.id.0.to_string()).await? {
+        return Err("The bot owner is in the server".into());
+    }
+
     // Get main owner
     let owner = UserId(claimed.owner.parse::<u64>()?);
 
@@ -610,6 +642,11 @@ pub async fn deny(
     )
     .fetch_one(&data.pool)
     .await?;
+
+    // Make sure a owner is in the server
+    if !crate::_utils::bot_owner_in_server(&ctx, &bot.user.id.0.to_string()).await? {
+        return Err("The bot owner is in the server".into());
+    }
 
     // Get main owner
     let owner = UserId(claimed.owner.parse::<u64>()?);

@@ -292,6 +292,7 @@ async fn main() {
                 testing::queue(),
                 testing::approve(),
                 testing::deny(),
+                testing::staffguide(),
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
                 tests::test_admin(),
@@ -311,6 +312,16 @@ async fn main() {
             /// This code is run after every command returns Ok
             post_command: |ctx| {
                 Box::pin(async move {
+                    // Some onboarding things need a post command to be executed
+                    let res = crate::_onboarding::post_command(ctx).await;
+
+                    if let Err(e) = res {
+                        error!("Error while executing onboarding post command: {:?}", e);
+                        if let Err(discord_err) = ctx.say("Onboarding background daemon failed with error: ".to_string() + e.to_string().as_str()).await {
+                            error!("Error while sending message to user: {:?}", discord_err);
+                        }
+                    }
+
                     info!(
                         "Done executing command {} for user {} ({})...",
                         ctx.command().qualified_name,

@@ -18,7 +18,7 @@ struct Reason {
 #[poise::command(
     prefix_command,
     slash_command,
-    user_cooldown = 10,
+    user_cooldown = 3,
     category = "Testing"
 )]
 pub async fn invite(
@@ -38,11 +38,70 @@ pub async fn invite(
     Ok(())
 }
 
+// Sends the staff guide in paginated form
+#[poise::command(
+    prefix_command,
+    slash_command,
+    user_cooldown = 3,
+    category = "Testing"
+)]
+pub async fn staffguide(
+    ctx: Context<'_>, 
+) -> Result<(), Error> {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+        return Ok(())
+    }
+
+    let msgs = vec![r#"
+**Welcome to the Infinity Bot List Staff Team**
+
+**Your Role**
+
+Being a Website Moderator is also being the forefront of Infinity Bot List.
+You are the first interaction for people on the server. You also have one of
+the utmost important jobs for a Bot List.... Approving and Denying bots.
+
+**The Process**
+
+The process of approving and denying bots at Infinity Bot List is a rather simple and
+straightforward process.
+
+When a bot gets added to the bot queue it'll show up in the #bot-logs
+channel in the Infinity Bot List Server. Here you will get a ping (``@Website Moderators``) and you 
+will be able to view the bot profile page (which you must do while testing a bot).
+
+**Resubmissions**
+
+Resubmitted means for some reason the bot has been either denied before or deleted from the list. Such bots can be
+resubmitted by the owner of the bot.
+
+During all bot approvals and denials, regardless of whether it is resubmitted or not, please ensure that the owner/
+developer of the bot is a member of Infinity Bot List. There will be a tag with the word “Member”.
+If the owner/developer is not in Infinity Bot List the bot should get immediately denied.
+
+Head to Verification Center. In the #queue channel in Verification Center, you can then use ``/queue`` to get the
+bots pending verification.
+
+**Queue Order**
+
+Please go in Queue order. A bot thats in #2 position should not be done before #1
+"#];
+    
+    for msg in msgs {
+        ctx.send(|m| {
+            m.content(msg)
+            .ephemeral(true)
+        }).await?;
+    }
+
+    Ok(())
+}
+
 /// Checks the bot queue
 #[poise::command(
     prefix_command,
     slash_command,
-    user_cooldown = 10,
+    user_cooldown = 3,
     category = "Testing"
 )]
 pub async fn queue(
@@ -115,7 +174,7 @@ pub async fn queue(
 #[poise::command(
     prefix_command,
     slash_command,
-    user_cooldown = 10,
+    user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"
 )]
@@ -305,7 +364,7 @@ pub async fn claim(
 #[poise::command(
     prefix_command,
     slash_command,
-    user_cooldown = 10,
+    user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"
 )]
@@ -386,7 +445,7 @@ pub async fn unclaim(
 #[poise::command(
     prefix_command,
     slash_command,
-    user_cooldown = 10,
+    user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"
 )]

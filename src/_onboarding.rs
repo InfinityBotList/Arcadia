@@ -342,6 +342,11 @@ pub async fn handle_onboarding(
                 ctx.say("Type ``/queue`` now to see the queue.").await?;
             }
 
+            // Special override to allow revisiting the staffguide command
+            if cmd_name == "staffguide" {
+                return Ok(true)   
+            }
+
             Ok(false)
         }
         "queue-step" => {
@@ -371,7 +376,8 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
         }
         // Not for us
         "staff-guide" => Ok(true),
-        "staff-guide-viewed" | "staff-guide-viewed-reminded" => {
+        "staff-guide-viewed" => Ok(true),
+        "staff-guide-read-encouraged" | "staff-guide-viewed-reminded" => {
             if cmd_name == "claim" {
                 let mut msg = ctx
                     .send(|m| {
@@ -391,7 +397,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                                     b.custom_id("fclaim")
                                         .style(serenity::ButtonStyle::Primary)
                                         .label("Force Claim")
-                                        .disabled(onboard_state == "staff-guide-viewed")
+                                        .disabled(onboard_state == "staff-guide-read-encouraged")
                                 });
                                 r.create_button(|b| {
                                     b.custom_id("remind")
@@ -410,7 +416,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                     .message()
                     .await?;
 
-                if onboard_state == "staff-guide-viewed" {
+                if onboard_state == "staff-guide-read-encouraged" {
                     ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
                 }
 
@@ -479,6 +485,11 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                         + "`)! Lets try that out?",
                 )
                 .await?;
+
+                // Special override to allow revisiting the staffguide command
+                if cmd_name == "staffguide" {
+                    return Ok(true)   
+                }
             }
             Ok(false)
         }
@@ -523,9 +534,16 @@ pub async fn post_command(ctx: crate::Context<'_>) -> Result<(), crate::Error> {
     match onboard_state {
         "staff-guide-viewed" => {
             ctx.send(|m| {
-                m.content("Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To get started, claim ``Ninja Bot``. You can use the queue if you need any help finding it!")
-                .ephemeral(true)
+                m.content("Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To get started, **invite ``Ninja Bot`` using ``ibb!invite [ID]`` where [ID] is the ID from the ``queue`` command**, then claim ``Ninja Bot``!")
             }).await?;
+
+            sqlx::query!(
+                "UPDATE users SET staff_onboard_state = 'staff-guide-read-encouraged' WHERE user_id = $1",
+                ctx.author().id.to_string()
+            )
+            .execute(&data.pool)
+            .await?;
+
             Ok(())
         }
         _ => Ok(()),

@@ -127,8 +127,14 @@ Cheatsheet of some common staff responses (highly recommended to use this): http
 "#
     ];
 
+    let ephemeral = if ctx.guild().is_some() {
+        ctx.guild().unwrap().name != ctx.author().id.to_string()
+    } else {
+        true
+    };
+
     for msg in msgs {
-        ctx.send(|m| m.content(msg).ephemeral(true)).await?;
+        ctx.send(|m| m.content(msg).ephemeral(ephemeral)).await?;
     }
 
     Ok(())

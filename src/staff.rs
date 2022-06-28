@@ -14,10 +14,10 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("staff_list", "staff_recalc", "staff_add", "staff_del")
+    subcommands("staff_list", "staff_recalc", "staff_add", "staff_del", "staff_guildlist", "staff_guilddel", "staff_guildleave")
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Available options are ``staff list``, ``staff recalc`` (dev/admin only), ``staff add`` (dev/admin only)").await?;
+    ctx.say("Available options are ``staff list``, ``staff guildlist`` (dev/admin only), ``staff_guilddel`` (dev/admin only), ``staff_guildleave`` (dev/admin only), ``staff recalc`` (dev/admin only), ``staff add`` (dev/admin only)").await?;
     Ok(())
 }
 
@@ -319,6 +319,85 @@ pub async fn staff_del(
         .await?;
 
     ctx.say("Removed from staff list").await?;
+
+    Ok(())
+}
+
+/// Get guild list
+#[poise::command(
+    rename = "guildlist",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_admin_dev"
+)]
+pub async fn staff_guildlist(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+    if !checks::staff_server(ctx).await? {
+        return Err("You are not in the staff server".into());
+    }
+
+    let guilds = ctx.discord().cache.guilds();
+
+    let mut guild_list = String::new();
+
+    for guild in guilds.iter() {
+        let name = guild.name(&ctx.discord()).unwrap_or_else(|| "Unknown".to_string()) + " (" + &guild.to_string() + ")\n";
+        guild_list.push_str(&name);
+    }
+
+    ctx.say(&guild_list).await?;
+
+    Ok(())
+}
+
+/// Delete server
+#[poise::command(
+    rename = "guilddel",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_admin_dev"
+)]
+pub async fn staff_guilddel(
+    ctx: Context<'_>,
+    #[description = "The guild ID to remove"] guild: String,
+) -> Result<(), Error> {
+    if !checks::staff_server(ctx).await? {
+        return Err("You are not in the staff server".into());
+    }
+
+    let gid = guild.parse::<u64>()?;
+
+    ctx.discord().http.delete_guild(gid).await?;
+
+    ctx.say("Removed guild").await?;
+
+    Ok(())
+}
+
+/// Delete server
+#[poise::command(
+    rename = "guildleave",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_admin_dev"
+)]
+pub async fn staff_guildleave(
+    ctx: Context<'_>,
+    #[description = "The guild ID to leave"] guild: String,
+) -> Result<(), Error> {
+    if !checks::staff_server(ctx).await? {
+        return Err("You are not in the staff server".into());
+    }
+
+    let gid = guild.parse::<u64>()?;
+
+    ctx.discord().http.leave_guild(gid).await?;
+
+    ctx.say("Removed guild").await?;
 
     Ok(())
 }

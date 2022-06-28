@@ -1,5 +1,5 @@
 use log::info;
-use poise::serenity_prelude::{Mentionable, PermissionOverwrite, Permissions, PermissionOverwriteType, RoleId};
+use poise::serenity_prelude::{Mentionable, Permissions, RoleId};
 
 use poise::serenity_prelude as serenity;
 use serde::Serialize;
@@ -69,13 +69,10 @@ pub async fn handle_onboarding(
     user_id: &str,
     set_onboard_state: Option<String>,
 ) -> Result<bool, crate::Error> {
-    if !crate::checks::testing_server(ctx).await? {
-        return Err("You are not in the testing server".into());
-    }
 
     let cmd_name = ctx.command().name;
 
-    let onboard_name = ctx.author().name.clone() + "-onboarding";
+    let onboard_name = ctx.author().id.to_string();
 
     info!("{}", cmd_name);
 
@@ -110,40 +107,126 @@ pub async fn handle_onboarding(
 
     let cur_guild = ctx.guild().unwrap().name;
 
-    if cur_guild.to_lowercase() != onboard_name.to_lowercase() && onboard_state != "pending" {
-        ctx.say("You are not in the created onboarding server!").await?;
+    if cur_guild.to_lowercase() != onboard_name.to_lowercase() {
+        ctx.say("Creating new onboarding server for you!").await?;
 
-        let channel = ctx.guild().unwrap().channel_id_from_name(discord, &onboard_name.to_lowercase());
+        // Check for old onboarding server
+        let guilds = discord.cache.guilds();
 
-        if channel == None {
-            ctx.say("If the onboarding server does not exist, please DM a Head Administrator").await?;
+        let mut found = false;
+
+        for guild in guilds.iter() {
+            let name = guild.name(&discord);
+
+            if let Some(name) = name {
+                if name.to_lowercase() == onboard_name.to_lowercase() {
+                    // Create new channel
+                    let channel = guild.create_channel(&discord, |c| {
+                        c.name("invite-attempt-".to_string()+&crate::_utils::gen_random(6))
+                            .kind(serenity::model::channel::ChannelType::Text)
+                    })
+                    .await?;
+
+                    // Create new invite
+                    let invite = channel.create_invite(&discord, |i| {
+                        i.max_age(0)
+                            .max_uses(1)
+                            .temporary(false)
+                            .unique(true)
+                    }).await?;
+
+                    // Send invite
+                    ctx.say("Please join the onboarding server here and run ``ibb!queue``: ".to_string()+&invite.url()).await?;
+
+                    found = true;
+                }
+            }
+        }
+
+        if !found {
+            ctx.say("If the onboarding server still does not exist, please DM a Head Administrator").await?;
 
             let map = json!({
-                "name": "test",
+                "name": onboard_name,
             });            
 
-            let new_guild = discord.http.create_guild()
+            let new_guild = discord.http.create_guild(&map).await?;
 
-            ctx.guild_id().unwrap().create_channel(discord, |c| {
-                c.name(&onboard_name.to_lowercase())
-                .permissions(vec![
-                    PermissionOverwrite {
-                        allow: Permissions::VIEW_CHANNEL,
-                        deny: Permissions::empty(),
-                        kind: PermissionOverwriteType::Member(ctx.author().id), 
-                    }, 
-                    PermissionOverwrite {
-                        allow: Permissions::empty(),
-                        deny: Permissions::all(),
-                        kind: PermissionOverwriteType::Role(RoleId(ctx.guild().unwrap().id.0)),
-                    }
-                ])
-            }).await?;    
+            // Create a channel
+            let channel = new_guild.create_channel(&discord, |c| {
+                c.name("invite-attempt-".to_string()+&crate::_utils::gen_random(6))
+                    .kind(serenity::model::channel::ChannelType::Text)
+            })
+            .await?;
+
+            // Create a invite
+            let invite = channel.create_invite(&discord, |i| {
+                i.max_age(0)
+                    .max_uses(1)
+                    .temporary(false)
+                    .unique(true)
+            }).await?;
+
+            // Send invite
+            ctx.say("Please join the newly created onboarding server here and run ``ibb!queue``: ".to_string()+&invite.url()).await?;
 
             return Ok(false);
         }
 
         return Ok(false);
+    } else {
+        // Check if user is admin
+        let guild = ctx.guild().unwrap();
+
+        let mut found = false;
+
+        for member in guild.members.iter() {
+            if member.0.0 == ctx.author().id.0 {
+                if let Some(perms) = member.1.permissions {
+                    if perms.administrator() {
+                        found = true;
+                    }
+                }
+            }
+        }
+
+        if !found {
+            // Check for admin role
+            let guild = ctx.guild().unwrap();
+
+            let mut found = false;
+
+            let mut role_id: Option<RoleId> = None;
+
+            for role in guild.roles.iter() {
+                if role.1.name == "Head Administrator" {
+                    found = true;
+                    role_id = Some(*role.0);
+                }
+            }
+
+            if !found {
+                // Create role
+                let guild = ctx.guild().unwrap();
+
+                let role = guild.create_role(&discord, |r| {
+                    r.name("Head Administrator")
+                        .colour(0x00ff00)
+                        .permissions(Permissions::ADMINISTRATOR)
+                        .mentionable(true)
+                }).await?;
+
+                role_id = Some(role.id);
+            }
+
+            if role_id == None {
+                ctx.say("Failed to fetch admin role").await?;
+                return Ok(false);
+            }
+
+            // Add admin perms
+            ctx.author_member().await.unwrap().add_role(&discord, role_id.unwrap()).await?;
+        }
     }
 
     if cmd_name == "staffguide" && onboard_state == "queue-step" {
@@ -229,29 +312,6 @@ pub async fn handle_onboarding(
                     .color(0xA020F0)
                 })
             }).await?;
-
-            // Delete a old onboarding channel if it exists
-            let channel = ctx.guild().unwrap().channel_id_from_name(discord, &onboard_name.to_lowercase());
-
-            if let Some(chan_id) = channel {
-                chan_id.delete(discord).await?;
-            }
-
-            ctx.guild_id().unwrap().create_channel(discord, |c| {
-                c.name(&onboard_name.to_lowercase())
-                .permissions(vec![
-                    PermissionOverwrite {
-                        allow: Permissions::VIEW_CHANNEL,
-                        deny: Permissions::empty(),
-                        kind: PermissionOverwriteType::Member(ctx.author().id), 
-                    }, 
-                    PermissionOverwrite {
-                        allow: Permissions::empty(),
-                        deny: Permissions::all(),
-                        kind: PermissionOverwriteType::Role(RoleId(ctx.guild().unwrap().id.0)),
-                    }
-                ])
-            }).await?;    
 
             sqlx::query!(
                 "UPDATE users SET staff_onboard_state = 'queue-step' WHERE user_id = $1",
@@ -420,10 +480,6 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
 }
 
 pub async fn post_command(ctx: crate::Context<'_>) -> Result<(), crate::Error> {
-    if !crate::checks::testing_server(ctx).await? {
-        return Err("You are not in the testing server".into());
-    }
-
     let cmd_name = ctx.command().name;
 
     info!("{}", cmd_name);
@@ -440,6 +496,16 @@ pub async fn post_command(ctx: crate::Context<'_>) -> Result<(), crate::Error> {
 
         res.staff_onboard_state
     };
+
+    let onboard_name = ctx.author().id.to_string();
+
+    let curr_guild = ctx.guild();
+
+    if let Some(guild) = curr_guild {
+        if guild.name != onboard_name {
+            return Ok(())
+        }
+    }
 
     let onboard_state = onboard_state.as_str();
 

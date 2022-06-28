@@ -70,7 +70,7 @@ pub async fn bot_owner_in_server(
     Ok(false)
 }
 
-fn gen_random(length: usize) -> String {
+pub fn gen_random(length: usize) -> String {
     let s: String = rand::thread_rng()
     .sample_iter(&Alphanumeric)
     .take(length)

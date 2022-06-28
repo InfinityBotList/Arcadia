@@ -9,6 +9,10 @@
 
 <hr>
 
+## Contributing
+
+- Always run ``fmt.sh`` before making a Pull Request!
+
 ## MacOS cross compile
 
 Follow https://stackoverflow.com/questions/40424255/cross-compilation-to-x86-64-unknown-linux-gnu-fails-on-mac-osx
@@ -28,3 +32,4 @@ Replace 7.2.0 with whatever gcc version you need
 ``make push`` to push newly built lib. Mofidy according to your ssh ip
 
 **If you face any build issues on macOS, try removing ``/opt/homebrew/bin/x86_64-linux-gnu-gcc`` and then ``ln -sf /opt/homebrew/bin/x86_64-unknown-linux-gnu-cc /opt/homebrew/bin/x86_64-linux-gnu-gcc``
+

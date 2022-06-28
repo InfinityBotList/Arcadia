@@ -1,7 +1,7 @@
 use crate::checks;
 
-use sqlx::Row;
 use sqlx::Column;
+use sqlx::Row;
 
 use std::time::Duration;
 
@@ -11,8 +11,7 @@ use poise::serenity_prelude as serenity;
 #[poise::command(track_edits, prefix_command, slash_command, check = "checks::is_hdev")]
 pub async fn update_field(
     ctx: crate::Context<'_>,
-    #[description = "The sql statement"] 
-    sql: String,
+    #[description = "The sql statement"] sql: String,
 ) -> Result<(), crate::Error> {
     if !checks::staff_server(ctx).await? {
         return Err("You are not in the staff server".into());
@@ -21,31 +20,32 @@ pub async fn update_field(
     let data = ctx.data();
 
     if !sql.to_lowercase().contains(&"WHERE") {
-        let mut msg = ctx.send(|m| {
-            m.content("Whoa there, are you trying to update a whole table?.")
-            .components(|c| {
-                c.create_action_row(|r| {
-                    r.create_button(|b| {
-                        b.custom_id("yes")
-                        .style(serenity::ButtonStyle::Primary)
-                        .label("Yes")
-                    });
-                    r.create_button(|b| {
-                        b.custom_id("cancel")
-                        .style(serenity::ButtonStyle::Secondary)
-                        .label("Cancel")
+        let mut msg = ctx
+            .send(|m| {
+                m.content("Whoa there, are you trying to update a whole table?.")
+                    .components(|c| {
+                        c.create_action_row(|r| {
+                            r.create_button(|b| {
+                                b.custom_id("yes")
+                                    .style(serenity::ButtonStyle::Primary)
+                                    .label("Yes")
+                            });
+                            r.create_button(|b| {
+                                b.custom_id("cancel")
+                                    .style(serenity::ButtonStyle::Secondary)
+                                    .label("Cancel")
+                            })
+                        })
                     })
-                })
-            })    
-        })
-        .await?
-        .message()
-        .await?;
+            })
+            .await?
+            .message()
+            .await?;
 
         let interaction = msg
-        .await_component_interaction(ctx.discord())
-        .author_id(ctx.author().id)
-        .await;
+            .await_component_interaction(ctx.discord())
+            .author_id(ctx.author().id)
+            .await;
         msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
         if let Some(m) = &interaction {
@@ -53,52 +53,55 @@ pub async fn update_field(
                 return Err("Cancelled".into());
             }
         } else {
-            return Ok(())
+            return Ok(());
         }
     }
 
     // Ask for approval from someone else
-    let mut msg = ctx.send(|m| {
-        m.content("Please have someone else approve running this SQL statement: ``".to_string() + &sql + "``")
-        .components(|c| {
-            c.create_action_row(|r| {
-                r.create_button(|b| {
-                    b.custom_id("yes")
-                    .style(serenity::ButtonStyle::Primary)
-                    .label("Yes")
-                });
-                r.create_button(|b| {
-                    b.custom_id("cancel")
-                    .style(serenity::ButtonStyle::Secondary)
-                    .label("Cancel")
+    let mut msg = ctx
+        .send(|m| {
+            m.content(
+                "Please have someone else approve running this SQL statement: ``".to_string()
+                    + &sql
+                    + "``",
+            )
+            .components(|c| {
+                c.create_action_row(|r| {
+                    r.create_button(|b| {
+                        b.custom_id("yes")
+                            .style(serenity::ButtonStyle::Primary)
+                            .label("Yes")
+                    });
+                    r.create_button(|b| {
+                        b.custom_id("cancel")
+                            .style(serenity::ButtonStyle::Secondary)
+                            .label("Cancel")
+                    })
                 })
             })
-        })    
-    })
-    .await?
-    .message()
-    .await?;
+        })
+        .await?
+        .message()
+        .await?;
 
     // Get current iblhdev's
 
-    let iblhdevs = sqlx::query!(
-        "SELECT user_id FROM users WHERE iblhdev = true"
-    )
-    .fetch_all(&data.pool)
-    .await?;
+    let iblhdevs = sqlx::query!("SELECT user_id FROM users WHERE iblhdev = true")
+        .fetch_all(&data.pool)
+        .await?;
 
     let id = ctx.author().id;
 
     let interaction = msg
-    .await_component_interaction(ctx.discord())
-    .filter(move |f| {
-        if f.user.id != id && iblhdevs.iter().any(|u| u.user_id == f.user.id.to_string()) {
-            return true;
-        }
-        false
-    })
-    .timeout(Duration::from_secs(360))
-    .await;
+        .await_component_interaction(ctx.discord())
+        .filter(move |f| {
+            if f.user.id != id && iblhdevs.iter().any(|u| u.user_id == f.user.id.to_string()) {
+                return true;
+            }
+            false
+        })
+        .timeout(Duration::from_secs(360))
+        .await;
     msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
     if let Some(m) = &interaction {
@@ -106,9 +109,8 @@ pub async fn update_field(
             return Err("Cancelled".into());
         }
     } else {
-        return Ok(())
+        return Ok(());
     }
-
 
     let res = sqlx::query(&sql).fetch_all(&data.pool).await?;
 

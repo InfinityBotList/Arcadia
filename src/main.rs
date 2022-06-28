@@ -1,20 +1,20 @@
 use std::{sync::Arc, time::Duration};
 
-use poise::serenity_prelude as serenity;
 use dotenv::dotenv;
 use log::{error, info};
+use poise::serenity_prelude as serenity;
 use sqlx::postgres::PgPoolOptions;
 
-use poise::serenity_prelude::{UserId, ChannelId};
+use poise::serenity_prelude::{ChannelId, UserId};
 
-mod staff;
-mod tests;
-mod checks;
-mod testing;
-mod admin;
-mod _utils;
 mod _onboarding;
- 
+mod _utils;
+mod admin;
+mod checks;
+mod staff;
+mod testing;
+mod tests;
+
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
@@ -88,8 +88,11 @@ async fn event_listener(
     user_data: &Data,
 ) -> Result<(), Error> {
     match event {
-        poise::Event::Ready {data_about_bot } => {
-            info!("{} is ready! Doing some minor DB fixes", data_about_bot.user.name);
+        poise::Event::Ready { data_about_bot } => {
+            info!(
+                "{} is ready! Doing some minor DB fixes",
+                data_about_bot.user.name
+            );
             sqlx::query!(
                 "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
             )
@@ -102,23 +105,25 @@ async fn event_listener(
             tokio::task::spawn(async move {
                 autounclaim(pool, _ctx.http).await;
             });
-        },
+        }
         poise::Event::CacheReady { guilds } => {
             info!("Cache ready with {} guilds", guilds.len());
-        },
-        _ => {},
+        }
+        _ => {}
     }
 
     Ok(())
 }
 
-async fn autounclaim(
-    pool: sqlx::PgPool,
-    http: Arc<serenity::http::Http>,
-) {
+async fn autounclaim(pool: sqlx::PgPool, http: Arc<serenity::http::Http>) {
     let mut interval = tokio::time::interval(Duration::from_millis(10000));
 
-    let lounge_channel_id = ChannelId(std::env::var("LOUNGE_CHANNEL").unwrap().parse::<u64>().unwrap());
+    let lounge_channel_id = ChannelId(
+        std::env::var("LOUNGE_CHANNEL")
+            .unwrap()
+            .parse::<u64>()
+            .unwrap(),
+    );
 
     loop {
         interval.tick().await;
@@ -131,7 +136,10 @@ async fn autounclaim(
         .await;
 
         if res.is_err() {
-            error!("Error while checking for claimed bots: {:?}", res.unwrap_err());
+            error!(
+                "Error while checking for claimed bots: {:?}",
+                res.unwrap_err()
+            );
             continue;
         }
 
@@ -139,7 +147,10 @@ async fn autounclaim(
 
         for bot in bots {
             if bot.claimed_by.is_none() {
-                info!("Unclaiming bot {} because it has no staff who has claimed it", bot.bot_id);
+                info!(
+                    "Unclaiming bot {} because it has no staff who has claimed it",
+                    bot.bot_id
+                );
                 let res = sqlx::query!(
                     "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
                     bot.bot_id
@@ -148,15 +159,22 @@ async fn autounclaim(
                 .await;
 
                 if res.is_err() {
-                    error!("Error while unclaiming bot {}: {:?}", bot.bot_id, res.unwrap_err());
+                    error!(
+                        "Error while unclaiming bot {}: {:?}",
+                        bot.bot_id,
+                        res.unwrap_err()
+                    );
                     continue;
                 }
-                
+
                 continue;
             }
 
             if bot.last_claimed.is_none() {
-                info!("Unclaiming bot {} because it has no last_claimed time", bot.bot_id);
+                info!(
+                    "Unclaiming bot {} because it has no last_claimed time",
+                    bot.bot_id
+                );
                 let res = sqlx::query!(
                     "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
                     bot.bot_id
@@ -165,26 +183,37 @@ async fn autounclaim(
                 .await;
 
                 if res.is_err() {
-                    error!("Error while unclaiming bot {}: {:?}", bot.bot_id, res.unwrap_err());
+                    error!(
+                        "Error while unclaiming bot {}: {:?}",
+                        bot.bot_id,
+                        res.unwrap_err()
+                    );
                     continue;
                 }
-                
+
                 continue;
             }
 
             let claimed_by = bot.claimed_by.unwrap();
             let last_claimed = bot.last_claimed.unwrap();
 
-            info!("Unclaiming bot {} because it was claimed by {} and never unclaimed", bot.bot_id, claimed_by);
+            info!(
+                "Unclaiming bot {} because it was claimed by {} and never unclaimed",
+                bot.bot_id, claimed_by
+            );
             let res = sqlx::query!(
                 "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
-               bot. bot_id
+                bot.bot_id
             )
             .execute(&pool)
             .await;
 
             if res.is_err() {
-                error!("Error while unclaiming bot {}: {:?}", bot.bot_id, res.unwrap_err());
+                error!(
+                    "Error while unclaiming bot {}: {:?}",
+                    bot.bot_id,
+                    res.unwrap_err()
+                );
                 continue;
             }
 
@@ -198,7 +227,7 @@ async fn autounclaim(
                         .description(
                             format!(
                                 "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed at {} ({}).", 
-                                bot.bot_id, 
+                                bot.bot_id,
                                 claimed_by,
                                 last_claimed.format("%Y-%m-%d %H:%M:%S"),
                                 (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
@@ -209,7 +238,10 @@ async fn autounclaim(
             .await;
 
             if err.is_err() {
-                error!("Error while sending message to lounge: {:?}", err.unwrap_err());
+                error!(
+                    "Error while sending message to lounge: {:?}",
+                    err.unwrap_err()
+                );
                 continue;
             }
 
@@ -219,7 +251,10 @@ async fn autounclaim(
                 let private_channel = UserId(owner).create_dm_channel(&http).await;
 
                 if private_channel.is_err() {
-                    error!("Error while sending message to owner: {:?}", private_channel.unwrap_err());
+                    error!(
+                        "Error while sending message to owner: {:?}",
+                        private_channel.unwrap_err()
+                    );
                     continue;
                 }
 
@@ -251,10 +286,13 @@ async fn autounclaim(
                     });
                     m
                 })
-                .await;   
-                
+                .await;
+
                 if err.is_err() {
-                    error!("Error while sending message to owner: {:?}", err.unwrap_err());
+                    error!(
+                        "Error while sending message to owner: {:?}",
+                        err.unwrap_err()
+                    );
                     continue;
                 }
             }
@@ -282,7 +320,7 @@ async fn main() {
                 Box::pin(event_listener(ctx, event, user_data))
             },
             commands: vec![
-                age(), 
+                age(),
                 register(),
                 help(),
                 staff::staff(),
@@ -296,7 +334,7 @@ async fn main() {
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
                 tests::test_admin(),
-                admin::update_field()
+                admin::update_field(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {
@@ -317,7 +355,13 @@ async fn main() {
 
                     if let Err(e) = res {
                         error!("Error while executing onboarding post command: {:?}", e);
-                        if let Err(discord_err) = ctx.say("Onboarding background daemon failed with error: ".to_string() + e.to_string().as_str()).await {
+                        if let Err(discord_err) = ctx
+                            .say(
+                                "Onboarding background daemon failed with error: ".to_string()
+                                    + e.to_string().as_str(),
+                            )
+                            .await
+                        {
                             error!("Error while sending message to user: {:?}", discord_err);
                         }
                     }

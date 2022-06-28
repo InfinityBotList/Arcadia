@@ -2,10 +2,10 @@ use poise::serenity_prelude::GuildId;
 
 pub async fn add_action_log(
     pool: &sqlx::PgPool,
-    bot_id: String, 
+    bot_id: String,
     staff_id: String,
     reason: String,
-    event_type: String
+    event_type: String,
 ) -> Result<(), crate::Error> {
     sqlx::query!(
         "INSERT INTO action_logs (bot_id, staff_id, action_reason, event) VALUES ($1, $2, $3, $4)",
@@ -21,7 +21,7 @@ pub async fn add_action_log(
 
 pub async fn bot_owner_in_server(
     ctx: &crate::Context<'_>,
-    bot_id: &str
+    bot_id: &str,
 ) -> Result<bool, crate::Error> {
     let data = ctx.data();
     let discord = ctx.discord();
@@ -36,10 +36,12 @@ pub async fn bot_owner_in_server(
 
     // Check if owner is in server ``MAIN_SERVER``
     let main_server = GuildId(std::env::var("MAIN_SERVER")?.parse::<u64>()?);
-    
+
     let main_owner = owners.owner.parse::<u64>()?;
 
-    let owner_in_server = discord.cache.member_field(main_server, main_owner, |f| f.user.id);
+    let owner_in_server = discord
+        .cache
+        .member_field(main_server, main_owner, |f| f.user.id);
 
     if owner_in_server.is_some() {
         return Ok(true);
@@ -55,7 +57,9 @@ pub async fn bot_owner_in_server(
 
         let owner = owner.unwrap();
 
-        let owner_in_server = discord.cache.member_field(main_server, owner, |f| f.user.id);
+        let owner_in_server = discord
+            .cache
+            .member_field(main_server, owner, |f| f.user.id);
 
         if owner_in_server.is_some() {
             return Ok(true);

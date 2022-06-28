@@ -4,7 +4,11 @@ use poise::serenity_prelude::Mentionable;
 use poise::serenity_prelude as serenity;
 
 /// Tries to check if onboarding is required, returns ``false`` if command should stop
-pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboard_state: Option<String>) -> Result<bool, crate::Error> {
+pub async fn handle_onboarding(
+    ctx: crate::Context<'_>,
+    user_id: &str,
+    set_onboard_state: Option<String>,
+) -> Result<bool, crate::Error> {
     if !crate::checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }
@@ -25,12 +29,12 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
         )
         .fetch_one(&data.pool)
         .await?;
-        
+
         res.staff_onboard_state
     };
 
     let mut onboard_state = onboard_state.as_str();
-    
+
     let onboarded = sqlx::query!(
         "SELECT staff_onboarded, staff_onboard_last_start_time FROM users WHERE user_id = $1",
         user_id
@@ -45,21 +49,21 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
             user_id
         )
         .execute(&data.pool)
-        .await?;    
+        .await?;
         return Ok(true);
     }
 
     // Allow users to see queue again
     if cmd_name == "queue" && !vec!["pending", "complete"].contains(&onboard_state) {
-            // Check that they are in stage 2 of queue command
-            if vec!["claimed-bot"].contains(&onboard_state) {
-                onboard_state = "claimed-bot";
-            } else {
-                onboard_state = "queue-step";
-            }
+        // Check that they are in stage 2 of queue command
+        if vec!["claimed-bot"].contains(&onboard_state) {
+            onboard_state = "claimed-bot";
+        } else {
+            onboard_state = "queue-step";
         }
+    }
 
-    if onboarded.staff_onboarded { 
+    if onboarded.staff_onboarded {
         info!("{} is already onboarded", user_id);
     } else if onboarded.staff_onboard_last_start_time.is_none() {
         sqlx::query!(
@@ -68,7 +72,9 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
         )
         .execute(&data.pool)
         .await?;
-    } else if chrono::offset::Utc::now() - onboarded.staff_onboard_last_start_time.unwrap() > chrono::Duration::hours(1) {
+    } else if chrono::offset::Utc::now() - onboarded.staff_onboard_last_start_time.unwrap()
+        > chrono::Duration::hours(1)
+    {
         sqlx::query!(
             "UPDATE users SET staff_onboard_last_start_time = NOW(), staff_onboard_state = 'pending' WHERE user_id = $1",
             user_id
@@ -76,7 +82,10 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
         .execute(&data.pool)
         .await?;
 
-        ctx.say("You exceeded the time limit (1 hour) for the previous onboarding attempt. Retrying...").await?;
+        ctx.say(
+            "You exceeded the time limit (1 hour) for the previous onboarding attempt. Retrying...",
+        )
+        .await?;
 
         onboard_state = "pending";
     }
@@ -94,7 +103,7 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
     .await?;
 
     match onboard_state {
-        "pending" => {            
+        "pending" => {
             ctx.say("**Welcome to Infinity Bot List**\n\nSince you seem new to this place, how about a nice look arou-?").await?;
 
             ctx.send(|m| {
@@ -115,7 +124,7 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
                     })
                     .color(0xA020F0)
                 })
-            }).await?;                
+            }).await?;
 
             sqlx::query!(
                 "UPDATE users SET staff_onboard_state = 'queue-step' WHERE user_id = $1",
@@ -127,7 +136,7 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
             ctx.say("Whoa there! Look at that! There's a new bot to review!!! Type ``/queue`` (or ``ibb!queue``) to see the queue").await?;
 
             Ok(false)
-        },
+        }
         "claimed-bot" => {
             if cmd_name == "queue" {
                 ctx.say("Not yet implemented").await?;
@@ -136,19 +145,20 @@ pub async fn handle_onboarding(ctx: crate::Context<'_>, user_id: &str, set_onboa
             }
 
             Ok(false)
-        },
+        }
         "queue-step" => {
             if cmd_name == "queue" {
                 ctx.send(|m| {
                     m.embed(|e| {
                         e.title("Bot Queue (Sandbox Mode)")
-                        .description("**1.** Ninja Bot (".to_string()+&test_bot+") [Unclaimed]")
-                        .footer(|f| {
-                            f.text("Use ibb!invite or /invite to get the bots invite")
-                        })
-                        .color(0xA020F0)
+                            .description(
+                                "**1.** Ninja Bot (".to_string() + &test_bot + ") [Unclaimed]",
+                            )
+                            .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
+                            .color(0xA020F0)
                     })
-                }).await?;
+                })
+                .await?;
                 ctx.say(r#"
 You can use the `/queue` command to see the list of bots pending verification that *you* need to review!
 
@@ -160,59 +170,61 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
             }
 
             Ok(false)
-        },
+        }
         // Not for us
-        "staff-guide" => {
-            Ok(true)
-        },
+        "staff-guide" => Ok(true),
         "staff-guide-viewed" | "staff-guide-viewed-reminded" => {
             if cmd_name == "claim" {
-                let mut msg = ctx.send(|m| {
-                    m.embed(|e| {
-                        e.title("Bot Already Claimed");
-                        e.description(format!("This bot is already claimed by <@{}>", current_user.id));
-                        e.color(0xFF0000);
-                        e
-                    });
-        
-                    m.components(|c| {
-                        c.create_action_row(|r| {
-                            r.create_button(|b| {
-                                b.custom_id("fclaim")
-                                .style(serenity::ButtonStyle::Primary)
-                                .label("Force Claim")
-                                .disabled(onboard_state == "staff-guide-viewed")
+                let mut msg = ctx
+                    .send(|m| {
+                        m.embed(|e| {
+                            e.title("Bot Already Claimed");
+                            e.description(format!(
+                                "This bot is already claimed by <@{}>",
+                                current_user.id
+                            ));
+                            e.color(0xFF0000);
+                            e
+                        });
+
+                        m.components(|c| {
+                            c.create_action_row(|r| {
+                                r.create_button(|b| {
+                                    b.custom_id("fclaim")
+                                        .style(serenity::ButtonStyle::Primary)
+                                        .label("Force Claim")
+                                        .disabled(onboard_state == "staff-guide-viewed")
+                                });
+                                r.create_button(|b| {
+                                    b.custom_id("remind")
+                                        .style(serenity::ButtonStyle::Secondary)
+                                        .label("Remind Reviewer")
+                                        .disabled(onboard_state == "staff-guide-viewed-reminded")
+                                })
                             });
-                            r.create_button(|b| {
-                                b.custom_id("remind")
-                                .style(serenity::ButtonStyle::Secondary)
-                                .label("Remind Reviewer")
-                                .disabled(onboard_state == "staff-guide-viewed-reminded")
-                            })
-                        });    
-        
-                        c
-                    });
-        
-                    m
-                })
-                .await?
-                .message()
-                .await?;
+
+                            c
+                        });
+
+                        m
+                    })
+                    .await?
+                    .message()
+                    .await?;
 
                 if onboard_state == "staff-guide-viewed" {
                     ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
                 }
 
                 let interaction = msg
-                .await_component_interaction(ctx.discord())
-                .author_id(ctx.author().id)
-                .await;
-                msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press        
-                
+                    .await_component_interaction(ctx.discord())
+                    .author_id(ctx.author().id)
+                    .await;
+                msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+
                 if let Some(m) = &interaction {
                     let id = &m.data.custom_id;
-                
+
                     if id == "remind" {
                         ctx.say(
                             format!(
@@ -223,7 +235,14 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                         ).await?;
 
                         // Create a discord webhook
-                        let wh = ctx.channel_id().create_webhook_with_avatar(discord, "Frostpaw", "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png").await?;
+                        let wh = ctx
+                            .channel_id()
+                            .create_webhook_with_avatar(
+                                discord,
+                                "Frostpaw",
+                                "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png",
+                            )
+                            .await?;
 
                         wh.execute(discord, true, |m| {
                             m.content("Ack! sorry about that. I completely forgot about Ninja Bot due to personal issues")
@@ -236,33 +255,39 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                             user_id
                         )
                         .execute(&data.pool)
-                        .await?;      
+                        .await?;
                     } else {
                         sqlx::query!(
                             "UPDATE users SET staff_onboard_state = 'claimed-bot' WHERE user_id = $1",
                             user_id
                         )
                         .execute(&data.pool)
-                        .await?;      
+                        .await?;
 
-                        ctx.say(
-                            format!(
-                                "You have claimed <@{bot_id}> and the bot owner has been notified!", 
-                                bot_id = test_bot
-                            )
-                        ).await?;        
-                        
-                        ctx.say("Now try using ``/queue`` (or ``ibb!queue``) to see what the queue looks like now!").await?;   
+                        ctx.say(format!(
+                            "You have claimed <@{bot_id}> and the bot owner has been notified!",
+                            bot_id = test_bot
+                        ))
+                        .await?;
+
+                        ctx.say("Now try using ``/queue`` (or ``ibb!queue``) to see what the queue looks like now!").await?;
                     }
-                }        
+                }
             } else {
-                ctx.say("You can use the `/claim` (or ``ibb!claim``) command to claim `Ninja Bot` (`".to_string() + &test_bot + "`)! Lets try that out?").await?;
+                ctx.say(
+                    "You can use the `/claim` (or ``ibb!claim``) command to claim `Ninja Bot` (`"
+                        .to_string()
+                        + &test_bot
+                        + "`)! Lets try that out?",
+                )
+                .await?;
             }
             Ok(false)
-        },
+        }
         "complete" => Ok(true),
         _ => {
-            ctx.say("Unknown onboarding state:".to_string() + onboard_state).await?;
+            ctx.say("Unknown onboarding state:".to_string() + onboard_state)
+                .await?;
             Ok(false)
         }
     }
@@ -272,7 +297,6 @@ pub async fn post_command(ctx: crate::Context<'_>) -> Result<(), crate::Error> {
     if !crate::checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }
-
 
     let cmd_name = ctx.command().name;
 
@@ -287,12 +311,12 @@ pub async fn post_command(ctx: crate::Context<'_>) -> Result<(), crate::Error> {
         )
         .fetch_one(&data.pool)
         .await?;
-        
+
         res.staff_onboard_state
     };
 
     let onboard_state = onboard_state.as_str();
-    
+
     match onboard_state {
         "staff-guide-viewed" => {
             ctx.send(|m| {
@@ -300,7 +324,7 @@ pub async fn post_command(ctx: crate::Context<'_>) -> Result<(), crate::Error> {
                 .ephemeral(true)
             }).await?;
             Ok(())
-        },
-        _ => Ok(())
+        }
+        _ => Ok(()),
     }
 }

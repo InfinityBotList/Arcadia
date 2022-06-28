@@ -1,9 +1,9 @@
 use crate::checks;
-use poise::serenity_prelude as serenity;
-use poise::serenity_prelude::{ChannelId, UserId};
-use poise::serenity_prelude::Mentionable;
-use serde::Serialize;
 use log::info;
+use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::Mentionable;
+use poise::serenity_prelude::{ChannelId, UserId};
+use serde::Serialize;
 use std::fmt::Write;
 
 type Error = crate::Error;
@@ -11,20 +11,15 @@ type Context<'a> = crate::Context<'a>;
 
 #[derive(Serialize)]
 struct Reason {
-    reason: String
+    reason: String,
 }
 
 /// Gets the invite to a bot
-#[poise::command(
-    prefix_command,
-    slash_command,
-    user_cooldown = 3,
-    category = "Testing"
-)]
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
 pub async fn invite(
-    ctx: Context<'_>, 
-    #[description = "The invite to the bot"]
-    bot: String) -> Result<(), Error> {
+    ctx: Context<'_>,
+    #[description = "The invite to the bot"] bot: String,
+) -> Result<(), Error> {
     let data = ctx.data();
 
     let invite_data = sqlx::query!(
@@ -39,20 +34,14 @@ pub async fn invite(
 }
 
 // Sends the staff guide in paginated form
-#[poise::command(
-    prefix_command,
-    slash_command,
-    user_cooldown = 3,
-    category = "Testing"
-)]
-pub async fn staffguide(
-    ctx: Context<'_>, 
-) -> Result<(), Error> {
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
+pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
-        return Ok(())
+        return Ok(());
     }
 
-    let msgs = vec![r#"
+    let msgs = vec![
+        r#"
 **Welcome to the Infinity Bot List Staff Team**
 
 *All commands below are shown in slash command form however prefix commands are well supported as well in case slash commands don't work*
@@ -75,7 +64,8 @@ straightforward process.
 
 When a bot gets added to the bot queue it'll show up in the #bot-logs
 channel in the Infinity Bot List Server. Here you will get a ping (``@Website Moderators``) and you 
-will be able to view the bot profile page (which you must do while testing a bot)."#,r#"
+will be able to view the bot profile page (which you must do while testing a bot)."#,
+        r#"
 
 **Resubmissions**
 
@@ -107,30 +97,21 @@ sitting claimed for days with no testing being done *which is also why the queue
 
 *One difference from v3 in claims is the addition of "Force Claim" and "Remind" in ``/claim``. "Force Claim" allows 
 you to forcibly claim a bot when it is currently being reviewed by someone else*
-"#];
-    
+"#,
+    ];
+
     for msg in msgs {
-        ctx.send(|m| {
-            m.content(msg)
-            .ephemeral(true)
-        }).await?;
+        ctx.send(|m| m.content(msg).ephemeral(true)).await?;
     }
 
     Ok(())
 }
 
 /// Checks the bot queue
-#[poise::command(
-    prefix_command,
-    slash_command,
-    user_cooldown = 3,
-    category = "Testing"
-)]
-pub async fn queue(
-    ctx: Context<'_>, 
-) -> Result<(), Error> {
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
+pub async fn queue(ctx: Context<'_>) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
-        return Ok(())
+        return Ok(());
     }
 
     let data = ctx.data();
@@ -159,35 +140,34 @@ pub async fn queue(
         if let Some(claimed_by) = bot.claimed_by {
             writeln!(
                 desc_str,
-                "{i}. {name} ({bot_id}) [Claimed by: {claimed_by}]\n**Note:** {ap_note}", 
-                i=i,
-                name=bot.name,
-                bot_id=bot.bot_id,
-                claimed_by=claimed_by,
-                ap_note=bot.approval_note.unwrap_or_else(|| "None".to_string()),
+                "{i}. {name} ({bot_id}) [Claimed by: {claimed_by}]\n**Note:** {ap_note}",
+                i = i,
+                name = bot.name,
+                bot_id = bot.bot_id,
+                claimed_by = claimed_by,
+                ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
             )?;
         } else {
             writeln!(
                 desc_str,
-                "{i}. {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}", 
-                i=i,
-                name=bot.name,
-                bot_id=bot.bot_id,
-                ap_note=bot.approval_note.unwrap_or_else(|| "None".to_string()),
+                "{i}. {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}",
+                i = i,
+                name = bot.name,
+                bot_id = bot.bot_id,
+                ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
             )?;
         }
     }
 
     ctx.send(|m| {
         m.embed(|e| {
-           e.title("Bot Queue")
-           .description(desc_str)
-            .footer(|f| {
-                f.text("Use ibb!invite or /invite to get the bots invite")
-            })
-            .color(0xA020F0)
+            e.title("Bot Queue")
+                .description(desc_str)
+                .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
+                .color(0xA020F0)
         })
-    }).await?;
+    })
+    .await?;
 
     Ok(())
 }
@@ -201,16 +181,15 @@ pub async fn queue(
     check = "checks::is_staff"
 )]
 pub async fn claim(
-    ctx: Context<'_>, 
-    #[description = "The bot you wish to claim"]
-    bot: serenity::Member
-    ) -> Result<(), Error> {
+    ctx: Context<'_>,
+    #[description = "The bot you wish to claim"] bot: serenity::Member,
+) -> Result<(), Error> {
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }
 
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
-        return Ok(())
+        return Ok(());
     }
 
     // Check if its claimed by someone
@@ -253,74 +232,83 @@ pub async fn claim(
         .await?;
 
         crate::_utils::add_action_log(
-            &data.pool, 
+            &data.pool,
             bot.user.id.0.to_string(),
-            ctx.author().id.0.to_string(), 
+            ctx.author().id.0.to_string(),
             "Claimed".to_string(),
-            "claim".to_string()
-        ).await?;
+            "claim".to_string(),
+        )
+        .await?;
 
         ctx.send(|m| {
             m.embed(|e| {
                 e.title("Bot Claimed")
-                .description(format!("You have claimed {}", bot.user.name))
-                .footer(|f| {
-                    f.text("Use ibb!invite or /invite to get the bots invite")
-                })
+                    .description(format!("You have claimed {}", bot.user.name))
+                    .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
             })
-        }).await?;
+        })
+        .await?;
 
         let private_channel = owner.create_dm_channel(discord).await?;
 
-        private_channel.send_message(discord, |m| {
-            m.embed(|e| {
-                e.title("Bot Claimed!");
-                e.description(format!("<@{}> has claimed <@{}>", ctx.author().id.0, bot.user.id.0));
-                e.footer(|f| {
-                    f.text("This is completely normal, don't worry!");
-                    f
-                });
-                e
-            });
-            m
-        })
-        .await?;
-    } else {
-        let mut msg = ctx.send(|m| {
-            m.embed(|e| {
-                e.title("Bot Already Claimed");
-                e.description(format!("This bot is already claimed by <@{}>", claimed.claimed_by.as_ref().unwrap()));
-                e.color(0xFF0000);
-                e
-            });
-
-            m.components(|c| {
-                c.create_action_row(|r| {
-                    r.create_button(|b| {
-                        b.custom_id("fclaim")
-                        .style(serenity::ButtonStyle::Primary)
-                        .label("Force Claim")
+        private_channel
+            .send_message(discord, |m| {
+                m.embed(|e| {
+                    e.title("Bot Claimed!");
+                    e.description(format!(
+                        "<@{}> has claimed <@{}>",
+                        ctx.author().id.0,
+                        bot.user.id.0
+                    ));
+                    e.footer(|f| {
+                        f.text("This is completely normal, don't worry!");
+                        f
                     });
-                    r.create_button(|b| {
-                        b.custom_id("remind")
-                        .style(serenity::ButtonStyle::Secondary)
-                        .label("Remind Reviewer")
-                    })
-                });    
+                    e
+                });
+                m
+            })
+            .await?;
+    } else {
+        let mut msg = ctx
+            .send(|m| {
+                m.embed(|e| {
+                    e.title("Bot Already Claimed");
+                    e.description(format!(
+                        "This bot is already claimed by <@{}>",
+                        claimed.claimed_by.as_ref().unwrap()
+                    ));
+                    e.color(0xFF0000);
+                    e
+                });
 
-                c
-            });
+                m.components(|c| {
+                    c.create_action_row(|r| {
+                        r.create_button(|b| {
+                            b.custom_id("fclaim")
+                                .style(serenity::ButtonStyle::Primary)
+                                .label("Force Claim")
+                        });
+                        r.create_button(|b| {
+                            b.custom_id("remind")
+                                .style(serenity::ButtonStyle::Secondary)
+                                .label("Remind Reviewer")
+                        })
+                    });
 
-            m
-        })
-        .await?
-        .message()
-        .await?;
+                    c
+                });
+
+                m
+            })
+            .await?
+            .message()
+            .await?;
 
         let interaction = msg
-        .await_component_interaction(ctx.discord())
-        .author_id(ctx.author().id)
-        .await;
+            .await_component_interaction(ctx.discord())
+            .author_id(ctx.author().id)
+            .await;
         msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
         if let Some(m) = &interaction {
@@ -329,7 +317,14 @@ pub async fn claim(
             let claimed_by = claimed.claimed_by.unwrap();
 
             if id == "remind" {
-                crate::_utils::add_action_log(&data.pool, bot.user.id.0.to_string(), claimed_by.clone(), "User reminder".to_string(), "reminder".to_string()).await?;
+                crate::_utils::add_action_log(
+                    &data.pool,
+                    bot.user.id.0.to_string(),
+                    claimed_by.clone(),
+                    "User reminder".to_string(),
+                    "reminder".to_string(),
+                )
+                .await?;
                 ctx.say(
                     format!(
                         "<@{claimed_by}>, did you forgot to finish testing <@{bot_id}>? This reminder has been recorded internally for staff activity tracking purposes!", 
@@ -348,40 +343,47 @@ pub async fn claim(
                 .await?;
 
                 crate::_utils::add_action_log(
-                    &data.pool, 
+                    &data.pool,
                     bot.user.id.0.to_string(),
                     ctx.author().id.0.to_string(),
                     "Force claim since previous staff did not finish reviewing bot".to_string(),
-                    "claim".to_string()).await?;
+                    "claim".to_string(),
+                )
+                .await?;
 
                 let private_channel = owner.create_dm_channel(discord).await?;
 
-                private_channel.send_message(discord, |m| {
-                    m.embed(|e| {
-                        e.title("Bot Reclaimed!");
-                        e.description(format!("<@{}> has reclaimed <@{}> from <{}>", ctx.author().id.0, bot.user.id.0, claimed_by));
-                        e.footer(|f| {
-                            f.text("This is completely normal, don't worry!");
-                            f
+                private_channel
+                    .send_message(discord, |m| {
+                        m.embed(|e| {
+                            e.title("Bot Reclaimed!");
+                            e.description(format!(
+                                "<@{}> has reclaimed <@{}> from <{}>",
+                                ctx.author().id.0,
+                                bot.user.id.0,
+                                claimed_by
+                            ));
+                            e.footer(|f| {
+                                f.text("This is completely normal, don't worry!");
+                                f
+                            });
+                            e
                         });
-                        e
-                    });
-                    m
-                })
-                .await?;
+                        m
+                    })
+                    .await?;
 
-                ctx.say(
-                    format!(
-                        "You have claimed <@{bot_id}> and the bot owner has been notified!", 
-                        bot_id = bot.user.id.0
-                    )
-                ).await?;
+                ctx.say(format!(
+                    "You have claimed <@{bot_id}> and the bot owner has been notified!",
+                    bot_id = bot.user.id.0
+                ))
+                .await?;
             }
         } else {
-            return Ok(())
+            return Ok(());
         }
 
-        return Ok(())
+        return Ok(());
     }
 
     Ok(())
@@ -396,10 +398,9 @@ pub async fn claim(
     check = "checks::is_staff"
 )]
 pub async fn unclaim(
-    ctx: Context<'_>, 
-    #[description = "The bot you wish to unclaim"]
-    bot: serenity::Member
-    ) -> Result<(), Error> {
+    ctx: Context<'_>,
+    #[description = "The bot you wish to unclaim"] bot: serenity::Member,
+) -> Result<(), Error> {
     let data = ctx.data();
     let discord = ctx.discord();
 
@@ -408,7 +409,7 @@ pub async fn unclaim(
     }
 
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
-        return Ok(())
+        return Ok(());
     }
 
     sqlx::query!(
@@ -428,9 +429,8 @@ pub async fn unclaim(
     let owner = UserId(claimed.owner.parse::<u64>()?);
 
     if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
-        ctx.say(
-            format!("<@{}> is not claimed", bot.user.id.0)
-        ).await?;
+        ctx.say(format!("<@{}> is not claimed", bot.user.id.0))
+            .await?;
     } else {
         sqlx::query!(
             "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
@@ -440,29 +440,32 @@ pub async fn unclaim(
         .await?;
 
         crate::_utils::add_action_log(
-            &data.pool, 
+            &data.pool,
             bot.user.id.0.to_string(),
-            ctx.author().id.0.to_string(), 
+            ctx.author().id.0.to_string(),
             "Unclaimed bot".to_string(),
-            "unclaim".to_string()
-        ).await?;
+            "unclaim".to_string(),
+        )
+        .await?;
 
         let private_channel = owner.create_dm_channel(discord).await?;
 
-        private_channel.send_message(discord, |m| {
-            m.embed(|e| {
-                e.title("Bot Unclaimed!")
-                .description(format!("<@{}> has unclaimed <@{}>", ctx.author().id.0, bot.user.id.0))
-                .footer(|f| {
-                    f.text("This is completely normal, don't worry!")
+        private_channel
+            .send_message(discord, |m| {
+                m.embed(|e| {
+                    e.title("Bot Unclaimed!")
+                        .description(format!(
+                            "<@{}> has unclaimed <@{}>",
+                            ctx.author().id.0,
+                            bot.user.id.0
+                        ))
+                        .footer(|f| f.text("This is completely normal, don't worry!"))
                 })
             })
-        })
-        .await?;
+            .await?;
 
-        ctx.say(
-            format!("You have unclaimed <@{}>", bot.user.id.0)
-        ).await?;
+        ctx.say(format!("You have unclaimed <@{}>", bot.user.id.0))
+            .await?;
     }
 
     Ok(())
@@ -477,12 +480,10 @@ pub async fn unclaim(
     check = "checks::is_staff"
 )]
 pub async fn approve(
-    ctx: Context<'_>, 
-    #[description = "The bot you wish to deny"]
-    bot: serenity::Member,
-    #[description = "The reason for approval"]
-    reason: String
-    ) -> Result<(), Error> {
+    ctx: Context<'_>,
+    #[description = "The bot you wish to deny"] bot: serenity::Member,
+    #[description = "The reason for approval"] reason: String,
+) -> Result<(), Error> {
     let data = ctx.data();
     let discord = ctx.discord();
 
@@ -491,7 +492,7 @@ pub async fn approve(
     }
 
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
-        return Ok(())
+        return Ok(());
     }
 
     let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
@@ -517,10 +518,15 @@ pub async fn approve(
     // Get main owner
     let owner = UserId(claimed.owner.parse::<u64>()?);
 
-    if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() || claimed.last_claimed.is_none() {
-        ctx.say(
-            format!("<@{}> is not claimed? Do ``/claim`` to claim this bot first!", bot.user.id.0)
-        ).await?;
+    if claimed.claimed_by.is_none()
+        || claimed.claimed_by.as_ref().unwrap().is_empty()
+        || claimed.last_claimed.is_none()
+    {
+        ctx.say(format!(
+            "<@{}> is not claimed? Do ``/claim`` to claim this bot first!",
+            bot.user.id.0
+        ))
+        .await?;
     } else {
         let start_time = chrono::offset::Utc::now();
         let last_claimed = claimed.last_claimed.unwrap();
@@ -532,12 +538,13 @@ pub async fn approve(
         ctx.say("Approving bot... Please wait...").await?;
 
         crate::_utils::add_action_log(
-            &data.pool, 
+            &data.pool,
             bot.user.id.0.to_string(),
-            ctx.author().id.0.to_string(), 
+            ctx.author().id.0.to_string(),
             reason.to_string(),
-            "approve".to_string()
-        ).await?;
+            "approve".to_string(),
+        )
+        .await?;
 
         sqlx::query!(
             "UPDATE bots SET type = 'approved', claimed_by = NULL, claimed = false WHERE bot_id = $1",
@@ -548,52 +555,57 @@ pub async fn approve(
 
         let private_channel = owner.create_dm_channel(discord).await?;
 
-        private_channel.send_message(discord, |m| {
-            m.embed(|e| {
-                e.title("Bot Approved!")
-                .description(format!("<@{}> has approved <@{}>", ctx.author().id.0, bot.user.id.0))
-                .field("Reason", reason.clone(), true)
-                .footer(|f| {
-                    f.text("Well done, young traveller!")
+        private_channel
+            .send_message(discord, |m| {
+                m.embed(|e| {
+                    e.title("Bot Approved!")
+                        .description(format!(
+                            "<@{}> has approved <@{}>",
+                            ctx.author().id.0,
+                            bot.user.id.0
+                        ))
+                        .field("Reason", reason.clone(), true)
+                        .footer(|f| f.text("Well done, young traveller!"))
+                        .color(0x00ff00)
                 })
-                .color(0x00ff00)
             })
-        })
-        .await?;
+            .await?;
 
-        modlogs.send_message(discord, |m| {
-            m.embed(|e| {
-                e.title("__Bot Approved!__")
-                .field("Reason", &reason, true)
-                .field("Moderator", ctx.author().id.mention(), true)
-                .field("Bot ID", bot.user.id.mention(), true)
-                .footer(|f| {
-                    f.text("Congratulations on your achievement!")
+        modlogs
+            .send_message(discord, |m| {
+                m.embed(|e| {
+                    e.title("__Bot Approved!__")
+                        .field("Reason", &reason, true)
+                        .field("Moderator", ctx.author().id.mention(), true)
+                        .field("Bot ID", bot.user.id.mention(), true)
+                        .footer(|f| f.text("Congratulations on your achievement!"))
+                        .color(0x00ff00)
                 })
-                .color(0x00ff00)
             })
-        })
-        .await?;
+            .await?;
 
         // Send to metro
-        let request = reqwest::Client::new().post(format!(
-            "https://catnip.metrobots.xyz/bots/{}/approve", 
-            bot.user.id.0
-        ))
-        .query(&[("list_id", std::env::var("LIST_ID")?)])
-        .query(&[("reviewer", ctx.author().id.0.to_string())])
-        .header("Authorization", std::env::var("SECRET_KEY")?)
-        .json(&Reason {
-            reason: reason.clone(),
-        })
-        .send()
-        .await?;
+        let request = reqwest::Client::new()
+            .post(format!(
+                "https://catnip.metrobots.xyz/bots/{}/approve",
+                bot.user.id.0
+            ))
+            .query(&[("list_id", std::env::var("LIST_ID")?)])
+            .query(&[("reviewer", ctx.author().id.0.to_string())])
+            .header("Authorization", std::env::var("SECRET_KEY")?)
+            .json(&Reason {
+                reason: reason.clone(),
+            })
+            .send()
+            .await?;
 
         if request.status().is_success() {
             info!("Successfully approved bot {} on metro", bot.user.id.0);
-            ctx.say(
-                format!("You have approved <@{}>. The owners have been successfully notified", bot.user.id.0)
-            ).await?;    
+            ctx.say(format!(
+                "You have approved <@{}>. The owners have been successfully notified",
+                bot.user.id.0
+            ))
+            .await?;
         } else {
             return Err("Failed to approve bot on metro (but successful approval on IBL".into());
         }
@@ -611,12 +623,10 @@ pub async fn approve(
     check = "checks::is_staff"
 )]
 pub async fn deny(
-    ctx: Context<'_>, 
-    #[description = "The bot you wish to deny"]
-    bot: serenity::Member,
-    #[description = "The reason for denial"]
-    reason: String
-    ) -> Result<(), Error> {
+    ctx: Context<'_>,
+    #[description = "The bot you wish to deny"] bot: serenity::Member,
+    #[description = "The reason for denial"] reason: String,
+) -> Result<(), Error> {
     let data = ctx.data();
     let discord = ctx.discord();
 
@@ -625,7 +635,7 @@ pub async fn deny(
     }
 
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
-        return Ok(())
+        return Ok(());
     }
 
     let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
@@ -651,20 +661,26 @@ pub async fn deny(
     // Get main owner
     let owner = UserId(claimed.owner.parse::<u64>()?);
 
-    if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() || claimed.last_claimed.is_none() {
-        ctx.say(
-            format!("<@{}> is not claimed? Do ``/claim`` to claim this bot first!", bot.user.id.0)
-        ).await?;
+    if claimed.claimed_by.is_none()
+        || claimed.claimed_by.as_ref().unwrap().is_empty()
+        || claimed.last_claimed.is_none()
+    {
+        ctx.say(format!(
+            "<@{}> is not claimed? Do ``/claim`` to claim this bot first!",
+            bot.user.id.0
+        ))
+        .await?;
     } else {
         ctx.say("Denying bot... Please wait...").await?;
 
         crate::_utils::add_action_log(
-            &data.pool, 
+            &data.pool,
             bot.user.id.0.to_string(),
-            ctx.author().id.0.to_string(), 
+            ctx.author().id.0.to_string(),
             reason.to_string(),
-            "deny".to_string()
-        ).await?;
+            "deny".to_string(),
+        )
+        .await?;
 
         sqlx::query!(
             "UPDATE bots SET type = 'denied', claimed_by = NULL, claimed = false WHERE bot_id = $1",
@@ -675,52 +691,59 @@ pub async fn deny(
 
         let private_channel = owner.create_dm_channel(discord).await?;
 
-        private_channel.send_message(discord, |m| {
-            m.embed(|e| {
-                e.title("Bot Denied!")
-                .description(format!("<@{}> has denied <@{}>", ctx.author().id.0, bot.user.id.0))
-                .field("Reason", reason.clone(), true)
-                .footer(|f| {
-                    f.text("Well done, young traveller at getting denied from the club!")
+        private_channel
+            .send_message(discord, |m| {
+                m.embed(|e| {
+                    e.title("Bot Denied!")
+                        .description(format!(
+                            "<@{}> has denied <@{}>",
+                            ctx.author().id.0,
+                            bot.user.id.0
+                        ))
+                        .field("Reason", reason.clone(), true)
+                        .footer(|f| {
+                            f.text("Well done, young traveller at getting denied from the club!")
+                        })
+                        .color(0x00ff00)
                 })
-                .color(0x00ff00)
             })
-        })
-        .await?;
+            .await?;
 
-        modlogs.send_message(discord, |m| {
-            m.embed(|e| {
-                e.title("__Bot Denied!__")
-                .field("Reason", &reason, true)
-                .field("Moderator", ctx.author().id.mention(), true)
-                .field("Bot", bot.user.id.mention(), true)
-                .footer(|f| {
-                    f.text("Sad life!")
+        modlogs
+            .send_message(discord, |m| {
+                m.embed(|e| {
+                    e.title("__Bot Denied!__")
+                        .field("Reason", &reason, true)
+                        .field("Moderator", ctx.author().id.mention(), true)
+                        .field("Bot", bot.user.id.mention(), true)
+                        .footer(|f| f.text("Sad life!"))
+                        .color(0xFF0000)
                 })
-                .color(0xFF0000)
             })
-        })
-        .await?;
+            .await?;
 
         // Send to metro
-        let request = reqwest::Client::new().post(format!(
-            "https://catnip.metrobots.xyz/bots/{}/deny", 
-            bot.user.id.0
-        ))
-        .query(&[("list_id", std::env::var("LIST_ID")?)])
-        .query(&[("reviewer", ctx.author().id.0.to_string())])
-        .header("Authorization", std::env::var("SECRET_KEY")?)
-        .json(&Reason {
-            reason: reason.clone(),
-        })
-        .send()
-        .await?;
+        let request = reqwest::Client::new()
+            .post(format!(
+                "https://catnip.metrobots.xyz/bots/{}/deny",
+                bot.user.id.0
+            ))
+            .query(&[("list_id", std::env::var("LIST_ID")?)])
+            .query(&[("reviewer", ctx.author().id.0.to_string())])
+            .header("Authorization", std::env::var("SECRET_KEY")?)
+            .json(&Reason {
+                reason: reason.clone(),
+            })
+            .send()
+            .await?;
 
         if request.status().is_success() {
             info!("Successfully denied bot {} on metro", bot.user.id.0);
-            ctx.say(
-                format!("You have denied <@{}>. The owners have been successfully notified", bot.user.id.0)
-            ).await?;    
+            ctx.say(format!(
+                "You have denied <@{}>. The owners have been successfully notified",
+                bot.user.id.0
+            ))
+            .await?;
         } else {
             return Err("Failed to deny bot on metro (but successful denial on IBL".into());
         }

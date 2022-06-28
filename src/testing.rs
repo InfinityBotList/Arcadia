@@ -97,7 +97,35 @@ sitting claimed for days with no testing being done *which is also why the queue
 
 *One difference from v3 in claims is the addition of "Force Claim" and "Remind" in ``/claim``. "Force Claim" allows 
 you to forcibly claim a bot when it is currently being reviewed by someone else*
-"#,
+"#, r#"
+**Some Pointers**
+
+When testing the bot please ensure you are doing an in depth test. Not just a handful of commands. Also please keep
+in mind:
+
+∞ If the bot goes offline during testing please message the owner either directly or in the #bot-feedback channel 
+in the main server. Ex: “Hello @Toxic Dev your bot is offline and I can't test it. Let me know when this is fixed so 
+I can continue the test.” Please also do this if the bot is online but unresponsive.
+
+∞ Please refer to the #info channel on the Verification Center for rules of what's acceptable and what's not acceptable. 
+If you have any questions please ping @Staff Managers or @Head Staff Managers. No question is a stupid question and we 
+are always ready to help.
+
+After testing is complete please *DO NOT REMOVE THE BOT FROM THE TESTING SERVER. ARCADIA WILL DO THIS FOR YOU ONCE YOU HAVE
+ADDED IT TO THE MAIN SERVER*
+
+**After Testing**
+
+You can *either* use the panel or this bot to approve or deny the bot. Panel may lag behind in terms of features and checks
+so it is recommended to use this bot.
+
+Please note that the owner must be in main server to use approve/deny. *Once approved, be sure to add it to the main server,
+arcadia will kick the bot from testing server for you.*
+
+**Resources**
+
+Cheatsheet of some common staff responses (highly recommended to use this): https://temp.botlist.site/
+"#
     ];
 
     for msg in msgs {
@@ -184,12 +212,12 @@ pub async fn claim(
     ctx: Context<'_>,
     #[description = "The bot you wish to claim"] bot: serenity::Member,
 ) -> Result<(), Error> {
-    if !checks::testing_server(ctx).await? {
-        return Err("You are not in the testing server".into());
-    }
-
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
         return Ok(());
+    }
+
+    if !checks::testing_server(ctx).await? {
+        return Err("You are not in the testing server".into());
     }
 
     // Check if its claimed by someone
@@ -211,11 +239,6 @@ pub async fn claim(
 
     if claimed.r#type != "pending" {
         return Err("This bot is not pending review".into());
-    }
-
-    // Make sure a owner is in the server
-    if !crate::_utils::bot_owner_in_server(&ctx, &bot.user.id.0.to_string()).await? {
-        return Err("The bot owner is in the server".into());
     }
 
     // Get main owner
@@ -404,12 +427,12 @@ pub async fn unclaim(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !checks::testing_server(ctx).await? {
-        return Err("You are not in the testing server".into());
-    }
-
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
         return Ok(());
+    }
+
+    if !checks::testing_server(ctx).await? {
+        return Err("You are not in the testing server".into());
     }
 
     sqlx::query!(
@@ -487,12 +510,11 @@ pub async fn approve(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !checks::testing_server(ctx).await? {
-        return Err("You are not in the testing server".into());
-    }
-
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
         return Ok(());
+    }
+    if !checks::testing_server(ctx).await? {
+        return Err("You are not in the testing server".into());
     }
 
     let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
@@ -512,7 +534,7 @@ pub async fn approve(
 
     // Make sure a owner is in the server
     if !crate::_utils::bot_owner_in_server(&ctx, &bot.user.id.0.to_string()).await? {
-        return Err("The bot owner is in the server".into());
+        return Err("The bot owner is not in the server".into());
     }
 
     // Get main owner
@@ -614,7 +636,7 @@ pub async fn approve(
     Ok(())
 }
 
-/// Approves a bot
+/// Denies a bot
 #[poise::command(
     prefix_command,
     slash_command,
@@ -630,12 +652,12 @@ pub async fn deny(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !checks::testing_server(ctx).await? {
-        return Err("You are not in the testing server".into());
-    }
-
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
         return Ok(());
+    }
+
+    if !checks::testing_server(ctx).await? {
+        return Err("You are not in the testing server".into());
     }
 
     let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
@@ -652,11 +674,6 @@ pub async fn deny(
     )
     .fetch_one(&data.pool)
     .await?;
-
-    // Make sure a owner is in the server
-    if !crate::_utils::bot_owner_in_server(&ctx, &bot.user.id.0.to_string()).await? {
-        return Err("The bot owner is in the server".into());
-    }
 
     // Get main owner
     let owner = UserId(claimed.owner.parse::<u64>()?);

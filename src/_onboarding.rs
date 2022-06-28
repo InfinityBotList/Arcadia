@@ -1,8 +1,9 @@
 use log::info;
-use poise::serenity_prelude::Mentionable;
+use poise::serenity_prelude::{Mentionable, PermissionOverwrite, Permissions, PermissionOverwriteType, RoleId};
 
 use poise::serenity_prelude as serenity;
 use serde::Serialize;
+use serde_json::json;
 
 #[derive(Serialize)]
 struct SectionQuestion {
@@ -107,28 +108,40 @@ pub async fn handle_onboarding(
         return Ok(true);
     }
 
-    let cur_channel = ctx.channel_id().name(discord).await;
+    let cur_guild = ctx.guild().unwrap().name;
 
-    if let Some(cur_channel) = cur_channel {
-        if cur_channel != onboard_name && onboard_state != "pending" {
-            ctx.say("You are not in the created onboarding channel!").await?;
+    if cur_guild.to_lowercase() != onboard_name.to_lowercase() && onboard_state != "pending" {
+        ctx.say("You are not in the created onboarding server!").await?;
 
-            let channel = ctx.guild().unwrap().channel_id_from_name(discord, &onboard_name);
+        let channel = ctx.guild().unwrap().channel_id_from_name(discord, &onboard_name.to_lowercase());
 
-            if channel == None {
-                ctx.say("Onboarding channel does not exist, creating!").await?;
+        if channel == None {
+            ctx.say("If the onboarding server does not exist, please DM a Head Administrator").await?;
 
-                ctx.guild_id().unwrap().create_channel(discord, |c| {
-                    c.name(&onboard_name)
-                }).await?;    
+            let map = json!({
+                "name": "test",
+            });            
 
-                return Ok(false);
-            }
+            let new_guild = discord.http.create_guild()
+
+            ctx.guild_id().unwrap().create_channel(discord, |c| {
+                c.name(&onboard_name.to_lowercase())
+                .permissions(vec![
+                    PermissionOverwrite {
+                        allow: Permissions::VIEW_CHANNEL,
+                        deny: Permissions::empty(),
+                        kind: PermissionOverwriteType::Member(ctx.author().id), 
+                    }, 
+                    PermissionOverwrite {
+                        allow: Permissions::empty(),
+                        deny: Permissions::all(),
+                        kind: PermissionOverwriteType::Role(RoleId(ctx.guild().unwrap().id.0)),
+                    }
+                ])
+            }).await?;    
 
             return Ok(false);
         }
-    } else {
-        ctx.say("Could not find an current channel!").await?;
 
         return Ok(false);
     }
@@ -218,15 +231,27 @@ pub async fn handle_onboarding(
             }).await?;
 
             // Delete a old onboarding channel if it exists
-            let channel = ctx.guild().unwrap().channel_id_from_name(discord, &onboard_name);
+            let channel = ctx.guild().unwrap().channel_id_from_name(discord, &onboard_name.to_lowercase());
 
             if let Some(chan_id) = channel {
                 chan_id.delete(discord).await?;
             }
 
             ctx.guild_id().unwrap().create_channel(discord, |c| {
-                c.name(&onboard_name)
-            }).await?;
+                c.name(&onboard_name.to_lowercase())
+                .permissions(vec![
+                    PermissionOverwrite {
+                        allow: Permissions::VIEW_CHANNEL,
+                        deny: Permissions::empty(),
+                        kind: PermissionOverwriteType::Member(ctx.author().id), 
+                    }, 
+                    PermissionOverwrite {
+                        allow: Permissions::empty(),
+                        deny: Permissions::all(),
+                        kind: PermissionOverwriteType::Role(RoleId(ctx.guild().unwrap().id.0)),
+                    }
+                ])
+            }).await?;    
 
             sqlx::query!(
                 "UPDATE users SET staff_onboard_state = 'queue-step' WHERE user_id = $1",

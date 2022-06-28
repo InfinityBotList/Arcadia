@@ -3,6 +3,37 @@ use poise::serenity_prelude::Mentionable;
 
 use poise::serenity_prelude as serenity;
 
+struct SectionQuestion {
+    /// Name of section
+    name: String,
+    /// This is inputted by users
+    answer: String, 
+    subsections: Vec<SectionQuestion>,
+}
+struct OnboardingQuiz {
+    sections: Vec<SectionQuestion>,
+}
+
+impl OnboardingQuiz {
+    fn new() -> OnboardingQuiz {
+        OnboardingQuiz {
+            sections: vec![
+                SectionQuestion {
+                    name: "about".to_string(),
+                    answer: "".to_string(),
+                    subsections: vec![
+                        SectionQuestion {
+                            name: "ping",
+                            answer: "".to_string(),
+                            subsections: vec![],
+                        },
+                    ],
+                }
+            ],
+        }
+    }
+}
+
 /// Tries to check if onboarding is required, returns ``false`` if command should stop
 pub async fn handle_onboarding(
     ctx: crate::Context<'_>,

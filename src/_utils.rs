@@ -72,10 +72,10 @@ pub async fn bot_owner_in_server(
 
 pub fn gen_random(length: usize) -> String {
     let s: String = rand::thread_rng()
-    .sample_iter(&Alphanumeric)
-    .take(length)
-    .map(char::from)
-    .collect();
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect();
 
     s
 }

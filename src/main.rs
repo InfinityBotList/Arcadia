@@ -115,7 +115,11 @@ async fn event_listener(
     Ok(())
 }
 
-async fn autounclaim(pool: sqlx::PgPool, http: Arc<serenity::http::Http>, cache: Arc<serenity::Cache>) {
+async fn autounclaim(
+    pool: sqlx::PgPool,
+    http: Arc<serenity::http::Http>,
+    cache: Arc<serenity::Cache>,
+) {
     let mut interval = tokio::time::interval(Duration::from_millis(10000));
 
     let lounge_channel_id = ChannelId(
@@ -329,10 +333,7 @@ For more information, you can contact the current reviewer <@{}>
                 let err = g.delete(&http).await;
 
                 if err.is_err() {
-                    error!(
-                        "Error while deleting dead guild: {:?}",
-                        err.unwrap_err()
-                    );
+                    error!("Error while deleting dead guild: {:?}", err.unwrap_err());
                     continue;
                 }
             }

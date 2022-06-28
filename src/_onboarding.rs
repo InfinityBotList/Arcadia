@@ -10,7 +10,7 @@ struct SectionQuestion {
     /// Name of section
     name: String,
     /// This is inputted by users
-    answer: String, 
+    answer: String,
     subsections: Vec<SectionQuestion>,
 }
 #[derive(Serialize)]
@@ -21,44 +21,42 @@ struct OnboardingQuiz {
 impl OnboardingQuiz {
     fn new() -> OnboardingQuiz {
         OnboardingQuiz {
-            sections: vec![
-                SectionQuestion {
-                    name: "about".to_string(),
-                    answer: "".to_string(),
-                    subsections: vec![
-                        SectionQuestion {
-                            name: "ping".to_string(),
-                            answer: "".to_string(),
-                            subsections: vec![],
-                        },
-                        SectionQuestion {
-                            name: "about".to_string(),
-                            answer: "".to_string(),
-                            subsections: vec![],
-                        },
-                        SectionQuestion {
-                            name: "cmdinfo".to_string(),
-                            answer: "".to_string(),
-                            subsections: vec![],
-                        },
-                        SectionQuestion {
-                            name: "globallookup".to_string(),
-                            answer: "".to_string(),
-                            subsections: vec![],
-                        },
-                        SectionQuestion {
-                            name: "randomcat".to_string(),
-                            answer: "".to_string(),
-                            subsections: vec![],
-                        },
-                        SectionQuestion {
-                            name: "randomdog".to_string(),
-                            answer: "".to_string(),
-                            subsections: vec![],
-                        },
-                    ],
-                }
-            ],
+            sections: vec![SectionQuestion {
+                name: "about".to_string(),
+                answer: "".to_string(),
+                subsections: vec![
+                    SectionQuestion {
+                        name: "ping".to_string(),
+                        answer: "".to_string(),
+                        subsections: vec![],
+                    },
+                    SectionQuestion {
+                        name: "about".to_string(),
+                        answer: "".to_string(),
+                        subsections: vec![],
+                    },
+                    SectionQuestion {
+                        name: "cmdinfo".to_string(),
+                        answer: "".to_string(),
+                        subsections: vec![],
+                    },
+                    SectionQuestion {
+                        name: "globallookup".to_string(),
+                        answer: "".to_string(),
+                        subsections: vec![],
+                    },
+                    SectionQuestion {
+                        name: "randomcat".to_string(),
+                        answer: "".to_string(),
+                        subsections: vec![],
+                    },
+                    SectionQuestion {
+                        name: "randomdog".to_string(),
+                        answer: "".to_string(),
+                        subsections: vec![],
+                    },
+                ],
+            }],
         }
     }
 }
@@ -69,7 +67,6 @@ pub async fn handle_onboarding(
     user_id: &str,
     set_onboard_state: Option<String>,
 ) -> Result<bool, crate::Error> {
-
     let cmd_name = ctx.command().name;
 
     let onboard_name = ctx.author().id.to_string();
@@ -129,22 +126,27 @@ pub async fn handle_onboarding(
             if let Some(name) = name {
                 if name.to_lowercase() == onboard_name.to_lowercase() {
                     // Create new channel
-                    let channel = guild.create_channel(&discord, |c| {
-                        c.name("invite-attempt-".to_string()+&crate::_utils::gen_random(6))
-                            .kind(serenity::model::channel::ChannelType::Text)
-                    })
-                    .await?;
+                    let channel = guild
+                        .create_channel(&discord, |c| {
+                            c.name("invite-attempt-".to_string() + &crate::_utils::gen_random(6))
+                                .kind(serenity::model::channel::ChannelType::Text)
+                        })
+                        .await?;
 
                     // Create new invite
-                    let invite = channel.create_invite(&discord, |i| {
-                        i.max_age(0)
-                            .max_uses(1)
-                            .temporary(false)
-                            .unique(true)
-                    }).await?;
+                    let invite = channel
+                        .create_invite(&discord, |i| {
+                            i.max_age(0).max_uses(1).temporary(false).unique(true)
+                        })
+                        .await?;
 
                     // Send invite
-                    ctx.say("Please join the onboarding server here and run ``ibb!queue``: ".to_string()+&invite.url()).await?;
+                    ctx.say(
+                        "Please join the onboarding server here and run ``ibb!queue``: "
+                            .to_string()
+                            + &invite.url(),
+                    )
+                    .await?;
 
                     found = true;
                 }
@@ -152,31 +154,39 @@ pub async fn handle_onboarding(
         }
 
         if !found {
-            ctx.say("If the onboarding server still does not exist, please DM a Head Administrator").await?;
+            ctx.say(
+                "If the onboarding server still does not exist, please DM a Head Administrator",
+            )
+            .await?;
 
             let map = json!({
                 "name": onboard_name,
-            });            
+            });
 
             let new_guild = discord.http.create_guild(&map).await?;
 
             // Create a channel
-            let channel = new_guild.create_channel(&discord, |c| {
-                c.name("invite-attempt-".to_string()+&crate::_utils::gen_random(6))
-                    .kind(serenity::model::channel::ChannelType::Text)
-            })
-            .await?;
+            let channel = new_guild
+                .create_channel(&discord, |c| {
+                    c.name("invite-attempt-".to_string() + &crate::_utils::gen_random(6))
+                        .kind(serenity::model::channel::ChannelType::Text)
+                })
+                .await?;
 
             // Create a invite
-            let invite = channel.create_invite(&discord, |i| {
-                i.max_age(0)
-                    .max_uses(1)
-                    .temporary(false)
-                    .unique(true)
-            }).await?;
+            let invite = channel
+                .create_invite(&discord, |i| {
+                    i.max_age(0).max_uses(1).temporary(false).unique(true)
+                })
+                .await?;
 
             // Send invite
-            ctx.say("Please join the newly created onboarding server here and run ``ibb!queue``: ".to_string()+&invite.url()).await?;
+            ctx.say(
+                "Please join the newly created onboarding server here and run ``ibb!queue``: "
+                    .to_string()
+                    + &invite.url(),
+            )
+            .await?;
 
             return Ok(false);
         }
@@ -192,7 +202,7 @@ pub async fn handle_onboarding(
 
         for member in guild.members.iter() {
             // Resolve the users permissions
-            if member.0.0 == ctx.author().id.0 {
+            if member.0 .0 == ctx.author().id.0 {
                 let permissions = member.1.permissions(&discord)?;
                 if permissions.administrator() {
                     found = true;
@@ -219,12 +229,14 @@ pub async fn handle_onboarding(
                 // Create role
                 let guild = ctx.guild().unwrap();
 
-                let role = guild.create_role(&discord, |r| {
-                    r.name("Head Administrator")
-                        .colour(0x00ff00)
-                        .permissions(Permissions::ADMINISTRATOR)
-                        .mentionable(true)
-                }).await?;
+                let role = guild
+                    .create_role(&discord, |r| {
+                        r.name("Head Administrator")
+                            .colour(0x00ff00)
+                            .permissions(Permissions::ADMINISTRATOR)
+                            .mentionable(true)
+                    })
+                    .await?;
 
                 role_id = Some(role.id);
             }
@@ -235,7 +247,11 @@ pub async fn handle_onboarding(
             }
 
             // Add admin perms
-            ctx.author_member().await.unwrap().add_role(&discord, role_id.unwrap()).await?;
+            ctx.author_member()
+                .await
+                .unwrap()
+                .add_role(&discord, role_id.unwrap())
+                .await?;
 
             ctx.say(
                 format!(
@@ -244,7 +260,7 @@ pub async fn handle_onboarding(
                 )
             ).await?;
 
-            return Ok(false)
+            return Ok(false);
         }
     }
 
@@ -362,7 +378,7 @@ pub async fn handle_onboarding(
 
             // Special override to allow revisiting the staffguide command
             if cmd_name == "staffguide" {
-                return Ok(true)   
+                return Ok(true);
             }
 
             Ok(false)
@@ -506,7 +522,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
 
                 // Special override to allow revisiting the staffguide command
                 if cmd_name == "staffguide" {
-                    return Ok(true)   
+                    return Ok(true);
                 }
             }
             Ok(false)
@@ -543,7 +559,7 @@ pub async fn post_command(ctx: crate::Context<'_>) -> Result<(), crate::Error> {
 
     if let Some(guild) = curr_guild {
         if guild.name != onboard_name {
-            return Ok(())
+            return Ok(());
         }
     }
 

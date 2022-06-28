@@ -14,7 +14,15 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("staff_list", "staff_recalc", "staff_add", "staff_del", "staff_guildlist", "staff_guilddel", "staff_guildleave")
+    subcommands(
+        "staff_list",
+        "staff_recalc",
+        "staff_add",
+        "staff_del",
+        "staff_guildlist",
+        "staff_guilddel",
+        "staff_guildleave"
+    )
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("Available options are ``staff list``, ``staff guildlist`` (dev/admin only), ``staff_guilddel`` (dev/admin only), ``staff_guildleave`` (dev/admin only), ``staff recalc`` (dev/admin only), ``staff add`` (dev/admin only)").await?;
@@ -331,9 +339,7 @@ pub async fn staff_del(
     slash_command,
     check = "checks::is_admin_dev"
 )]
-pub async fn staff_guildlist(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
+pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
     if !checks::staff_server(ctx).await? {
         return Err("You are not in the staff server".into());
     }
@@ -343,7 +349,12 @@ pub async fn staff_guildlist(
     let mut guild_list = String::new();
 
     for guild in guilds.iter() {
-        let name = guild.name(&ctx.discord()).unwrap_or_else(|| "Unknown".to_string()) + " (" + &guild.to_string() + ")\n";
+        let name = guild
+            .name(&ctx.discord())
+            .unwrap_or_else(|| "Unknown".to_string())
+            + " ("
+            + &guild.to_string()
+            + ")\n";
         guild_list.push_str(&name);
     }
 

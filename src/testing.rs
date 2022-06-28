@@ -97,7 +97,8 @@ sitting claimed for days with no testing being done *which is also why the queue
 
 *One difference from v3 in claims is the addition of "Force Claim" and "Remind" in ``/claim``. "Force Claim" allows 
 you to forcibly claim a bot when it is currently being reviewed by someone else*
-"#, r#"
+"#,
+        r#"
 **Some Pointers**
 
 When testing the bot please ensure you are doing an in depth test. Not just a handful of commands. Also please keep
@@ -124,7 +125,7 @@ arcadia will kick the bot from testing server for you.*
 **Resources**
 
 Cheatsheet of some common staff responses (highly recommended to use this): https://temp.botlist.site/
-"#
+"#,
     ];
 
     let ephemeral = if ctx.guild().is_some() {

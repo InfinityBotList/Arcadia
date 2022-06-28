@@ -79,8 +79,8 @@ will be able to view the bot profile page (which you must do while testing a bot
 
 **Resubmissions**
 
-Resubmitted means for some reason the bot has been either denied before or deleted from the list. Such bots can be
-resubmitted by the owner of the bot. (An example of this is ``Ninja Bot`` from the training sandbox)
+Resubmitted means that for whatever reason the bot has been denied. Such bots can be resubmitted by the owner of 
+the bot. (An example of this is ``Ninja Bot`` from the training sandbox)
 
 During all bot approvals and denials, regardless of whether it is resubmitted or not, the owner/developer of the bot 
 must be a member of Infinity Bot List. *Arcadia (our management bot) will not let you approve/deny the bot otherwise*
@@ -101,9 +101,9 @@ You can use the ``/invite`` command to get the invite to the bot based on its Bo
 **Claim the bot**
 
 To limit confusion amongst other Website Moderators, Infinity Bot List has a claim system. Using ``/claim`` 
-avoids multiple mods testing the same bot. Please if it turns out that you cannot test it after
-you've claimed it (ex. Something in real life came up that'll take longer than 30 minutes), use ``/unclaim``. 
-We want to avoid bots sitting claimed for days with no testing being done.
+avoids multiple mods testing the same bot. If it turns out that you cannot test it after you've claimed it 
+(ex. Something in real life came up that'll take longer than 30 minutes), use ``/unclaim``. We want to avoid bots 
+sitting claimed for days with no testing being done *which is also why the queue shows claimed bots as well*.
 
 *One difference from v3 in claims is the addition of "Force Claim" and "Remind" in ``/claim``. "Force Claim" allows 
 you to forcibly claim a bot when it is currently being reviewed by someone else*

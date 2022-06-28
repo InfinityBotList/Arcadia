@@ -2,7 +2,9 @@ use log::info;
 use poise::serenity_prelude::Mentionable;
 
 use poise::serenity_prelude as serenity;
+use serde::Serialize;
 
+#[derive(Serialize)]
 struct SectionQuestion {
     /// Name of section
     name: String,
@@ -10,6 +12,7 @@ struct SectionQuestion {
     answer: String, 
     subsections: Vec<SectionQuestion>,
 }
+#[derive(Serialize)]
 struct OnboardingQuiz {
     sections: Vec<SectionQuestion>,
 }
@@ -23,7 +26,32 @@ impl OnboardingQuiz {
                     answer: "".to_string(),
                     subsections: vec![
                         SectionQuestion {
-                            name: "ping",
+                            name: "ping".to_string(),
+                            answer: "".to_string(),
+                            subsections: vec![],
+                        },
+                        SectionQuestion {
+                            name: "about".to_string(),
+                            answer: "".to_string(),
+                            subsections: vec![],
+                        },
+                        SectionQuestion {
+                            name: "cmdinfo".to_string(),
+                            answer: "".to_string(),
+                            subsections: vec![],
+                        },
+                        SectionQuestion {
+                            name: "globallookup".to_string(),
+                            answer: "".to_string(),
+                            subsections: vec![],
+                        },
+                        SectionQuestion {
+                            name: "randomcat".to_string(),
+                            answer: "".to_string(),
+                            subsections: vec![],
+                        },
+                        SectionQuestion {
+                            name: "randomdog".to_string(),
                             answer: "".to_string(),
                             subsections: vec![],
                         },
@@ -45,6 +73,8 @@ pub async fn handle_onboarding(
     }
 
     let cmd_name = ctx.command().name;
+
+    let onboard_name = ctx.author().name.clone() + "-onboarding";
 
     info!("{}", cmd_name);
 
@@ -72,6 +102,36 @@ pub async fn handle_onboarding(
     )
     .fetch_one(&data.pool)
     .await?;
+
+    if onboard_state == "complete" {
+        return Ok(true);
+    }
+
+    let cur_channel = ctx.channel_id().name(discord).await;
+
+    if let Some(cur_channel) = cur_channel {
+        if cur_channel != onboard_name && onboard_state != "pending" {
+            ctx.say("You are not in the created onboarding channel!").await?;
+
+            let channel = ctx.guild().unwrap().channel_id_from_name(discord, &onboard_name);
+
+            if channel == None {
+                ctx.say("Onboarding channel does not exist, creating!").await?;
+
+                ctx.guild_id().unwrap().create_channel(discord, |c| {
+                    c.name(&onboard_name)
+                }).await?;    
+
+                return Ok(false);
+            }
+
+            return Ok(false);
+        }
+    } else {
+        ctx.say("Could not find an current channel!").await?;
+
+        return Ok(false);
+    }
 
     if cmd_name == "staffguide" && onboard_state == "queue-step" {
         // We are now in staff_onboard_state of staff-guide, set that
@@ -155,6 +215,17 @@ pub async fn handle_onboarding(
                     })
                     .color(0xA020F0)
                 })
+            }).await?;
+
+            // Delete a old onboarding channel if it exists
+            let channel = ctx.guild().unwrap().channel_id_from_name(discord, &onboard_name);
+
+            if let Some(chan_id) = channel {
+                chan_id.delete(discord).await?;
+            }
+
+            ctx.guild_id().unwrap().create_channel(discord, |c| {
+                c.name(&onboard_name)
             }).await?;
 
             sqlx::query!(
@@ -315,7 +386,6 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
             }
             Ok(false)
         }
-        "complete" => Ok(true),
         _ => {
             ctx.say("Unknown onboarding state:".to_string() + onboard_state)
                 .await?;

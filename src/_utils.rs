@@ -1,4 +1,5 @@
 use poise::serenity_prelude::GuildId;
+use rand::{distributions::Alphanumeric, Rng}; // 0.8
 
 pub async fn add_action_log(
     pool: &sqlx::PgPool,
@@ -67,4 +68,14 @@ pub async fn bot_owner_in_server(
     }
 
     Ok(false)
+}
+
+fn gen_random(length: usize) -> String {
+    let s: String = rand::thread_rng()
+    .sample_iter(&Alphanumeric)
+    .take(length)
+    .map(char::from)
+    .collect();
+
+    s
 }

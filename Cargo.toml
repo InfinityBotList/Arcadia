@@ -17,6 +17,7 @@ reqwest = { version = "0.11.9", default-features = false, features = ["json", "r
 chrono = { version = "0.4.19", features = ["serde"]}
 dotenv = "0.15.0"
 futures-util = "0.3.21"
+rand = "0.8.5"
 
 [dependencies.tokio]
 version = "1"

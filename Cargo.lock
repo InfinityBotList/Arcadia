@@ -48,6 +48,7 @@ dependencies = [
  "futures-util",
  "log",
  "poise",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",

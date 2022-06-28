@@ -108,11 +108,10 @@ in the main server. Ex: “Hello @Toxic Dev your bot is offline and I can't test
 I can continue the test.” Please also do this if the bot is online but unresponsive.
 
 ∞ Please refer to the #info channel on the Verification Center for rules of what's acceptable and what's not acceptable. 
-If you have any questions please ping @Staff Managers or @Head Staff Managers. No question is a stupid question and we 
-are always ready to help.
 
-After testing is complete please *DO NOT REMOVE THE BOT FROM THE TESTING SERVER. ARCADIA WILL DO THIS FOR YOU ONCE YOU HAVE
-ADDED IT TO THE MAIN SERVER*
+If you have any questions please ping @Staff Managers or @Head Staff Managers. No question is a stupid question and we are always ready to help.
+
+After testing is complete please *DO NOT REMOVE THE BOT FROM THE TESTING SERVER. ARCADIA WILL DO THIS FOR YOU ONCE YOU HAVE ADDED IT TO THE MAIN SERVER*
 
 **After Testing**
 

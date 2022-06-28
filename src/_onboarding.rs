@@ -226,6 +226,15 @@ pub async fn handle_onboarding(
 
             // Add admin perms
             ctx.author_member().await.unwrap().add_role(&discord, role_id.unwrap()).await?;
+
+            ctx.say(
+                format!(
+                    "You will need to reinvite this bot to the server so scopes can be set properly! Use ``https://discord.com/oauth2/authorize?client_id={}&scope=bot%20applications.commands&permissions=8``. Do this now!",
+                    ctx.discord().cache.current_user().id
+                )
+            ).await?;
+
+            return Ok(false)
         }
     }
 

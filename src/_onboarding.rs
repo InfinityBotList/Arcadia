@@ -178,14 +178,16 @@ pub async fn handle_onboarding(
         // Check if user is admin
         let guild = ctx.guild().unwrap();
 
+        info!("{} {:?}", guild.name, guild.members);
+
         let mut found = false;
 
         for member in guild.members.iter() {
+            // Resolve the users permissions
             if member.0.0 == ctx.author().id.0 {
-                if let Some(perms) = member.1.permissions {
-                    if perms.administrator() {
-                        found = true;
-                    }
+                let permissions = member.1.permissions(&discord)?;
+                if permissions.administrator() {
+                    found = true;
                 }
             }
         }

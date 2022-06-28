@@ -173,6 +173,13 @@ pub async fn handle_onboarding(
             return Ok(false);
         }
 
+        sqlx::query!(
+            "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
+            user_id
+        )
+        .execute(&data.pool)
+        .await?;    
+
         return Ok(false);
     } else {
         // Check if user is admin
@@ -300,6 +307,14 @@ pub async fn handle_onboarding(
     .execute(&data.pool)
     .await?;
 
+    // Reset timer
+    sqlx::query!(
+        "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
+        user_id
+    )
+    .execute(&data.pool)
+    .await?;
+
     match onboard_state {
         "pending" => {
             ctx.say("**Welcome to Infinity Bot List**\n\nSince you seem new to this place, how about a nice look arou-?").await?;
@@ -332,6 +347,8 @@ pub async fn handle_onboarding(
             .await?;
 
             ctx.say("Whoa there! Look at that! There's a new bot to review!!! Type ``/queue`` (or ``ibb!queue``) to see the queue").await?;
+
+            ctx.say("**PRO TIP:** This has a time limit of one hour. Progressing through onboarding or using testing commands properly will reset the timer. You will **not** be informed of when your time limit is close to expiry").await?;
 
             Ok(false)
         }

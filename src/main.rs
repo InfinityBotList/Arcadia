@@ -103,7 +103,7 @@ async fn event_listener(
             let pool = user_data.pool.clone();
 
             tokio::task::spawn(async move {
-                autounclaim(pool, _ctx.http).await;
+                autounclaim(pool, _ctx.http, _ctx.cache).await;
             });
         }
         poise::Event::CacheReady { guilds } => {
@@ -115,7 +115,7 @@ async fn event_listener(
     Ok(())
 }
 
-async fn autounclaim(pool: sqlx::PgPool, http: Arc<serenity::http::Http>) {
+async fn autounclaim(pool: sqlx::PgPool, http: Arc<serenity::http::Http>, cache: Arc<serenity::Cache>) {
     let mut interval = tokio::time::interval(Duration::from_millis(10000));
 
     let lounge_channel_id = ChannelId(
@@ -292,6 +292,45 @@ For more information, you can contact the current reviewer <@{}>
                 if err.is_err() {
                     error!(
                         "Error while sending message to owner: {:?}",
+                        err.unwrap_err()
+                    );
+                    continue;
+                }
+            }
+        }
+
+        info!("Checking for dead guilds made by staff");
+
+        let res = sqlx::query!(
+            "SELECT user_id FROM users WHERE NOW() - staff_onboard_last_start_time > interval '1 hour'"
+        )
+        .fetch_all(&pool)
+        .await;
+
+        if res.is_err() {
+            error!(
+                "Error while checking for dead guilds: {:?}",
+                res.unwrap_err()
+            );
+            continue;
+        }
+
+        let users = res.unwrap();
+
+        for user in users {
+            // Try to find guild with user id as name
+            let guild_cache = cache.guilds();
+
+            let guild = guild_cache
+                .iter()
+                .find(|g| g.name(&cache) == Some(user.user_id.to_string()));
+
+            if let Some(g) = guild {
+                let err = g.delete(&http).await;
+
+                if err.is_err() {
+                    error!(
+                        "Error while deleting dead guild: {:?}",
                         err.unwrap_err()
                     );
                     continue;

@@ -265,13 +265,14 @@ async fn autounclaim(pool: sqlx::PgPool, http: Arc<serenity::http::Http>) {
                         e.title("Bot Unclaimed!");
                         e.description(
                             format!(
-                                r#"<@{}> has been unclaimed as it was not being actively reviewed. 
-                                
-                                Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
-                                
-                                For more information, you can contact the current reviewer <@{}>
-                                
-                                *This bot was claimed at {} ({}). This is a automated message letting you know about whats going on...*
+                                r#"
+<@{}> has been unclaimed as it was not being actively reviewed. 
+
+Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
+
+For more information, you can contact the current reviewer <@{}>
+
+*This bot was claimed at {} ({}). This is a automated message letting you know about whats going on...*
                                 "#, 
                                 bot.bot_id,
                                 claimed_by,

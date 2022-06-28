@@ -110,6 +110,14 @@ pub async fn handle_onboarding(
     if cur_guild.to_lowercase() != onboard_name.to_lowercase() {
         ctx.say("Creating new onboarding server for you!").await?;
 
+        // Reset timer
+        sqlx::query!(
+            "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
+            user_id
+        )
+        .execute(&data.pool)
+        .await?;
+
         // Check for old onboarding server
         let guilds = discord.cache.guilds();
 
@@ -172,13 +180,6 @@ pub async fn handle_onboarding(
 
             return Ok(false);
         }
-
-        sqlx::query!(
-            "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
-            user_id
-        )
-        .execute(&data.pool)
-        .await?;    
 
         return Ok(false);
     } else {

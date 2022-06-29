@@ -381,7 +381,7 @@ pub async fn handle_onboarding(
                     i = 1,
                     name = "Ninja Bot",
                     bot_id = test_bot,
-                    claimed_by = current_user.id.0,
+                    claimed_by = ctx.author().id.0,
                     ap_note = "Please test me :heart:"
                 );
                 if embed {

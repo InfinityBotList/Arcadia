@@ -1,6 +1,6 @@
 use log::error;
 use poise::serenity_prelude as serenity;
-use rand::{distributions::Alphanumeric, Rng}; // 0.8
+use rand::{distributions::Alphanumeric, Rng};
 
 pub async fn add_action_log(
     pool: &sqlx::PgPool,
@@ -109,4 +109,30 @@ pub async fn delete_leave_guild(
             );
         }
     }
+}
+
+/// For future use
+pub async fn _page_content(
+    ctx: crate::Context<'_>,
+    text: String,
+    ephemeral: bool,
+) -> Result<Vec<poise::ReplyHandle>, crate::Error> {
+    let mut text_chunks = Vec::new();
+
+    let mut text_chunk = String::new();
+    for (i, c) in text.chars().enumerate() {
+        text_chunk.push(c);
+        if i % 2000 == 0 && i > 0 {
+            text_chunks.push(text_chunk.clone());
+            text_chunk.clear();
+        }
+    }
+
+    let mut chunks = Vec::new();
+
+    for chunk in text_chunks {
+        chunks.push(ctx.send(|m| m.content(chunk).ephemeral(ephemeral)).await?);
+    }
+
+    Ok(chunks)
 }

@@ -36,7 +36,7 @@ pub async fn invite(
 // Sends the staff guide in paginated form
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
 pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
         return Ok(());
     }
 
@@ -100,25 +100,33 @@ you to forcibly claim a bot when it is currently being reviewed by someone else*
 "#, r#"
 **Some Pointers**
 
-When testing the bot please ensure you are doing an in depth test. Not just a handful of commands. Also please keep
+∞ When testing the bot please ensure you are doing an in depth test. Not just a handful of commands. Also please keep
 in mind:
 
 ∞ If the bot goes offline during testing please message the owner either directly or in the #bot-feedback channel 
-in the main server. Ex: “Hello @Toxic Dev your bot is offline and I can't test it. Let me know when this is fixed so 
-I can continue the test.” Please also do this if the bot is online but unresponsive.
+in the main server. Ex: "Hello @Toxic Dev your bot is offline and I can't test it. Let me know when this is fixed so 
+I can continue the test." Please also do this if the bot is online but unresponsive.
 
 ∞ Please refer to the #info channel on the Verification Center for rules of what's acceptable and what's not acceptable. 
 
-If you have any questions please ping @Staff Managers or @Head Staff Managers. No question is a stupid question and we are always ready to help.
+∞ If you have any questions please ping @Staff Managers or @Head Staff Managers. No question is a stupid question and we are always ready to help.
 
-After testing is complete please *DO NOT REMOVE THE BOT FROM THE TESTING SERVER. ARCADIA WILL DO THIS FOR YOU ONCE YOU HAVE ADDED IT TO THE MAIN SERVER*
+∞ After testing is complete please *DO NOT REMOVE THE BOT FROM THE TESTING SERVER. ARCADIA WILL DO THIS FOR YOU ONCE YOU HAVE ADDED IT TO THE MAIN SERVER*
 
+∞ **You may test bots on your own server if you ever wish to. This may be required by some bots (eg. ticket bots, antinuke bots)**
+"#, r#"
 **After Testing**
 
 You can *either* use the panel or this bot to approve or deny the bot. Panel may lag behind in terms of features and checks
 so it is recommended to use this bot.
 
 Please note that the owner must be in main server to use approve/deny. *Once approved, be sure to add it to the main server as arcadia will kick the bot from testing server for you.*
+
+**Commonly asked permissions**
+
+∞ *Administrator* - Bots that require the Administrator permission *on the bot account* to run should be denied but please still test the full bot and give feedback.
+
+∞ *Manage Channel* - Ticket bots commonly require this. Always test the functionality of the bot to see if it does anything related to channels before denying.
 
 **Resources**
 
@@ -141,8 +149,14 @@ Cheatsheet of some common staff responses (highly recommended to use this): http
 
 /// Checks the bot queue
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
-pub async fn queue(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+pub async fn queue(
+    ctx: Context<'_>,
+    #[description = "Whether to embed or not"]
+    embed: Option<bool>,
+) -> Result<(), Error> {
+    let embed = embed.unwrap_or(true);
+
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), embed).await? {
         return Ok(());
     }
 
@@ -168,11 +182,13 @@ pub async fn queue(ctx: Context<'_>) -> Result<(), Error> {
 
     let mut desc_str = "".to_string();
 
+    let page = 1;
+
     for bot in bots {
         if let Some(claimed_by) = bot.claimed_by {
             writeln!(
                 desc_str,
-                "{i}. {name} ({bot_id}) [Claimed by: {claimed_by}]\n**Note:** {ap_note}",
+                "**{i}.** {name} ({bot_id}) [Claimed by: {claimed_by} (<@{claimed_by}>)]\n**Note:** {ap_note}",
                 i = i,
                 name = bot.name,
                 bot_id = bot.bot_id,
@@ -182,24 +198,48 @@ pub async fn queue(ctx: Context<'_>) -> Result<(), Error> {
         } else {
             writeln!(
                 desc_str,
-                "{i}. {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}",
+                "**{i}.** {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}",
                 i = i,
                 name = bot.name,
                 bot_id = bot.bot_id,
                 ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
             )?;
         }
+
+        if desc_str.len() > 2000 {
+            if embed {
+                ctx.send(|m| {
+                    m.embed(|e| {
+                        e.title("Bot Queue (Page".to_string()+&page.to_string()+")")
+                            .description(&desc_str)
+                            .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
+                            .color(0xA020F0)
+                    })
+                })
+                .await?;
+            } else {
+                ctx.say(desc_str.clone() + "\n\nUse ibb!invite or /invite to get the bots invite").await?;
+            }
+            
+            desc_str = "".to_string();
+        }
     }
 
-    ctx.send(|m| {
-        m.embed(|e| {
-            e.title("Bot Queue")
-                .description(desc_str)
-                .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
-                .color(0xA020F0)
-        })
-    })
-    .await?;
+    if !desc_str.is_empty() {
+        if embed {
+            ctx.send(|m| {
+                m.embed(|e| {
+                    e.title("Bot Queue (Page".to_string()+&page.to_string()+")")
+                        .description(desc_str)
+                        .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
+                        .color(0xA020F0)
+                })
+            })
+            .await?;
+        } else {
+            ctx.say(desc_str + "\n\nUse ibb!invite or /invite to get the bots invite").await?;
+        }
+    }
 
     Ok(())
 }
@@ -216,7 +256,7 @@ pub async fn claim(
     ctx: Context<'_>,
     #[description = "The bot you wish to claim"] bot: serenity::Member,
 ) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
         return Ok(());
     }
 
@@ -431,7 +471,7 @@ pub async fn unclaim(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
         return Ok(());
     }
 
@@ -514,7 +554,7 @@ pub async fn approve(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
         return Ok(());
     }
     if !checks::testing_server(ctx).await? {
@@ -656,7 +696,7 @@ pub async fn deny(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), None).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
         return Ok(());
     }
 

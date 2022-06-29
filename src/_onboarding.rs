@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use log::info;
 use poise::serenity_prelude::{Mentionable, Permissions, RoleId};
 
@@ -65,7 +67,7 @@ impl OnboardingQuiz {
 pub async fn handle_onboarding(
     ctx: crate::Context<'_>,
     user_id: &str,
-    set_onboard_state: Option<String>,
+    embed: bool,
 ) -> Result<bool, crate::Error> {
     // Get baisc info from ctx for future use
     let cmd_name = ctx.command().name;
@@ -78,9 +80,7 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Get onboard state (set_onboard_state may be used later but is right now None and it will in the future be used to allow retaking of onboarding)
-    let onboard_state = if set_onboard_state.is_some() {
-        set_onboard_state.unwrap()
-    } else {
+    let onboard_state = {
         let res = sqlx::query!(
             "SELECT staff_onboard_state FROM users WHERE user_id = $1",
             user_id
@@ -376,7 +376,27 @@ pub async fn handle_onboarding(
         }
         "claimed-bot" => {
             if cmd_name == "queue" {
-                ctx.say("Not yet implemented").await?;
+                let desc = format!(
+                    "**{i}.** {name} ({bot_id}) [Claimed by: {claimed_by} (<@{claimed_by}>)]\n**Note:** {ap_note}",
+                    i = 1,
+                    name = "Ninja Bot",
+                    bot_id = test_bot,
+                    claimed_by = current_user.id.0,
+                    ap_note = "Please test me :heart:"
+                );
+                if embed {
+                    ctx.send(|m| {
+                        m.embed(|e| {
+                            e.title("Bot Queue (Sandbox Mode)")
+                                .description(desc)
+                                .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
+                                .color(0xA020F0)
+                        })
+                    })
+                    .await?;
+                } else {
+                    ctx.say(desc.clone() + "\n\nUse ibb!invite or /invite to get the bots invite").await?;
+                }
             } else {
                 ctx.say("Type ``/queue`` now to see the queue.").await?;
             }
@@ -390,17 +410,26 @@ pub async fn handle_onboarding(
         }
         "queue-step" => {
             if cmd_name == "queue" {
-                ctx.send(|m| {
-                    m.embed(|e| {
-                        e.title("Bot Queue (Sandbox Mode)")
-                            .description(
-                                "**1.** Ninja Bot (".to_string() + &test_bot + ") [Unclaimed]",
-                            )
-                            .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
-                            .color(0xA020F0)
+                let desc = format!(
+                    "**{i}.** {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}",
+                    i = 1,
+                    name = "Ninja Bot",
+                    bot_id = test_bot,
+                    ap_note = "Please test me :heart:"
+                );
+                if embed {
+                    ctx.send(|m| {
+                        m.embed(|e| {
+                            e.title("Bot Queue (Sandbox Mode)")
+                                .description(desc)
+                                .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
+                                .color(0xA020F0)
+                        })
                     })
-                })
-                .await?;
+                    .await?;
+                } else {
+                    ctx.say(desc).await?;
+                }
                 ctx.say(r#"
 You can use the `/queue` command to see the list of bots pending verification that *you* need to review!
 
@@ -486,6 +515,8 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                                 "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png",
                             )
                             .await?;
+                        
+                            tokio::time::sleep(Duration::from_secs(3)).await;
 
                         wh.execute(discord, true, |m| {
                             m.content("Ack! sorry about that. I completely forgot about Ninja Bot due to personal issues")

@@ -125,7 +125,7 @@ async fn event_listener(
                 
                 if member.is_some() {
                     // If so, move them to main server
-                    GuildId(testing_server).kick(&ctx, new_member.user.id).await?;
+                    GuildId(testing_server).kick_with_reason(&ctx, new_member.user.id, "Added to main server").await?;
                 }
             }
         },

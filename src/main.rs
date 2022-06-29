@@ -7,9 +7,9 @@ use sqlx::postgres::PgPoolOptions;
 
 use poise::serenity_prelude::{ChannelId, UserId};
 
+mod _checks;
 mod _onboarding;
 mod _utils;
-mod _checks;
 mod admin;
 mod staff;
 mod testing;
@@ -117,18 +117,22 @@ async fn event_listener(
         }
         poise::Event::CacheReady { guilds } => {
             info!("Cache ready with {} guilds", guilds.len());
-        },
+        }
         poise::Event::GuildMemberAddition { new_member } => {
             if new_member.guild_id.0 == main_server && new_member.user.bot {
                 // Check if new memebr is in testing server
-                let member = ctx.cache.member_field(GuildId(testing_server), new_member.user.id, |m| m.user.id);
-                
+                let member =
+                    ctx.cache
+                        .member_field(GuildId(testing_server), new_member.user.id, |m| m.user.id);
+
                 if member.is_some() {
                     // If so, move them to main server
-                    GuildId(testing_server).kick_with_reason(&ctx, new_member.user.id, "Added to main server").await?;
+                    GuildId(testing_server)
+                        .kick_with_reason(&ctx, new_member.user.id, "Added to main server")
+                        .await?;
                 }
             }
-        },
+        }
         _ => {}
     }
 

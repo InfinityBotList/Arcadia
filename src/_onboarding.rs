@@ -81,7 +81,7 @@ pub async fn handle_onboarding(
 
     // Verify staff first
     if !crate::_checks::is_any_staff(ctx).await? {
-        return Ok(true)
+        return Ok(true);
     }
 
     // Get onboard state (staff_onboard_state may be used later but is right now None and it will in the future be used to allow retaking of onboarding)
@@ -401,13 +401,16 @@ pub async fn handle_onboarding(
                         m.embed(|e| {
                             e.title("Bot Queue (Sandbox Mode)")
                                 .description(desc)
-                                .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
+                                .footer(|f| {
+                                    f.text("Use ibb!invite or /invite to get the bots invite")
+                                })
                                 .color(0xA020F0)
                         })
                     })
                     .await?;
                 } else {
-                    ctx.say(desc.clone() + "\n\nUse ibb!invite or /invite to get the bots invite").await?;
+                    ctx.say(desc.clone() + "\n\nUse ibb!invite or /invite to get the bots invite")
+                        .await?;
                 }
 
                 ctx.say("Great! As you can see, the bot is claimed by you. Now test the bot as per the staff guide").await?;
@@ -433,7 +436,9 @@ pub async fn handle_onboarding(
                         m.embed(|e| {
                             e.title("Bot Queue (Sandbox Mode)")
                                 .description(desc)
-                                .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
+                                .footer(|f| {
+                                    f.text("Use ibb!invite or /invite to get the bots invite")
+                                })
                                 .color(0xA020F0)
                         })
                     })
@@ -526,8 +531,8 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                                 "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png",
                             )
                             .await?;
-                        
-                            tokio::time::sleep(Duration::from_secs(3)).await;
+
+                        tokio::time::sleep(Duration::from_secs(3)).await;
 
                         wh.execute(discord, true, |m| {
                             m.content("Ack! sorry about that. I completely forgot about Ninja Bot due to personal issues")

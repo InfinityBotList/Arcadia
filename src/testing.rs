@@ -34,7 +34,12 @@ pub async fn invite(
 }
 
 // Sends the staff guide in paginated form
-#[poise::command(prefix_command, slash_command, user_cooldown = 10, category = "Testing")]
+#[poise::command(
+    prefix_command,
+    slash_command,
+    user_cooldown = 10,
+    category = "Testing"
+)]
 pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
         return Ok(());
@@ -97,7 +102,8 @@ sitting claimed for days with no testing being done *which is also why the queue
 
 *One difference from v3 in claims is the addition of "Force Claim" and "Remind" in ``/claim``. "Force Claim" allows 
 you to forcibly claim a bot when it is currently being reviewed by someone else*
-"#, r#"
+"#,
+        r#"
 **Some Pointers**
 
 ∞ When testing the bot please ensure you are doing an in depth test. Not just a handful of commands. Also please keep
@@ -114,7 +120,8 @@ I can continue the test." Please also do this if the bot is online but unrespons
 ∞ After testing is complete please *DO NOT REMOVE THE BOT FROM THE TESTING SERVER. ARCADIA WILL DO THIS FOR YOU ONCE YOU HAVE ADDED IT TO THE MAIN SERVER*
 
 ∞ **You may test bots on your own server if you ever wish to. This may be required by some bots (eg. ticket bots, antinuke bots)**
-"#, r#"
+"#,
+        r#"
 **After Testing**
 
 You can *either* use the panel or this bot to approve or deny the bot. Panel may lag behind in terms of features and checks
@@ -151,8 +158,7 @@ Cheatsheet of some common staff responses (highly recommended to use this): http
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
 pub async fn queue(
     ctx: Context<'_>,
-    #[description = "Whether to embed or not"]
-    embed: Option<bool>,
+    #[description = "Whether to embed or not"] embed: Option<bool>,
 ) -> Result<(), Error> {
     let embed = embed.unwrap_or(true);
 
@@ -210,7 +216,7 @@ pub async fn queue(
             if embed {
                 ctx.send(|m| {
                     m.embed(|e| {
-                        e.title("Bot Queue (Page".to_string()+&page.to_string()+")")
+                        e.title("Bot Queue (Page".to_string() + &page.to_string() + ")")
                             .description(&desc_str)
                             .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
                             .color(0xA020F0)
@@ -218,9 +224,10 @@ pub async fn queue(
                 })
                 .await?;
             } else {
-                ctx.say(desc_str.clone() + "\n\nUse ibb!invite or /invite to get the bots invite").await?;
+                ctx.say(desc_str.clone() + "\n\nUse ibb!invite or /invite to get the bots invite")
+                    .await?;
             }
-            
+
             desc_str = "".to_string();
         }
     }
@@ -229,7 +236,7 @@ pub async fn queue(
         if embed {
             ctx.send(|m| {
                 m.embed(|e| {
-                    e.title("Bot Queue (Page".to_string()+&page.to_string()+")")
+                    e.title("Bot Queue (Page".to_string() + &page.to_string() + ")")
                         .description(desc_str)
                         .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
                         .color(0xA020F0)
@@ -237,7 +244,8 @@ pub async fn queue(
             })
             .await?;
         } else {
-            ctx.say(desc_str + "\n\nUse ibb!invite or /invite to get the bots invite").await?;
+            ctx.say(desc_str + "\n\nUse ibb!invite or /invite to get the bots invite")
+                .await?;
         }
     }
 

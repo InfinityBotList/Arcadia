@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use dotenv::dotenv;
 use log::{error, info};
-use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::{self as serenity, GuildId};
 use sqlx::postgres::PgPoolOptions;
 
 use poise::serenity_prelude::{ChannelId, UserId};
@@ -87,6 +87,15 @@ async fn event_listener(
     event: &poise::Event<'_>,
     user_data: &Data,
 ) -> Result<(), Error> {
+    let main_server = std::env::var("MAIN_SERVER")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap();
+    let testing_server = std::env::var("TESTING_SERVER")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap();
+
     match event {
         poise::Event::Ready { data_about_bot } => {
             info!(
@@ -108,7 +117,18 @@ async fn event_listener(
         }
         poise::Event::CacheReady { guilds } => {
             info!("Cache ready with {} guilds", guilds.len());
-        }
+        },
+        poise::Event::GuildMemberAddition { new_member } => {
+            if new_member.guild_id.0 == main_server && new_member.user.bot {
+                // Check if new memebr is in testing server
+                let member = ctx.cache.member_field(GuildId(testing_server), new_member.user.id, |m| m.user.id);
+                
+                if member.is_some() {
+                    // If so, move them to main server
+                    GuildId(testing_server).kick(&ctx, new_member.user.id).await?;
+                }
+            }
+        },
         _ => {}
     }
 

@@ -79,7 +79,12 @@ pub async fn handle_onboarding(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    // Get onboard state (set_onboard_state may be used later but is right now None and it will in the future be used to allow retaking of onboarding)
+    // Verify staff first
+    if !crate::_checks::is_any_staff(ctx).await? {
+        return Ok(true)
+    }
+
+    // Get onboard state (staff_onboard_state may be used later but is right now None and it will in the future be used to allow retaking of onboarding)
     let onboard_state = {
         let res = sqlx::query!(
             "SELECT staff_onboard_state FROM users WHERE user_id = $1",
@@ -91,11 +96,18 @@ pub async fn handle_onboarding(
         res.staff_onboard_state
     };
 
+    // Reset old onboards
+    sqlx::query!(
+        "UPDATE users SET staff_onboard_state = 'pending' WHERE staff_onboard_state = 'complete' AND staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'"
+    )
+    .execute(&data.pool)
+    .await?;
+
     // Must be mut so we can change it under some cases
     let mut onboard_state = onboard_state.as_str();
 
     let onboarded = sqlx::query!(
-        "SELECT staff_onboarded, staff_onboard_last_start_time FROM users WHERE user_id = $1",
+        "SELECT staff, staff_onboarded, staff_onboard_last_start_time FROM users WHERE user_id = $1",
         user_id
     )
     .fetch_one(&data.pool)
@@ -397,13 +409,12 @@ pub async fn handle_onboarding(
                 } else {
                     ctx.say(desc.clone() + "\n\nUse ibb!invite or /invite to get the bots invite").await?;
                 }
+
+                ctx.say("Great! As you can see, the bot is claimed by you. Now test the bot as per the staff guide").await?;
+            } else if cmd_name == "staffguide" {
+                return Ok(true);
             } else {
                 ctx.say("Type ``/queue`` now to see the queue.").await?;
-            }
-
-            // Special override to allow revisiting the staffguide command
-            if cmd_name == "staffguide" {
-                return Ok(true);
             }
 
             Ok(false)

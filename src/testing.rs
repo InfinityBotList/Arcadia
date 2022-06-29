@@ -1,4 +1,4 @@
-use crate::checks;
+use crate::_checks as checks;
 use log::info;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::Mentionable;

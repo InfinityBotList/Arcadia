@@ -1,4 +1,4 @@
-use crate::checks;
+use crate::_checks as checks;
 
 use sqlx::Column;
 use sqlx::Row;

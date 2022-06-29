@@ -9,8 +9,8 @@ use poise::serenity_prelude::{ChannelId, UserId};
 
 mod _onboarding;
 mod _utils;
+mod _checks;
 mod admin;
-mod checks;
 mod staff;
 mod testing;
 mod tests;

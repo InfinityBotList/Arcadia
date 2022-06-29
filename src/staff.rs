@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 // import without risk of name clashing
 use serenity::id::UserId;
 
-use crate::checks;
+use crate::_checks as checks;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;

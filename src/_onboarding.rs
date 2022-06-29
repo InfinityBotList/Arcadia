@@ -67,6 +67,7 @@ pub async fn handle_onboarding(
     user_id: &str,
     set_onboard_state: Option<String>,
 ) -> Result<bool, crate::Error> {
+    // Get baisc info from ctx for future use
     let cmd_name = ctx.command().name;
 
     let onboard_name = ctx.author().id.to_string();
@@ -76,6 +77,7 @@ pub async fn handle_onboarding(
     let data = ctx.data();
     let discord = ctx.discord();
 
+    // Get onboard state (set_onboard_state may be used later but is right now None and it will in the future be used to allow retaking of onboarding)
     let onboard_state = if set_onboard_state.is_some() {
         set_onboard_state.unwrap()
     } else {
@@ -89,6 +91,7 @@ pub async fn handle_onboarding(
         res.staff_onboard_state
     };
 
+    // Must be mut so we can change it under some cases
     let mut onboard_state = onboard_state.as_str();
 
     let onboarded = sqlx::query!(
@@ -98,8 +101,37 @@ pub async fn handle_onboarding(
     .fetch_one(&data.pool)
     .await?;
 
+    // Onboarding is complete, exit early
     if onboard_state == "complete" {
         return Ok(true);
+    }
+
+    if onboarded.staff_onboarded {
+        info!("{} is already onboarded", user_id);
+    } else if onboarded.staff_onboard_last_start_time.is_none() {
+        // No onboarding record, so we set it to NOW()
+        sqlx::query!(
+            "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
+            user_id
+        )
+        .execute(&data.pool)
+        .await?;
+    } else if chrono::offset::Utc::now() - onboarded.staff_onboard_last_start_time.unwrap()
+        > chrono::Duration::hours(1)
+    {
+        sqlx::query!(
+            "UPDATE users SET staff_onboard_last_start_time = NOW(), staff_onboard_state = 'pending' WHERE user_id = $1",
+            user_id
+        )
+        .execute(&data.pool)
+        .await?;
+
+        ctx.say(
+            "You exceeded the time limit (1 hour) for the previous onboarding attempt. Retrying...",
+        )
+        .await?;
+
+        onboard_state = "pending";
     }
 
     let cur_guild = ctx.guild().unwrap().name;
@@ -107,7 +139,7 @@ pub async fn handle_onboarding(
     if cur_guild.to_lowercase() != onboard_name.to_lowercase() {
         ctx.say("Creating new onboarding server for you!").await?;
 
-        // Reset timer
+        // Reset timer, but here we can't do NOW() exactly as otherwise postgres may fail to see it sooo
         sqlx::query!(
             "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
             user_id
@@ -255,7 +287,7 @@ pub async fn handle_onboarding(
 
             ctx.say(
                 format!(
-                    "You will need to reinvite this bot to the server so scopes can be set properly! Use ``https://discord.com/oauth2/authorize?client_id={}&scope=bot%20applications.commands&permissions=8``. Do this now!",
+                    "You will need to reinvite this bot to the server so scopes can be set properly! Use ``https://discord.com/oauth2/authorize?client_id={}&scope=bot%20applications.commands&permissions=8``. Do this now then rerun ``/queue``!",
                     ctx.discord().cache.current_user().id
                 )
             ).await?;
@@ -283,33 +315,6 @@ pub async fn handle_onboarding(
         } else {
             onboard_state = "queue-step";
         }
-    }
-
-    if onboarded.staff_onboarded {
-        info!("{} is already onboarded", user_id);
-    } else if onboarded.staff_onboard_last_start_time.is_none() {
-        sqlx::query!(
-            "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
-            user_id
-        )
-        .execute(&data.pool)
-        .await?;
-    } else if chrono::offset::Utc::now() - onboarded.staff_onboard_last_start_time.unwrap()
-        > chrono::Duration::hours(1)
-    {
-        sqlx::query!(
-            "UPDATE users SET staff_onboard_last_start_time = NOW(), staff_onboard_state = 'pending' WHERE user_id = $1",
-            user_id
-        )
-        .execute(&data.pool)
-        .await?;
-
-        ctx.say(
-            "You exceeded the time limit (1 hour) for the previous onboarding attempt. Retrying...",
-        )
-        .await?;
-
-        onboard_state = "pending";
     }
 
     let test_bot = std::env::var("TEST_BOT")?;
@@ -365,7 +370,7 @@ pub async fn handle_onboarding(
 
             ctx.say("Whoa there! Look at that! There's a new bot to review!!! Type ``/queue`` (or ``ibb!queue``) to see the queue").await?;
 
-            ctx.say("**PRO TIP:** This has a time limit of one hour. Progressing through onboarding or using testing commands properly will reset the timer. You will **not** be informed of when your time limit is close to expiry").await?;
+            ctx.say("**PRO TIP:** This has a time limit of one hour. Progressing through onboarding or using testing commands properly will reset the timer. You will **not** be informed of when your time limit is close to expiry. Changing the name of the server will cause it to be *deleted*").await?;
 
             Ok(false)
         }

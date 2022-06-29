@@ -97,8 +97,7 @@ sitting claimed for days with no testing being done *which is also why the queue
 
 *One difference from v3 in claims is the addition of "Force Claim" and "Remind" in ``/claim``. "Force Claim" allows 
 you to forcibly claim a bot when it is currently being reviewed by someone else*
-"#,
-        r#"
+"#, r#"
 **Some Pointers**
 
 When testing the bot please ensure you are doing an in depth test. Not just a handful of commands. Also please keep
@@ -119,8 +118,7 @@ After testing is complete please *DO NOT REMOVE THE BOT FROM THE TESTING SERVER.
 You can *either* use the panel or this bot to approve or deny the bot. Panel may lag behind in terms of features and checks
 so it is recommended to use this bot.
 
-Please note that the owner must be in main server to use approve/deny. *Once approved, be sure to add it to the main server,
-arcadia will kick the bot from testing server for you.*
+Please note that the owner must be in main server to use approve/deny. *Once approved, be sure to add it to the main server as arcadia will kick the bot from testing server for you.*
 
 **Resources**
 

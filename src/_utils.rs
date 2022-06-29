@@ -1,4 +1,5 @@
-use poise::serenity_prelude::GuildId;
+use log::error;
+use poise::serenity_prelude as serenity;
 use rand::{distributions::Alphanumeric, Rng}; // 0.8
 
 pub async fn add_action_log(
@@ -36,7 +37,7 @@ pub async fn bot_owner_in_server(
     .await?;
 
     // Check if owner is in server ``MAIN_SERVER``
-    let main_server = GuildId(std::env::var("MAIN_SERVER")?.parse::<u64>()?);
+    let main_server = serenity::GuildId(std::env::var("MAIN_SERVER")?.parse::<u64>()?);
 
     let main_owner = owners.owner.parse::<u64>()?;
 
@@ -78,4 +79,34 @@ pub fn gen_random(length: usize) -> String {
         .collect();
 
     s
+}
+
+pub async fn delete_leave_guild(
+    http: &serenity::http::Http,
+    cache: &serenity::Cache,
+    guild_id: serenity::GuildId,
+) {
+    let gowner = cache.guild_field(guild_id, |g| g.owner_id).unwrap();
+
+    if gowner == cache.current_user_id() {
+        let err = guild_id.delete(http).await;
+
+        if err.is_err() {
+            error!(
+                "Error while deleting guild with ID: {:?} (error: {:?})",
+                guild_id,
+                err.unwrap_err()
+            );
+        }
+    } else {
+        let err = guild_id.leave(http).await;
+
+        if err.is_err() {
+            error!(
+                "Error while leaving guild with ID: {:?} (error: {:?})",
+                guild_id,
+                err.unwrap_err()
+            );
+        }
+    }
 }

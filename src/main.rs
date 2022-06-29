@@ -129,6 +129,19 @@ async fn autounclaim(
             .unwrap(),
     );
 
+    let main_server = std::env::var("MAIN_SERVER")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap();
+    let staff_server = std::env::var("STAFF_SERVER")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap();
+    let testing_server = std::env::var("TESTING_SERVER")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap();
+
     loop {
         interval.tick().await;
         info!("Checking for claimed bots greater than 1 hour claim interval");
@@ -305,36 +318,58 @@ For more information, you can contact the current reviewer <@{}>
 
         info!("Checking for dead guilds made by staff");
 
-        let res = sqlx::query!(
-            "SELECT user_id FROM users WHERE NOW() - staff_onboard_last_start_time > interval '1 hour'"
-        )
-        .fetch_all(&pool)
-        .await;
+        // Loop through all guilds (more optimized that a normal postgres check)
+        let guilds = cache.guilds();
 
-        if res.is_err() {
-            error!(
-                "Error while checking for dead guilds: {:?}",
-                res.unwrap_err()
-            );
-            continue;
-        }
+        for guild_id in guilds {
+            // Check if guild is official (main/testing/staff)
+            if guild_id.0 == main_server
+                || guild_id.0 == testing_server
+                || guild_id.0 == staff_server
+            {
+                continue;
+            }
+            // Get guild name from cache
+            let guild = guild_id.name(&cache);
 
-        let users = res.unwrap();
+            if guild.is_none() {
+                error!("Error while getting guild name with ID: {:?}", guild_id);
+                continue;
+            }
 
-        for user in users {
-            // Try to find guild with user id as name
-            let guild_cache = cache.guilds();
+            // Try parsing guild name to u64
+            let guild_u64 = guild.as_ref().unwrap().parse::<u64>();
 
-            let guild = guild_cache
-                .iter()
-                .find(|g| g.name(&cache) == Some(user.user_id.to_string()));
+            if guild_u64.is_err() {
+                // We have a bad guild name, delete or leave if we are not owner
+                info!(
+                    "Deleting guild {} because it is not a valid guild name: {}",
+                    guild_id,
+                    guild.unwrap()
+                );
+                _utils::delete_leave_guild(&http, &cache, guild_id).await;
+            } else {
+                // Check that this guild_u64 is in database under users AND that it is not dead
+                let res = sqlx::query!(
+                    "SELECT user_id FROM users WHERE user_id = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour'",
+                    guild_u64.unwrap().to_string()
+                )
+                .fetch_one(&pool)
+                .await;
 
-            if let Some(g) = guild {
-                let err = g.delete(&http).await;
-
-                if err.is_err() {
-                    error!("Error while deleting dead guild: {:?}", err.unwrap_err());
-                    continue;
+                if res.is_err() {
+                    match res.as_ref().unwrap_err() {
+                        sqlx::Error::RowNotFound => {
+                            _utils::delete_leave_guild(&http, &cache, guild_id).await;
+                        }
+                        _ => {
+                            error!(
+                                "Error while checking if guild is in database: {:?}",
+                                res.unwrap_err()
+                            );
+                            continue;
+                        }
+                    }
                 }
             }
         }

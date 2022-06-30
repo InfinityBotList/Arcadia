@@ -375,7 +375,7 @@ For more information, you can contact the current reviewer <@{}>
             } else {
                 // Check that this guild_u64 is in database under users AND that it is not dead
                 let res = sqlx::query!(
-                    "SELECT user_id FROM users WHERE user_id = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour'",
+                    "SELECT user_id FROM users WHERE user_id = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = 'complete' OR staff_onboard_state = 'pending-manager-review')",
                     guild_u64.unwrap().to_string()
                 )
                 .fetch_one(&pool)

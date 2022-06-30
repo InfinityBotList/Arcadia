@@ -1,66 +1,20 @@
 use std::time::Duration;
 
 use log::info;
-use poise::serenity_prelude::{Mentionable, Permissions, RoleId};
+use poise::serenity_prelude::{Mentionable, Permissions, RoleId, ChannelId};
 
-use poise::serenity_prelude as serenity;
-use serde::Serialize;
+use poise::{serenity_prelude as serenity, Modal};
 use serde_json::json;
 
-#[derive(Serialize)]
-struct SectionQuestion {
-    /// Name of section
-    name: String,
-    /// This is inputted by users
-    answer: String,
-    subsections: Vec<SectionQuestion>,
-}
-#[derive(Serialize)]
-struct OnboardingQuiz {
-    sections: Vec<SectionQuestion>,
-}
-
-impl OnboardingQuiz {
-    fn new() -> OnboardingQuiz {
-        OnboardingQuiz {
-            sections: vec![SectionQuestion {
-                name: "about".to_string(),
-                answer: "".to_string(),
-                subsections: vec![
-                    SectionQuestion {
-                        name: "ping".to_string(),
-                        answer: "".to_string(),
-                        subsections: vec![],
-                    },
-                    SectionQuestion {
-                        name: "about".to_string(),
-                        answer: "".to_string(),
-                        subsections: vec![],
-                    },
-                    SectionQuestion {
-                        name: "cmdinfo".to_string(),
-                        answer: "".to_string(),
-                        subsections: vec![],
-                    },
-                    SectionQuestion {
-                        name: "globallookup".to_string(),
-                        answer: "".to_string(),
-                        subsections: vec![],
-                    },
-                    SectionQuestion {
-                        name: "randomcat".to_string(),
-                        answer: "".to_string(),
-                        subsections: vec![],
-                    },
-                    SectionQuestion {
-                        name: "randomdog".to_string(),
-                        answer: "".to_string(),
-                        subsections: vec![],
-                    },
-                ],
-            }],
-        }
-    }
+#[derive(Debug, Modal)]
+#[name = "Survey"] // Struct name by default
+struct SurveyModal {
+    #[min_length = 10] // No length restriction by default (so, 1-4000 chars)
+    #[max_length = 4000]
+    analysis: String,
+    #[min_length = 10] // No length restriction by default (so, 1-4000 chars)
+    #[max_length = 4000]
+    thoughts: String,
 }
 
 /// Tries to check if onboarding is required, returns ``false`` if command should stop
@@ -68,6 +22,7 @@ pub async fn handle_onboarding(
     ctx: crate::Context<'_>,
     user_id: &str,
     embed: bool,
+    reason: Option<&str> // Only applicable for testing-bot
 ) -> Result<bool, crate::Error> {
     // Get baisc info from ctx for future use
     let cmd_name = ctx.command().name;
@@ -329,9 +284,9 @@ pub async fn handle_onboarding(
     }
 
     // Allow users to see queue again
-    if cmd_name == "queue" && !vec!["pending", "complete"].contains(&onboard_state) {
+    if cmd_name == "queue" && !vec!["pending", "complete", ].contains(&onboard_state) {
         // Check that they are in stage 2 of queue command
-        if vec!["claimed-bot"].contains(&onboard_state) {
+        if vec!["claimed-bot", "testing-bot"].contains(&onboard_state) {
             onboard_state = "claimed-bot";
         } else {
             onboard_state = "queue-step";
@@ -403,6 +358,114 @@ pub async fn handle_onboarding(
 
             Ok(false)
         }
+        "testing-bot" => {
+            // Allow staff guide here
+            if cmd_name == "staffguide" {
+                return Ok(true);
+            }
+
+            if cmd_name != "approve" && cmd_name != "deny" {
+                ctx.say(
+                    "Now you need to approve or deny this bot using the ``/approve`` (or ``ibb!approve``) or the ``/deny`` (or ``ibb!deny``) command!",
+                )
+                .await?;
+                return Ok(false);
+            }
+
+            // Get more information about this action by launching a modal using a button
+            let msg = ctx.send(|m| {
+                m.content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.")
+                .components(|c| {
+                    c.create_action_row(|r| {
+                        r.create_button(|b| {
+                            b.custom_id("survey")
+                            .label("Survey")
+                            .style(serenity::ButtonStyle::Primary)
+                        })
+                        .create_button(|b| {
+                            b.custom_id("cancel")
+                            .label("Cancel")
+                            .style(serenity::ButtonStyle::Danger)
+                        })
+                    })
+                })
+            })
+            .await?
+            .message()
+            .await?;
+
+            let interaction = msg
+                .await_component_interaction(ctx.discord())
+                .author_id(ctx.author().id)
+                .await;
+
+            if let Some(m) = &interaction {
+                let id = &m.data.custom_id;
+
+                if id == "survey" {
+                    // Create a new message with the survey modal in it (via the button click)
+                    m.create_interaction_response(discord, |b| {
+                        b.kind(serenity::InteractionResponseType::Modal)
+                        .interaction_response_data(|d| {
+                            d.custom_id("survey")
+                            .title("Survey")
+                            .content("Sent survey response model")
+                            .components(|c| {
+                                c.create_action_row(|r| {
+                                    r.create_input_text(|it| {
+                                        it.custom_id("analysis")
+                                        .label("In-depth analysis of all commands")
+                                        .placeholder("State your analysis of all commands. What would you do for each command if this was a real bot")
+                                        .style(serenity::InputTextStyle::Paragraph)
+                                    })
+                                });
+
+                                c.create_action_row(|r| {
+                                    r.create_input_text(|it| {
+                                        it.custom_id("thoughts")
+                                        .label("Your thoughts on onboarding")
+                                        .placeholder("What did you think of the onboarding system? Your feedback will help us improve our services")
+                                        .style(serenity::InputTextStyle::Paragraph)
+                                    })
+                                })
+                            })
+                        })
+                    }).await?;
+
+                    // Wait for user to submit
+                    let response = serenity::CollectModalInteraction::new(&discord.shard)
+                        .author_id(m.user.id)
+                        .await
+                        .unwrap();
+
+                    // Send acknowledgement so that the pop-up is closed
+                    response
+                        .create_interaction_response(discord, |b| {
+                            b.kind(serenity::InteractionResponseType::DeferredUpdateMessage)
+                        })
+                        .await?;
+
+                    let survey_resp = SurveyModal::parse(response.data.clone()).map_err(serenity::Error::Other)?;
+
+                    let onboard_channel_id = ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<u64>()?);
+
+                    onboard_channel_id.say(
+                        &discord, 
+                        format!(
+                            "**New onboarding attempt**\n\n**User ID:** {user_id}\n**Action taken:** {action}\n**Overall reason:** {reason}.",
+                            user_id = user_id,
+                            action = cmd_name,
+                            reason = reason.unwrap_or_default()
+                        )
+                    ).await?;            
+                } else {
+                    ctx.say("Cancelled").await?;
+                    return Ok(false);
+                }
+            }
+
+            Ok(false)
+        }
         "claimed-bot" => {
             if cmd_name == "queue" {
                 let desc = format!(
@@ -435,6 +498,14 @@ Great! As you can see, you have now claimed ``Ninja Bot``.
                 
 Now test the bot as per the staff guide. Then run either ``/approve`` or ``/deny`` with your overall feeling of whether or not this bot should 
 be approved or denied."#).await?;
+
+                sqlx::query!(
+                    "UPDATE users SET staff_onboard_state = 'testing-bot' WHERE user_id = $1",
+                    user_id
+                )
+                .execute(&data.pool)
+                .await?;
+
             } else if cmd_name == "staffguide" {
                 return Ok(true);
             } else {

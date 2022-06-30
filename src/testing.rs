@@ -40,7 +40,7 @@ pub async fn invite(
     category = "Testing"
 )]
 pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, None).await? {
         return Ok(());
     }
 
@@ -55,7 +55,7 @@ pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
     category = "Testing"
 )]
 pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, None).await? {
         return Ok(());
     }
 
@@ -176,7 +176,7 @@ pub async fn queue(
 ) -> Result<(), Error> {
     let embed = embed.unwrap_or(true);
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), embed).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), embed, None).await? {
         return Ok(());
     }
 
@@ -278,7 +278,7 @@ pub async fn claim(
     ctx: Context<'_>,
     #[description = "The bot you wish to claim"] bot: serenity::Member,
 ) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, None).await? {
         return Ok(());
     }
 
@@ -493,7 +493,7 @@ pub async fn unclaim(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, None).await? {
         return Ok(());
     }
 
@@ -576,7 +576,7 @@ pub async fn approve(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, Some(&reason)).await? {
         return Ok(());
     }
     if !checks::testing_server(ctx).await? {
@@ -718,7 +718,7 @@ pub async fn deny(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, Some(&reason)).await? {
         return Ok(());
     }
 

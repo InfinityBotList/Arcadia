@@ -134,6 +134,11 @@ pub async fn _page_content(
         chunks.push(ctx.send(|m| m.content(chunk).ephemeral(ephemeral)).await?);
     }
 
+    // Empty buffer
+    if !text_chunk.is_empty() {
+        chunks.push(ctx.send(|m| m.content(text_chunk).ephemeral(ephemeral)).await?);
+    }
+
     Ok(chunks)
 }
 

@@ -149,5 +149,10 @@ pub async fn update_field(
         }
     }
 
+    // Empty buffer
+    if !sql_chunk.is_empty() {
+        ctx.say(sql_chunk).await?;
+    }
+
     Ok(())
 }

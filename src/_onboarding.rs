@@ -529,6 +529,11 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         }
                     }
                     
+                    // Empty buffer
+                    if !text_chunk.is_empty() {
+                        onboard_channel_id.say(discord, text_chunk).await?;
+                    }
+
                     onboard_channel_id.say(discord, "**End of onboarding data for id ".to_string() + &tok + "**").await?;
 
                     sqlx::query!(

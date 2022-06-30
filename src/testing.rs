@@ -33,7 +33,21 @@ pub async fn invite(
     Ok(())
 }
 
-// Sends the staff guide in paginated form
+/// Starts the onboarding process in the newly created server
+#[poise::command(
+    prefix_command,
+    user_cooldown = 10,
+    category = "Testing"
+)]
+pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
+    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false).await? {
+        return Ok(());
+    }
+
+    Ok(())
+}
+
+/// Sends the staff guide in paginated form
 #[poise::command(
     prefix_command,
     slash_command,
@@ -131,7 +145,7 @@ Please note that the owner must be in main server to use approve/deny. *Once app
 
 **Commonly asked permissions**
 
-∞ *Administrator* - Bots that require the Administrator permission *on the bot account* to run should be denied always (but please still test ``Ninja Bot`` and give feedback on all commands and what you would do in the training sandbox*)
+∞ *Administrator* - Bots that require the Administrator permission *on the bot account* to run should be denied always (*but please still test ``Ninja Bot`` and give feedback on all commands and what you would do in the training sandbox*)
 
 ∞ *Manage Channel* - Ticket bots commonly require this. Always test the functionality of the bot to see if it does anything related to channels before denying.
 

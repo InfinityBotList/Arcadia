@@ -424,6 +424,7 @@ async fn main() {
                 register(),
                 help(),
                 staff::staff(),
+                testing::onboard(),
                 testing::invite(),
                 testing::claim(),
                 testing::unclaim(),

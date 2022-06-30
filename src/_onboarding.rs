@@ -226,7 +226,7 @@ pub async fn handle_onboarding(
 
             // Send invite
             ctx.say(
-                "Please join the newly created onboarding server here and run ``ibb!queue``: "
+                "Please join the newly created onboarding server here and run ``ibb!onboard``: "
                     .to_string()
                     + &invite.url(),
             )
@@ -270,6 +270,15 @@ pub async fn handle_onboarding(
             }
 
             if !found {
+                // This means the user has joined the server for the first time, so we check command name, then create a role
+                if cmd_name != "onboard" {
+                    ctx.say(
+                        "Did you follow the instructions. You're supposed to run the ``ibb!onboard`` command!",
+                    )
+                    .await?;
+                    return Ok(false)
+                }    
+
                 // Create role
                 let guild = ctx.guild().unwrap();
 
@@ -299,7 +308,7 @@ pub async fn handle_onboarding(
 
             ctx.say(
                 format!(
-                    "You will need to reinvite this bot to the server so scopes can be set properly! Use ``https://discord.com/oauth2/authorize?client_id={}&scope=bot%20applications.commands&permissions=8``. Do this now then rerun ``/queue``!",
+                    "You will need to reinvite this bot to the server so that Discord can set the required scopes for this bot! Reinvite the bot using https://discord.com/oauth2/authorize?client_id={}&scope=bot%20applications.commands&permissions=8. Do this now, then run ``ibb!onboard`` to continue!",
                     ctx.discord().cache.current_user().id
                 )
             ).await?;
@@ -351,6 +360,14 @@ pub async fn handle_onboarding(
 
     match onboard_state {
         "pending" => {
+            if cmd_name != "onboard" {
+                ctx.say(
+                    "Did you follow the instructions. You're supposed to run the ``ibb!onboard`` command!",
+                )
+                .await?;
+                return Ok(false);
+            }
+
             ctx.say("**Welcome to Infinity Bot List**\n\nSince you seem new to this place, how about a nice look arou-?").await?;
 
             ctx.send(|m| {
@@ -413,7 +430,11 @@ pub async fn handle_onboarding(
                         .await?;
                 }
 
-                ctx.say("Great! As you can see, the bot is claimed by you. Now test the bot as per the staff guide").await?;
+                ctx.say(r#"
+Great! As you can see, you have now claimed ``Ninja Bot``. 
+                
+Now test the bot as per the staff guide. Then run either ``/approve`` or ``/deny`` with your overall feeling of whether or not this bot should 
+be approved or denied."#).await?;
             } else if cmd_name == "staffguide" {
                 return Ok(true);
             } else {

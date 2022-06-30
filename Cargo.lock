@@ -43,6 +43,7 @@ name = "arcadia"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "docser",
  "dotenv",
  "env_logger",
  "futures-util",
@@ -353,6 +354,14 @@ dependencies = [
  "libc",
  "redox_users",
  "winapi",
+]
+
+[[package]]
+name = "docser"
+version = "0.1.0"
+source = "git+https://github.com/RustLibs/docser.git?branch=main#766a255d35e6794cdfe67ccc57189161da20a392"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

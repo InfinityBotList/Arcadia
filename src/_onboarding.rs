@@ -1,20 +1,19 @@
 use std::time::Duration;
 
 use log::info;
-use poise::serenity_prelude::{Mentionable, Permissions, RoleId, ChannelId};
+use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId};
 
-use poise::{serenity_prelude as serenity, Modal};
+use poise::{serenity_prelude as serenity};
 use serde_json::json;
 
-#[derive(Debug, Modal)]
-#[name = "Survey"] // Struct name by default
+use serde::Serialize;
+
+#[derive(Debug, Serialize)]
 struct SurveyModal {
-    #[min_length = 10] // No length restriction by default (so, 1-4000 chars)
-    #[max_length = 4000]
     analysis: String,
-    #[min_length = 10] // No length restriction by default (so, 1-4000 chars)
-    #[max_length = 4000]
     thoughts: String,
+    has_onboarded_before: bool,
+    invite: String,
 }
 
 /// Tries to check if onboarding is required, returns ``false`` if command should stop
@@ -22,7 +21,7 @@ pub async fn handle_onboarding(
     ctx: crate::Context<'_>,
     user_id: &str,
     embed: bool,
-    reason: Option<&str> // Only applicable for testing-bot
+    reason: Option<&str>, // Only applicable for testing-bot
 ) -> Result<bool, crate::Error> {
     // Get baisc info from ctx for future use
     let cmd_name = ctx.command().name;
@@ -71,6 +70,11 @@ pub async fn handle_onboarding(
     // Onboarding is complete, exit early
     if onboard_state == "complete" {
         return Ok(true);
+    }
+
+    if onboard_state == "pending-manager-review" {
+        ctx.say("Your onboarding request is pending manager review. Please wait until it is approved.").await?;
+        return Ok(false);
     }
 
     if onboarded.staff_onboarded {
@@ -231,8 +235,8 @@ pub async fn handle_onboarding(
                         "Did you follow the instructions. You're supposed to run the ``ibb!onboard`` command!",
                     )
                     .await?;
-                    return Ok(false)
-                }    
+                    return Ok(false);
+                }
 
                 // Create role
                 let guild = ctx.guild().unwrap();
@@ -284,7 +288,7 @@ pub async fn handle_onboarding(
     }
 
     // Allow users to see queue again
-    if cmd_name == "queue" && !vec!["pending", "complete", ].contains(&onboard_state) {
+    if cmd_name == "queue" && !vec!["pending", "complete"].contains(&onboard_state) {
         // Check that they are in stage 2 of queue command
         if vec!["claimed-bot", "testing-bot"].contains(&onboard_state) {
             onboard_state = "claimed-bot";
@@ -304,6 +308,11 @@ pub async fn handle_onboarding(
     )
     .execute(&data.pool)
     .await?;
+
+    if cmd_name == "claim" && reason != Some(&test_bot) {
+        ctx.say("You can only claim the test bot at this time!").await?;
+        return Ok(false);
+    }
 
     // Reset timer
     sqlx::query!(
@@ -445,19 +454,92 @@ pub async fn handle_onboarding(
                         })
                         .await?;
 
-                    let survey_resp = SurveyModal::parse(response.data.clone()).map_err(serenity::Error::Other)?;
+                    // Create permanent invite to this server
+                    let channel = ctx.guild_id().unwrap().create_channel(discord, |c| {
+                        c.kind(serenity::ChannelType::Text)
+                        .name("do-not-delete")
+                        .topic("This is a temporary channel used to create a permanent invite to the server. DO NOT DELETE.")
+                    }).await?;
 
-                    let onboard_channel_id = ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<u64>()?);
+                    let inv = channel.create_invite(discord, |i| {
+                        i.max_age(0)
+                        .max_uses(0)
+                        .unique(true)
+                    }).await?;
 
-                    onboard_channel_id.say(
-                        &discord, 
+
+                    channel.say(
+                        discord,
                         format!(
-                            "**New onboarding attempt**\n\n**User ID:** {user_id}\n**Action taken:** {action}\n**Overall reason:** {reason}.",
-                            user_id = user_id,
-                            action = cmd_name,
-                            reason = reason.unwrap_or_default()
+                            "
+{}, please do not delete this channel *or* leave this server until your onboarding is approved!!! 
+                            
+This bot *will* now leave this server however you should not! Be prepared to send invites to this server if needed by Managers!", 
+                            ctx.author().mention()
                         )
-                    ).await?;            
+                    ).await?;
+
+                    let survey_modal = SurveyModal {
+                        analysis: crate::_utils::modal_get(&response.data, "analysis"),
+                        thoughts: crate::_utils::modal_get(&response.data, "thoughts"),
+                        has_onboarded_before: onboarded.staff_onboarded,
+                        invite: inv.url()
+                    };
+
+                    let modal_raw = docser::serialize_docs(&survey_modal)?;
+
+                    // Now transfer ownership to author
+                    ctx.guild_id().unwrap().edit(discord, |e| {
+                        e.owner(ctx.author().id)
+                    }).await?;                    
+
+                    let tok = crate::_utils::gen_random(16);
+
+                    let onboard_channel_id =
+                        ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<u64>()?);
+
+                    onboard_channel_id.send_message(
+                        &discord, 
+                        |m| { 
+                            m.content(format!(
+                                "**Unique ID:** {tok} **New onboarding attempt**\n\n**User ID:** {user_id}\n**Action taken:** {action}\n**Overall reason:** {reason}.",
+                                user_id = user_id,
+                                action = cmd_name,
+                                reason = reason.unwrap_or_default(),
+                                tok = tok,
+                            ))
+                            .files(vec![serenity::AttachmentType::Bytes { data: modal_raw.as_bytes().into(), filename: "raw_data.md".to_string() }])
+                    }).await?;
+
+                    // Send model_raw but paginated
+                    let mut text_chunks = Vec::new();
+
+                    let mut text_chunk = String::new();
+                    for (i, c) in modal_raw.chars().enumerate() {
+                        text_chunk.push(c);
+                        if i % 2000 == 0 && i > 0 {
+                            text_chunks.push(text_chunk.clone());
+                            text_chunk.clear();
+                        }
+                    }
+                
+                    for chunk in text_chunks {
+                        if !chunk.is_empty() {
+                            onboard_channel_id.say(discord, chunk).await?;
+                        }
+                    }
+                    
+                    onboard_channel_id.say(discord, "**End of onboarding data for id ".to_string() + &tok + "**").await?;
+
+                    sqlx::query!(
+                        "UPDATE users SET staff_onboard_state = 'pending-manager-review' WHERE user_id = $1",
+                        user_id
+                    )
+                    .execute(&data.pool)
+                    .await?;
+
+                    ctx.guild_id().unwrap().leave(discord).await?;
+
                 } else {
                     ctx.say("Cancelled").await?;
                     return Ok(false);
@@ -505,7 +587,6 @@ be approved or denied."#).await?;
                 )
                 .execute(&data.pool)
                 .await?;
-
             } else if cmd_name == "staffguide" {
                 return Ok(true);
             } else {

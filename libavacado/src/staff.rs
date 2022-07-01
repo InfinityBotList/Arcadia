@@ -92,7 +92,7 @@ pub async fn deny_bot(
     let last_claimed = claimed.last_claimed.unwrap();
 
     if (start_time - last_claimed).num_minutes() < 15 {
-        return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve it!".into());
+        return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve/deny it!".into());
     }
 
     // Get main owner and modlogs

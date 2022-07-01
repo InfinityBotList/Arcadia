@@ -10,6 +10,7 @@ use serenity::model::gateway::{GatewayIntents, Ready};
 use dotenv::dotenv;
 
 mod models;
+mod testing;
 
 use crate::models::APIResponse;
 

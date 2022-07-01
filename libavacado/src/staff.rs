@@ -92,9 +92,9 @@ pub async fn bot_owner_in_server(
 pub async fn approve_bot(
     discord: impl CacheHttp,
     pool: &PgPool,
-    bot_id: String,
-    staff_id: String,
-    reason: String, 
+    bot_id: &str,
+    staff_id: &str,
+    reason: &str, 
 ) -> Result<(), Error> {
     // The bot has way better onboarding, but this is a generic impl function so we need it
     let onboard_state = sqlx::query!(
@@ -211,7 +211,7 @@ pub async fn approve_bot(
         .query(&[("reviewer", bot_id.clone())])
         .header("Authorization", std::env::var("SECRET_KEY")?)
         .json(&Reason {
-            reason: reason.clone(),
+            reason: reason.to_string(),
         })
         .send()
         .await?;
@@ -228,9 +228,9 @@ pub async fn approve_bot(
 pub async fn deny_bot(
     discord: impl CacheHttp,
     pool: &PgPool,
-    bot_id: String,
-    staff_id: String,
-    reason: String,
+    bot_id: &str,
+    staff_id: &str,
+    reason: &str,
 ) -> Result<(), Error> {
     // The bot has way better onboarding, but this is a generic impl function so we need it
     let onboard_state = sqlx::query!(
@@ -345,7 +345,7 @@ pub async fn deny_bot(
             .query(&[("reviewer", bot_id.clone())])
             .header("Authorization", std::env::var("SECRET_KEY")?)
             .json(&Reason {
-                reason: reason.clone(),
+                reason: reason.to_string(),
             })
             .send()
             .await?;

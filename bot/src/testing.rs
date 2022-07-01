@@ -1,8 +1,6 @@
 use crate::_checks as checks;
-use log::info;
 use poise::serenity_prelude as serenity;
-use poise::serenity_prelude::Mentionable;
-use poise::serenity_prelude::{ChannelId, UserId};
+use poise::serenity_prelude::UserId;
 use serde::Serialize;
 use std::fmt::Write;
 
@@ -579,9 +577,6 @@ pub async fn approve(
     #[description = "The bot you wish to approve"] bot: serenity::Member,
     #[description = "The reason for approval"] reason: String,
 ) -> Result<(), Error> {
-    let data = ctx.data();
-    let discord = ctx.discord();
-
     if !crate::_onboarding::handle_onboarding(
         ctx,
         &ctx.author().id.0.to_string(),
@@ -596,121 +591,9 @@ pub async fn approve(
         return Err("You are not in the testing server".into());
     }
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
+    libavacado::staff::approve_bot(&ctx.discord(), &ctx.data().pool, &bot.user.id.to_string(), &ctx.author().id.to_string(), &reason).await?;
 
-    sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
-    )
-    .execute(&data.pool)
-    .await?;
-
-    let claimed = sqlx::query!(
-        "SELECT claimed_by, owner, last_claimed FROM bots WHERE bot_id = $1",
-        bot.user.id.0.to_string()
-    )
-    .fetch_one(&data.pool)
-    .await?;
-
-    // Make sure a owner is in the server
-    if !crate::_utils::bot_owner_in_server(&ctx, &bot.user.id.0.to_string()).await? {
-        return Err("The bot owner is not in the server".into());
-    }
-
-    // Get main owner
-    let owner = UserId(claimed.owner.parse::<u64>()?);
-
-    if claimed.claimed_by.is_none()
-        || claimed.claimed_by.as_ref().unwrap().is_empty()
-        || claimed.last_claimed.is_none()
-    {
-        ctx.say(format!(
-            "<@{}> is not claimed? Do ``/claim`` to claim this bot first!",
-            bot.user.id.0
-        ))
-        .await?;
-    } else {
-        let start_time = chrono::offset::Utc::now();
-        let last_claimed = claimed.last_claimed.unwrap();
-
-        if (start_time - last_claimed).num_minutes() < 15 {
-            return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve it!".into());
-        }
-
-        ctx.say("Approving bot... Please wait...").await?;
-
-        libavacado::staff::add_action_log(
-            &data.pool,
-            &bot.user.id.0.to_string(),
-            &ctx.author().id.0.to_string(),
-            reason.to_string(),
-            "approve".to_string(),
-        )
-        .await?;
-
-        sqlx::query!(
-            "UPDATE bots SET type = 'approved', claimed_by = NULL, claimed = false WHERE bot_id = $1",
-            bot.user.id.0.to_string()
-        )
-        .execute(&data.pool)
-        .await?;
-
-        let private_channel = owner.create_dm_channel(discord).await?;
-
-        private_channel
-            .send_message(discord, |m| {
-                m.embed(|e| {
-                    e.title("Bot Approved!")
-                        .description(format!(
-                            "<@{}> has approved <@{}>",
-                            ctx.author().id.0,
-                            bot.user.id.0
-                        ))
-                        .field("Reason", reason.clone(), true)
-                        .footer(|f| f.text("Well done, young traveller!"))
-                        .color(0x00ff00)
-                })
-            })
-            .await?;
-
-        modlogs
-            .send_message(discord, |m| {
-                m.embed(|e| {
-                    e.title("__Bot Approved!__")
-                        .field("Reason", &reason, true)
-                        .field("Moderator", ctx.author().id.mention(), true)
-                        .field("Bot ID", bot.user.id.mention(), true)
-                        .footer(|f| f.text("Congratulations on your achievement!"))
-                        .color(0x00ff00)
-                })
-            })
-            .await?;
-
-        // Send to metro
-        let request = reqwest::Client::new()
-            .post(format!(
-                "https://catnip.metrobots.xyz/bots/{}/approve",
-                bot.user.id.0
-            ))
-            .query(&[("list_id", std::env::var("LIST_ID")?)])
-            .query(&[("reviewer", ctx.author().id.0.to_string())])
-            .header("Authorization", std::env::var("SECRET_KEY")?)
-            .json(&Reason {
-                reason: reason.clone(),
-            })
-            .send()
-            .await?;
-
-        if request.status().is_success() {
-            info!("Successfully approved bot {} on metro", bot.user.id.0);
-            ctx.say(format!(
-                "You have approved <@{}>. The owners have been successfully notified",
-                bot.user.id.0
-            ))
-            .await?;
-        } else {
-            return Err("Failed to approve bot on metro (but successful approval on IBL".into());
-        }
-    }
+    ctx.say("Denied bot").await?;
 
     Ok(())
 }
@@ -743,7 +626,7 @@ pub async fn deny(
         return Err("You are not in the testing server".into());
     }
 
-    libavacado::staff::deny_bot(&ctx.discord(), &ctx.data().pool, bot.id.to_string(), ctx.author().id.to_string(), reason).await?;
+    libavacado::staff::deny_bot(&ctx.discord(), &ctx.data().pool, &bot.id.to_string(), &ctx.author().id.to_string(), &reason).await?;
 
     ctx.say("Denied bot").await?;
 

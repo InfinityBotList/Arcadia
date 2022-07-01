@@ -45,7 +45,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
         .await?;
 
     let staffs = sqlx::query!(
-        "SELECT user_id, username, staff, admin, ibldev, iblhdev FROM users WHERE (staff = true OR admin = true OR ibldev = true OR iblhdev = true) ORDER BY user_id ASC"
+        "SELECT user_id, username, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE (staff = true OR admin = true OR ibldev = true OR iblhdev = true) ORDER BY user_id ASC"
     )
     .fetch_all(&data.pool)
     .await?;
@@ -99,13 +99,14 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
         writeln!(
             staff_list,
-            "{user_id} ({username}) [staff={staff}, admin={admin}, ibldev={ibldev}, iblhdev={iblhdev}]", 
+            "{user_id} ({username}) [staff={staff}, admin={admin}, ibldev={ibldev}, iblhdev={iblhdev} hadmin={hadmin}]", 
             user_id=staff.user_id,
             username=user.name,
             staff=staff.staff,
             admin=staff.admin,
             ibldev=staff.ibldev,
             iblhdev=staff.iblhdev,
+            hadmin=staff.hadmin,
         )?;
     }
 
@@ -138,6 +139,7 @@ Continuing will change the PostgreSQL database and recalculate the list of staff
 ``Head Developer`` = iblhdev flag
 ``Developer`` | ``Head Developer`` = ibldev flag
 ``Website Moderator`` = staff flag
+``Head Staff Manager`` = hadmin flag
 
 **This only affects v4 and later**
 

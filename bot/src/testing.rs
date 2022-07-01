@@ -725,7 +725,7 @@ pub async fn approve(
 )]
 pub async fn deny(
     ctx: Context<'_>,
-    #[description = "The bot you wish to deny"] bot: serenity::Member,
+    #[description = "The bot you wish to deny"] bot: serenity::User,
     #[description = "The reason for denial"] reason: String,
 ) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(
@@ -743,5 +743,9 @@ pub async fn deny(
         return Err("You are not in the testing server".into());
     }
 
-    libavacado::staff::deny_bot(&ctx.discord(), &ctx.data().pool, bot.user.id.to_string(), ctx.author().id.to_string(), reason).await
+    libavacado::staff::deny_bot(&ctx.discord(), &ctx.data().pool, bot.id.to_string(), ctx.author().id.to_string(), reason).await?;
+
+    ctx.say("Denied bot").await?;
+
+    Ok(())
 }

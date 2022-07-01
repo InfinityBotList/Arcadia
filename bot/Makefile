@@ -5,7 +5,7 @@ CARGO_TARGET_GNU_LINKER="x86_64-unknown-linux-gnu-gcc"
 
 # Some sensible defaults, should be overrided per-project
 BIN_NAME ?= bot
-PROJ_NAME ?= arcadia
+PROJ_NAME ?= arcadia/bot
 HOST ?= 100.86.85.125
 
 all: 

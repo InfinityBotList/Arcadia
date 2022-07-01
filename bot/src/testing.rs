@@ -326,8 +326,8 @@ pub async fn claim(
 
         libavacado::staff::add_action_log(
             &data.pool,
-            bot.user.id.0.to_string(),
-            ctx.author().id.0.to_string(),
+            &bot.user.id.0.to_string(),
+            &ctx.author().id.0.to_string(),
             "Claimed".to_string(),
             "claim".to_string(),
         )
@@ -412,8 +412,8 @@ pub async fn claim(
             if id == "remind" {
                 libavacado::staff::add_action_log(
                     &data.pool,
-                    bot.user.id.0.to_string(),
-                    claimed_by.clone(),
+                    &bot.user.id.0.to_string(),
+                    &claimed_by,
                     "User reminder".to_string(),
                     "reminder".to_string(),
                 )
@@ -437,8 +437,8 @@ pub async fn claim(
 
                 libavacado::staff::add_action_log(
                     &data.pool,
-                    bot.user.id.0.to_string(),
-                    ctx.author().id.0.to_string(),
+                    &bot.user.id.0.to_string(),
+                    &ctx.author().id.0.to_string(),
                     "Force claim since previous staff did not finish reviewing bot".to_string(),
                     "claim".to_string(),
                 )
@@ -536,8 +536,8 @@ pub async fn unclaim(
 
         libavacado::staff::add_action_log(
             &data.pool,
-            bot.user.id.0.to_string(),
-            ctx.author().id.0.to_string(),
+            &bot.user.id.0.to_string(),
+            &ctx.author().id.0.to_string(),
             "Unclaimed bot".to_string(),
             "unclaim".to_string(),
         )
@@ -576,7 +576,7 @@ pub async fn unclaim(
 )]
 pub async fn approve(
     ctx: Context<'_>,
-    #[description = "The bot you wish to deny"] bot: serenity::Member,
+    #[description = "The bot you wish to approve"] bot: serenity::Member,
     #[description = "The reason for approval"] reason: String,
 ) -> Result<(), Error> {
     let data = ctx.data();
@@ -640,8 +640,8 @@ pub async fn approve(
 
         libavacado::staff::add_action_log(
             &data.pool,
-            bot.user.id.0.to_string(),
-            ctx.author().id.0.to_string(),
+            &bot.user.id.0.to_string(),
+            &ctx.author().id.0.to_string(),
             reason.to_string(),
             "approve".to_string(),
         )

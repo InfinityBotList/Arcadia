@@ -1,7 +1,11 @@
+use std::sync::Arc;
+
 use serde::{Serialize, Deserialize};
+use serenity::CacheAndHttp;
 
 pub struct AppState {
-    pub pool: sqlx::PgPool
+    pub pool: sqlx::PgPool,
+    pub cache_http: Arc<CacheAndHttp>,
 }
 
 #[derive(Serialize, Deserialize)]

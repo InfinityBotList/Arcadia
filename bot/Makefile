@@ -1,4 +1,4 @@
-include .env
+include ../.env
 
 RUSTFLAGS_LOCAL="-C target-cpu=native $(RUSTFLAGS) -C link-arg=-fuse-ld=lld"
 CARGO_TARGET_GNU_LINKER="x86_64-unknown-linux-gnu-gcc"

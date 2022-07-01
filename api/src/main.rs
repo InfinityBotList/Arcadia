@@ -2,7 +2,10 @@ use actix_cors::Cors;
 use actix_web::middleware::Logger;
 use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use log::{debug, error, info};
+use serenity::async_trait;
+use serenity::client::{EventHandler, Context};
 use sqlx::postgres::PgPoolOptions;
+use serenity::model::gateway::{GatewayIntents, Ready};
 
 use dotenv::dotenv;
 
@@ -27,6 +30,15 @@ fn actix_handle_err<T: std::error::Error + 'static>(err: T) -> actix_web::error:
     actix_web::error::InternalError::from_response(err, response).into()
 }
 
+struct MainHandler;
+
+#[async_trait]
+impl EventHandler for MainHandler {
+    async fn ready(&self, _ctx: Context, ready: Ready) {
+        debug!("{} is connected!", ready.user.name);
+    }
+}
+
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     const MAX_CONNECTIONS: u32 = 3;
@@ -45,16 +57,24 @@ async fn main() -> std::io::Result<()> {
 
     debug!("Connected to postgres/redis");
 
-    let app_state = web::Data::new(models::AppState {
-        pool,
-    });
-
     error!("This is a error");
 
-    debug!("Connected to redis");
-
     debug!("Server is starting...");
-    
+
+    let mut main_cli = serenity::Client::builder(std::env::var("DISCORD_TOKEN").expect("No DISCORD_TOKEN specified"), GatewayIntents::GUILDS | GatewayIntents::GUILD_MESSAGES | GatewayIntents::GUILD_MEMBERS | GatewayIntents::GUILD_PRESENCES)
+    .event_handler(MainHandler)
+    .await
+    .unwrap();  
+
+    let cache_http = main_cli.cache_and_http.clone();
+
+    tokio::task::spawn(async move {main_cli.start().await });
+
+    let app_state = web::Data::new(models::AppState {
+        pool,
+        cache_http,
+    });
+
     HttpServer::new(move || {
         let cors = Cors::default()
             .allowed_origin_fn(|origin, _req_head| origin.as_bytes().ends_with(b"infinitybots.gg"))

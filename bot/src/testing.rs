@@ -324,7 +324,7 @@ pub async fn claim(
         .execute(&data.pool)
         .await?;
 
-        crate::_utils::add_action_log(
+        libavacado::staff::add_action_log(
             &data.pool,
             bot.user.id.0.to_string(),
             ctx.author().id.0.to_string(),
@@ -410,7 +410,7 @@ pub async fn claim(
             let claimed_by = claimed.claimed_by.unwrap();
 
             if id == "remind" {
-                crate::_utils::add_action_log(
+                libavacado::staff::add_action_log(
                     &data.pool,
                     bot.user.id.0.to_string(),
                     claimed_by.clone(),
@@ -435,7 +435,7 @@ pub async fn claim(
                 .execute(&data.pool)
                 .await?;
 
-                crate::_utils::add_action_log(
+                libavacado::staff::add_action_log(
                     &data.pool,
                     bot.user.id.0.to_string(),
                     ctx.author().id.0.to_string(),
@@ -534,7 +534,7 @@ pub async fn unclaim(
         .execute(&data.pool)
         .await?;
 
-        crate::_utils::add_action_log(
+        libavacado::staff::add_action_log(
             &data.pool,
             bot.user.id.0.to_string(),
             ctx.author().id.0.to_string(),
@@ -638,7 +638,7 @@ pub async fn approve(
 
         ctx.say("Approving bot... Please wait...").await?;
 
-        crate::_utils::add_action_log(
+        libavacado::staff::add_action_log(
             &data.pool,
             bot.user.id.0.to_string(),
             ctx.author().id.0.to_string(),
@@ -728,9 +728,6 @@ pub async fn deny(
     #[description = "The bot you wish to deny"] bot: serenity::Member,
     #[description = "The reason for denial"] reason: String,
 ) -> Result<(), Error> {
-    let data = ctx.data();
-    let discord = ctx.discord();
-
     if !crate::_onboarding::handle_onboarding(
         ctx,
         &ctx.author().id.0.to_string(),
@@ -746,111 +743,5 @@ pub async fn deny(
         return Err("You are not in the testing server".into());
     }
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
-
-    sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
-    )
-    .execute(&data.pool)
-    .await?;
-
-    let claimed = sqlx::query!(
-        "SELECT claimed_by, owner, last_claimed FROM bots WHERE bot_id = $1",
-        bot.user.id.0.to_string()
-    )
-    .fetch_one(&data.pool)
-    .await?;
-
-    // Get main owner
-    let owner = UserId(claimed.owner.parse::<u64>()?);
-
-    if claimed.claimed_by.is_none()
-        || claimed.claimed_by.as_ref().unwrap().is_empty()
-        || claimed.last_claimed.is_none()
-    {
-        ctx.say(format!(
-            "<@{}> is not claimed? Do ``/claim`` to claim this bot first!",
-            bot.user.id.0
-        ))
-        .await?;
-    } else {
-        ctx.say("Denying bot... Please wait...").await?;
-
-        crate::_utils::add_action_log(
-            &data.pool,
-            bot.user.id.0.to_string(),
-            ctx.author().id.0.to_string(),
-            reason.to_string(),
-            "deny".to_string(),
-        )
-        .await?;
-
-        sqlx::query!(
-            "UPDATE bots SET type = 'denied', claimed_by = NULL, claimed = false WHERE bot_id = $1",
-            bot.user.id.0.to_string()
-        )
-        .execute(&data.pool)
-        .await?;
-
-        let private_channel = owner.create_dm_channel(discord).await?;
-
-        private_channel
-            .send_message(discord, |m| {
-                m.embed(|e| {
-                    e.title("Bot Denied!")
-                        .description(format!(
-                            "<@{}> has denied <@{}>",
-                            ctx.author().id.0,
-                            bot.user.id.0
-                        ))
-                        .field("Reason", reason.clone(), true)
-                        .footer(|f| {
-                            f.text("Well done, young traveller at getting denied from the club!")
-                        })
-                        .color(0x00ff00)
-                })
-            })
-            .await?;
-
-        modlogs
-            .send_message(discord, |m| {
-                m.embed(|e| {
-                    e.title("__Bot Denied!__")
-                        .field("Reason", &reason, true)
-                        .field("Moderator", ctx.author().id.mention(), true)
-                        .field("Bot", bot.user.id.mention(), true)
-                        .footer(|f| f.text("Sad life!"))
-                        .color(0xFF0000)
-                })
-            })
-            .await?;
-
-        // Send to metro
-        let request = reqwest::Client::new()
-            .post(format!(
-                "https://catnip.metrobots.xyz/bots/{}/deny",
-                bot.user.id.0
-            ))
-            .query(&[("list_id", std::env::var("LIST_ID")?)])
-            .query(&[("reviewer", ctx.author().id.0.to_string())])
-            .header("Authorization", std::env::var("SECRET_KEY")?)
-            .json(&Reason {
-                reason: reason.clone(),
-            })
-            .send()
-            .await?;
-
-        if request.status().is_success() {
-            info!("Successfully denied bot {} on metro", bot.user.id.0);
-            ctx.say(format!(
-                "You have denied <@{}>. The owners have been successfully notified",
-                bot.user.id.0
-            ))
-            .await?;
-        } else {
-            return Err("Failed to deny bot on metro (but successful denial on IBL".into());
-        }
-    }
-
-    Ok(())
+    libavacado::staff::deny_bot(&ctx.discord(), &ctx.data().pool, bot.user.id.to_string(), ctx.author().id.to_string(), reason).await
 }

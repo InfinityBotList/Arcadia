@@ -1,6 +1,6 @@
 use sqlx::PgPool;
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
+use crate::types::Error;
 
 /// Check if user is staff
 ///

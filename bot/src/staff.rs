@@ -120,7 +120,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_dev"
+    check = "checks::is_admin_hdev"
 )]
 pub async fn staff_recalc(ctx: Context<'_>) -> Result<(), Error> {
     if !checks::staff_server(ctx).await? {
@@ -189,11 +189,13 @@ During beta testing, this is available to admins and devs, but once second final
             poise::serenity_prelude::RoleId(std::env::var("HEAD_DEV_ROLE")?.parse::<u64>()?);
         let staff_man_role =
             poise::serenity_prelude::RoleId(std::env::var("STAFF_MAN_ROLE")?.parse::<u64>()?);
+        let head_man_role =
+            poise::serenity_prelude::RoleId(std::env::var("HEAD_MAN_ROLE")?.parse::<u64>()?);
         let web_mod_role =
             poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
 
         // First unset all staff
-        sqlx::query!("UPDATE users SET staff = false, ibldev = false, admin = false")
+        sqlx::query!("UPDATE users SET staff = false, ibldev = false, iblhdev = false, admin = false, hadmin = false")
             .execute(&ctx.data().pool)
             .await?;
 
@@ -214,6 +216,14 @@ During beta testing, this is available to admins and devs, but once second final
             if member.roles.contains(&staff_man_role) {
                 sqlx::query!(
                     "UPDATE users SET staff = true, admin = true WHERE user_id = $1",
+                    member.user.id.0.to_string()
+                )
+                .execute(&ctx.data().pool)
+                .await?;
+            }
+            if member.roles.contains(&head_man_role) {
+                sqlx::query!(
+                    "UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1",
                     member.user.id.0.to_string()
                 )
                 .execute(&ctx.data().pool)
@@ -241,7 +251,7 @@ During beta testing, this is available to admins and devs, but once second final
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_dev"
+    check = "checks::is_admin_hdev"
 )]
 pub async fn staff_add(
     ctx: Context<'_>,
@@ -280,7 +290,7 @@ pub async fn staff_add(
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_dev"
+    check = "checks::is_admin_hdev"
 )]
 pub async fn staff_del(
     ctx: Context<'_>,
@@ -337,7 +347,7 @@ pub async fn staff_del(
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_dev"
+    check = "checks::is_admin_hdev"
 )]
 pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
     if !checks::staff_server(ctx).await? {
@@ -369,7 +379,7 @@ pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_dev"
+    check = "checks::is_admin_hdev"
 )]
 pub async fn staff_guilddel(
     ctx: Context<'_>,
@@ -394,7 +404,7 @@ pub async fn staff_guilddel(
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_dev"
+    check = "checks::is_admin_hdev"
 )]
 pub async fn staff_guildleave(
     ctx: Context<'_>,

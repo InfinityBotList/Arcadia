@@ -66,11 +66,15 @@ pub async fn deny_bot(
     .await?;
 
     let claimed = sqlx::query!(
-        "SELECT claimed_by, owner, last_claimed FROM bots WHERE bot_id = $1",
+        "SELECT type, claimed_by, owner, last_claimed FROM bots WHERE bot_id = $1",
         bot_id
     )
     .fetch_one(pool)
     .await?;
+
+    if claimed.r#type != "pending" {
+        return Err("Bot is not pending review?".into());
+    }
 
     if claimed.claimed_by.is_none()
         || claimed.claimed_by.as_ref().unwrap().is_empty()

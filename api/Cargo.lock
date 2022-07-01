@@ -265,6 +265,7 @@ dependencies = [
  "actix-cors",
  "actix-rt",
  "actix-web",
+ "dotenv",
  "env_logger",
  "futures",
  "log",

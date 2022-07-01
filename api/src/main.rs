@@ -4,6 +4,8 @@ use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServe
 use log::{debug, error, info};
 use sqlx::postgres::PgPoolOptions;
 
+use dotenv::dotenv;
+
 mod models;
 
 use crate::models::APIResponse;
@@ -33,9 +35,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     info!("Starting up...");
 
-    /* We have to create a new AppConfig to get a discord_http client
-    This is also negligible cost
-    */
+    dotenv().ok();
 
     let pool = PgPoolOptions::new()
                         .max_connections(MAX_CONNECTIONS)

@@ -1,7 +1,0 @@
-[
-        {
-                "name": "arcadia",
-                "script": "unbuffer make run",
-                "cwd": "/root/arcadia/"
-        }
-]

@@ -4,8 +4,11 @@
   Arcadia
 </h2>
 <p align="center">
- Rewrite of the Discord Bot used for Managing the Infinity Bot List Servers.
+ Arcadia is a monorepo with the following components:
 </p>
+
+- bot/ => Rewrite of the Discord Bot used for Managing the Infinity Bot List Servers
+- api/ => Rewrite of the API (not notification layer, thats a seperate ``PUBSUB`` channel in golang)
 
 <hr>
 

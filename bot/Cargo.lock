@@ -39,26 +39,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arcadia"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "docser",
- "dotenv",
- "env_logger",
- "futures-util",
- "log",
- "poise",
- "rand",
- "reqwest",
- "serde",
- "serde_json",
- "serde_repr",
- "sqlx",
- "tokio",
-]
-
-[[package]]
 name = "async-trait"
 version = "0.1.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -141,6 +121,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf7fe51849ea569fd452f37822f606a5cabb684dc918707a0193fd4664ff324"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "bot"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "docser",
+ "dotenv",
+ "env_logger",
+ "futures-util",
+ "log",
+ "poise",
+ "rand",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "sqlx",
+ "tokio",
 ]
 
 [[package]]

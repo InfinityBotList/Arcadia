@@ -2,3 +2,5 @@
 **/.env
 bot/.env
 .vscode
+bot/bot 
+bot/bot.new

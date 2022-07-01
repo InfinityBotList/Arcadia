@@ -45,7 +45,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
         .await?;
 
     let staffs = sqlx::query!(
-        "SELECT user_id, username, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE (staff = true OR admin = true OR ibldev = true OR iblhdev = true) ORDER BY user_id ASC"
+        "SELECT user_id, username, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE (staff = true OR admin = true OR ibldev = true OR iblhdev = true OR hadmin = true) ORDER BY user_id ASC"
     )
     .fetch_all(&data.pool)
     .await?;

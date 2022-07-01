@@ -11,8 +11,9 @@
 
 ## Project Structure
 
-- bot/ => Rewrite of the Discord Bot used for Managing the Infinity Bot List Servers
-- api/ => Arcadia Staff API (statistics, maybe a claim/unclaim/approve/deny api for panel if needed etc)
+- bot => Rewrite of the Discord Bot used for Managing the Infinity Bot List Servers
+- api => Arcadia Staff API (statistics, maybe a claim/unclaim/approve/deny api for panel if needed etc)
+- libavacado => Common shared logic for ``bot``, ``api`` and any possible addition to Arcadia
 
 ## Contributing
 

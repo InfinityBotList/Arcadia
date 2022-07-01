@@ -1,6 +1,8 @@
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
 
+use libavacado::checks;
+
 /// Check for staff_server
 pub async fn staff_server(ctx: Context<'_>) -> Result<bool, Error> {
     let in_staff_server = match ctx.guild_id() {
@@ -21,70 +23,22 @@ pub async fn testing_server(ctx: Context<'_>) -> Result<bool, Error> {
     Ok(in_testing_server)
 }
 
-/// Check if user is staff
-///
-/// This check checks if the user has the `staff` bit set
 pub async fn is_staff(ctx: Context<'_>) -> Result<bool, Error> {
-    let data = ctx.data();
-
-    let staff = sqlx::query!(
-        "SELECT staff FROM users WHERE user_id = $1",
-        ctx.author().id.0.to_string()
-    )
-    .fetch_one(&data.pool)
-    .await?;
-
-    Ok(staff.staff)
+    checks::is_staff(&ctx.author().id.to_string(), &ctx.data().pool).await
 }
 
 pub async fn is_admin_hdev(ctx: Context<'_>) -> Result<bool, Error> {
-    let data = ctx.data();
-
-    let staff = sqlx::query!(
-        "SELECT admin, iblhdev FROM users WHERE user_id = $1",
-        ctx.author().id.0.to_string()
-    )
-    .fetch_one(&data.pool)
-    .await?;
-
-    Ok(staff.admin || staff.iblhdev)
+    checks::is_admin_hdev(&ctx.author().id.to_string(), &ctx.data().pool).await
 }
 
 pub async fn is_any_staff(ctx: Context<'_>) -> Result<bool, Error> {
-    let data = ctx.data();
-
-    let staff = sqlx::query!(
-        "SELECT staff, admin, ibldev, iblhdev FROM users WHERE user_id = $1",
-        ctx.author().id.0.to_string()
-    )
-    .fetch_one(&data.pool)
-    .await?;
-
-    Ok(staff.staff || staff.admin || staff.ibldev || staff.iblhdev)
+    checks::is_any_staff(&ctx.author().id.to_string(), &ctx.data().pool).await
 }
 
 pub async fn is_admin(ctx: Context<'_>) -> Result<bool, Error> {
-    let data = ctx.data();
-
-    let staff = sqlx::query!(
-        "SELECT admin FROM users WHERE user_id = $1",
-        ctx.author().id.0.to_string()
-    )
-    .fetch_one(&data.pool)
-    .await?;
-
-    Ok(staff.admin)
+    checks::is_admin(&ctx.author().id.to_string(), &ctx.data().pool).await
 }
 
 pub async fn is_hdev(ctx: Context<'_>) -> Result<bool, Error> {
-    let data = ctx.data();
-
-    let staff = sqlx::query!(
-        "SELECT iblhdev FROM users WHERE user_id = $1",
-        ctx.author().id.0.to_string()
-    )
-    .fetch_one(&data.pool)
-    .await?;
-
-    Ok(staff.iblhdev)
+    checks::is_hdev(&ctx.author().id.to_string(), &ctx.data().pool).await
 }

@@ -1,6 +1,7 @@
 **/target
 **/.env
-bot/.env
-.vscode
+**/.vscode
 bot/bot 
 bot/bot.new
+api/api
+api/api.new

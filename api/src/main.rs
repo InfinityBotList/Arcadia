@@ -3,9 +3,9 @@ use actix_web::middleware::Logger;
 use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use log::{debug, error, info};
 use serenity::async_trait;
-use serenity::client::{EventHandler, Context};
-use sqlx::postgres::PgPoolOptions;
+use serenity::client::{Context, EventHandler};
 use serenity::model::gateway::{GatewayIntents, Ready};
+use sqlx::postgres::PgPoolOptions;
 
 use dotenv::dotenv;
 
@@ -51,10 +51,10 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
     let pool = PgPoolOptions::new()
-                        .max_connections(MAX_CONNECTIONS)
-                        .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
-                        .await
-                        .expect("Could not initialize connection");
+        .max_connections(MAX_CONNECTIONS)
+        .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
+        .await
+        .expect("Could not initialize connection");
 
     debug!("Connected to postgres/redis");
 
@@ -62,19 +62,22 @@ async fn main() -> std::io::Result<()> {
 
     debug!("Server is starting...");
 
-    let mut main_cli = serenity::Client::builder(std::env::var("DISCORD_TOKEN").expect("No DISCORD_TOKEN specified"), GatewayIntents::GUILDS | GatewayIntents::GUILD_MESSAGES | GatewayIntents::GUILD_MEMBERS | GatewayIntents::GUILD_PRESENCES)
+    let mut main_cli = serenity::Client::builder(
+        std::env::var("DISCORD_TOKEN").expect("No DISCORD_TOKEN specified"),
+        GatewayIntents::GUILDS
+            | GatewayIntents::GUILD_MESSAGES
+            | GatewayIntents::GUILD_MEMBERS
+            | GatewayIntents::GUILD_PRESENCES,
+    )
     .event_handler(MainHandler)
     .await
-    .unwrap();  
+    .unwrap();
 
     let cache_http = main_cli.cache_and_http.clone();
 
-    tokio::task::spawn(async move {main_cli.start().await });
+    tokio::task::spawn(async move { main_cli.start().await });
 
-    let app_state = web::Data::new(models::AppState {
-        pool,
-        cache_http,
-    });
+    let app_state = web::Data::new(models::AppState { pool, cache_http });
 
     HttpServer::new(move || {
         let cors = Cors::default()

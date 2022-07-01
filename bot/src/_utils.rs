@@ -67,7 +67,10 @@ pub async fn _page_content(
 
     // Empty buffer
     if !text_chunk.is_empty() {
-        chunks.push(ctx.send(|m| m.content(text_chunk).ephemeral(ephemeral)).await?);
+        chunks.push(
+            ctx.send(|m| m.content(text_chunk).ephemeral(ephemeral))
+                .await?,
+        );
     }
 
     Ok(chunks)
@@ -83,7 +86,7 @@ pub fn modal_get(resp: &serenity::ModalSubmitInteractionData, id: &str) -> Strin
             match component {
                 ActionRowComponent::Button(c) => {
                     if c.custom_id == Some(id) {
-                        return "found".to_string()
+                        return "found".to_string();
                     }
                 }
                 ActionRowComponent::SelectMenu(s) => {
@@ -93,7 +96,7 @@ pub fn modal_get(resp: &serenity::ModalSubmitInteractionData, id: &str) -> Strin
                 }
                 ActionRowComponent::InputText(t) => {
                     if t.custom_id == id {
-                        return t.value.clone()
+                        return t.value.clone();
                     }
                 }
                 _ => {}

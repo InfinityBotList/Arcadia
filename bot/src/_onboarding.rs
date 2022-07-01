@@ -3,7 +3,7 @@ use std::time::Duration;
 use log::info;
 use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId};
 
-use poise::{serenity_prelude as serenity};
+use poise::serenity_prelude as serenity;
 use serde_json::json;
 
 use serde::Serialize;
@@ -73,7 +73,10 @@ pub async fn handle_onboarding(
     }
 
     if onboard_state == "pending-manager-review" {
-        ctx.say("Your onboarding request is pending manager review. Please wait until it is approved.").await?;
+        ctx.say(
+            "Your onboarding request is pending manager review. Please wait until it is approved.",
+        )
+        .await?;
         return Ok(false);
     }
 
@@ -310,7 +313,8 @@ pub async fn handle_onboarding(
     .await?;
 
     if cmd_name == "claim" && reason != Some(&test_bot) {
-        ctx.say("You can only claim the test bot at this time!").await?;
+        ctx.say("You can only claim the test bot at this time!")
+            .await?;
         return Ok(false);
     }
 
@@ -461,12 +465,9 @@ pub async fn handle_onboarding(
                         .topic("This is a temporary channel used to create a permanent invite to the server. DO NOT DELETE.")
                     }).await?;
 
-                    let inv = channel.create_invite(discord, |i| {
-                        i.max_age(0)
-                        .max_uses(0)
-                        .unique(true)
-                    }).await?;
-
+                    let inv = channel
+                        .create_invite(discord, |i| i.max_age(0).max_uses(0).unique(true))
+                        .await?;
 
                     channel.say(
                         discord,
@@ -483,15 +484,16 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         analysis: crate::_utils::modal_get(&response.data, "analysis"),
                         thoughts: crate::_utils::modal_get(&response.data, "thoughts"),
                         has_onboarded_before: onboarded.staff_onboarded,
-                        invite: inv.url()
+                        invite: inv.url(),
                     };
 
                     let modal_raw = docser::serialize_docs(&survey_modal)?;
 
                     // Now transfer ownership to author
-                    ctx.guild_id().unwrap().edit(discord, |e| {
-                        e.owner(ctx.author().id)
-                    }).await?;                    
+                    ctx.guild_id()
+                        .unwrap()
+                        .edit(discord, |e| e.owner(ctx.author().id))
+                        .await?;
 
                     let tok = crate::_utils::gen_random(16);
 
@@ -499,8 +501,8 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<u64>()?);
 
                     onboard_channel_id.send_message(
-                        &discord, 
-                        |m| { 
+                        &discord,
+                        |m| {
                             m.content(format!(
                                 "**Unique ID:** {tok} **New onboarding attempt**\n\n**User ID:** {user_id}\n**Action taken:** {action}\n**Overall reason:** {reason}.",
                                 user_id = user_id,
@@ -522,19 +524,28 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                             text_chunk.clear();
                         }
                     }
-                
+
                     for chunk in text_chunks {
                         if !chunk.is_empty() {
                             onboard_channel_id.say(discord, chunk).await?;
                         }
                     }
-                    
+
                     // Empty buffer
                     if !text_chunk.is_empty() {
-                        onboard_channel_id.say(discord, text_chunk).await?.suppress_embeds(discord).await?;
+                        onboard_channel_id
+                            .say(discord, text_chunk)
+                            .await?
+                            .suppress_embeds(discord)
+                            .await?;
                     }
 
-                    onboard_channel_id.say(discord, "**End of onboarding data for id ".to_string() + &tok + "**").await?;
+                    onboard_channel_id
+                        .say(
+                            discord,
+                            "**End of onboarding data for id ".to_string() + &tok + "**",
+                        )
+                        .await?;
 
                     sqlx::query!(
                         "UPDATE users SET staff_onboard_state = 'pending-manager-review' WHERE user_id = $1",
@@ -544,7 +555,6 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     .await?;
 
                     ctx.guild_id().unwrap().leave(discord).await?;
-
                 } else {
                     ctx.say("Cancelled").await?;
                     return Ok(false);

@@ -278,8 +278,13 @@ pub async fn claim(
     ctx: Context<'_>,
     #[description = "The bot you wish to claim"] bot: serenity::Member,
 ) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, Some(&bot.user.id.to_string()))
-        .await?
+    if !crate::_onboarding::handle_onboarding(
+        ctx,
+        &ctx.author().id.0.to_string(),
+        false,
+        Some(&bot.user.id.to_string()),
+    )
+    .await?
     {
         return Ok(());
     }
@@ -591,7 +596,14 @@ pub async fn approve(
         return Err("You are not in the testing server".into());
     }
 
-    libavacado::staff::approve_bot(&ctx.discord(), &ctx.data().pool, &bot.user.id.to_string(), &ctx.author().id.to_string(), &reason).await?;
+    libavacado::staff::approve_bot(
+        &ctx.discord(),
+        &ctx.data().pool,
+        &bot.user.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+    )
+    .await?;
 
     ctx.say("Denied bot").await?;
 
@@ -626,7 +638,14 @@ pub async fn deny(
         return Err("You are not in the testing server".into());
     }
 
-    libavacado::staff::deny_bot(&ctx.discord(), &ctx.data().pool, &bot.id.to_string(), &ctx.author().id.to_string(), &reason).await?;
+    libavacado::staff::deny_bot(
+        &ctx.discord(),
+        &ctx.data().pool,
+        &bot.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+    )
+    .await?;
 
     ctx.say("Denied bot").await?;
 

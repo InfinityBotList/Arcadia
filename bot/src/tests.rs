@@ -11,7 +11,8 @@ pub async fn test_staffcheck(ctx: Context<'_>) -> Result<(), Error> {
 
 #[poise::command(category = "Tests", prefix_command, check = "checks::is_admin_hdev")]
 pub async fn test_admin_dev(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("You are admin or a head dev! This check works").await?;
+    ctx.say("You are admin or a head dev! This check works")
+        .await?;
     Ok(())
 }
 

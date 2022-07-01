@@ -1,4 +1,4 @@
-use actix_web::{post, HttpRequest, HttpResponse, http::header::HeaderValue, web};
+use actix_web::{http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -10,7 +10,9 @@ pub struct ApproveDenyRequest {
 
 #[post("/approve")]
 pub async fn approve(req: HttpRequest, info: web::Json<ApproveDenyRequest>) -> HttpResponse {
-    let data: &crate::models::AppState = req.app_data::<web::Data<crate::models::AppState>>().unwrap();
+    let data: &crate::models::AppState = req
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
 
     let auth_default = &HeaderValue::from_str("").unwrap();
     let auth = req
@@ -32,12 +34,19 @@ pub async fn approve(req: HttpRequest, info: web::Json<ApproveDenyRequest>) -> H
     }
 
     let check = check.unwrap();
-    
+
     if check.api_token != auth || !check.staff {
         return HttpResponse::Unauthorized().finish();
     }
 
-    let err = libavacado::staff::approve_bot(&data.cache_http, &data.pool, &info.bot_id, &info.staff_id, &info.reason).await;
+    let err = libavacado::staff::approve_bot(
+        &data.cache_http,
+        &data.pool,
+        &info.bot_id,
+        &info.staff_id,
+        &info.reason,
+    )
+    .await;
 
     if err.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {

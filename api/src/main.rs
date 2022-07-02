@@ -110,6 +110,8 @@ async fn main() -> std::io::Result<()> {
                 middleware::TrailingSlash::MergeOnly,
             ))
             .default_service(web::route().to(not_found))
+        .service(testing::approve)
+        .service(testing::deny)
     })
     .workers(8)
     .bind("localhost:3010")?

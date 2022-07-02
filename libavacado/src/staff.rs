@@ -109,6 +109,10 @@ pub async fn approve_bot(
         return Err("onboarding_required".into());
     }
 
+    if reason.len() < 5 || reason.len() > 2000 {
+        return Err("Reason is too short or too long".into());
+    }
+
     sqlx::query!(
         "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
     )
@@ -238,6 +242,10 @@ pub async fn deny_bot(
     // We should never get this on bot, but maybe on website
     if onboard_state.staff_onboard_state != "complete" {
         return Err("onboarding_required".into());
+    }
+
+    if reason.len() < 5 || reason.len() > 2000 {
+        return Err("Reason is too short or too long".into());
     }
 
     sqlx::query!(

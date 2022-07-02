@@ -605,7 +605,7 @@ pub async fn approve(
     )
     .await?;
 
-    ctx.say("Denied bot").await?;
+    ctx.say("Approved bot").await?;
 
     Ok(())
 }

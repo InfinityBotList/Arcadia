@@ -1,5 +1,6 @@
 use crate::_checks as checks;
 
+use poise::serenity_prelude::User;
 use sqlx::Column;
 use sqlx::Row;
 
@@ -155,4 +156,21 @@ pub async fn update_field(
     }
 
     Ok(())
+}
+
+#[poise::command(track_edits, prefix_command, slash_command, check = "checks::is_hdev_hadmin")]
+pub async fn votereset(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+) -> Result<(), crate::Error> {
+    libavacado::manage::vote_reset(&ctx.discord(), &ctx.data().pool, &bot.id.to_string(), &ctx.author().id.to_string(), &reason).await
+}
+
+#[poise::command(track_edits, prefix_command, slash_command, check = "checks::is_hdev_hadmin")]
+pub async fn voteresetall(
+    ctx: crate::Context<'_>,
+    #[description = "The reason"] reason: String,
+) -> Result<(), crate::Error> {
+    libavacado::manage::vote_reset_all(&ctx.discord(), &ctx.data().pool, &ctx.author().id.to_string(), &reason).await
 }

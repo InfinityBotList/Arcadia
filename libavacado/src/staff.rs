@@ -23,8 +23,8 @@ pub async fn add_action_log(
     pool: &PgPool,
     bot_id: &str,
     staff_id: &str,
-    reason: String,
-    event_type: String,
+    reason: &str,
+    event_type: &str,
 ) -> Result<(), Error> {
     sqlx::query!(
         "INSERT INTO action_logs (bot_id, staff_id, action_reason, event) VALUES ($1, $2, $3, $4)",
@@ -157,8 +157,8 @@ pub async fn approve_bot(
         pool,
         &bot_id,
         &staff_id,
-        reason.to_string(),
-        "approve".to_string(),
+        reason,
+        "approve",
     )
     .await?;
 
@@ -291,10 +291,10 @@ pub async fn deny_bot(
     // Add action logs
     add_action_log(
         &pool,
-        &bot_id,
-        &staff_id,
-        reason.to_string(),
-        "deny".to_string(),
+        bot_id,
+        staff_id,
+        reason,
+        "deny",
     )
     .await?;
 

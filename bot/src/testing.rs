@@ -331,8 +331,8 @@ pub async fn claim(
             &data.pool,
             &bot.user.id.0.to_string(),
             &ctx.author().id.0.to_string(),
-            "Claimed".to_string(),
-            "claim".to_string(),
+            "Claimed",
+            "claim",
         )
         .await?;
 
@@ -417,8 +417,8 @@ pub async fn claim(
                     &data.pool,
                     &bot.user.id.0.to_string(),
                     &claimed_by,
-                    "User reminder".to_string(),
-                    "reminder".to_string(),
+                    "User reminder",
+                    "reminder",
                 )
                 .await?;
                 ctx.say(
@@ -442,8 +442,8 @@ pub async fn claim(
                     &data.pool,
                     &bot.user.id.0.to_string(),
                     &ctx.author().id.0.to_string(),
-                    "Force claim since previous staff did not finish reviewing bot".to_string(),
-                    "claim".to_string(),
+                    "Force claim since previous staff did not finish reviewing bot",
+                    "claim",
                 )
                 .await?;
 
@@ -541,8 +541,8 @@ pub async fn unclaim(
             &data.pool,
             &bot.user.id.0.to_string(),
             &ctx.author().id.0.to_string(),
-            "Unclaimed bot".to_string(),
-            "unclaim".to_string(),
+            "Unclaimed bot",
+            "unclaim",
         )
         .await?;
 

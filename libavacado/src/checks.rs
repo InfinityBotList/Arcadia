@@ -47,3 +47,19 @@ pub async fn is_hdev(id: &str, pool: &PgPool) -> Result<bool, Error> {
 
     Ok(staff.iblhdev)
 }
+
+pub async fn is_hadmin(id: &str, pool: &PgPool) -> Result<bool, Error> {
+    let staff = sqlx::query!("SELECT hadmin FROM users WHERE user_id = $1", id)
+        .fetch_one(pool)
+        .await?;
+
+    Ok(staff.hadmin)
+}
+
+pub async fn is_hdev_hadmin(id: &str, pool: &PgPool) -> Result<bool, Error> {
+    let staff = sqlx::query!("SELECT iblhdev, hadmin FROM users WHERE user_id = $1", id)
+        .fetch_one(pool)
+        .await?;
+
+    Ok(staff.iblhdev || staff.hadmin)
+}

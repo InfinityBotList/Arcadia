@@ -89,7 +89,6 @@ async fn main() -> std::io::Result<()> {
                 http::header::AUTHORIZATION,
                 http::header::ACCEPT,
                 http::header::CONTENT_TYPE,
-                http::header::HeaderName::from_bytes(b"Method").unwrap(),
             ])
             .supports_credentials()
             .max_age(3600);
@@ -112,6 +111,8 @@ async fn main() -> std::io::Result<()> {
             .default_service(web::route().to(not_found))
         .service(testing::approve)
         .service(testing::deny)
+        .service(testing::vote_reset)
+        .service(testing::vote_reset_all)
     })
     .workers(8)
     .bind("localhost:3010")?

@@ -436,6 +436,8 @@ async fn main() {
                 tests::test_admin_dev(),
                 tests::test_admin(),
                 admin::update_field(),
+                admin::votereset(),
+                admin::voteresetall(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {

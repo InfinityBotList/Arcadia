@@ -73,11 +73,11 @@ pub fn gen_random(length: usize) -> String {
 }
 
 pub async fn search_bots(
-    query: String,
+    query: &String,
     pool: &PgPool,
     public: &AvacadoPublic
 ) -> Result<Arc<Search>, Error> {
-    let search = public.search_cache.get(&query);
+    let search = public.search_cache.get(query);
 
     if search.is_some() {
         let search_inf = search.unwrap().clone();
@@ -89,7 +89,7 @@ pub async fn search_bots(
             SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, unnest(tags) AS tag_unnest FROM bots
         ) bots WHERE type = 'approved' AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) ORDER BY votes DESC, certified DESC LIMIT 6",
         query,
-        "%".to_string() + &query + "%"
+        "%".to_string() + query + "%"
     )
     .fetch_all(pool)
     .await?;
@@ -114,7 +114,7 @@ pub async fn search_bots(
             SELECT name, short, owner, bots, votes, url, unnest(bots) AS bot_unnest FROM packs
         ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner @@ $1) LIMIT 6",
         query,
-        "%".to_string() + &query + "%"
+        "%".to_string() + query + "%"
     )
     .fetch_all(pool)
     .await?;
@@ -163,7 +163,7 @@ pub async fn search_bots(
         WHERE (bots.name ILIKE $2 OR bots.short @@ $1 OR bots.bot_id @@ $1) 
         OR (users.username @@ $1) LIMIT 12",
         query,
-        "%".to_string() + &query + "%"
+        "%".to_string() + query + "%"
     )
     .fetch_all(pool)
     .await?;

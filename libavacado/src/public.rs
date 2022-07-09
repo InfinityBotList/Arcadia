@@ -197,7 +197,7 @@ pub async fn search_bots(
     let packs = sqlx::query!(
         "SELECT DISTINCT name, short, bots, votes, url FROM (
             SELECT name, short, owner, bots, votes, url, unnest(bots) AS bot_unnest FROM packs
-        ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner @@ $1) LIMIT 6",
+        ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner @@ $1) LIMIT 3",
         query,
         "%".to_string() + query + "%"
     )

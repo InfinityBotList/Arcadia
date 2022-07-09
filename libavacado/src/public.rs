@@ -64,7 +64,7 @@ pub struct AvacadoPublic {
 
 impl AvacadoPublic {
     pub fn new(cache_http: Arc<CacheAndHttp>) -> Self {
-        let cfg = deadpool_redis::Config::from_url("http://127.0.0.1:6379/8");
+        let cfg = deadpool_redis::Config::from_url("redis://127.0.0.1:6379/8");
         Self {
             search_cache: Cache::builder()
             // Time to live (TTL): 5 minutes

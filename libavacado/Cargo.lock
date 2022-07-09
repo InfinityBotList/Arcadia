@@ -784,6 +784,7 @@ dependencies = [
  "chrono",
  "log",
  "moka",
+ "rand",
  "reqwest",
  "serde",
  "serenity",

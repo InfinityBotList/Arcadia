@@ -6,14 +6,16 @@ use moka::future::Cache;
 use serde::Serialize;
 use sqlx::PgPool;
 
-#[derive(Serialize)]
+use rand::{distributions::Alphanumeric, Rng};
+
+#[derive(Serialize, Debug)]
 pub struct Search {
     pub bots: Vec<SearchBot>,
     pub packs: Vec<SearchPack>,
     pub users: Vec<SearchUser>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SearchBot {
     pub bot_id: String,
     pub name: String,
@@ -25,17 +27,19 @@ pub struct SearchBot {
     pub certified: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SearchPack {
     pub name: String,
+    pub url: String,
     pub description: String,
-    pub bots: Vec<String>,
+    pub bots: Vec<SearchBot>,
     pub votes: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SearchUser {
     pub user_id: String,
+    pub name: String,
     pub about: Option<String>,
 }
 
@@ -58,6 +62,16 @@ impl AvacadoPublic {
     }
 }
 
+pub fn gen_random(length: usize) -> String {
+    let s: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect();
+
+    s
+}
+
 pub async fn search_bots(
     query: String,
     pool: &PgPool,
@@ -73,7 +87,8 @@ pub async fn search_bots(
     let bots = sqlx::query!(
         "SELECT DISTINCT bot_id, name, short, invite, servers, shards, votes, certified FROM (
             SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, unnest(tags) AS tag_unnest FROM bots
-        ) bots WHERE type = 'approved' AND (name ILIKE $1 OR owner ILIKE $1 OR short ILIKE $1 OR tag_unnest ILIKE $1) ORDER BY votes DESC, certified DESC LIMIT 6",
+        ) bots WHERE type = 'approved' AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) ORDER BY votes DESC, certified DESC LIMIT 6",
+        query,
         "%".to_string() + &query + "%"
     )
     .fetch_all(pool)
@@ -95,9 +110,10 @@ pub async fn search_bots(
     }
 
     let packs = sqlx::query!(
-        "SELECT DISTINCT name, short, bots, votes FROM (
-            SELECT name, short, owner, bots, votes, unnest(bots) AS bot_unnest FROM packs
-        ) packs WHERE (name ILIKE $1 OR bot_unnest ILIKE $1 OR short ILIKE $1 OR owner ILIKE $1) LIMIT 6",
+        "SELECT DISTINCT name, short, bots, votes, url FROM (
+            SELECT name, short, owner, bots, votes, url, unnest(bots) AS bot_unnest FROM packs
+        ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner @@ $1) LIMIT 6",
+        query,
         "%".to_string() + &query + "%"
     )
     .fetch_all(pool)
@@ -109,16 +125,44 @@ pub async fn search_bots(
         search_packs.push(SearchPack {
             name: pack.name,
             description: pack.short,
-            bots: pack.bots,
+            url: pack.url,
+            bots: Vec::new(),
             votes: pack.votes
         });
+
+        for bot in pack.bots {
+            let res = sqlx::query!(
+                "SELECT bot_id, name, short, invite, servers, shards, votes, certified FROM bots WHERE bot_id = $1",
+                bot
+            )
+            .fetch_one(pool)
+            .await;
+
+            if res.is_err() {
+                continue
+            }
+
+            let res = res.unwrap();
+
+            search_packs.last_mut().unwrap().bots.push(SearchBot {
+                bot_id: res.bot_id,
+                name: res.name,
+                description: res.short,
+                invite: res.invite,
+                servers: res.servers,
+                shards: res.shards,
+                votes: res.votes,
+                certified: res.certified,
+            });
+        }
     }
 
     let users = sqlx::query!(
-        "SELECT DISTINCT users.user_id, users.about FROM users 
+        "SELECT DISTINCT users.user_id, users.username, users.about FROM users 
         INNER JOIN bots ON bots.owner = users.user_id 
-        WHERE (bots.name ilike $1 OR bots.short ilike $1 OR bots.bot_id ilike $1) 
-        OR (users.username ilike $1) LIMIT 12",
+        WHERE (bots.name ILIKE $2 OR bots.short @@ $1 OR bots.bot_id @@ $1) 
+        OR (users.username @@ $1) LIMIT 12",
+        query,
         "%".to_string() + &query + "%"
     )
     .fetch_all(pool)
@@ -129,6 +173,7 @@ pub async fn search_bots(
     for user in users {
         search_users.push(SearchUser {
             user_id: user.user_id,
+            name: user.username,
             about: user.about
         });
     }

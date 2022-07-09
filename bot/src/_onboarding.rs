@@ -134,7 +134,7 @@ pub async fn handle_onboarding(
                     // Create new channel
                     let channel = guild
                         .create_channel(&discord, |c| {
-                            c.name("invite-attempt-".to_string() + &crate::_utils::gen_random(6))
+                            c.name("invite-attempt-".to_string() + &libavacado::public::gen_random(6))
                                 .kind(serenity::model::channel::ChannelType::Text)
                         })
                         .await?;
@@ -174,7 +174,7 @@ pub async fn handle_onboarding(
             // Create a channel
             let channel = new_guild
                 .create_channel(&discord, |c| {
-                    c.name("invite-attempt-".to_string() + &crate::_utils::gen_random(6))
+                    c.name("invite-attempt-".to_string() + &libavacado::public::gen_random(6))
                         .kind(serenity::model::channel::ChannelType::Text)
                 })
                 .await?;
@@ -495,7 +495,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         .edit(discord, |e| e.owner(ctx.author().id))
                         .await?;
 
-                    let tok = crate::_utils::gen_random(16);
+                    let tok = libavacado::public::gen_random(16);
 
                     let onboard_channel_id =
                         ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<u64>()?);

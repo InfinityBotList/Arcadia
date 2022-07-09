@@ -1,16 +1,5 @@
 use log::error;
 use poise::serenity_prelude::{self as serenity, ActionRowComponent};
-use rand::{distributions::Alphanumeric, Rng};
-
-pub fn gen_random(length: usize) -> String {
-    let s: String = rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .map(char::from)
-        .collect();
-
-    s
-}
 
 pub async fn delete_leave_guild(
     http: &serenity::http::Http,

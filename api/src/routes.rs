@@ -1,4 +1,4 @@
-use actix_web::{http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
+use actix_web::{http::header::HeaderValue, get, post, web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -216,4 +216,31 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -
     }
 
     HttpResponse::Ok().body("")
+}
+
+#[derive(Deserialize)]
+pub struct SearchQuery {
+    q: String
+}
+
+#[get("/tetanus")]
+pub async fn tetanus_search_service(req: HttpRequest, q: web::Query<SearchQuery>) -> HttpResponse {
+    let data: &crate::models::AppState = req
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
+
+    let search_res = libavacado::public::search_bots(q.q.clone(), &data.pool, &data.avacado_public).await;
+
+    if search_res.is_err() {
+        let err = search_res.unwrap_err();
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: err.to_string(),
+            context: None,
+        });
+    }
+
+    let search_res = search_res.unwrap();
+
+    HttpResponse::Ok().json(search_res)
 }

@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use actix_cors::Cors;
 use actix_web::middleware::Logger;
 use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
+use libavacado::public::AvacadoPublic;
 use log::{debug, error, info};
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
@@ -10,7 +13,7 @@ use sqlx::postgres::PgPoolOptions;
 use dotenv::dotenv;
 
 mod models;
-mod testing;
+mod routes;
 
 use crate::models::APIResponse;
 
@@ -77,7 +80,7 @@ async fn main() -> std::io::Result<()> {
 
     tokio::task::spawn(async move { main_cli.start().await });
 
-    let app_state = web::Data::new(models::AppState { pool, cache_http });
+    let app_state = web::Data::new(models::AppState { pool, cache_http, avacado_public: Arc::new(AvacadoPublic::new()) });
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -109,10 +112,11 @@ async fn main() -> std::io::Result<()> {
                 middleware::TrailingSlash::MergeOnly,
             ))
             .default_service(web::route().to(not_found))
-        .service(testing::approve)
-        .service(testing::deny)
-        .service(testing::vote_reset)
-        .service(testing::vote_reset_all)
+        .service(routes::approve)
+        .service(routes::deny)
+        .service(routes::vote_reset)
+        .service(routes::vote_reset_all)
+        .service(routes::tetanus_search_service)
     })
     .workers(8)
     .bind("localhost:3010")?

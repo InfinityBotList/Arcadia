@@ -246,7 +246,7 @@ pub async fn search_bots(
         "SELECT DISTINCT users.user_id, users.username, users.about FROM users 
         INNER JOIN bots ON bots.owner = users.user_id 
         WHERE (bots.name ILIKE $2 OR bots.short @@ $1 OR bots.bot_id @@ $1) 
-        OR (users.username @@ $1) LIMIT 12",
+        OR (users.username @@ $1) LIMIT 6",
         query,
         "%".to_string() + query + "%"
     )

@@ -80,7 +80,7 @@ async fn main() -> std::io::Result<()> {
 
     tokio::task::spawn(async move { main_cli.start().await });
 
-    let app_state = web::Data::new(models::AppState { pool, cache_http, avacado_public: Arc::new(AvacadoPublic::new()) });
+    let app_state = web::Data::new(models::AppState { pool, cache_http: cache_http.clone(), avacado_public: Arc::new(AvacadoPublic::new(cache_http)) });
 
     HttpServer::new(move || {
         let cors = Cors::default()

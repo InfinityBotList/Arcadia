@@ -3,7 +3,10 @@ use std::{sync::Arc, time::Duration};
 use crate::types::Error;
 
 use moka::future::Cache;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
+use serenity::model::id::UserId;
+use serenity::{http::CacheHttp, model::id::GuildId};
+use serenity::CacheAndHttp;
 use sqlx::PgPool;
 
 use rand::{distributions::Alphanumeric, Rng};
@@ -17,8 +20,8 @@ pub struct Search {
 
 #[derive(Serialize, Debug)]
 pub struct SearchBot {
-    pub bot_id: String,
-    pub name: String,
+    pub user: Arc<DiscordUser>,
+    pub tags: Vec<String>,
     pub description: String,
     pub invite: String,
     pub servers: i32,
@@ -38,18 +41,27 @@ pub struct SearchPack {
 
 #[derive(Serialize, Debug)]
 pub struct SearchUser {
-    pub user_id: String,
-    pub name: String,
+    pub user: Arc<DiscordUser>,
     pub about: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DiscordUser {
+    pub id: String,
+    pub username: String,
+    pub discriminator: String,
+    pub avatar: Option<String>,
 }
 
 // Public avacado client used to store caches
 pub struct AvacadoPublic {
-    search_cache: Cache<String, Arc<Search>>
+    search_cache: Cache<String, Arc<Search>>,
+    user_cache: Cache<u64, Arc<DiscordUser>>,
+    cache_http: Arc<CacheAndHttp>,
 }
 
 impl AvacadoPublic {
-    pub fn new() -> Self {
+    pub fn new(cache_http: Arc<CacheAndHttp>) -> Self {
         Self {
             search_cache: Cache::builder()
             // Time to live (TTL): 1 minute
@@ -58,6 +70,14 @@ impl AvacadoPublic {
             .time_to_idle(Duration::from_secs(30))
             // Create the cache.
             .build(),
+            user_cache: Cache::builder()
+            // Time to live (TTL): 4 hours
+            .time_to_live(Duration::from_secs(4 * 60 * 60))
+            // Time to idle (TTI):  30 seconds
+            .time_to_idle(Duration::from_secs(2 * 60 * 60))
+            // Create the cache.
+            .build(),
+            cache_http,
         }
     }
 }
@@ -72,11 +92,76 @@ pub fn gen_random(length: usize) -> String {
     s
 }
 
+pub async fn get_user(public: &AvacadoPublic, id: &str, no_err: bool) -> Result<Arc<DiscordUser>, Error> {
+    let id_u64 = id.parse::<u64>()?;
+
+    let cached = public.user_cache.get(&id_u64);
+
+    if let Some(cached) = cached {
+        return Ok(cached)
+    }
+
+    // Next try fetching it from main server as a member
+    let main_server = std::env::var("MAIN_SERVER")?;
+
+    let main_server_u64 = main_server.parse::<u64>()?;
+
+    let cache = public.cache_http.cache().unwrap();
+
+    let member = cache.member(GuildId(main_server_u64), UserId(id_u64));
+
+    if let Some(member) = member {
+        let user = DiscordUser {
+            id: member.user.id.0.to_string(),
+            username: member.user.name.to_string(),
+            discriminator: member.user.discriminator.to_string(),
+            avatar: member.user.avatar_url(),
+        };
+
+        let arc_user = Arc::new(user);
+
+        public.user_cache.insert(id_u64, arc_user.clone()).await;
+
+        return Ok(arc_user)
+    }
+
+    // Not in main server, lets just get it from discord API
+
+    let user = UserId(id_u64).to_user(&public.cache_http).await;
+
+    if user.is_err() {
+        if no_err {
+            return Ok(Arc::new(DiscordUser {
+                id: id.to_string(),
+                username: "Unknown User".to_string(),
+                discriminator: "0000".to_string(),
+                avatar: None,
+            }))
+        } else {
+            return Err(Box::new(user.unwrap_err()))
+        }
+    }
+
+    let user = user.unwrap();
+
+    let arc_user = Arc::new(DiscordUser {
+        id: user.id.0.to_string(),
+        username: user.name.to_string(),
+        discriminator: user.discriminator.to_string(),
+        avatar: user.avatar_url(),
+    });
+
+    public.user_cache.insert(id_u64, arc_user.clone()).await;
+
+    Ok(arc_user)
+}
+
 pub async fn search_bots(
     query: &String,
     pool: &PgPool,
     public: &AvacadoPublic
 ) -> Result<Arc<Search>, Error> {
+
     let search = public.search_cache.get(query);
 
     if search.is_some() {
@@ -85,8 +170,8 @@ pub async fn search_bots(
     }
 
     let bots = sqlx::query!(
-        "SELECT DISTINCT bot_id, name, short, invite, servers, shards, votes, certified FROM (
-            SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, unnest(tags) AS tag_unnest FROM bots
+        "SELECT DISTINCT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM (
+            SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
         ) bots WHERE type = 'approved' AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) ORDER BY votes DESC, certified DESC LIMIT 6",
         query,
         "%".to_string() + query + "%"
@@ -98,14 +183,14 @@ pub async fn search_bots(
 
     for bot in bots {
         search_bots.push(SearchBot {
-            bot_id: bot.bot_id,
-            name: bot.name,
+            user: get_user(public, &bot.bot_id, true).await?,
             description: bot.short,
             invite: bot.invite,
             servers: bot.servers,
             shards: bot.shards,
             votes: bot.votes,
             certified: bot.certified,
+            tags: bot.tags,
         });
     }
 
@@ -132,7 +217,7 @@ pub async fn search_bots(
 
         for bot in pack.bots {
             let res = sqlx::query!(
-                "SELECT bot_id, name, short, invite, servers, shards, votes, certified FROM bots WHERE bot_id = $1",
+                "SELECT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM bots WHERE bot_id = $1",
                 bot
             )
             .fetch_one(pool)
@@ -145,14 +230,14 @@ pub async fn search_bots(
             let res = res.unwrap();
 
             search_packs.last_mut().unwrap().bots.push(SearchBot {
-                bot_id: res.bot_id,
-                name: res.name,
+                user: get_user(public, &res.bot_id, true).await?,
                 description: res.short,
                 invite: res.invite,
                 servers: res.servers,
                 shards: res.shards,
                 votes: res.votes,
                 certified: res.certified,
+                tags: res.tags,
             });
         }
     }
@@ -172,8 +257,7 @@ pub async fn search_bots(
 
     for user in users {
         search_users.push(SearchUser {
-            user_id: user.user_id,
-            name: user.username,
+            user: get_user(public, &user.user_id, true).await?,
             about: user.about
         });
     }

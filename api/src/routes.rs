@@ -229,7 +229,7 @@ pub async fn tetanus_search_service(req: HttpRequest, q: web::Query<SearchQuery>
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
 
-    let search_res = libavacado::public::search_bots(&q.q, &data.pool, &data.avacado_public).await;
+    let search_res = libavacado::public::search_bots( &q.q, &data.pool, &data.avacado_public).await;
 
     if search_res.is_err() {
         let err = search_res.unwrap_err();

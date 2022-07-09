@@ -64,10 +64,10 @@ impl AvacadoPublic {
     pub fn new(cache_http: Arc<CacheAndHttp>) -> Self {
         Self {
             search_cache: Cache::builder()
-            // Time to live (TTL): 1 minute
-            .time_to_live(Duration::from_secs(60))
-            // Time to idle (TTI):  30 seconds
-            .time_to_idle(Duration::from_secs(30))
+            // Time to live (TTL): 5 minutes
+            .time_to_live(Duration::from_secs(60 * 5))
+            // Time to idle (TTI): 3 minutes
+            .time_to_idle(Duration::from_secs(60 * 3))
             // Create the cache.
             .build(),
             user_cache: Cache::builder()
@@ -172,7 +172,7 @@ pub async fn search_bots(
     let bots = sqlx::query!(
         "SELECT DISTINCT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM (
             SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
-        ) bots WHERE type = 'approved' AND (name ILIKE $2 OR owner = $1 OR short @@ $1 OR tag_unnest @@ $1) ORDER BY votes DESC, certified DESC LIMIT 6",
+        ) bots WHERE type = 'approved' AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) ORDER BY votes DESC, certified DESC LIMIT 6",
         query,
         "%".to_string() + query + "%"
     )
@@ -197,7 +197,7 @@ pub async fn search_bots(
     let packs = sqlx::query!(
         "SELECT DISTINCT name, short, bots, votes, url FROM (
             SELECT name, short, owner, bots, votes, url, unnest(bots) AS bot_unnest FROM packs
-        ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner = $1) LIMIT 6",
+        ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner @@ $1) LIMIT 6",
         query,
         "%".to_string() + query + "%"
     )

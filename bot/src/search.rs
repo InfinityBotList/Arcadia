@@ -22,6 +22,8 @@ pub async fn searchbots(
         msg.push_str(&(docser::serialize_docs(pack)?));
     }
 
+    msg += "**Users**\n";
+
     for user in &search_res.users {
         msg.push_str(&(docser::serialize_docs(user)?));
     }

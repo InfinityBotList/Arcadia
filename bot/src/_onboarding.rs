@@ -519,7 +519,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     let mut text_chunk = String::new();
                     for (i, c) in modal_raw.chars().enumerate() {
                         text_chunk.push(c);
-                        if i % 2000 == 0 && i > 0 {
+                        if i % 1998 == 0 && i > 0 {
                             text_chunks.push(text_chunk.clone());
                             text_chunk.clear();
                         }

@@ -42,7 +42,7 @@ pub async fn page_content(
     let mut text_chunk = String::new();
     for (i, c) in text.chars().enumerate() {
         text_chunk.push(c);
-        if i % 2000 == 0 && i > 0 {
+        if i % 1998 == 0 && i > 0 {
             text_chunks.push(text_chunk.clone());
             text_chunk.clear();
         }

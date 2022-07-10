@@ -109,7 +109,7 @@ pub async fn approve_bot(
         return Err("onboarding_required".into());
     }
 
-    if reason.len() < 5 || reason.len() > 2000 {
+    if reason.len() < 5 || reason.len() > 1998 {
         return Err("Reason is too short or too long".into());
     }
 
@@ -244,7 +244,7 @@ pub async fn deny_bot(
         return Err("onboarding_required".into());
     }
 
-    if reason.len() < 5 || reason.len() > 2000 {
+    if reason.len() < 5 || reason.len() > 1998 {
         return Err("Reason is too short or too long".into());
     }
 

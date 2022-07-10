@@ -226,7 +226,7 @@ pub async fn queue(
             )?;
         }
 
-        if desc_str.len() > 2000 {
+        if desc_str.len() > 1998 {
             if embed {
                 ctx.send(|m| {
                     m.embed(|e| {

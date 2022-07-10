@@ -130,7 +130,7 @@ pub async fn update_field(
 
     ctx.say("SQL statement executed").await?;
 
-    // Split SQL into 2000 character chunks and keep sending
+    // Split SQL into 1998 character chunks and keep sending
     let sql_full = format!("{:?}", sql_data);
 
     let mut sql_chunks = Vec::new();
@@ -138,7 +138,7 @@ pub async fn update_field(
     let mut sql_chunk = String::new();
     for (i, c) in sql_full.chars().enumerate() {
         sql_chunk.push(c);
-        if i % 2000 == 0 && i > 0 {
+        if i % 1998 == 0 && i > 0 {
             sql_chunks.push(sql_chunk.clone());
             sql_chunk.clear();
         }

@@ -9,7 +9,7 @@ use std::time::Duration;
 use poise::serenity_prelude as serenity;
 
 /// Returns a field on a specific bot id
-#[poise::command(track_edits, prefix_command, slash_command, check = "checks::is_hdev")]
+#[poise::command(category = "Admin", track_edits, prefix_command, slash_command, check = "checks::is_hdev")]
 pub async fn update_field(
     ctx: crate::Context<'_>,
     #[description = "The sql statement"] sql: String,
@@ -158,7 +158,7 @@ pub async fn update_field(
     Ok(())
 }
 
-#[poise::command(track_edits, prefix_command, slash_command, check = "checks::is_hdev_hadmin")]
+#[poise::command(category = "Admin", track_edits, prefix_command, slash_command, check = "checks::is_hdev_hadmin")]
 pub async fn votereset(
     ctx: crate::Context<'_>,
     #[description = "The bots ID"] bot: User,
@@ -167,7 +167,7 @@ pub async fn votereset(
     libavacado::manage::vote_reset(&ctx.discord(), &ctx.data().pool, &bot.id.to_string(), &ctx.author().id.to_string(), &reason).await
 }
 
-#[poise::command(track_edits, prefix_command, slash_command, check = "checks::is_hdev_hadmin")]
+#[poise::command(category = "Admin", track_edits, prefix_command, slash_command, check = "checks::is_hdev_hadmin")]
 pub async fn voteresetall(
     ctx: crate::Context<'_>,
     #[description = "The reason"] reason: String,

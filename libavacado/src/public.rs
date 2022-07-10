@@ -1,69 +1,47 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::types::Error;
+use crate::types::{Error, DiscordUser};
 
 use deadpool_redis::redis::AsyncCommands;
 use moka::future::Cache;
-use serde::{Serialize, Deserialize};
 use serenity::model::id::UserId;
 use serenity::{http::CacheHttp, model::id::GuildId};
-use serenity::CacheAndHttp;
-use sqlx::PgPool;
 
 use rand::{distributions::Alphanumeric, Rng};
 
-#[derive(Serialize, Debug)]
-pub struct Search {
-    pub bots: Vec<SearchBot>,
-    pub packs: Vec<SearchPack>,
-    pub users: Vec<SearchUser>,
+// Private struct to handle rust trait errors
+pub struct AvcCacheHttpImpl {
+    cache: Arc<serenity::cache::Cache>,
+    http: Arc<serenity::http::Http>,
 }
 
-#[derive(Serialize, Debug)]
-pub struct SearchBot {
-    pub user: Arc<DiscordUser>,
-    pub tags: Vec<String>,
-    pub description: String,
-    pub invite: String,
-    pub servers: i32,
-    pub shards: i32,
-    pub votes: i32,
-    pub certified: bool,
-}
+impl CacheHttp for AvcCacheHttpImpl {
+    fn http(&self) -> &serenity::http::Http {
+        &self.http
+    }
 
-#[derive(Serialize, Debug)]
-pub struct SearchPack {
-    pub name: String,
-    pub url: String,
-    pub description: String,
-    pub bots: Vec<SearchBot>,
-    pub votes: i64,
-}
-
-#[derive(Serialize, Debug)]
-pub struct SearchUser {
-    pub user: Arc<DiscordUser>,
-    pub about: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct DiscordUser {
-    pub id: String,
-    pub username: String,
-    pub discriminator: String,
-    pub avatar: Option<String>,
+    fn cache(&self) -> Option<&Arc<serenity::cache::Cache>> {
+        Some(&self.cache)
+    }
 }
 
 // Public avacado client used to store caches
 pub struct AvacadoPublic {
-    search_cache: Cache<String, Arc<Search>>,
-    redis: deadpool_redis::Pool,
-    user_cache: Cache<u64, Arc<DiscordUser>>,
-    cache_http: Arc<CacheAndHttp>,
+    pub search_cache: Cache<String, Arc<crate::types::Search>>,
+    pub redis: deadpool_redis::Pool,
+    pub user_cache: Cache<u64, Arc<DiscordUser>>,
+    pub cache: Arc<serenity::cache::Cache>,
+
+    // Http is unused right now but will be used later
+    #[allow(dead_code)]
+    pub http: Arc<serenity::http::Http>,
+
+    // Custom struct to avoid rust trait errors
+    pub cache_http: AvcCacheHttpImpl,
 }
 
 impl AvacadoPublic {
-    pub fn new(cache_http: Arc<CacheAndHttp>) -> Self {
+    pub fn new(cache: Arc<serenity::cache::Cache>, http: Arc<serenity::http::Http>) -> Self {
         let cfg = deadpool_redis::Config::from_url("redis://127.0.0.1:6379/8");
         Self {
             search_cache: Cache::builder()
@@ -81,7 +59,12 @@ impl AvacadoPublic {
             // Create the cache.
             .build(),
             redis: cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1)).unwrap(),
-            cache_http,
+            cache: cache.clone(),
+            http: http.clone(),
+            cache_http: AvcCacheHttpImpl {
+                cache,
+                http,
+            },
         }
     }
 }
@@ -127,9 +110,7 @@ pub async fn get_user(public: &AvacadoPublic, id: &str, no_err: bool) -> Result<
 
     let main_server_u64 = main_server.parse::<u64>()?;
 
-    let cache = public.cache_http.cache().unwrap();
-
-    let member = cache.member(GuildId(main_server_u64), UserId(id_u64));
+    let member = public.cache.member(GuildId(main_server_u64), UserId(id_u64));
 
     if let Some(member) = member {
         let user = DiscordUser {
@@ -185,121 +166,4 @@ pub async fn get_user(public: &AvacadoPublic, id: &str, no_err: bool) -> Result<
     conn.set_ex(id, user_json, 60 * 60 * 4).await?;
 
     Ok(arc_user)
-}
-
-pub async fn search_bots(
-    query: &String,
-    pool: &PgPool,
-    public: &AvacadoPublic
-) -> Result<Arc<Search>, Error> {
-
-    let search = public.search_cache.get(query);
-
-    if search.is_some() {
-        let search_inf = search.unwrap().clone();
-        return Ok(search_inf.into());
-    }
-
-    let bots = sqlx::query!(
-        "SELECT DISTINCT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM (
-            SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
-        ) bots WHERE type = 'approved' AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) ORDER BY votes DESC, certified DESC LIMIT 6",
-        query,
-        "%".to_string() + query + "%"
-    )
-    .fetch_all(pool)
-    .await?;
-
-    let mut search_bots = Vec::new();
-
-    for bot in bots {
-        search_bots.push(SearchBot {
-            user: get_user(public, &bot.bot_id, true).await?,
-            description: bot.short,
-            invite: bot.invite,
-            servers: bot.servers,
-            shards: bot.shards,
-            votes: bot.votes,
-            certified: bot.certified,
-            tags: bot.tags,
-        });
-    }
-
-    let packs = sqlx::query!(
-        "SELECT DISTINCT name, short, bots, votes, url FROM (
-            SELECT name, short, owner, bots, votes, url, unnest(bots) AS bot_unnest FROM packs
-        ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner @@ $1) LIMIT 6",
-        query,
-        "%".to_string() + query + "%"
-    )
-    .fetch_all(pool)
-    .await?;
-
-    let mut search_packs = Vec::new();
-
-    for pack in packs {
-        search_packs.push(SearchPack {
-            name: pack.name,
-            description: pack.short,
-            url: pack.url,
-            bots: Vec::new(),
-            votes: pack.votes
-        });
-
-        for bot in pack.bots {
-            let res = sqlx::query!(
-                "SELECT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM bots WHERE bot_id = $1",
-                bot
-            )
-            .fetch_one(pool)
-            .await;
-
-            if res.is_err() {
-                continue
-            }
-
-            let res = res.unwrap();
-
-            search_packs.last_mut().unwrap().bots.push(SearchBot {
-                user: get_user(public, &res.bot_id, true).await?,
-                description: res.short,
-                invite: res.invite,
-                servers: res.servers,
-                shards: res.shards,
-                votes: res.votes,
-                certified: res.certified,
-                tags: res.tags,
-            });
-        }
-    }
-
-    let users = sqlx::query!(
-        "SELECT DISTINCT users.user_id, users.username, users.about FROM users 
-        INNER JOIN bots ON bots.owner = users.user_id 
-        WHERE (bots.name ILIKE $2 OR bots.short @@ $1 OR bots.bot_id @@ $1) 
-        OR (users.username @@ $1) LIMIT 6",
-        query,
-        "%".to_string() + query + "%"
-    )
-    .fetch_all(pool)
-    .await?;
-
-    let mut search_users = Vec::new();
-
-    for user in users {
-        search_users.push(SearchUser {
-            user: get_user(public, &user.user_id, true).await?,
-            about: user.about
-        });
-    }
-
-    let res = Arc::new(Search {
-        bots: search_bots,
-        packs: search_packs,
-        users: search_users
-    });
-
-    public.search_cache.insert(query.clone(), res.clone()).await;
-
-    Ok(res)
 }

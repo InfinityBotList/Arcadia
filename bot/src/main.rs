@@ -13,6 +13,7 @@ mod _utils;
 mod admin;
 mod staff;
 mod testing;
+mod search;
 mod tests;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -20,6 +21,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pool: sqlx::PgPool,
+    avacado_public: libavacado::public::AvacadoPublic
 }
 
 /// Displays your or another user's account creation date
@@ -438,6 +440,7 @@ async fn main() {
                 admin::update_field(),
                 admin::votereset(),
                 admin::voteresetall(),
+                search::searchbots(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {
@@ -490,6 +493,7 @@ async fn main() {
                         .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
                         .await
                         .expect("Could not initialize connection"),
+                    avacado_public: libavacado::public::AvacadoPublic::new(_ctx.cache.clone(), _ctx.http.clone())
                 })
             })
         });

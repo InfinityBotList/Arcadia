@@ -32,7 +32,7 @@ pub async fn delete_leave_guild(
 }
 
 /// For future use
-pub async fn _page_content(
+pub async fn page_content(
     ctx: crate::Context<'_>,
     text: String,
     ephemeral: bool,

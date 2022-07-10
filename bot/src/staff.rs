@@ -11,6 +11,7 @@ type Context<'a> = crate::Context<'a>;
 
 /// Staff base command
 #[poise::command(
+    category = "Staff",
     prefix_command,
     slash_command,
     guild_cooldown = 10,
@@ -25,7 +26,7 @@ type Context<'a> = crate::Context<'a>;
     )
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Available options are ``staff list``, ``staff guildlist`` (dev/admin only), ``staff_guilddel`` (dev/admin only), ``staff_guildleave`` (dev/admin only), ``staff recalc`` (dev/admin only), ``staff add`` (dev/admin only)").await?;
+    ctx.say("Some available options are ``staff list``, ``staff guildlist`` (dev/admin only), ``staff_guilddel`` (dev/admin only), ``staff_guildleave`` (dev/admin only), ``staff recalc`` (dev/admin only), ``staff add`` (dev/admin only) etc.").await?;
     Ok(())
 }
 

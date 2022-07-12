@@ -9,7 +9,7 @@ use std::time::Duration;
 use poise::serenity_prelude as serenity;
 
 /// Allows managers to onboard users
-#[poise::command(category = "Admin", track_edits, prefix_command, slash_command, check = "checks::is_hadmin")]
+#[poise::command(category = "Admin", track_edits, prefix_command, slash_command, check = "checks::is_hdev_hadmin")]
 pub async fn approveonboard(
     ctx: crate::Context<'_>,
     #[description = "The staff id"] member: serenity::Member,

@@ -34,8 +34,13 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Verify staff first
-    if !crate::_checks::is_any_staff(ctx).await? {
+    let is_staff = crate::_checks::is_any_staff(ctx).await;
+    if is_staff.is_err() {
         return Ok(true);
+    } else if let Ok(is_staff) = is_staff {
+        if !is_staff {
+            return Ok(true);
+        }
     }
 
     // Get onboard state (staff_onboard_state may be used later but is right now None and it will in the future be used to allow retaking of onboarding)

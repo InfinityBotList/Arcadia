@@ -276,6 +276,7 @@ dependencies = [
  "futures",
  "libavacado",
  "log",
+ "moka",
  "serde",
  "serde_json",
  "serenity",

@@ -276,7 +276,7 @@ dependencies = [
  "futures",
  "libavacado",
  "log",
- "moka",
+ "moka 0.9.0",
  "serde",
  "serde_json",
  "serenity",
@@ -1313,7 +1313,7 @@ dependencies = [
  "deadpool",
  "deadpool-redis",
  "log",
- "moka",
+ "moka 0.8.6",
  "rand",
  "reqwest",
  "serde",
@@ -1483,6 +1483,31 @@ name = "moka"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "975fa04238144061e7f8df9746b2e9cd93ef85881da5548d842a7c6a4b614415"
+dependencies = [
+ "async-io",
+ "async-lock",
+ "crossbeam-channel",
+ "crossbeam-epoch",
+ "crossbeam-utils 0.8.10",
+ "futures-util",
+ "num_cpus",
+ "once_cell",
+ "parking_lot 0.12.1",
+ "quanta",
+ "scheduled-thread-pool",
+ "skeptic",
+ "smallvec",
+ "tagptr",
+ "thiserror",
+ "triomphe",
+ "uuid 1.1.2",
+]
+
+[[package]]
+name = "moka"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21b3caf8ff6db712c7f7fe018e7fb6d2ddbaf428b74f94a48fe075ef09a6b8a1"
 dependencies = [
  "async-io",
  "async-lock",

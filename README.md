@@ -18,6 +18,7 @@
 ## Contributing
 
 - Always run ``fmt.sh`` before making a Pull Request!
+- Always increment version during big changes
 
 ## MacOS cross compile
 

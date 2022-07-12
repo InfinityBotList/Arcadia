@@ -17,6 +17,8 @@ mod routes;
 
 use crate::models::APIResponse;
 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 async fn not_found(_req: HttpRequest) -> HttpResponse {
     HttpResponse::build(http::StatusCode::NOT_FOUND).json(models::APIResponse {
         done: false,

@@ -15,6 +15,9 @@ mod staff;
 mod testing;
 mod search;
 mod tests;
+mod stats;
+
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
@@ -56,7 +59,16 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             ))
             .await
             .unwrap();
-        }
+        },
+        poise::FrameworkError::CommandCheckFailed { error, ctx } => {
+            error!("Error in command `{}`: {:?}", ctx.command().name, error,);
+            ctx.say(format!(
+                "Whoa there, do you have permission to do this?: {:?}",
+                error
+            ))
+            .await
+            .unwrap();
+        },
         error => {
             if let Err(e) = poise::builtins::on_error(error).await {
                 error!("Error while handling error: {}", e);
@@ -440,7 +452,9 @@ async fn main() {
                 admin::update_field(),
                 admin::votereset(),
                 admin::voteresetall(),
+                admin::approveonboard(),
                 search::searchbots(),
+                stats::stats(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {

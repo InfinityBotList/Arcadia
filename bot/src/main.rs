@@ -54,7 +54,7 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
         poise::FrameworkError::Command { error, ctx } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
             ctx.say(format!(
-                "There was an error running this command: {:?}",
+                "There was an error running this command: {}",
                 error
             ))
             .await
@@ -62,12 +62,16 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
         },
         poise::FrameworkError::CommandCheckFailed { error, ctx } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
-            ctx.say(format!(
-                "Whoa there, do you have permission to do this?: {:?}",
-                error
-            ))
-            .await
-            .unwrap();
+            if let Some(error) = error {
+                ctx.say(format!(
+                    "Whoa there, do you have permission to do this?: {}",
+                    error
+                ))
+                .await
+                .unwrap();
+            } else {
+                ctx.say("You don't have permission to do this but we couldn't figure out why...").await.unwrap();
+            }
         },
         error => {
             if let Err(e) = poise::builtins::on_error(error).await {

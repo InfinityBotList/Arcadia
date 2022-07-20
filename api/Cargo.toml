@@ -17,6 +17,6 @@ futures = "0.3.21"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0.61", features = ["preserve_order"] }
 dotenv = "0.15.0"
-serenity = { version = "0.11.2", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
+serenity = { version = "0.11.4", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
 libavacado = { path = "../libavacado" }
 moka = { version = "0.9", features = ["future"] }

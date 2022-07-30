@@ -24,7 +24,7 @@ pub async fn handle_onboarding(
     reason: Option<&str>, // Only applicable for testing-bot
 ) -> Result<bool, crate::Error> {
     // Get baisc info from ctx for future use
-    let cmd_name = ctx.command().name;
+    let cmd_name = &ctx.command().name;
 
     let onboard_name = ctx.author().id.to_string();
 
@@ -267,11 +267,12 @@ pub async fn handle_onboarding(
             }
 
             // Add admin perms
-            ctx.author_member()
-                .await
-                .unwrap()
-                .add_role(&discord, role_id.unwrap())
-                .await?;
+            let member = ctx.author_member()
+                .await;
+
+            let mut member = member.unwrap().into_owned();
+            
+            member.add_role(&discord, role_id.unwrap()).await?;
 
             ctx.say(
                 format!(
@@ -391,7 +392,7 @@ pub async fn handle_onboarding(
             }
 
             // Get more information about this action by launching a modal using a button
-            let msg = ctx.send(|m| {
+            let reply_handle = ctx.send(|m| {
                 m.content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.")
                 .components(|c| {
                     c.create_action_row(|r| {
@@ -408,7 +409,9 @@ pub async fn handle_onboarding(
                     })
                 })
             })
-            .await?
+            .await?;
+            
+            let msg = reply_handle
             .message()
             .await?;
 
@@ -656,7 +659,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
         "staff-guide-viewed" => Ok(true),
         "staff-guide-read-encouraged" | "staff-guide-viewed-reminded" => {
             if cmd_name == "claim" {
-                let mut msg = ctx
+                let reply_handle = ctx
                     .send(|m| {
                         m.embed(|e| {
                             e.title("Bot Already Claimed");
@@ -689,10 +692,12 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
 
                         m
                     })
-                    .await?
-                    .message()
                     .await?;
 
+                let mut msg = reply_handle.message()
+                .await?
+                .into_owned();
+                    
                 if onboard_state == "staff-guide-read-encouraged" {
                     ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
                 }
@@ -701,6 +706,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                     .await_component_interaction(ctx.discord())
                     .author_id(ctx.author().id)
                     .await;
+                
                 msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                 if let Some(m) = &interaction {
@@ -781,7 +787,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
 }
 
 pub async fn post_command(ctx: crate::Context<'_>) -> Result<(), crate::Error> {
-    let cmd_name = ctx.command().name;
+    let cmd_name = &ctx.command().name;
 
     info!("{}", cmd_name);
 

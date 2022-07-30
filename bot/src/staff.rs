@@ -122,15 +122,12 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev"
+    check = "checks::is_admin_hdev",
+    check = "checks::staff_server"
 )]
 pub async fn staff_recalc(ctx: Context<'_>) -> Result<(), Error> {
-    if !checks::staff_server(ctx).await? {
-        return Err("You are not in the staff server".into());
-    }
-
     // Ask if the user truly wishes to continue
-    let mut msg = ctx.send(|m| {
+    let reply_handle = ctx.send(|m| {
         m.content(r#"
 Continuing will change the PostgreSQL database and recalculate the list of staff/admins/developers based on their roles. This is dangerous but sometimes needed for the manager bot to work correctly!
 
@@ -160,9 +157,12 @@ During beta testing, this is available to admins and devs, but once second final
             })
         })
     })
-    .await?
-    .message()
     .await?;
+
+    let mut msg = reply_handle
+    .message()
+    .await?
+    .into_owned();
 
     let interaction = msg
         .await_component_interaction(ctx.discord())
@@ -254,16 +254,13 @@ During beta testing, this is available to admins and devs, but once second final
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev"
+    check = "checks::is_admin_hdev",
+    check = "checks::staff_server"
 )]
 pub async fn staff_add(
     ctx: Context<'_>,
     #[description = "The user ID of the user to add"] member: serenity::Member,
 ) -> Result<(), Error> {
-    if !checks::staff_server(ctx).await? {
-        return Err("You are not in the staff server".into());
-    }
-
     let web_mod_role =
         poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
 
@@ -293,16 +290,13 @@ pub async fn staff_add(
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev"
+    check = "checks::is_admin_hdev",
+    check = "checks::staff_server"
 )]
 pub async fn staff_del(
     ctx: Context<'_>,
     #[description = "The user ID of the user to remove staff from"] member: serenity::Member,
 ) -> Result<(), Error> {
-    if !checks::staff_server(ctx).await? {
-        return Err("You are not in the staff server".into());
-    }
-
     let staff_man_role =
         poise::serenity_prelude::RoleId(std::env::var("STAFF_MAN_ROLE")?.parse::<u64>()?);
     let owner_role = poise::serenity_prelude::RoleId(std::env::var("OWNER_ROLE")?.parse::<u64>()?);
@@ -350,13 +344,10 @@ pub async fn staff_del(
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev"
+    check = "checks::is_admin_hdev",
+    check = "checks::staff_server"
 )]
 pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
-    if !checks::staff_server(ctx).await? {
-        return Err("You are not in the staff server".into());
-    }
-
     let guilds = ctx.discord().cache.guilds();
 
     let mut guild_list = String::new();
@@ -382,16 +373,13 @@ pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev"
+    check = "checks::is_admin_hdev",
+    check = "checks::staff_server"
 )]
 pub async fn staff_guilddel(
     ctx: Context<'_>,
     #[description = "The guild ID to remove"] guild: String,
 ) -> Result<(), Error> {
-    if !checks::staff_server(ctx).await? {
-        return Err("You are not in the staff server".into());
-    }
-
     let gid = guild.parse::<u64>()?;
 
     ctx.discord().http.delete_guild(gid).await?;
@@ -407,16 +395,13 @@ pub async fn staff_guilddel(
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev"
+    check = "checks::is_admin_hdev",
+    check = "checks::staff_server"
 )]
 pub async fn staff_guildleave(
     ctx: Context<'_>,
     #[description = "The guild ID to leave"] guild: String,
 ) -> Result<(), Error> {
-    if !checks::staff_server(ctx).await? {
-        return Err("You are not in the staff server".into());
-    }
-
     let gid = guild.parse::<u64>()?;
 
     ctx.discord().http.leave_guild(gid).await?;

@@ -33,7 +33,7 @@ pub async fn approveonboard(
         return Err(format!("User is not pending manager review and currently has state of: {}", onboard_state.staff_onboard_state).into());
     }
 
-    let mut msg = ctx.send(|m| {
+    let reply_handle = ctx.send(|m| {
         m.content("Are you sure you wish to approve this user?")
         .components(|c| {
             c.create_action_row(|r| {
@@ -49,9 +49,12 @@ pub async fn approveonboard(
             })
         })
     })
-    .await?
-    .message()
     .await?;
+
+    let mut msg = reply_handle
+    .message()
+    .await?
+    .into_owned();
 
     let interaction = msg
         .await_component_interaction(ctx.discord())
@@ -104,7 +107,7 @@ pub async fn update_field(
     let data = ctx.data();
 
     if !sql.to_lowercase().contains(&"WHERE") {
-        let mut msg = ctx
+        let reply_handle = ctx
             .send(|m| {
                 m.content("Whoa there, are you trying to update a whole table?.")
                     .components(|c| {
@@ -122,9 +125,12 @@ pub async fn update_field(
                         })
                     })
             })
-            .await?
-            .message()
             .await?;
+        
+        let mut msg = reply_handle
+            .message()
+            .await?
+            .into_owned();
 
         let interaction = msg
             .await_component_interaction(ctx.discord())
@@ -142,7 +148,7 @@ pub async fn update_field(
     }
 
     // Ask for approval from someone else
-    let mut msg = ctx
+    let reply_handle = ctx
         .send(|m| {
             m.content(
                 "Please have someone else approve running this SQL statement: ``".to_string()
@@ -164,9 +170,12 @@ pub async fn update_field(
                 })
             })
         })
-        .await?
-        .message()
         .await?;
+    
+    let mut msg = reply_handle
+        .message()
+        .await?
+        .into_owned();
 
     // Get current iblhdev's
 

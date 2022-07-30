@@ -1,4 +1,5 @@
 use std::{sync::Arc, time::Duration};
+use std::fmt::Write;
 
 use dotenv::dotenv;
 use log::{error, info};
@@ -6,6 +7,8 @@ use poise::serenity_prelude::{self as serenity, GuildId};
 use sqlx::postgres::PgPoolOptions;
 
 use poise::serenity_prelude::{ChannelId, UserId};
+
+use poise::Command;
 
 mod _checks;
 mod _onboarding;
@@ -97,6 +100,44 @@ async fn help(
         },
     )
     .await?;
+    Ok(())
+}
+
+async fn _embed_help(ctx: poise::FrameworkContext<'_, Data, Error>, page: u32) -> Result<String, Error> {
+    let mut categories = libavacado::maps::OrderedMap::<Option<&str>, Vec<&Command<Data, Error>>>::new();
+    for cmd in &ctx.options().commands {
+        categories
+            .get_or_insert_with(cmd.category, Vec::new)
+            .push(cmd);
+    }
+
+    let mut menu = format!("**Page:** {}", page);
+    for (category_name, commands) in categories {
+        menu += category_name.unwrap_or("Commands");
+        menu += ":\n";
+        for command in commands {
+            if command.hide_in_help {
+                continue;
+            }
+
+            let _ = writeln!(
+                menu,
+                "/{cmd_name} | ibb!{cmd_name} - {desc}",
+                cmd_name=command.name,
+                desc=command.description.as_deref().unwrap_or("")
+            );
+        }
+    }
+
+    Ok(menu)
+} 
+
+#[poise::command(track_edits, prefix_command, slash_command)]
+async fn new_help(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+    _embed_help(ctx.framework(), 1).await?;
+
     Ok(())
 }
 
@@ -428,7 +469,7 @@ async fn main() {
 
     dotenv().ok();
 
-    let framework = poise::Framework::build()
+    let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("ibb!".into()),

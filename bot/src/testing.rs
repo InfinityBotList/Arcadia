@@ -366,7 +366,7 @@ pub async fn claim(
             })
             .await?;
     } else {
-        let reply_handle = ctx
+        let mut msg = ctx
             .send(|m| {
                 m.embed(|e| {
                     e.title("Bot Already Claimed");
@@ -397,12 +397,9 @@ pub async fn claim(
 
                 m
             })
-            .await?;
-        
-        let mut msg = reply_handle
-            .message()
             .await?
-            .into_owned();
+            .into_message()
+            .await?;
 
         let interaction = msg
             .await_component_interaction(ctx.discord())

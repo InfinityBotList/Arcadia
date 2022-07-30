@@ -392,7 +392,7 @@ pub async fn handle_onboarding(
             }
 
             // Get more information about this action by launching a modal using a button
-            let reply_handle = ctx.send(|m| {
+            let msg = ctx.send(|m| {
                 m.content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.")
                 .components(|c| {
                     c.create_action_row(|r| {
@@ -409,10 +409,8 @@ pub async fn handle_onboarding(
                     })
                 })
             })
-            .await?;
-            
-            let msg = reply_handle
-            .message()
+            .await?
+            .into_message()
             .await?;
 
             let interaction = msg
@@ -659,44 +657,42 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
         "staff-guide-viewed" => Ok(true),
         "staff-guide-read-encouraged" | "staff-guide-viewed-reminded" => {
             if cmd_name == "claim" {
-                let reply_handle = ctx
-                    .send(|m| {
-                        m.embed(|e| {
-                            e.title("Bot Already Claimed");
-                            e.description(format!(
-                                "This bot is already claimed by <@{}>",
-                                current_user.id
-                            ));
-                            e.color(0xFF0000);
-                            e
-                        });
+                let mut msg = ctx
+                .send(|m| {
+                    m.embed(|e| {
+                        e.title("Bot Already Claimed");
+                        e.description(format!(
+                            "This bot is already claimed by <@{}>",
+                            current_user.id
+                        ));
+                        e.color(0xFF0000);
+                        e
+                    });
 
-                        m.components(|c| {
-                            c.create_action_row(|r| {
-                                r.create_button(|b| {
-                                    b.custom_id("fclaim")
-                                        .style(serenity::ButtonStyle::Primary)
-                                        .label("Force Claim")
-                                        .disabled(onboard_state == "staff-guide-read-encouraged")
-                                });
-                                r.create_button(|b| {
-                                    b.custom_id("remind")
-                                        .style(serenity::ButtonStyle::Secondary)
-                                        .label("Remind Reviewer")
-                                        .disabled(onboard_state == "staff-guide-viewed-reminded")
-                                })
+                    m.components(|c| {
+                        c.create_action_row(|r| {
+                            r.create_button(|b| {
+                                b.custom_id("fclaim")
+                                    .style(serenity::ButtonStyle::Primary)
+                                    .label("Force Claim")
+                                    .disabled(onboard_state == "staff-guide-read-encouraged")
                             });
-
-                            c
+                            r.create_button(|b| {
+                                b.custom_id("remind")
+                                    .style(serenity::ButtonStyle::Secondary)
+                                    .label("Remind Reviewer")
+                                    .disabled(onboard_state == "staff-guide-viewed-reminded")
+                            })
                         });
 
-                        m
-                    })
-                    .await?;
+                        c
+                    });
 
-                let mut msg = reply_handle.message()
+                    m
+                })
                 .await?
-                .into_owned();
+                .into_message()
+                .await?;
                     
                 if onboard_state == "staff-guide-read-encouraged" {
                     ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;

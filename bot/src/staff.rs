@@ -127,7 +127,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 )]
 pub async fn staff_recalc(ctx: Context<'_>) -> Result<(), Error> {
     // Ask if the user truly wishes to continue
-    let reply_handle = ctx.send(|m| {
+    let mut msg = ctx.send(|m| {
         m.content(r#"
 Continuing will change the PostgreSQL database and recalculate the list of staff/admins/developers based on their roles. This is dangerous but sometimes needed for the manager bot to work correctly!
 
@@ -157,12 +157,9 @@ During beta testing, this is available to admins and devs, but once second final
             })
         })
     })
-    .await?;
-
-    let mut msg = reply_handle
-    .message()
     .await?
-    .into_owned();
+    .into_message()
+    .await?;
 
     let interaction = msg
         .await_component_interaction(ctx.discord())

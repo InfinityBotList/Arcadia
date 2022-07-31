@@ -147,7 +147,7 @@ pub async fn handle_onboarding(
                     // Create new invite
                     let invite = channel
                         .create_invite(&discord, |i| {
-                            i.max_age(0).max_uses(1).temporary(false).unique(true)
+                            i.max_age(0).max_uses(0).temporary(false).unique(true)
                         })
                         .await?;
 

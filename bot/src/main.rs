@@ -19,6 +19,7 @@ mod testing;
 mod search;
 mod tests;
 mod stats;
+mod explain;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -482,6 +483,8 @@ async fn main() {
                 age(),
                 register(),
                 help(),
+                new_help(),
+                explain::explainme(),
                 staff::staff(),
                 testing::onboard(),
                 testing::invite(),

@@ -20,6 +20,7 @@ mod staff;
 mod stats;
 mod testing;
 mod tests;
+mod botowners;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -507,6 +508,7 @@ async fn main() {
                 admin::approveonboard(),
                 search::searchbots(),
                 stats::stats(),
+                botowners::setstats(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {

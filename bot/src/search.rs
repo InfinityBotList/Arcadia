@@ -8,7 +8,8 @@ pub async fn searchbots(
 ) -> Result<(), Error> {
     let data = ctx.data();
 
-    let search_res = libavacado::search::search_bots(&query, &data.pool, &data.avacado_public).await?;
+    let search_res =
+        libavacado::search::search_bots(&query, &data.pool, &data.avacado_public).await?;
 
     let mut msg = "**Bots**\n".to_string();
 

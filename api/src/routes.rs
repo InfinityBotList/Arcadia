@@ -1,4 +1,4 @@
-use actix_web::{http::header::HeaderValue, get, post, web, HttpRequest, HttpResponse};
+use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -13,7 +13,6 @@ pub struct GenericRequest {
     staff_id: String,
     reason: String,
 }
-
 
 #[post("/approve")]
 pub async fn approve(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
@@ -220,7 +219,7 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -
 
 #[derive(Deserialize)]
 pub struct SearchQuery {
-    q: String
+    q: String,
 }
 
 #[get("/tetanus")]
@@ -229,7 +228,7 @@ pub async fn tetanus_search_service(req: HttpRequest, q: web::Query<SearchQuery>
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
 
-    let search_res = libavacado::search::search_bots( &q.q, &data.pool, &data.avacado_public).await;
+    let search_res = libavacado::search::search_bots(&q.q, &data.pool, &data.avacado_public).await;
 
     if search_res.is_err() {
         let err = search_res.unwrap_err();

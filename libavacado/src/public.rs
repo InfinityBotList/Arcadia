@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::types::{Error, DiscordUser};
+use crate::types::{DiscordUser, Error};
 
 use deadpool_redis::redis::AsyncCommands;
 use moka::future::Cache;
@@ -45,26 +45,25 @@ impl AvacadoPublic {
         let cfg = deadpool_redis::Config::from_url("redis://127.0.0.1:6379/8");
         Self {
             search_cache: Cache::builder()
-            // Time to live (TTL): 5 minutes
-            .time_to_live(Duration::from_secs(60 * 5))
-            // Time to idle (TTI): 3 minutes
-            .time_to_idle(Duration::from_secs(60 * 3))
-            // Create the cache.
-            .build(),
+                // Time to live (TTL): 5 minutes
+                .time_to_live(Duration::from_secs(60 * 5))
+                // Time to idle (TTI): 3 minutes
+                .time_to_idle(Duration::from_secs(60 * 3))
+                // Create the cache.
+                .build(),
             user_cache: Cache::builder()
-            // Time to live (TTL): 3 hours
-            .time_to_live(Duration::from_secs(3 * 60 * 60))
-            // Time to idle (TTI):  2 hours
-            .time_to_idle(Duration::from_secs(2 * 60 * 60))
-            // Create the cache.
-            .build(),
-            redis: cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1)).unwrap(),
+                // Time to live (TTL): 3 hours
+                .time_to_live(Duration::from_secs(3 * 60 * 60))
+                // Time to idle (TTI):  2 hours
+                .time_to_idle(Duration::from_secs(2 * 60 * 60))
+                // Create the cache.
+                .build(),
+            redis: cfg
+                .create_pool(Some(deadpool_redis::Runtime::Tokio1))
+                .unwrap(),
             cache: cache.clone(),
             http: http.clone(),
-            cache_http: AvcCacheHttpImpl {
-                cache,
-                http,
-            },
+            cache_http: AvcCacheHttpImpl { cache, http },
         }
     }
 }
@@ -79,13 +78,17 @@ pub fn gen_random(length: usize) -> String {
     s
 }
 
-pub async fn get_user(public: &AvacadoPublic, id: &str, no_err: bool) -> Result<Arc<DiscordUser>, Error> {
+pub async fn get_user(
+    public: &AvacadoPublic,
+    id: &str,
+    no_err: bool,
+) -> Result<Arc<DiscordUser>, Error> {
     let id_u64 = id.parse::<u64>()?;
 
     let cached = public.user_cache.get(&id_u64);
 
     if let Some(cached) = cached {
-        return Ok(cached)
+        return Ok(cached);
     }
 
     // Try fetching from redis
@@ -101,7 +104,7 @@ pub async fn get_user(public: &AvacadoPublic, id: &str, no_err: bool) -> Result<
 
             // Copy user object from redis to cache
             public.user_cache.insert(id_u64, user.clone()).await;
-            return Ok(user);    
+            return Ok(user);
         }
     }
 
@@ -110,7 +113,9 @@ pub async fn get_user(public: &AvacadoPublic, id: &str, no_err: bool) -> Result<
 
     let main_server_u64 = main_server.parse::<u64>()?;
 
-    let member = public.cache.member(GuildId(main_server_u64), UserId(id_u64));
+    let member = public
+        .cache
+        .member(GuildId(main_server_u64), UserId(id_u64));
 
     if let Some(member) = member {
         let user = DiscordUser {
@@ -129,7 +134,7 @@ pub async fn get_user(public: &AvacadoPublic, id: &str, no_err: bool) -> Result<
 
         conn.set_ex(id, user_json, 60 * 60 * 4).await?;
 
-        return Ok(arc_user)
+        return Ok(arc_user);
     }
 
     // Not in main server, lets just get it from discord API
@@ -143,9 +148,9 @@ pub async fn get_user(public: &AvacadoPublic, id: &str, no_err: bool) -> Result<
                 username: "Unknown User".to_string(),
                 discriminator: "0000".to_string(),
                 avatar: None,
-            }))
+            }));
         } else {
-            return Err(Box::new(user.unwrap_err()))
+            return Err(Box::new(user.unwrap_err()));
         }
     }
 

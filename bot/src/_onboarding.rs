@@ -139,8 +139,10 @@ pub async fn handle_onboarding(
                     // Create new channel
                     let channel = guild
                         .create_channel(&discord, |c| {
-                            c.name("invite-attempt-".to_string() + &libavacado::public::gen_random(6))
-                                .kind(serenity::model::channel::ChannelType::Text)
+                            c.name(
+                                "invite-attempt-".to_string() + &libavacado::public::gen_random(6),
+                            )
+                            .kind(serenity::model::channel::ChannelType::Text)
                         })
                         .await?;
 
@@ -267,11 +269,10 @@ pub async fn handle_onboarding(
             }
 
             // Add admin perms
-            let member = ctx.author_member()
-                .await;
+            let member = ctx.author_member().await;
 
             let mut member = member.unwrap().into_owned();
-            
+
             member.add_role(&discord, role_id.unwrap()).await?;
 
             ctx.say(
@@ -658,42 +659,42 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
         "staff-guide-read-encouraged" | "staff-guide-viewed-reminded" => {
             if cmd_name == "claim" {
                 let mut msg = ctx
-                .send(|m| {
-                    m.embed(|e| {
-                        e.title("Bot Already Claimed");
-                        e.description(format!(
-                            "This bot is already claimed by <@{}>",
-                            current_user.id
-                        ));
-                        e.color(0xFF0000);
-                        e
-                    });
-
-                    m.components(|c| {
-                        c.create_action_row(|r| {
-                            r.create_button(|b| {
-                                b.custom_id("fclaim")
-                                    .style(serenity::ButtonStyle::Primary)
-                                    .label("Force Claim")
-                                    .disabled(onboard_state == "staff-guide-read-encouraged")
-                            });
-                            r.create_button(|b| {
-                                b.custom_id("remind")
-                                    .style(serenity::ButtonStyle::Secondary)
-                                    .label("Remind Reviewer")
-                                    .disabled(onboard_state == "staff-guide-viewed-reminded")
-                            })
+                    .send(|m| {
+                        m.embed(|e| {
+                            e.title("Bot Already Claimed");
+                            e.description(format!(
+                                "This bot is already claimed by <@{}>",
+                                current_user.id
+                            ));
+                            e.color(0xFF0000);
+                            e
                         });
 
-                        c
-                    });
+                        m.components(|c| {
+                            c.create_action_row(|r| {
+                                r.create_button(|b| {
+                                    b.custom_id("fclaim")
+                                        .style(serenity::ButtonStyle::Primary)
+                                        .label("Force Claim")
+                                        .disabled(onboard_state == "staff-guide-read-encouraged")
+                                });
+                                r.create_button(|b| {
+                                    b.custom_id("remind")
+                                        .style(serenity::ButtonStyle::Secondary)
+                                        .label("Remind Reviewer")
+                                        .disabled(onboard_state == "staff-guide-viewed-reminded")
+                                })
+                            });
 
-                    m
-                })
-                .await?
-                .into_message()
-                .await?;
-                    
+                            c
+                        });
+
+                        m
+                    })
+                    .await?
+                    .into_message()
+                    .await?;
+
                 if onboard_state == "staff-guide-read-encouraged" {
                     ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
                 }
@@ -702,7 +703,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                     .await_component_interaction(ctx.discord())
                     .author_id(ctx.author().id)
                     .await;
-                
+
                 msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                 if let Some(m) = &interaction {

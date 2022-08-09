@@ -153,14 +153,7 @@ pub async fn approve_bot(
         return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve/deny it!".into());
     }
 
-    add_action_log(
-        pool,
-        &bot_id,
-        &staff_id,
-        reason,
-        "approve",
-    )
-    .await?;
+    add_action_log(pool, &bot_id, &staff_id, reason, "approve").await?;
 
     sqlx::query!(
         "UPDATE bots SET type = 'approved', claimed_by = NULL, claimed = false WHERE bot_id = $1",
@@ -289,14 +282,7 @@ pub async fn deny_bot(
     let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
 
     // Add action logs
-    add_action_log(
-        &pool,
-        bot_id,
-        staff_id,
-        reason,
-        "deny",
-    )
-    .await?;
+    add_action_log(&pool, bot_id, staff_id, reason, "deny").await?;
 
     sqlx::query!(
         "UPDATE bots SET type = 'denied', claimed_by = NULL, claimed = false WHERE bot_id = $1",

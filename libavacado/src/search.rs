@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::types::{Search, SearchBot, SearchPack, SearchUser, Error};
+use crate::types::{Error, Search, SearchBot, SearchPack, SearchUser};
 
 use crate::public::{get_user, AvacadoPublic};
 
@@ -9,9 +9,8 @@ use sqlx::PgPool;
 pub async fn search_bots(
     query: &String,
     pool: &PgPool,
-    public: &AvacadoPublic
+    public: &AvacadoPublic,
 ) -> Result<Arc<Search>, Error> {
-
     let search = public.search_cache.get(query);
 
     if search.is_some() {
@@ -62,7 +61,7 @@ pub async fn search_bots(
             description: pack.short,
             url: pack.url,
             bots: Vec::new(),
-            votes: pack.votes
+            votes: pack.votes,
         });
 
         for bot in pack.bots {
@@ -74,7 +73,7 @@ pub async fn search_bots(
             .await;
 
             if res.is_err() {
-                continue
+                continue;
             }
 
             let res = res.unwrap();
@@ -108,14 +107,14 @@ pub async fn search_bots(
     for user in users {
         search_users.push(SearchUser {
             user: get_user(public, &user.user_id, true).await?,
-            about: user.about
+            about: user.about,
         });
     }
 
     let res = Arc::new(Search {
         bots: search_bots,
         packs: search_packs,
-        users: search_users
+        users: search_users,
     });
 
     public.search_cache.insert(query.clone(), res.clone()).await;

@@ -48,7 +48,7 @@ pub async fn is_admin(id: &str, pool: &PgPool) -> Result<bool, Error> {
     let staff = sqlx::query!("SELECT admin FROM users WHERE user_id = $1", id)
         .fetch_one(pool)
         .await?;
-    
+
     if !staff.admin {
         return Err("You are not admin".into());
     }
@@ -60,7 +60,7 @@ pub async fn is_hdev(id: &str, pool: &PgPool) -> Result<bool, Error> {
     let staff = sqlx::query!("SELECT iblhdev FROM users WHERE user_id = $1", id)
         .fetch_one(pool)
         .await?;
-    
+
     if !staff.iblhdev {
         return Err("You are not a hdev (head developer)".into());
     }
@@ -72,7 +72,7 @@ pub async fn is_hdev_hadmin(id: &str, pool: &PgPool) -> Result<bool, Error> {
     let staff = sqlx::query!("SELECT iblhdev, hadmin FROM users WHERE user_id = $1", id)
         .fetch_one(pool)
         .await?;
-    
+
     if !(staff.iblhdev || staff.hadmin) {
         return Err("You are not a hdev (head developer) or a hadmin (head staff manager)".into());
     }

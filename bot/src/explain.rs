@@ -15,7 +15,7 @@ pub enum ExplainOption {
 pub async fn explainme(
     ctx: crate::Context<'_>,
     #[description = "Command"] command: Option<ExplainOption>,
-) -> Result<(), crate::Error> { 
+) -> Result<(), crate::Error> {
     let text = match command {
         Some(ExplainOption::Claim) => r#"
 **Objective**

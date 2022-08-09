@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
-
 
 #[derive(Serialize, Debug)]
 pub struct Search {

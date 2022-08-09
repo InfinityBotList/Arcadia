@@ -1,5 +1,5 @@
-use std::{sync::Arc, time::Duration};
 use std::fmt::Write;
+use std::{sync::Arc, time::Duration};
 
 use dotenv::dotenv;
 use log::{error, info};
@@ -14,12 +14,12 @@ mod _checks;
 mod _onboarding;
 mod _utils;
 mod admin;
-mod staff;
-mod testing;
-mod search;
-mod tests;
-mod stats;
 mod explain;
+mod search;
+mod staff;
+mod stats;
+mod testing;
+mod tests;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -28,7 +28,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pool: sqlx::PgPool,
-    avacado_public: libavacado::public::AvacadoPublic
+    avacado_public: libavacado::public::AvacadoPublic,
 }
 
 /// Displays your or another user's account creation date
@@ -63,7 +63,7 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             ))
             .await
             .unwrap();
-        },
+        }
         poise::FrameworkError::CommandCheckFailed { error, ctx } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
             if let Some(error) = error {
@@ -74,9 +74,11 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
                 .await
                 .unwrap();
             } else {
-                ctx.say("You don't have permission to do this but we couldn't figure out why...").await.unwrap();
+                ctx.say("You don't have permission to do this but we couldn't figure out why...")
+                    .await
+                    .unwrap();
             }
-        },
+        }
         error => {
             if let Err(e) = poise::builtins::on_error(error).await {
                 error!("Error while handling error: {}", e);
@@ -104,8 +106,12 @@ async fn help(
     Ok(())
 }
 
-async fn _embed_help(ctx: poise::FrameworkContext<'_, Data, Error>, page: u32) -> Result<String, Error> {
-    let mut categories = libavacado::maps::OrderedMap::<Option<&str>, Vec<&Command<Data, Error>>>::new();
+async fn _embed_help(
+    ctx: poise::FrameworkContext<'_, Data, Error>,
+    page: u32,
+) -> Result<String, Error> {
+    let mut categories =
+        libavacado::maps::OrderedMap::<Option<&str>, Vec<&Command<Data, Error>>>::new();
     for cmd in &ctx.options().commands {
         categories
             .get_or_insert_with(cmd.category, Vec::new)
@@ -124,19 +130,17 @@ async fn _embed_help(ctx: poise::FrameworkContext<'_, Data, Error>, page: u32) -
             let _ = writeln!(
                 menu,
                 "/{cmd_name} | ibb!{cmd_name} - {desc}",
-                cmd_name=command.name,
-                desc=command.description.as_deref().unwrap_or("")
+                cmd_name = command.name,
+                desc = command.description.as_deref().unwrap_or("")
             );
         }
     }
 
     Ok(menu)
-} 
+}
 
 #[poise::command(track_edits, prefix_command, slash_command)]
-async fn new_help(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
+async fn new_help(ctx: Context<'_>) -> Result<(), Error> {
     _embed_help(ctx.framework(), 1).await?;
 
     Ok(())
@@ -555,7 +559,10 @@ async fn main() {
                         .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
                         .await
                         .expect("Could not initialize connection"),
-                    avacado_public: libavacado::public::AvacadoPublic::new(_ctx.cache.clone(), _ctx.http.clone())
+                    avacado_public: libavacado::public::AvacadoPublic::new(
+                        _ctx.cache.clone(),
+                        _ctx.http.clone(),
+                    ),
                 })
             })
         });

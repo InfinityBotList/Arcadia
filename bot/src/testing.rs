@@ -76,7 +76,7 @@ Being a Website Moderator is also being the forefront of Infinity Bot List. You 
 The process of approving and denying bots at Infinity Bot List is a rather simple and straightforward process.
 
 When a bot gets added to the bot queue it'll show up in the #bot-logs channel in the Infinity Bot List Server. Here you will get a ping (``@Website Moderators``) and you will be able to view the bot profile page (which you must do while testing a bot)."#,
-r#"
+        r#"
 
 **Resubmissions**
 

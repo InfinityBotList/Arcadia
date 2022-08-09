@@ -82,7 +82,14 @@ async fn main() -> std::io::Result<()> {
 
     tokio::task::spawn(async move { main_cli.start().await });
 
-    let app_state = web::Data::new(models::AppState { pool, cache_http: cache_http.clone(), avacado_public: Arc::new(AvacadoPublic::new(cache_http.cache.clone(), cache_http.http.clone())) });
+    let app_state = web::Data::new(models::AppState {
+        pool,
+        cache_http: cache_http.clone(),
+        avacado_public: Arc::new(AvacadoPublic::new(
+            cache_http.cache.clone(),
+            cache_http.http.clone(),
+        )),
+    });
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -114,11 +121,11 @@ async fn main() -> std::io::Result<()> {
                 middleware::TrailingSlash::MergeOnly,
             ))
             .default_service(web::route().to(not_found))
-        .service(routes::approve)
-        .service(routes::deny)
-        .service(routes::vote_reset)
-        .service(routes::vote_reset_all)
-        .service(routes::tetanus_search_service)
+            .service(routes::approve)
+            .service(routes::deny)
+            .service(routes::vote_reset)
+            .service(routes::vote_reset_all)
+            .service(routes::tetanus_search_service)
     })
     .workers(8)
     .bind("localhost:3010")?

@@ -6,6 +6,9 @@ build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+proc-macro = true
+
 [dependencies]
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls", "postgres", "chrono", "uuid", "bigdecimal", "json", "offline"] }
 serenity = { version = "0.11", default-features = false, features = ["model", "http", "cache", "rustls_backend"] }
@@ -18,6 +21,11 @@ moka = { version = "0.9", features = ["future"] }
 rand = "0.8.5"
 deadpool-redis = { version = "0.10.2", features = ["rt_tokio_1", "serde"] }
 deadpool = { version = "0.9.5", features = ["rt_tokio_1", "serde"] }
+syn = { version = "1.0.64", features = ["full", "fold"] }
+proc-macro2 = "1.0.24"
+poise = "0.3.0"
+quote = "1.0.9"
+darling = "0.14.1"
 
 [build-dependencies]
 vergen = "7.3.2"

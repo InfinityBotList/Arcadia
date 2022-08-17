@@ -1513,9 +1513,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.7"
+version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0a5f7c728f5d284929a1cccb5bc19884422bfe6ef4d6c409da2c41838983fcf"
+checksum = "97477e48b4cf8603ad5f7aaf897467cf42ab4218a38ef76fb14c2d6773a6d6a8"
 
 [[package]]
 name = "ryu"
@@ -1674,7 +1674,7 @@ dependencies = [
  "serde",
  "serde-value",
  "serde_json",
- "time 0.3.11",
+ "time 0.3.13",
  "tokio",
  "tracing",
  "url",
@@ -1894,9 +1894,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.24.7"
+version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54cb4ebf3d49308b99e6e9dc95e989e2fdbdc210e4f67c39db0bb89ba927001c"
+checksum = "1594a36887d0f70096702bffadfb67dfbfe76ad4bf84605e86157dc9fce9961a"
 dependencies = [
  "cfg-if",
  "core-foundation-sys",
@@ -1928,18 +1928,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.31"
+version = "1.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd829fe32373d27f76265620b5309d0340cb8550f523c1dda251d6298069069a"
+checksum = "f5f6586b7f764adc0231f4c79be7b920e766bb2f3e51b3661cdb263828f19994"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.31"
+version = "1.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0396bc89e626244658bef819e22d0cc459e795a5ebe878e6ec336d1674a8d79a"
+checksum = "12bafc5b54507e0149cdf1b145a5d80ab80a90bcd9275df43d4fff68460f6c21"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1959,9 +1959,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.11"
+version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72c91f41dcb2f096c05f0873d667dceec1087ce5bcf984ec8ffb19acddbb3217"
+checksum = "db76ff9fa4b1458b3c7f077f3ff9887394058460d21e634355b273aaf11eea45"
 dependencies = [
  "itoa 1.0.2",
  "libc",
@@ -2227,9 +2227,9 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vergen"
-version = "7.3.2"
+version = "7.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bbc4fafd30514504c7593cfa52eaf4d6c4ef660386e2ec54edc17f14aa08e8d"
+checksum = "1ffa80ed519f45995741e70664d4abcf147d2a47b8c7ea0a4aa495548ef9474f"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -2240,7 +2240,7 @@ dependencies = [
  "rustversion",
  "sysinfo",
  "thiserror",
- "time 0.3.11",
+ "time 0.3.13",
 ]
 
 [[package]]

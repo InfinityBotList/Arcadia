@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 poise = "0.3"
-serde = "1.0.137"
+serde = "1.0.144"
 docser = { git = "https://github.com/RustLibs/docser.git", branch = "main" }
 log = "0.4.14"
 env_logger = "0.9.0"

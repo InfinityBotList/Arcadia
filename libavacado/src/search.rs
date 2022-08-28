@@ -6,10 +6,40 @@ use crate::public::{get_user, AvacadoPublic};
 
 use sqlx::PgPool;
 
+pub struct SearchFilter {
+    pub from: Option<i32>,
+    pub to: Option<i32>,
+}
+
+impl SearchFilter {
+    pub fn from(self: &Self) -> i32 {
+        self.from.unwrap_or(-1)
+    }
+
+    pub fn to(self: &Self) -> i32 {
+        self.to.unwrap_or(-1)
+    }
+}
+
+pub struct SearchOpts {
+    pub gc: SearchFilter,
+    pub votes: SearchFilter,
+}
+
+/*
+Core search concepts:
+
+To add a filter:
+
+AND (bots.FIELD > $N) -- FROM
+AND (($N+1 = -1::bigint) OR (bots.FIELD < $N+1)) -- TO
+*/
+
 pub async fn search_bots(
     query: &String,
     pool: &PgPool,
     public: &AvacadoPublic,
+    opts: &SearchOpts,
 ) -> Result<Arc<Search>, Error> {
     let search = public.search_cache.get(query);
 
@@ -21,9 +51,24 @@ pub async fn search_bots(
     let bots = sqlx::query!(
         "SELECT DISTINCT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM (
             SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
-        ) bots WHERE type = 'approved' AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) ORDER BY votes DESC, certified DESC LIMIT 6",
+        ) bots 
+        WHERE type = 'approved' AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) 
+
+        -- Guild count filter (3-4)
+        AND (servers > $3)
+        AND (($3 = -1) OR (servers < $4))
+
+        -- Votes filter (5-6)
+        AND (votes > $5)
+        AND (($5 = -1) OR (votes < $6))
+
+        ORDER BY votes DESC, certified DESC LIMIT 6",
         query,
-        "%".to_string() + query + "%"
+        "%".to_string() + query + "%",
+        opts.gc.from(),
+        opts.gc.to(),
+        opts.votes.from(),
+        opts.votes.to()
     )
     .fetch_all(pool)
     .await?;

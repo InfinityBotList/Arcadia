@@ -1,4 +1,5 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
+use libavacado::search::{SearchOpts, SearchFilter};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -220,15 +221,31 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -
 #[derive(Deserialize)]
 pub struct SearchQuery {
     q: String,
+    gc_from: Option<i32>,
+    gc_to: Option<i32>,
+    votes_from: Option<i32>,
+    votes_to: Option<i32>,
 }
 
 #[get("/tetanus")]
-pub async fn tetanus_search_service(req: HttpRequest, q: web::Query<SearchQuery>) -> HttpResponse {
+pub async fn tetanus_search_service(
+    req: HttpRequest, 
+    q: web::Query<SearchQuery>,
+) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
 
-    let search_res = libavacado::search::search_bots(&q.q, &data.pool, &data.avacado_public).await;
+    let search_res = libavacado::search::search_bots(&q.q, &data.pool, &data.avacado_public, &SearchOpts {
+        gc: SearchFilter {
+            from: q.gc_from,
+            to: q.gc_to,
+        },
+        votes: SearchFilter {
+            from: q.votes_from,
+            to: q.votes_to,
+        },
+    }).await;
 
     if search_res.is_err() {
         let err = search_res.unwrap_err();

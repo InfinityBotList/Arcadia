@@ -1,3 +1,5 @@
+use libavacado::search::{SearchOpts, SearchFilter};
+
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
 
@@ -5,11 +7,24 @@ type Context<'a> = crate::Context<'a>;
 pub async fn searchbots(
     ctx: Context<'_>,
     #[description = "Search Query"] query: String,
+    #[description = "Search Count (FROM)"] gc_from: Option<i32>,
+    #[description = "Search Count (TO)"] gc_to: Option<i32>,
+    #[description = "Votes Count (FROM)"] votes_from: Option<i32>,
+    #[description = "Votes Count (TO)"] votes_to: Option<i32>,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
     let search_res =
-        libavacado::search::search_bots(&query, &data.pool, &data.avacado_public).await?;
+        libavacado::search::search_bots(&query, &data.pool, &data.avacado_public, &SearchOpts {
+            gc: SearchFilter {
+                from: gc_from,
+                to: gc_to,
+            },
+            votes: SearchFilter {
+                from: votes_from,
+                to: votes_to,
+            }, 
+        }).await?;
 
     let mut msg = "**Bots**\n".to_string();
 

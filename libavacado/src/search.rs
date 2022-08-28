@@ -30,7 +30,7 @@ impl SearchOpts {
     /// Returns the cache key
     pub fn key(self: &Self) -> String {
         return format!(
-            "gc:{}-{}-votes:{}-{}",
+            "{}-{}:{}-{}",
             self.gc.from(),
             self.gc.to(),
             self.votes.from(),

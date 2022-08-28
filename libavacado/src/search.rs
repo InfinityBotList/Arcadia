@@ -26,13 +26,26 @@ pub struct SearchOpts {
     pub votes: SearchFilter,
 }
 
+impl SearchOpts {
+    /// Returns the cache key
+    pub fn key(self: &Self) -> String {
+        return format!(
+            "gc:{}-{}-votes:{}-{}",
+            self.gc.from(),
+            self.gc.to(),
+            self.votes.from(),
+            self.votes.to()
+        );
+    }
+}
+
 /*
 Core search concepts:
 
 To add a filter:
 
 AND (bots.FIELD > $N) -- FROM
-AND (($N+1 = -1::bigint) OR (bots.FIELD < $N+1)) -- TO
+AND (($N+1 = -1) OR (bots.FIELD < $N+1)) -- TO
 */
 
 pub async fn search_bots(
@@ -41,7 +54,7 @@ pub async fn search_bots(
     public: &AvacadoPublic,
     opts: &SearchOpts,
 ) -> Result<Arc<Search>, Error> {
-    let search = public.search_cache.get(query);
+    let search = public.search_cache.get(&(query.to_string() + &opts.key()));
 
     if search.is_some() {
         let search_inf = search.unwrap().clone();
@@ -52,15 +65,16 @@ pub async fn search_bots(
         "SELECT DISTINCT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM (
             SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
         ) bots 
-        WHERE type = 'approved' AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) 
+        WHERE type = 'approved' 
+        AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) 
 
         -- Guild count filter (3-4)
         AND (servers > $3)
-        AND (($3 = -1) OR (servers < $4))
+        AND (($4 = -1) OR (servers < $4))
 
         -- Votes filter (5-6)
         AND (votes > $5)
-        AND (($5 = -1) OR (votes < $6))
+        AND (($6 = -1) OR (votes < $6))
 
         ORDER BY votes DESC, certified DESC LIMIT 6",
         query,
@@ -162,7 +176,7 @@ pub async fn search_bots(
         users: search_users,
     });
 
-    public.search_cache.insert(query.clone(), res.clone()).await;
+    public.search_cache.insert(query.to_string() + &opts.key(), res.clone()).await;
 
     Ok(res)
 }

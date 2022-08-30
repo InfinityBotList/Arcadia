@@ -20,5 +20,5 @@ deadpool-redis = { version = "0.10.2", features = ["rt_tokio_1", "serde"] }
 deadpool = { version = "0.9.5", features = ["rt_tokio_1", "serde"] }
 
 [build-dependencies]
-vergen = "7.3.2"
+vergen = "7.4.1"
 anyhow = "1.0"

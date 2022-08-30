@@ -260,3 +260,20 @@ pub async fn tetanus_search_service(
 
     HttpResponse::Ok().json(search_res)
 }
+
+#[get("/maints")]
+pub async fn get_current_maints(
+    _req: HttpRequest, 
+) -> HttpResponse {
+    let maints = libavacado::public::maint_status();
+
+    if let Ok(maints) = maints {
+        return HttpResponse::Ok().json(maints);
+    }
+
+    HttpResponse::BadRequest().json(crate::models::APIResponse {
+        done: false,
+        reason: maints.err().unwrap().to_string(),
+        context: None,
+    })
+}

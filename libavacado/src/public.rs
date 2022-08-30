@@ -1,9 +1,12 @@
+use std::fs::File;
+use std::io::Read;
 use std::{sync::Arc, time::Duration};
 
 use crate::types::{DiscordUser, Error};
 
 use deadpool_redis::redis::AsyncCommands;
 use moka::future::Cache;
+use serde::{Serialize, Deserialize};
 use serenity::model::id::UserId;
 use serenity::{http::CacheHttp, model::id::GuildId};
 
@@ -68,6 +71,7 @@ impl AvacadoPublic {
     }
 }
 
+/// Returns a random string of length ``length``
 pub fn gen_random(length: usize) -> String {
     let s: String = rand::thread_rng()
         .sample_iter(&Alphanumeric)
@@ -78,6 +82,7 @@ pub fn gen_random(length: usize) -> String {
     s
 }
 
+/// Returns a user object, this may be cached
 pub async fn get_user(
     public: &AvacadoPublic,
     id: &str,
@@ -171,4 +176,24 @@ pub async fn get_user(
     conn.set_ex(id, user_json, 60 * 60 * 4).await?;
 
     Ok(arc_user)
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Maint {
+    pub title: String,
+    pub description: String,
+}
+
+/// Maintenance status
+pub fn maint_status() -> Result<Vec<Maint>, Error> {
+    // Open maint.json if itt exists
+    let mut maint_file = File::open("/arcmaint.json")?;
+
+    let mut contents = String::new();
+
+    maint_file.read_to_string(&mut contents)?;
+
+    let maint: Vec<Maint> = serde_json::from_str(&contents)?;
+
+    Ok(maint)
 }

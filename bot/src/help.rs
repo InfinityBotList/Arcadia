@@ -143,7 +143,7 @@ async fn _help_send_index(ctx: Option<Context<'_>>, old_msg: Option<MsgInfo>, ht
 }
 
 #[poise::command(track_edits, prefix_command, slash_command)]
-pub async fn new_help(ctx: Context<'_>) -> Result<(), crate::Error> {
+pub async fn new_help(ctx: Context<'_>) -> Result<(), Error> {
     let eh = _embed_help(ctx.framework()).await?;
 
     let msg = _help_send_index(Some(ctx), None, &ctx.discord().http, &eh, 0).await?;
@@ -179,6 +179,30 @@ pub async fn new_help(ctx: Context<'_>) -> Result<(), crate::Error> {
     } else {
         return Err("No help message found".into())
     }
+
+    Ok(())
+}
+
+#[poise::command(track_edits, prefix_command, slash_command)]
+pub async fn maint(ctx: Context<'_>) -> Result<(), Error> {
+    let maints = libavacado::public::maint_status()?;
+
+    if maints.is_empty() {
+        ctx.say("No maintenances are currently happening :)").await?;
+        return Ok(());
+    }
+
+    ctx.send(|m| {
+        for maint in maints {
+            m.embed(|e| {
+                e.title(maint.title);
+                e.description(maint.description);
+                e.color(0xFF0000);
+                e
+            });
+        }
+        m
+    }).await?;
 
     Ok(())
 }

@@ -42,6 +42,17 @@ async fn age(
     Ok(())
 }
 
+/// Test followup
+#[poise::command(slash_command, prefix_command)]
+async fn actf(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+    ctx.say("initial response").await?;
+    ctx.say("followup").await?;
+
+    Ok(())
+}
+
 /// Test await_component_interaction
 #[poise::command(slash_command, prefix_command)]
 async fn act(
@@ -92,7 +103,7 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     // They are many errors that can occur, so we only handle the ones we want to customize
     // and forward the rest to the default handler
     match error {
-        poise::FrameworkError::Setup { error } => panic!("Failed to start bot: {:?}", error),
+        poise::FrameworkError::Setup { error , .. } => panic!("Failed to start bot: {:?}", error),
         poise::FrameworkError::Command { error, ctx } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
             ctx.say(format!(
@@ -159,6 +170,9 @@ async fn event_listener(
         .unwrap();
 
     match event {
+        poise::Event::InteractionCreate { interaction } => {
+            info!("Interaction received: {:?}", interaction.id());
+        }
         poise::Event::Ready { data_about_bot } => {
             info!(
                 "{} is ready! Doing some minor DB fixes",
@@ -173,9 +187,14 @@ async fn event_listener(
             let _ctx = ctx.to_owned();
             let pool = user_data.pool.clone();
 
-            tokio::task::spawn(async move {
-                autounclaim(pool, _ctx.http, _ctx.cache).await;
-            });
+            let autounclaim_events = std::env::var("AUTOUNCLAIM_EVENTS")
+                .unwrap_or("true".to_string());
+
+            if autounclaim_events == "true" {
+                tokio::task::spawn(async move {
+                    autounclaim(pool, _ctx.http, _ctx.cache).await;
+                });    
+            }
         }
         poise::Event::CacheReady { guilds } => {
             info!("Cache ready with {} guilds", guilds.len());
@@ -206,7 +225,7 @@ async fn autounclaim(
     http: Arc<serenity::http::Http>,
     cache: Arc<serenity::Cache>,
 ) {
-    let mut interval = tokio::time::interval(Duration::from_millis(10000));
+    let mut interval = tokio::time::interval(Duration::from_millis(30000));
 
     let lounge_channel_id = ChannelId(
         std::env::var("LOUNGE_CHANNEL")
@@ -484,6 +503,7 @@ async fn main() {
             commands: vec![
                 age(),
                 act(),
+                actf(),
                 register(),
                 help(),
                 help::new_help(),

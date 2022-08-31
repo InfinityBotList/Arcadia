@@ -156,6 +156,8 @@ pub async fn new_help(ctx: Context<'_>) -> Result<(), Error> {
             .build();
         
         while let Some(item) = interaction.next().await { 
+            item.defer(&ctx.discord()).await?;
+
             let id = &item.data.custom_id;
 
             info!("Received interaction: {}", id);

@@ -491,8 +491,32 @@ async fn main() {
 
     dotenv().ok();
 
-    let framework = poise::Framework::builder()
-        .options(poise::FrameworkOptions {
+    // fetch proxy_url from port 65536
+    let proxy_url = reqwest::get("http://localhost:65535/proxy?service=arcadia").await.unwrap();
+
+    let proxy_url = String::from_utf8(proxy_url.bytes().await.unwrap().to_vec()).expect("Invalid UTF-8 string");
+
+    info!("Proxy URL: {}", proxy_url);
+
+    let http = serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN")).proxy(proxy_url).expect("proxy error").ratelimiter_disabled(true).build();
+    let client_builder = serenity::ClientBuilder::new_with_http(http, serenity::GatewayIntents::all());    
+
+    let framework = poise::Framework::new(client_builder, move |_ctx, _ready, _framework| {
+            Box::pin(async move {
+                Ok(Data {
+                    pool: PgPoolOptions::new()
+                        .max_connections(MAX_CONNECTIONS)
+                        .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
+                        .await
+                        .expect("Could not initialize connection"),
+                    avacado_public: libavacado::public::AvacadoPublic::new(
+                        _ctx.cache.clone(),
+                        _ctx.http.clone(),
+                    ),
+                })
+            })
+        }, 
+        poise::FrameworkOptions {
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("ibb!".into()),
                 ..poise::PrefixFrameworkOptions::default()
@@ -568,24 +592,8 @@ async fn main() {
             },
             on_error: |error| Box::pin(on_error(error)),
             ..Default::default()
-        })
-        .token(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
-        .intents(serenity::GatewayIntents::all())
-        .user_data_setup(move |_ctx, _ready, _framework| {
-            Box::pin(async move {
-                Ok(Data {
-                    pool: PgPoolOptions::new()
-                        .max_connections(MAX_CONNECTIONS)
-                        .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
-                        .await
-                        .expect("Could not initialize connection"),
-                    avacado_public: libavacado::public::AvacadoPublic::new(
-                        _ctx.cache.clone(),
-                        _ctx.http.clone(),
-                    ),
-                })
-            })
-        });
+        }
+    ).await.expect("Error");
 
-    framework.run().await.expect("Error");
+    framework.start().await.expect("Error");
 }

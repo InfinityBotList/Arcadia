@@ -41,7 +41,7 @@ async fn _embed_help(
                 menu,
                 "/{cmd_name} | ibb!{cmd_name} - {desc}",
                 cmd_name = command.name,
-                desc = command.description.as_deref().unwrap_or("")
+                desc = command.description.as_deref().unwrap_or("*No description available yet*")
             );
         }
 
@@ -102,9 +102,10 @@ async fn _help_send_index(ctx: Option<Context<'_>>, old_msg: Option<MsgInfo>, ht
                 return Ok(None)
             }
 
-
             if let Some(ctx) = ctx {
                 let msg = ctx.send(|m| {
+                    m.ephemeral(true);
+
                     m.embed(|e| {
                         e.title(format!("{} (Page {})", data.category, index + 1));
                         e.description(&data.desc);

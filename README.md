@@ -16,6 +16,10 @@
 - api => Arcadia Staff API (statistics, maybe a claim/unclaim/approve/deny api for panel if needed etc)
 - libavacado => Common shared logic for ``bot``, ``api`` and any possible addition to Arcadia
 
+## Database Seeds
+
+You can find a seed of the Infinity Bot List database at https://seed.infinitybots.gg/. This seed is public and available for all contributors
+
 ## Contributing
 
 - Always run ``fmt.sh`` before making a Pull Request!

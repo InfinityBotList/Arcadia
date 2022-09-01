@@ -19,6 +19,7 @@ chrono = { version = "0.4.19", features = ["serde"]}
 dotenv = "0.15.0"
 futures-util = "0.3.21"
 libavacado = { path = "../libavacado" }
+leone = { path = "./leone" }
 
 [dependencies.tokio]
 version = "1"

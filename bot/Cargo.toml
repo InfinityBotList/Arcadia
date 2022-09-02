@@ -20,6 +20,8 @@ dotenv = "0.15.0"
 futures-util = "0.3.21"
 libavacado = { path = "../libavacado" }
 leone = { path = "./leone" }
+ring = "0.16.20"
+data-encoding = "2.3.2"
 
 [dependencies.tokio]
 version = "1"

@@ -16,6 +16,54 @@ struct SurveyModal {
     invite: String,
 }
 
+/// Internal function to handle the special-cased staff_guide command
+/// 
+/// This internally creates a onboarding 'fragment' which is used to ensure that a user isn't peeping into someone elses staff verification code
+/// 
+/// This fragment is then used by sovngarde to fetch the full code and add it to the guide.
+async fn _handle_staff_guide(
+    ctx: crate::Context<'_>,
+    user_id: String,
+) -> Result<(), crate::Error> {
+    // This is the onboard code user needs to input (random_string@CURRENT_TIME)
+    let onboard_code = libavacado::public::gen_random(64) + "@" + &chrono::Utc::now().timestamp().to_string();
+
+    // Get first 20 characters of the onboard code as onboard_fragment
+    let onboard_fragment = onboard_code.chars().take(20).collect::<String>();
+    
+    // Set onboard code for user
+    let data = ctx.data();
+
+    sqlx::query!(
+        "UPDATE users SET staff_onboard_session_code = $1 WHERE user_id = $2",
+        onboard_code,
+        user_id
+    )
+    .execute(&data.pool)
+    .await?;
+
+    ctx.say(
+        format!(
+            r#"The staff guide can be found at https://seed.infinitybots.gg/sovngarde?svu={uid}@{ocf}. Please **do not** bookmark this page as the URL may change in the future
+            
+Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To get started, **invite ``Ninja Bot`` using ``ibb!invite [ID]`` where [ID] is the ID from the ``queue`` command**, then claim ``Ninja Bot``!
+
+**Note that during onboarding, the *5 digit staff verify code* will be reset every time you run the ``staffguide`` command! Always use the latest command invocation for getting the code**
+            "#,
+            uid = user_id,
+            ocf = onboard_fragment,
+    )).await?;
+
+    sqlx::query!(
+        "UPDATE users SET staff_onboard_state = 'staff-guide-read-encouraged' WHERE user_id = $1",
+        ctx.author().id.to_string()
+    )
+    .execute(&data.pool)
+    .await?;
+
+    Ok(())
+}
+
 /// Tries to check if onboarding is required, returns ``false`` if command should stop
 pub async fn handle_onboarding(
     ctx: crate::Context<'_>,
@@ -294,7 +342,8 @@ pub async fn handle_onboarding(
         )
         .execute(&data.pool)
         .await?;
-        return Ok(true);
+        _handle_staff_guide(ctx, user_id.to_string()).await?;
+        return Ok(false);
     }
 
     // Allow users to see queue again
@@ -381,7 +430,8 @@ pub async fn handle_onboarding(
         "testing-bot" => {
             // Allow staff guide here
             if cmd_name == "staffguide" {
-                return Ok(true);
+                _handle_staff_guide(ctx, user_id.to_string()).await?;
+                return Ok(false);
             }
 
             if cmd_name != "approve" && cmd_name != "deny" {
@@ -447,6 +497,15 @@ pub async fn handle_onboarding(
                                         .placeholder("What did you think of the onboarding system? Your feedback will help us improve our services")
                                         .style(serenity::InputTextStyle::Paragraph)
                                     })
+                                });
+
+                                c.create_action_row(|r| {
+                                    r.create_input_text(|it| {
+                                        it.custom_id("code")
+                                        .label("Staff Verify Code")
+                                        .placeholder("You can find this by running the staffguide command")
+                                        .style(serenity::InputTextStyle::Short)
+                                    })
                                 })
                             })
                         })
@@ -457,13 +516,81 @@ pub async fn handle_onboarding(
                         .author_id(m.user.id)
                         .await
                         .unwrap();
-
+                    
                     // Send acknowledgement so that the pop-up is closed
                     response
                         .create_interaction_response(discord, |b| {
                             b.kind(serenity::InteractionResponseType::DeferredUpdateMessage)
                         })
                         .await?;
+
+                    // Verify the code
+                    let i_code = crate::_utils::modal_get(&response.data, "code");
+
+                    let code = sqlx::query!(
+                        "SELECT staff_onboard_session_code FROM users WHERE user_id = $1",
+                        user_id
+                    )
+                    .fetch_one(&data.pool)
+                    .await?;  
+                    
+                    let code = code.staff_onboard_session_code;
+
+                    if code.is_none() {
+                        ctx.say("SVSession has expired, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code").await?;
+                        return Ok(false);
+                    }
+
+                    let code = code.unwrap();
+
+                    let codesplit = code.split('@').collect::<Vec<&str>>();
+
+                    if codesplit.len() != 2 {
+                        ctx.say("SVSession is invalid, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code").await?;
+                        return Ok(false);
+                    }        
+                    
+                    let time_nonce = codesplit[1];
+                    let time_nonce = time_nonce.parse::<i64>();
+                
+                    if time_nonce.is_err() {
+                        ctx.say("SVSession is invalid, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code").await?;
+                        return Ok(false);
+                    }              
+                    
+                    let time_nonce = time_nonce.unwrap();
+
+                    // Get current time and subtract from time_nonce
+                    let now = chrono::Utc::now().timestamp();
+                
+                    if now - time_nonce > 3600 {
+                        ctx.say("SVSession is invalid, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code").await?;
+                        return Ok(false);
+                    }
+
+                    let code_web = codesplit[0];
+
+                    // Take last 37 characters
+                    let mut code_upper = code_web.chars().skip(code_web.len() - 37).collect::<String>();
+
+                    // Set index 2 and 19 to 'r' and 'x' respectively
+                    code_upper.replace_range(2..3,"r");
+                    code_upper.replace_range(19..20,"x");
+
+                    // SHA-512 it using ring
+                    let code_upper = code_upper.as_bytes();
+                    let code_upper = ring::digest::digest(&ring::digest::SHA512, code_upper);
+                    let code_upper = data_encoding::HEXLOWER.encode(code_upper.as_ref());
+
+                    // Get last 6 characters
+                    let code_upper = code_upper.chars().skip(code_upper.len() - 6).collect::<String>();
+                    
+                    info!("Wanted {} and user inputted {}", code_upper, i_code);
+
+                    if code_upper != i_code {
+                        ctx.say("Whoa there! You inputted the wrong verification code (hint: ``/staffguide`` or ``ibb!staffguide``)").await?;
+                        return Ok(false);
+                    }
 
                     // Create permanent invite to this server
                     let channel = ctx.guild_id().unwrap().create_channel(discord, |c| {
@@ -601,7 +728,10 @@ This bot *will* now leave this server however you should not! Be prepared to sen
 Great! As you can see, you have now claimed ``Ninja Bot``. 
                 
 Now test the bot as per the staff guide. Then run either ``/approve`` or ``/deny`` with your overall feeling of whether or not this bot should 
-be approved or denied."#).await?;
+be approved or denied.
+
+**Note that you will need to verify that you have read the staff guide when using ``/approve`` or ``/deny``.**
+"#).await?;
 
                 sqlx::query!(
                     "UPDATE users SET staff_onboard_state = 'testing-bot' WHERE user_id = $1",
@@ -610,7 +740,8 @@ be approved or denied."#).await?;
                 .execute(&data.pool)
                 .await?;
             } else if cmd_name == "staffguide" {
-                return Ok(true);
+                _handle_staff_guide(ctx, user_id.to_string()).await?;
+                return Ok(false);
             } else {
                 ctx.say("Type ``/queue`` now to see the queue.").await?;
             }
@@ -651,7 +782,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                 ctx.say("You can use the `/queue` (or ``ibb!queue``) command to see the list of bots pending verification that *you* need to review! Lets try that out?").await?;
             }
 
-            Ok(false)
+            return Ok(false);
         }
         // Not for us
         "staff-guide" => Ok(true),
@@ -770,7 +901,8 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
 
                 // Special override to allow revisiting the staffguide command
                 if cmd_name == "staffguide" {
-                    return Ok(true);
+                    _handle_staff_guide(ctx, user_id.to_string()).await?;
+                    return Ok(false);            
                 }
             }
             Ok(false)

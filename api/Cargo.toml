@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = { version = "4.0.1", features = ["rustls"] }
-actix-cors = "0.6.0"
+actix-cors = "0.6.2"
 tokio = "1.20.0"
 actix-rt = "2.6.0"
 env_logger = "0.9.0"
@@ -20,3 +20,4 @@ dotenv = "0.15.0"
 serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
 libavacado = { path = "../libavacado" }
 moka = { version = "0.9", features = ["future"] }
+chrono = { version = "0.4.19", features = ["serde"]}

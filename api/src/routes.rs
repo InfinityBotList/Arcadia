@@ -1,6 +1,6 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 use libavacado::search::{SearchOpts, SearchFilter};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct Request {
@@ -277,3 +277,120 @@ pub async fn get_current_maints(
         context: None,
     })
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct SVQuery {
+    uid: String,
+    frag: String,
+}
+
+#[get("/svapi")]
+pub async fn staff_verify_fetch_api(
+    req: HttpRequest,
+    q: web::Query<SVQuery>,
+) -> HttpResponse {
+    let data: &crate::models::AppState = req
+    .app_data::<web::Data<crate::models::AppState>>()
+    .unwrap();
+
+    let code = sqlx::query!(
+        "SELECT staff_onboard_session_code FROM users WHERE user_id = $1",
+        &q.uid
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if code.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "User not found".to_string(),
+            context: None,
+        });
+    }
+
+    let code = code.unwrap().staff_onboard_session_code;
+
+    if code.is_none() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "SVSession not found".to_string(),
+            context: None,
+        });
+    }
+
+    let code = code.unwrap();
+
+    // Get first 20 chars of code
+    let frcode = &code[..20];
+
+    if frcode != q.frag {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Invalid SVSession".to_string(),
+            context: None,
+        });
+    }
+
+    // Split code by @
+    let codesplit = code.split('@').collect::<Vec<&str>>();
+
+    if codesplit.len() != 2 {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Invalid SVSession".to_string(),
+            context: None,
+        });
+    }
+
+    let time_nonce = codesplit[1];
+    let time_nonce = time_nonce.parse::<i64>();
+
+    if time_nonce.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Invalid SVSession".to_string(),
+            context: None,
+        });
+    }
+
+    let time_nonce = time_nonce.unwrap();
+
+    // Get current time and subtract from time_nonce
+    let now = chrono::Utc::now().timestamp();
+
+    if now - time_nonce > 3600 {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "SVSession expired".to_string(),
+            context: None,
+        });
+    }
+
+    // Check SVAPI version
+    let svapi_header = req.headers().get("sv-version");
+
+    if svapi_header.is_none() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "SVSession expired".to_string(),
+            context: None,
+        });
+    }
+
+    let svapi_header = svapi_header.unwrap().to_str().unwrap();
+
+    if svapi_header != "pika9" {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "SVSession expired".to_string(),
+            context: None,
+        });
+    }
+
+    HttpResponse::Ok().json(crate::models::APIResponse {
+        done: true,
+        reason: codesplit[0].to_string(),
+        context: None,
+    })
+}
+

@@ -93,7 +93,10 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allowed_origin_fn(|origin, _req_head| origin.as_bytes().ends_with(b"infinitybots.gg"))
+            .allowed_origin_fn(|origin, _req_head| {
+                println!("{:?}", origin);
+                origin.as_bytes().ends_with(b"infinitybots.gg")
+            })
             .allowed_methods(vec![
                 "GET", "HEAD", "PUT", "POST", "PATCH", "DELETE", "OPTIONS",
             ])
@@ -101,9 +104,10 @@ async fn main() -> std::io::Result<()> {
                 http::header::AUTHORIZATION,
                 http::header::ACCEPT,
                 http::header::CONTENT_TYPE,
+                http::header::HeaderName::from_bytes(b"SV-Version").unwrap()
             ])
             .supports_credentials()
-            .max_age(3600);
+            .max_age(1);
 
         App::new()
             .app_data(app_state.clone())
@@ -126,6 +130,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::vote_reset)
             .service(routes::vote_reset_all)
             .service(routes::tetanus_search_service)
+            .service(routes::staff_verify_fetch_api)
     })
     .workers(8)
     .bind("localhost:3010")?

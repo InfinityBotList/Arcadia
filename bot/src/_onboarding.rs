@@ -48,7 +48,7 @@ async fn _handle_staff_guide(
             
 Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To get started, **invite ``Ninja Bot`` using ``ibb!invite [ID]`` where [ID] is the ID from the ``queue`` command**, then claim ``Ninja Bot``!
 
-**Note that during onboarding, the *5 digit staff verify code* will be reset every time you run the ``staffguide`` command! Always use the latest command invocation for getting the code**
+**Note that during onboarding, the *5 digit staff verify code present somewhere in the guide* will be reset every time you run the ``staffguide`` command! Always use the latest command invocation for getting the code**
             "#,
             uid = user_id,
             ocf = onboard_fragment,

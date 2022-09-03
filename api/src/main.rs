@@ -131,6 +131,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::vote_reset_all)
             .service(routes::tetanus_search_service)
             .service(routes::staff_verify_fetch_api)
+            .service(routes::staff_verify_onboard_data_api)
     })
     .workers(8)
     .bind("localhost:3010")?

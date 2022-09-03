@@ -6,16 +6,6 @@ use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId};
 use poise::serenity_prelude as serenity;
 use serde_json::json;
 
-use serde::Serialize;
-
-#[derive(Debug, Serialize)]
-struct SurveyModal {
-    analysis: String,
-    thoughts: String,
-    has_onboarded_before: bool,
-    invite: String,
-}
-
 /// Internal function to handle the special-cased staff_guide command
 /// 
 /// This internally creates a onboarding 'fragment' which is used to ensure that a user isn't peeping into someone elses staff verification code
@@ -159,6 +149,16 @@ pub async fn handle_onboarding(
         .await?;
 
         onboard_state = "pending";
+    }
+
+    if onboard_state == "pending" {
+        // Set macro_time
+        sqlx::query!(
+            "UPDATE users SET staff_onboard_macro_time = NOW() WHERE user_id = $1", 
+            user_id
+        )
+        .execute(&data.pool)
+        .await?;
     }
 
     let cur_guild = ctx.guild().unwrap().name;
@@ -421,9 +421,10 @@ pub async fn handle_onboarding(
             .execute(&data.pool)
             .await?;
 
-            ctx.say("Whoa there! Look at that! There's a new bot to review!!! Type ``/queue`` (or ``ibb!queue``) to see the queue").await?;
-
-            ctx.say("**PRO TIP:** This has a time limit of one hour. Progressing through onboarding or using testing commands properly will reset the timer. You will **not** be informed of when your time limit is close to expiry. Changing the name of the server will cause it to be *deleted*").await?;
+            ctx.say(r#"Whoa there! Look at that! There's a new bot to review!!! Type ``/queue`` (or ``ibb!queue``) to see the queue
+            
+**PRO TIP:** This has a time limit of one hour. Progressing through onboarding or using testing commands properly will reset the timer. You will **not** be informed of when your time limit is close to expiry. Changing the name of the server will cause it to be *deleted*
+            "#).await?;
 
             Ok(false)
         }
@@ -645,14 +646,32 @@ This bot *will* now leave this server however you should not! Be prepared to sen
 
                     let thoughts = thoughts.unwrap();
 
-                    let survey_modal = SurveyModal {
-                        analysis: analysis,
-                        thoughts: thoughts,
-                        has_onboarded_before: onboarded.staff_onboarded,
-                        invite: inv.url(),
-                    };
+                    let s_onboard = sqlx::query!(
+                        "SELECT staff_onboarded, staff_onboard_macro_time FROM users WHERE user_id = $1",
+                        user_id
+                    )
+                    .fetch_one(&data.pool)
+                    .await?;            
 
-                    let modal_raw = docser::serialize_docs(&survey_modal)?;
+                    let survey_modal = json!({
+                        "analysis": analysis,
+                        "thoughts": thoughts,
+                        "has_onboarded_before": onboarded.staff_onboarded,
+                        "invite": inv.url(),
+                        "submit_ts": chrono::Utc::now().timestamp(),
+                        "start_ts": s_onboard.staff_onboard_macro_time.unwrap_or_default().timestamp(),
+                        "staff_onboarded_before": s_onboard.staff_onboarded,
+                    });
+
+                    let tok = libavacado::public::gen_random(32);
+
+                    sqlx::query!("INSERT INTO onboard_data (user_id, onboard_code, data) VALUES ($1, $2, $3)", 
+                        user_id, 
+                        tok,
+                        survey_modal
+                    )
+                    .execute(&data.pool)
+                    .await?;
 
                     // Now transfer ownership to author
                     ctx.guild_id()
@@ -660,57 +679,19 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         .edit(discord, |e| e.owner(ctx.author().id))
                         .await?;
 
-                    let tok = libavacado::public::gen_random(16);
-
                     let onboard_channel_id =
                         ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<u64>()?);
 
-                    onboard_channel_id.send_message(
+                    onboard_channel_id.say(
                         &discord,
-                        |m| {
-                            m.content(format!(
-                                "**Unique ID:** {tok} **New onboarding attempt**\n\n**User ID:** {user_id}\n**Action taken:** {action}\n**Overall reason:** {reason}.",
-                                user_id = user_id,
-                                action = cmd_name,
-                                reason = reason.unwrap_or_default(),
-                                tok = tok,
-                            ))
-                            .files(vec![serenity::AttachmentType::Bytes { data: modal_raw.as_bytes().into(), filename: "raw_data.md".to_string() }])
-                    }).await?;
-
-                    // Send model_raw but paginated
-                    let mut text_chunks = Vec::new();
-
-                    let mut text_chunk = String::new();
-                    for (i, c) in modal_raw.chars().enumerate() {
-                        text_chunk.push(c);
-                        if i % 1998 == 0 && i > 0 {
-                            text_chunks.push(text_chunk.clone());
-                            text_chunk.clear();
-                        }
-                    }
-
-                    for chunk in text_chunks {
-                        if !chunk.is_empty() {
-                            onboard_channel_id.say(discord, chunk).await?;
-                        }
-                    }
-
-                    // Empty buffer
-                    if !text_chunk.is_empty() {
-                        onboard_channel_id
-                            .say(discord, text_chunk)
-                            .await?
-                            .suppress_embeds(discord)
-                            .await?;
-                    }
-
-                    onboard_channel_id
-                        .say(
-                            discord,
-                            "**End of onboarding data for id ".to_string() + &tok + "**",
+                        format!(
+                            "**New onboarding attempt**\n\n**User ID:** {user_id}\n**Action taken:** {action}\n**Overall reason:** {reason}.\n**URL:** {url}",
+                            user_id = user_id,
+                            action = cmd_name,
+                            reason = reason.unwrap_or_default(),
+                            url = "https://seed.infinitybots.gg/sovngarde/onboard?tok=".to_string() + &tok
                         )
-                        .await?;
+                    ).await?;
 
                     sqlx::query!(
                         "UPDATE users SET staff_onboard_state = 'pending-manager-review' WHERE user_id = $1",
@@ -813,7 +794,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                 ctx.say("You can use the `/queue` (or ``ibb!queue``) command to see the list of bots pending verification that *you* need to review! Lets try that out?").await?;
             }
 
-            return Ok(false);
+            Ok(false)
         }
         // Not for us
         "staff-guide" => Ok(true),

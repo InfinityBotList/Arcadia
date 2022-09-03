@@ -72,10 +72,8 @@ pub struct ModalValue {
 
 impl ModalValue {
     /// Returns the value from a Option<Vec<String>> returned by modal_get
-    pub fn extract_single(self: Self) -> Option<String> {
-        if self.values.is_none() {
-            return None;
-        }
+    pub fn extract_single(self) -> Option<String> {
+        self.values.as_ref()?;
 
         let resp = self.values.unwrap();
 

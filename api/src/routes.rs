@@ -284,6 +284,65 @@ pub struct SVQuery {
     frag: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct SVODQuery {
+    code: String,
+}
+
+#[get("/svapi-onboarddata")]
+pub async fn staff_verify_onboard_data_api(
+    req: HttpRequest,
+    q: web::Query<SVODQuery>,
+) -> HttpResponse {
+    let data: &crate::models::AppState = req
+    .app_data::<web::Data<crate::models::AppState>>()
+    .unwrap();
+
+    // Check SVAPI version
+    let svapi_header = req.headers().get("sv-version");
+
+    if svapi_header.is_none() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "SVSession expired".to_string(),
+            context: None,
+        });
+    }
+
+    let svapi_header = svapi_header.unwrap().to_str().unwrap();
+
+    if svapi_header != "wistala3" {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "SVSession expired".to_string(),
+            context: None,
+        });
+    }
+
+    let data = sqlx::query!(
+        "SELECT user_id, data FROM onboard_data WHERE onboard_code = $1",
+        &q.code
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if data.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "SVSession expired".to_string(),
+            context: None,
+        });
+    }
+
+    let rec = data.unwrap();
+
+    let mut data = rec.data;
+
+    data["user_id"] = sqlx::types::JsonValue::String(rec.user_id);
+
+    HttpResponse::Ok().json(data)
+}
+
 #[get("/svapi")]
 pub async fn staff_verify_fetch_api(
     req: HttpRequest,

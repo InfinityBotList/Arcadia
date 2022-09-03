@@ -188,7 +188,7 @@ async fn event_listener(
             let pool = user_data.pool.clone();
 
             let autounclaim_events = std::env::var("AUTOUNCLAIM_EVENTS")
-                .unwrap_or("true".to_string());
+                .unwrap_or_else(|_| "true".to_string());
 
             if autounclaim_events == "true" {
                 tokio::task::spawn(async move {

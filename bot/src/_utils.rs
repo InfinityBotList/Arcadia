@@ -65,9 +65,38 @@ pub async fn page_content(
     Ok(chunks)
 }
 
+/// A Modal value struct
+pub struct ModalValue {
+    pub values: Option<Vec<String>>,
+}
+
+impl ModalValue {
+    /// Returns the value from a Option<Vec<String>> returned by modal_get
+    pub fn extract_single(self: Self) -> Option<String> {
+        if self.values.is_none() {
+            return None;
+        }
+
+        let resp = self.values.unwrap();
+
+        if resp.is_empty() {
+            return None;
+        }
+
+        let resp = &resp[0];
+
+        if resp.is_empty() {
+            return None;
+        }
+
+        Some(resp.to_string())
+    }
+}
+
 /// Get the action row component given id
 /// In buttons, this returns 'found' if found in response
-pub fn modal_get(resp: &serenity::ModalSubmitInteractionData, id: &str) -> String {
+/// In a select menu, values are returned as a string
+pub fn modal_get(resp: &serenity::ModalSubmitInteractionData, id: &str) -> ModalValue {
     for row in &resp.components {
         for component in &row.components {
             let id = id.to_string();
@@ -75,17 +104,17 @@ pub fn modal_get(resp: &serenity::ModalSubmitInteractionData, id: &str) -> Strin
             match component {
                 ActionRowComponent::Button(c) => {
                     if c.custom_id == Some(id) {
-                        return "found".to_string();
+                        return ModalValue { values: Some(vec!["found".to_string()]) };
                     }
                 }
                 ActionRowComponent::SelectMenu(s) => {
                     if s.custom_id == Some(id) {
-                        todo!()
+                        return ModalValue { values: Some(s.values.clone()) };
                     }
                 }
                 ActionRowComponent::InputText(t) => {
                     if t.custom_id == id {
-                        return t.value.clone();
+                        return ModalValue { values: Some(vec![t.value.clone()]) };
                     }
                 }
                 _ => {}
@@ -93,5 +122,5 @@ pub fn modal_get(resp: &serenity::ModalSubmitInteractionData, id: &str) -> Strin
         }
     }
 
-    String::new()
+    ModalValue { values: None }
 }

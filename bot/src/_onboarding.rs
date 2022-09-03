@@ -514,8 +514,14 @@ pub async fn handle_onboarding(
                     // Wait for user to submit
                     let response = serenity::CollectModalInteraction::new(&discord.shard)
                         .author_id(m.user.id)
-                        .await
-                        .unwrap();
+                        .await;
+
+                    if response.is_none() {
+                        ctx.say("You took too long to respond. Please try again.").await?;
+                        return Ok(false);
+                    }
+                    
+                    let response = response.unwrap();
                     
                     // Send acknowledgement so that the pop-up is closed
                     response
@@ -525,7 +531,14 @@ pub async fn handle_onboarding(
                         .await?;
 
                     // Verify the code
-                    let i_code = crate::_utils::modal_get(&response.data, "code");
+                    let i_code = crate::_utils::modal_get(&response.data, "code").extract_single();
+
+                    if i_code.is_none() {
+                        ctx.say("You did not provide a code. Please try again.").await?;
+                        return Ok(false);
+                    }
+
+                    let i_code = i_code.unwrap();
 
                     let code = sqlx::query!(
                         "SELECT staff_onboard_session_code FROM users WHERE user_id = $1",
@@ -614,9 +627,27 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         )
                     ).await?;
 
+                    let analysis = crate::_utils::modal_get(&response.data, "analysis").extract_single();
+
+                    if analysis.is_none() {
+                        ctx.say("You did not provide any value for analysis. Please try again.").await?;
+                        return Ok(false);
+                    }
+
+                    let analysis = analysis.unwrap();
+
+                    let thoughts = crate::_utils::modal_get(&response.data, "thoughts").extract_single();
+                    
+                    if thoughts.is_none() {
+                        ctx.say("You did not provide any value for thoughts. Please try again.").await?;
+                        return Ok(false);
+                    }
+
+                    let thoughts = thoughts.unwrap();
+
                     let survey_modal = SurveyModal {
-                        analysis: crate::_utils::modal_get(&response.data, "analysis"),
-                        thoughts: crate::_utils::modal_get(&response.data, "thoughts"),
+                        analysis: analysis,
+                        thoughts: thoughts,
                         has_onboarded_before: onboarded.staff_onboarded,
                         invite: inv.url(),
                     };

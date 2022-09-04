@@ -65,7 +65,7 @@ pub async fn page_content(
     Ok(chunks)
 }
 
-/// A Modal value struct
+/// A Modal value struct (for handling select menus as well)
 pub struct ModalValue {
     pub values: Option<Vec<String>>,
 }
@@ -89,9 +89,15 @@ impl ModalValue {
 
         Some(resp.to_string())
     }
+
+    // ``new`` on ModalValue
+    pub fn new(values: Vec<String>) -> Self {
+        Self { values: Some(values) }
+    }
 }
 
-/// Get the action row component given id
+
+/// Get the action row component given id (for modals)
 /// In buttons, this returns 'found' if found in response
 /// In a select menu, values are returned as a string
 pub fn modal_get(resp: &serenity::ModalSubmitInteractionData, id: &str) -> ModalValue {

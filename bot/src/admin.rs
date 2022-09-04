@@ -1,3 +1,5 @@
+use crate::Context;
+use crate::Error;
 use crate::_checks as checks;
 
 use poise::serenity_prelude::User;
@@ -8,8 +10,24 @@ use std::time::Duration;
 
 use poise::serenity_prelude as serenity;
 
+/// Onboarding base command
+#[poise::command(
+    category = "Admin",
+    prefix_command,
+    slash_command,
+    guild_cooldown = 10,
+    subcommands(
+        "approveonboard",
+    )
+)]
+pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.say("Some available options are ``onboard approve`` etc.").await?;
+    Ok(())
+}
+
 /// Allows managers to onboard users
 #[poise::command(
+    rename = "approve",
     category = "Admin",
     track_edits,
     prefix_command,
@@ -17,9 +35,9 @@ use poise::serenity_prelude as serenity;
     check = "checks::is_hdev_hadmin"
 )]
 pub async fn approveonboard(
-    ctx: crate::Context<'_>,
+    ctx: Context<'_>,
     #[description = "The staff id"] member: serenity::Member,
-) -> Result<(), crate::Error> {
+) -> Result<(), Error> {
     if !checks::staff_server(ctx).await? {
         return Err("You are not in the staff server".into());
     }

@@ -556,7 +556,7 @@ async fn main() {
                 admin::update_field(),
                 admin::votereset(),
                 admin::voteresetall(),
-                admin::onboard(),
+                admin::onboardman(),
                 search::searchbots(),
                 stats::stats(),
                 botowners::setstats(),

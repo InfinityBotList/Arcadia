@@ -20,8 +20,8 @@ use poise::serenity_prelude as serenity;
         "approveonboard",
     )
 )]
-pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Some available options are ``onboard approve`` etc.").await?;
+pub async fn onboardman(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.say("Some available options are ``onboardman approve`` etc.").await?;
     Ok(())
 }
 

@@ -137,7 +137,7 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
 }
 
 #[poise::command(track_edits, prefix_command, slash_command)]
-async fn help(
+async fn simplehelp(
     ctx: Context<'_>,
     #[description = "Specific command to show help about"]
     #[autocomplete = "poise::builtins::autocomplete_command"]
@@ -498,8 +498,16 @@ async fn main() {
 
     info!("Proxy URL: {}", proxy_url);
 
+    // http_pre is for getting app_info etc., http is for poise framework
+    let http_pre = serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN")).proxy(&proxy_url).expect("proxy error").ratelimiter_disabled(true).build();
     let http = serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN")).proxy(proxy_url).expect("proxy error").ratelimiter_disabled(true).build();
+
     let client_builder = serenity::ClientBuilder::new_with_http(http, serenity::GatewayIntents::all());    
+
+    // Get the bot's owners and id and convert it to hashset
+    let app_inf = http_pre.get_current_application_info().await.unwrap();
+    let owners = app_inf.team.as_ref().map(|team| team.members.iter().map(|m| m.user.id).collect()).unwrap_or_else(|| vec![app_inf.owner.id]);
+    let owners = owners.into_iter().collect::<std::collections::HashSet<_>>();
 
     let framework = poise::Framework::new(client_builder, move |_ctx, _ready, _framework| {
             Box::pin(async move {
@@ -517,6 +525,7 @@ async fn main() {
             })
         }, 
         poise::FrameworkOptions {
+            owners,
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("ibb!".into()),
                 ..poise::PrefixFrameworkOptions::default()
@@ -529,8 +538,8 @@ async fn main() {
                 act(),
                 actf(),
                 register(),
-                help(),
-                help::new_help(),
+                simplehelp(),
+                help::help(),
                 explain::explainme(),
                 staff::staff(),
                 testing::onboard(),

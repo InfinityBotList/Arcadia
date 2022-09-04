@@ -219,7 +219,7 @@ async fn _help_send_index(
 }
 
 #[poise::command(track_edits, prefix_command, slash_command)]
-pub async fn new_help(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
     let eh = _embed_help(ctx.framework()).await?;
 
     let msg = _help_send_index(Some(ctx), None, &ctx.discord().http, &eh, 0, None).await?;

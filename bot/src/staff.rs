@@ -251,18 +251,21 @@ During beta testing, this is available to admins and devs, but once second final
     track_edits,
     prefix_command,
     slash_command,
+    check = "checks::main_server",
     check = "checks::is_admin_hdev",
-    check = "checks::staff_server"
 )]
 pub async fn staff_add(
     ctx: Context<'_>,
-    #[description = "The user ID of the user to add"] member: serenity::Member,
+    #[description = "The user ID of the user to add"] mut member: serenity::Member,
 ) -> Result<(), Error> {
     let web_mod_role =
         poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
 
     if !member.roles.contains(&web_mod_role) {
-        return Err(format!("{} is not a web moderator", member.user.name).into());
+        // Give user web mod role
+        member
+        .add_role(ctx.discord(), web_mod_role)
+        .await?;
     }
 
     sqlx::query!(
@@ -287,12 +290,12 @@ pub async fn staff_add(
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev",
-    check = "checks::staff_server"
+    check = "checks::main_server",
+    check = "checks::is_admin_hdev"
 )]
 pub async fn staff_del(
     ctx: Context<'_>,
-    #[description = "The user ID of the user to remove staff from"] member: serenity::Member,
+    #[description = "The user ID of the user to remove staff from"] mut member: serenity::Member,
 ) -> Result<(), Error> {
     let staff_man_role =
         poise::serenity_prelude::RoleId(std::env::var("STAFF_MAN_ROLE")?.parse::<u64>()?);
@@ -321,14 +324,25 @@ pub async fn staff_del(
     .execute(&ctx.data().pool)
     .await?;
 
-    member
-        .guild_id
-        .kick_with_reason(
-            &ctx.discord().http,
-            member.user.id,
-            "Removed from staff list",
-        )
+    let web_mod_role =
+        poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
+
+    if member.roles.contains(&web_mod_role) {
+        // Remove users web mod role
+        member
+        .remove_role(ctx.discord(), web_mod_role)
         .await?;
+    }
+
+    let staff_server = poise::serenity_prelude::GuildId(std::env::var("MAIN_SERVER")?.parse::<u64>()?);
+
+    staff_server
+    .kick_with_reason(
+        &ctx.discord().http,
+        member.user.id,
+        "Removed from staff list",
+    )
+    .await?;
 
     ctx.say("Removed from staff list").await?;
 

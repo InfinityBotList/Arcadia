@@ -3,6 +3,7 @@ use libavacado::search::{SearchOpts, SearchFilter};
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
 
+#[allow(clippy::too_many_arguments)]
 #[poise::command(category = "Search", prefix_command, slash_command, user_cooldown = 1)]
 pub async fn searchbots(
     ctx: Context<'_>,
@@ -11,6 +12,8 @@ pub async fn searchbots(
     #[description = "Search Count (TO)"] gc_to: Option<i32>,
     #[description = "Votes Count (FROM)"] votes_from: Option<i32>,
     #[description = "Votes Count (TO)"] votes_to: Option<i32>,
+    #[description = "Server Count (FROM)"] servers_from: Option<i32>,
+    #[description = "Server Count (TO)"] servers_to: Option<i32>,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
@@ -24,6 +27,10 @@ pub async fn searchbots(
                 from: votes_from,
                 to: votes_to,
             }, 
+            servers: SearchFilter {
+                from: servers_from,
+                to: servers_to,
+            },
         }).await?;
 
     let mut msg = "**Bots**\n".to_string();

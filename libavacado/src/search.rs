@@ -24,17 +24,20 @@ impl SearchFilter {
 pub struct SearchOpts {
     pub gc: SearchFilter,
     pub votes: SearchFilter,
+    pub servers: SearchFilter,
 }
 
 impl SearchOpts {
     /// Returns the cache key
     pub fn key(self: &Self) -> String {
         return format!(
-            ":{}-{}:{}-{}",
+            ":{}-{}:{}-{}-{}-{}",
             self.gc.from(),
             self.gc.to(),
             self.votes.from(),
-            self.votes.to()
+            self.votes.to(),
+            self.servers.from(),
+            self.servers.to()
         );
     }
 }
@@ -76,13 +79,19 @@ pub async fn search_bots(
         AND (votes > $5)
         AND (($6 = -1) OR (votes < $6))
 
+        -- Servers filter (7-8)
+        AND (servers > $7)
+        AND (($8 = -1) OR (servers < $8))
+
         ORDER BY votes DESC, certified DESC LIMIT 6",
         query,
         "%".to_string() + query + "%",
         opts.gc.from(),
         opts.gc.to(),
         opts.votes.from(),
-        opts.votes.to()
+        opts.votes.to(),
+        opts.servers.from(),
+        opts.servers.to()
     )
     .fetch_all(pool)
     .await?;

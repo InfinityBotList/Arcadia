@@ -47,8 +47,8 @@ Core search concepts:
 
 To add a filter:
 
-AND (bots.FIELD > $N) -- FROM
-AND (($N+1 = -1) OR (bots.FIELD < $N+1)) -- TO
+AND (bots.FIELD >= $N) -- FROM
+AND (($N+1 = -1) OR (bots.FIELD <= $N+1)) -- TO
 */
 
 pub async fn search_bots(
@@ -72,16 +72,16 @@ pub async fn search_bots(
         AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) 
 
         -- Guild count filter (3-4)
-        AND (servers > $3)
-        AND (($4 = -1) OR (servers < $4))
+        AND (servers >= $3)
+        AND (($4 = -1) OR (servers <= $4))
 
         -- Votes filter (5-6)
-        AND (votes > $5)
-        AND (($6 = -1) OR (votes < $6))
+        AND (votes >= $5)
+        AND (($6 = -1) OR (votes <= $6))
 
         -- Servers filter (7-8)
-        AND (servers > $7)
-        AND (($8 = -1) OR (servers < $8))
+        AND (servers >= $7)
+        AND (($8 = -1) OR (servers <= $8))
 
         ORDER BY votes DESC, certified DESC LIMIT 6",
         query,

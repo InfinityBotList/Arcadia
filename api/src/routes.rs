@@ -225,6 +225,8 @@ pub struct SearchQuery {
     gc_to: Option<i32>,
     votes_from: Option<i32>,
     votes_to: Option<i32>,
+    servers_from: Option<i32>,
+    servers_to: Option<i32>,
 }
 
 #[get("/tetanus")]
@@ -244,6 +246,10 @@ pub async fn tetanus_search_service(
         votes: SearchFilter {
             from: q.votes_from,
             to: q.votes_to,
+        },
+        servers: SearchFilter {
+            from: q.servers_from,
+            to: q.servers_to,
         },
     }).await;
 

@@ -5,7 +5,6 @@ pub mod public;
 pub mod search;
 pub mod staff;
 pub mod types;
-pub mod handlers;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const GIT_SHA: &str = env!("VERGEN_GIT_SHA");

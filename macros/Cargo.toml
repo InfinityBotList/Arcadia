@@ -1,0 +1,14 @@
+[package]
+name = "ibl-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0.64", features = ["full", "fold"] }
+quote = "1.0.9"
+proc-macro2 = "1.0.24"
+darling = "0.14.1"
+poise = "0.3.0"

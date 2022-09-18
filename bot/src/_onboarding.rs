@@ -791,8 +791,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
         }
         // Not for us
         "staff-guide" => Ok(true),
-        "staff-guide-viewed" => Ok(true),
-        "staff-guide-read-encouraged" | "staff-guide-viewed-reminded" => {
+        "staff-guide-viewed" | "staff-guide-read-encouraged" | "staff-guide-viewed-reminded" => {
             if cmd_name == "claim" {
                 let mut msg = ctx
                     .send(|m| {
@@ -812,13 +811,13 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                                     b.custom_id("fclaim")
                                         .style(serenity::ButtonStyle::Primary)
                                         .label("Force Claim")
-                                        .disabled(onboard_state != "staff-guide-viewed-reminded")
+                                        .disabled(onboard_state != "staff-guide-viewed-reminded" || onboard_state == "staff-guide-viewed")
                                 });
                                 r.create_button(|b| {
                                     b.custom_id("remind")
                                         .style(serenity::ButtonStyle::Secondary)
                                         .label("Remind Reviewer")
-                                        .disabled(onboard_state == "staff-guide-viewed-reminded")
+                                        .disabled(onboard_state == "staff-guide-viewed-reminded" || onboard_state != "staff-guide-viewed")
                                 })
                             });
 

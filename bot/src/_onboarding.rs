@@ -44,13 +44,6 @@ Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To 
             ocf = onboard_fragment,
     )).await?;
 
-    sqlx::query!(
-        "UPDATE users SET staff_onboard_state = 'staff-guide-read-encouraged' WHERE user_id = $1",
-        ctx.author().id.to_string()
-    )
-    .execute(&data.pool)
-    .await?;
-
     Ok(())
 }
 
@@ -237,7 +230,7 @@ pub async fn handle_onboarding(
             // Create a invite
             let invite = channel
                 .create_invite(&discord, |i| {
-                    i.max_age(0).max_uses(1).temporary(false).unique(true)
+                    i.max_age(0).max_uses(0).temporary(false).unique(true)
                 })
                 .await?;
 
@@ -819,7 +812,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                                     b.custom_id("fclaim")
                                         .style(serenity::ButtonStyle::Primary)
                                         .label("Force Claim")
-                                        .disabled(onboard_state == "staff-guide-read-encouraged")
+                                        .disabled(onboard_state != "staff-guide-viewed-reminded")
                                 });
                                 r.create_button(|b| {
                                     b.custom_id("remind")
@@ -838,9 +831,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                     .into_message()
                     .await?;
 
-                if onboard_state == "staff-guide-read-encouraged" {
-                    ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
-                }
+                ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
 
                 let interaction = msg
                     .await_component_interaction(ctx.discord())

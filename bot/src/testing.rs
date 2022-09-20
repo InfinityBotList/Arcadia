@@ -1,4 +1,5 @@
 use crate::_checks as checks;
+use crate::_utils::Bool;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::UserId;
 use serde::Serialize;
@@ -66,9 +67,9 @@ pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
 pub async fn queue(
     ctx: Context<'_>,
-    #[description = "Whether to embed or not"] embed: Option<bool>,
+    #[description = "Whether to embed or not"] embed: Option<Bool>,
 ) -> Result<(), Error> {
-    let embed = embed.unwrap_or(true);
+    let embed = embed.unwrap_or(Bool::True).to_bool();
 
     if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), embed, None)
         .await?
@@ -391,7 +392,6 @@ pub async fn claim(
 
 #[poise::command(
     context_menu_command = "Claim Bot", 
-    slash_command,
     user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"
@@ -496,7 +496,6 @@ pub async fn unclaim(
 
 #[poise::command(
     context_menu_command = "Unclaim Bot", 
-    slash_command,
     user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"

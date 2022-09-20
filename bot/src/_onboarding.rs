@@ -517,13 +517,6 @@ pub async fn handle_onboarding(
                     
                     let response = response.unwrap();
                     
-                    // Send acknowledgement so that the pop-up is closed
-                    response
-                        .create_interaction_response(discord, |b| {
-                            b.kind(serenity::InteractionResponseType::DeferredUpdateMessage)
-                        })
-                        .await?;
-
                     // Verify the code
                     let i_code = crate::_utils::modal_get(&response.data, "code").extract_single();
 

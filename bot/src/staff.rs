@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 // import without risk of name clashing
 use serenity::id::UserId;
 
-use crate::_checks as checks;
+use crate::{_checks as checks, _utils::{Bool}};
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -257,9 +257,9 @@ During beta testing, this is available to admins and devs, but once second final
 pub async fn staff_add(
     ctx: Context<'_>,
     #[description = "The user ID of the user to add"] mut member: serenity::Member,
-    #[description = "Whether to give roles, true by default"] give_roles: Option<bool>,
+    #[description = "Whether to give roles, true by default"] give_roles: Option<Bool>,
 ) -> Result<(), Error> {
-    if give_roles.is_none() || give_roles.unwrap() {
+    if give_roles.is_none() || give_roles.unwrap().to_bool() {
         let web_mod_role =
             poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
 

@@ -114,8 +114,9 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             .unwrap();
         }
         poise::FrameworkError::CommandCheckFailed { error, ctx } => {
-            error!("Error in command `{}`: {:?}", ctx.command().name, error,);
+            error!("[Possible] error in command `{}`: {:?}", ctx.command().name, error,);
             if let Some(error) = error {
+                error!("Error in command `{}`: {:?}", ctx.command().name, error,);
                 ctx.say(format!(
                     "Whoa there, do you have permission to do this?: {}",
                     error

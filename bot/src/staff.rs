@@ -257,15 +257,18 @@ During beta testing, this is available to admins and devs, but once second final
 pub async fn staff_add(
     ctx: Context<'_>,
     #[description = "The user ID of the user to add"] mut member: serenity::Member,
+    #[description = "Whether to give roles, true by default"] give_roles: Option<bool>,
 ) -> Result<(), Error> {
-    let web_mod_role =
-        poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
+    if give_roles.is_none() || give_roles.unwrap() {
+        let web_mod_role =
+            poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
 
-    if !member.roles.contains(&web_mod_role) {
-        // Give user web mod role
-        member
-        .add_role(ctx.discord(), web_mod_role)
-        .await?;
+        if !member.roles.contains(&web_mod_role) {
+            // Give user web mod role
+            member
+            .add_role(ctx.discord(), web_mod_role)
+            .await?;
+        }
     }
 
     sqlx::query!(

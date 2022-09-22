@@ -1406,7 +1406,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 [[package]]
 name = "poise"
 version = "0.3.0"
-source = "git+https://github.com/kangalioo/poise?branch=develop#74f49f26610c1ac4ba8c65ea7bd0827b2615e7ba"
+source = "git+https://github.com/kangalioo/poise?branch=develop#df788fee6a435517d9c229077aea3e080c707de6"
 dependencies = [
  "async-trait",
  "derivative",
@@ -1424,7 +1424,7 @@ dependencies = [
 [[package]]
 name = "poise_macros"
 version = "0.3.0"
-source = "git+https://github.com/kangalioo/poise?branch=develop#74f49f26610c1ac4ba8c65ea7bd0827b2615e7ba"
+source = "git+https://github.com/kangalioo/poise?branch=develop#df788fee6a435517d9c229077aea3e080c707de6"
 dependencies = [
  "darling",
  "proc-macro2",

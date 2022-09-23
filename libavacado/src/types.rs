@@ -21,6 +21,11 @@ pub struct SearchBot {
     pub shards: i32,
     pub votes: i32,
     pub certified: bool,
+    pub r#type: String,
+    pub banner: Option<String>,
+    pub invite_clicks: i32,
+    pub clicks: i32,
+    pub vanity: Option<String>,
 }
 
 #[derive(Serialize, Debug)]

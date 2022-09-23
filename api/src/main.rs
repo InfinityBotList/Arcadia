@@ -94,8 +94,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         let cors = Cors::default()
             .allowed_origin_fn(|origin, _req_head| {
-                println!("{:?}", origin);
-                origin.as_bytes().ends_with(b"infinitybots.gg")
+                !origin.as_bytes().ends_with(b"bad domain 1")
             })
             .allowed_methods(vec![
                 "GET", "HEAD", "PUT", "POST", "PATCH", "DELETE", "OPTIONS",

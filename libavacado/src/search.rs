@@ -65,8 +65,8 @@ pub async fn search_bots(
     }
 
     let bots = sqlx::query!(
-        "SELECT DISTINCT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM (
-            SELECT bot_id, owner, type, name, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
+        "SELECT DISTINCT bot_id, clicks, invite_clicks, vanity, type, banner, name, short, invite, servers, shards, votes, certified, tags FROM (
+            SELECT bot_id, clicks, invite_clicks, vanity, owner, name, type, banner, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
         ) bots 
         WHERE type = 'approved' 
         AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) 
@@ -108,6 +108,11 @@ pub async fn search_bots(
             votes: bot.votes,
             certified: bot.certified,
             tags: bot.tags,
+	    r#type: bot.r#type,
+	    banner: bot.banner,
+	    vanity: bot.vanity,
+	    clicks: bot.clicks, 
+	    invite_clicks: bot.invite_clicks
         });
     }
 
@@ -134,7 +139,7 @@ pub async fn search_bots(
 
         for bot in pack.bots {
             let res = sqlx::query!(
-                "SELECT bot_id, name, short, invite, servers, shards, votes, certified, tags FROM bots WHERE bot_id = $1",
+                "SELECT type, vanity, clicks, invite_clicks, banner, bot_id, name, short, invite, servers, shards, votes, certified, tags FROM bots WHERE bot_id = $1",
                 bot
             )
             .fetch_one(pool)
@@ -155,6 +160,11 @@ pub async fn search_bots(
                 votes: res.votes,
                 certified: res.certified,
                 tags: res.tags,
+		r#type: res.r#type,
+		banner: res.banner,
+		vanity: res.vanity,
+		clicks: res.clicks,
+		invite_clicks: res.invite_clicks
             });
         }
     }

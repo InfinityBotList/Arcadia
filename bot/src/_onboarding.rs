@@ -850,7 +850,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                             .create_webhook_with_avatar(
                                 discord,
                                 "Frostpaw",
-                                "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png",
+                                "https://silverpelt.infinitybots.gg/images/png/onboarding-v4.png",
                             )
                             .await?;
 

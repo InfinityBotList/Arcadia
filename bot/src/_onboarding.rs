@@ -70,7 +70,25 @@ pub async fn handle_onboarding(
         return Ok(true);
     } else if let Ok(is_staff) = is_staff {
         if !is_staff {
-            return Ok(true);
+            // Check if awaiting staff role in main server
+            let main_server = std::env::var("MAIN_SERVER").unwrap().parse::<u64>().unwrap();
+
+            let member = discord.cache.member(main_server, ctx.author().id);
+
+            if member.is_none() {
+                return Ok(true);
+            }
+
+            let member = member.unwrap();
+
+            let awaiting_role = std::env::var("AWAITING_STAFF_ROLE").unwrap().parse::<u64>().unwrap();
+
+            if !member.roles.contains(&RoleId(awaiting_role)) {
+                info!("User is not awaiting staff role");
+                return Ok(true);
+            } 
+
+            info!("User has awaiting staff role");
         }
     }
 

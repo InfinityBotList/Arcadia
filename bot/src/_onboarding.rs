@@ -65,46 +65,42 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Verify staff first
-    let is_staff = crate::_checks::is_any_staff(ctx).await;
-    if is_staff.is_err() {
-        return Ok(true);
-    } else if let Ok(is_staff) = is_staff {
-        if !is_staff {
-            // Check if awaiting staff role in main server
-            let main_server = std::env::var("MAIN_SERVER").unwrap().parse::<u64>().unwrap();
+    let is_staff = crate::_checks::is_any_staff(ctx).await.unwrap_or(false);
+    if !is_staff {
+        // Check if awaiting staff role in main server
+        let main_server = std::env::var("MAIN_SERVER").unwrap().parse::<u64>().unwrap();
 
-            let member = discord.cache.member(main_server, ctx.author().id);
+        let member = discord.cache.member(main_server, ctx.author().id);
 
-            if member.is_none() {
-                info!("Member not found in main server");
-                return Ok(true);
-            }
-
-            let member = member.unwrap();
-
-            let awaiting_role = std::env::var("AWAITING_STAFF_ROLE").unwrap().parse::<u64>().unwrap();
-
-            if !member.roles.contains(&RoleId(awaiting_role)) {
-                info!("User is not awaiting staff role");
-                return Ok(true);
-            } 
-
-            info!("User is awaiting staff role, adding staff perms and removing old onboarding state for the purpose of onboarding");
-
-            sqlx::query!(
-                "UPDATE users SET staff = true WHERE user_id = $1",
-                user_id
-            )
-            .execute(&data.pool)
-            .await?;
-
-            sqlx::query!(
-                "UPDATE users SET staff_onboard_state = 'pending' WHERE user_id = $1 AND staff_onboard_state = 'complete'",
-                user_id
-            )
-            .execute(&data.pool)
-            .await?;
+        if member.is_none() {
+            info!("Member not found in main server");
+            return Ok(true);
         }
+
+        let member = member.unwrap();
+
+        let awaiting_role = std::env::var("AWAITING_STAFF_ROLE").unwrap().parse::<u64>().unwrap();
+
+        if !member.roles.contains(&RoleId(awaiting_role)) {
+            info!("User is not awaiting staff role");
+            return Ok(true);
+        } 
+
+        info!("User is awaiting staff role, adding staff perms and removing old onboarding state for the purpose of onboarding");
+
+        sqlx::query!(
+            "UPDATE users SET staff = true WHERE user_id = $1",
+            user_id
+        )
+        .execute(&data.pool)
+        .await?;
+
+        sqlx::query!(
+            "UPDATE users SET staff_onboard_state = 'pending' WHERE user_id = $1 AND staff_onboard_state = 'complete'",
+            user_id
+        )
+        .execute(&data.pool)
+        .await?;
     }
 
     // Reset old onboards

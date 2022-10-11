@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use log::info;
+use futures_util::StreamExt;
+use log::{info, error};
 use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId};
 
 use poise::serenity_prelude as serenity;
@@ -65,7 +66,10 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Verify staff first
-    let is_staff = crate::_checks::is_any_staff(ctx).await.unwrap_or(false);
+    let is_staff = crate::_checks::is_any_staff(ctx).await.unwrap_or_else(|e| {
+        error!("{}", e);
+        false
+    });
     if !is_staff {
         // Check if awaiting staff role in main server
         let main_server = std::env::var("MAIN_SERVER").unwrap().parse::<u64>().unwrap();
@@ -487,12 +491,13 @@ pub async fn handle_onboarding(
             .into_message()
             .await?;
 
-            let interaction = msg
-                .await_component_interaction(ctx.discord())
+            let mut interaction = msg
+                .await_component_interactions(ctx.discord())
                 .author_id(ctx.author().id)
-                .await;
+                .timeout(Duration::from_secs(120))
+                .build();
 
-            if let Some(m) = &interaction {
+            while let Some(m) = interaction.next().await {
                 let id = &m.data.custom_id;
 
                 if id == "survey" {

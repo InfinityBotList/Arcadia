@@ -1,3 +1,4 @@
+use log::info;
 use poise::serenity_prelude as serenity;
 
 use std::fmt::Write as _;
@@ -251,14 +252,25 @@ During beta testing, this is available to admins and devs, but once second final
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::main_server",
     check = "checks::is_admin_hdev",
 )]
 pub async fn staff_add(
     ctx: Context<'_>,
-    #[description = "The user ID of the user to add"] mut member: serenity::Member,
+    #[description = "The user ID of the user to add"] member: serenity::Member,
     #[description = "Whether to give roles, true by default"] give_roles: Option<Bool>,
 ) -> Result<(), Error> {
+    // Check if awaiting staff role in main server
+    let main_server = std::env::var("MAIN_SERVER").unwrap().parse::<u64>().unwrap();
+
+    let member = ctx.discord().cache.member(main_server, member.user.id);
+
+    if member.is_none() {
+        info!("Member not found in main server");
+        return Err("User are not in the main server".into());
+    }
+
+    let mut member = member.unwrap();
+
     if give_roles.is_none() || give_roles.unwrap().to_bool() {
         let web_mod_role =
             poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);

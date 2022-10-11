@@ -76,6 +76,7 @@ pub async fn handle_onboarding(
             let member = discord.cache.member(main_server, ctx.author().id);
 
             if member.is_none() {
+                info!("Member not found in main server");
                 return Ok(true);
             }
 
@@ -88,9 +89,30 @@ pub async fn handle_onboarding(
                 return Ok(true);
             } 
 
-            info!("User has awaiting staff role");
+            info!("User is awaiting staff role, adding staff perms and removing old onboarding state for the purpose of onboarding");
+
+            sqlx::query!(
+                "UPDATE users SET staff = true WHERE user_id = $1",
+                user_id
+            )
+            .execute(&data.pool)
+            .await?;
+
+            sqlx::query!(
+                "UPDATE users SET staff_onboard_state = 'pending' WHERE user_id = $1 AND staff_onboard_state = 'complete'",
+                user_id
+            )
+            .execute(&data.pool)
+            .await?;
         }
     }
+
+    // Reset old onboards
+    sqlx::query!(
+        "UPDATE users SET staff_onboard_state = 'pending' WHERE staff_onboard_state = 'complete' AND staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'"
+    )
+    .execute(&data.pool)
+    .await?;
 
     // Get onboard state (staff_onboard_state may be used later but is right now None and it will in the future be used to allow retaking of onboarding)
     let onboard_state = {
@@ -103,13 +125,6 @@ pub async fn handle_onboarding(
 
         res.staff_onboard_state
     };
-
-    // Reset old onboards
-    sqlx::query!(
-        "UPDATE users SET staff_onboard_state = 'pending' WHERE staff_onboard_state = 'complete' AND staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'"
-    )
-    .execute(&data.pool)
-    .await?;
 
     // Must be mut so we can change it under some cases
     let mut onboard_state = onboard_state.as_str();

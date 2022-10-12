@@ -492,10 +492,12 @@ async fn main() {
 
     dotenv().ok();
 
-    // fetch proxy_url from port 65536
-    let proxy_url = reqwest::get("http://localhost:65535/proxy?service=arcadia").await.unwrap();
-
-    let proxy_url = String::from_utf8(proxy_url.bytes().await.unwrap().to_vec()).expect("Invalid UTF-8 string");
+    // proxy url is always http://localhost:3219
+    let mut proxy_url = "http://localhost:3219".to_string(); 
+    if let Ok(v) = std::env::var("PROXY_URL") {
+        info!("Setting proxy url to {}", v);
+        proxy_url = v;
+    }
 
     info!("Proxy URL: {}", proxy_url);
 

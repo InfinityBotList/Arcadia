@@ -635,6 +635,10 @@ pub async fn handle_onboarding(
                         return Ok(false);
                     }
 
+                    response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
+                        d.content("And the magic continues... Thank you for completing the staff onboarding process! You will be notified when you are approved. Please wait while I send your application to the staff team...")
+                    })).await?;
+
                     // Create permanent invite to this server
                     let channel = ctx.guild_id().unwrap().create_channel(discord, |c| {
                         c.kind(serenity::ChannelType::Text)
@@ -728,7 +732,9 @@ This bot *will* now leave this server however you should not! Be prepared to sen
 
                     ctx.guild_id().unwrap().leave(discord).await?;
                 } else {
-                    ctx.say("Cancelled").await?;
+                    m.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
+                        d.content("Cancelled")
+                    })).await?;
                     return Ok(false);
                 }
             }

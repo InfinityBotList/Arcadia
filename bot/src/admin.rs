@@ -205,7 +205,7 @@ pub async fn denyonboard(
 
 /// Resets a onboarding to force a new one
 #[poise::command(
-    rename = "deny",
+    rename = "reset",
     category = "Admin",
     track_edits,
     prefix_command,

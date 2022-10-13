@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use futures_util::StreamExt;
 use log::{info, error};
 use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId};
 
@@ -488,13 +487,13 @@ pub async fn handle_onboarding(
             .into_message()
             .await?;
 
-            let mut interaction = msg
-                .await_component_interactions(ctx.discord())
+            let interaction = msg
+                .await_component_interaction(ctx.discord())
                 .author_id(ctx.author().id)
                 .timeout(Duration::from_secs(120))
-                .build();
+                .await;
 
-            while let Some(m) = interaction.next().await {
+            while let Some(m) = &interaction {
                 let id = &m.data.custom_id;
 
                 if id == "survey" {

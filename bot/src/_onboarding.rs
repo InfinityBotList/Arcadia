@@ -140,8 +140,24 @@ pub async fn handle_onboarding(
     }
 
     if onboard_state == "pending-manager-review" {
+        if cmd_name == "queue" {
+            return Ok(true)
+        }
+
         ctx.say(
             "Your onboarding request is pending manager review. Please wait until it is approved.",
+        )
+        .await?;
+        return Ok(false);
+    }
+
+    if onboard_state == "denied" {
+        if cmd_name == "queue" {
+            return Ok(true)
+        }
+
+        ctx.say(
+            "Your onboarding request was denied. Please contact a manager if you believe this was a mistake.",
         )
         .await?;
         return Ok(false);

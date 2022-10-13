@@ -51,7 +51,7 @@ pub async fn approveonboard(
     .fetch_one(&data.pool)
     .await?;
 
-    if onboard_state.staff_onboard_state != "pending-manager-review" {
+    if onboard_state.staff_onboard_state != "pending-manager-review" && onboard_state.staff_onboard_state != "denied" {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",
             onboard_state.staff_onboard_state
@@ -270,7 +270,7 @@ pub async fn resetonboard(
         m.content("Your onboarding request has been force reset. Please contact a manager for more information. You will, in most cases, need to redo onboarding")
     }).await?;
 
-    ctx.say("Onboarding request denied!").await?;
+    ctx.say("Onboarding request reset!").await?;
 
     Ok(())
 }

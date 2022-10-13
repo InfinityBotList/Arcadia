@@ -509,7 +509,7 @@ pub async fn handle_onboarding(
                 .timeout(Duration::from_secs(120))
                 .await;
 
-            while let Some(m) = &interaction {
+            if let Some(m) = &interaction {
                 let id = &m.data.custom_id;
 
                 if id == "survey" {
@@ -746,6 +746,8 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     .await?;
 
                     ctx.guild_id().unwrap().leave(discord).await?;
+
+                    return Ok(false);
                 } else {
                     m.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
                         d.content("Cancelled")

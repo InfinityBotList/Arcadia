@@ -15,7 +15,7 @@ log = "0.4.14"
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls" , "postgres", "chrono", "uuid", "bigdecimal", "json"] }
 futures = "0.3.21"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0.61", features = ["preserve_order"] }
+serde_json = { version = "1.0.86", features = ["preserve_order"] }
 dotenv = "0.15.0"
 serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
 libavacado = { path = "../libavacado" }

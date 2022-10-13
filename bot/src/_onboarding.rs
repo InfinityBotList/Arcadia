@@ -552,7 +552,9 @@ pub async fn handle_onboarding(
                     let i_code = crate::_utils::modal_get(&response.data, "code").extract_single();
 
                     if i_code.is_none() {
-                        ctx.say("You did not provide a code. Please try again.").await?;
+                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
+                            d.content("You did not provide a code. Please try again.")
+                        })).await?;
                         return Ok(false);
                     }
 
@@ -568,7 +570,9 @@ pub async fn handle_onboarding(
                     let code = code.staff_onboard_session_code;
 
                     if code.is_none() {
-                        ctx.say("SVSession has expired, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code").await?;
+                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
+                            d.content("SVSession has expired, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
+                        })).await?;
                         return Ok(false);
                     }
 
@@ -577,7 +581,9 @@ pub async fn handle_onboarding(
                     let codesplit = code.split('@').collect::<Vec<&str>>();
 
                     if codesplit.len() != 2 {
-                        ctx.say("SVSession is invalid, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code").await?;
+                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
+                            d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
+                        })).await?;
                         return Ok(false);
                     }        
                     
@@ -585,7 +591,9 @@ pub async fn handle_onboarding(
                     let time_nonce = time_nonce.parse::<i64>();
                 
                     if time_nonce.is_err() {
-                        ctx.say("SVSession is invalid, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code").await?;
+                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
+                            d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
+                        })).await?;
                         return Ok(false);
                     }              
                     
@@ -595,7 +603,9 @@ pub async fn handle_onboarding(
                     let now = chrono::Utc::now().timestamp();
                 
                     if now - time_nonce > 3600 {
-                        ctx.say("SVSession is invalid, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code").await?;
+                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
+                            d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
+                        })).await?;
                         return Ok(false);
                     }
 
@@ -619,7 +629,9 @@ pub async fn handle_onboarding(
                     info!("Wanted {} and user inputted {}", code_upper, i_code);
 
                     if code_upper != i_code {
-                        ctx.say("Whoa there! You inputted the wrong verification code (hint: ``/staffguide`` or ``ibb!staffguide``)").await?;
+                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
+                            d.content("Whoa there! You inputted the wrong verification code (hint: ``/staffguide`` or ``ibb!staffguide``)")
+                        })).await?;
                         return Ok(false);
                     }
 
@@ -645,20 +657,18 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         )
                     ).await?;
 
-                    let analysis = crate::_utils::modal_get(&response.data, "analysis").extract_single();
+                    let mut analysis = crate::_utils::modal_get(&response.data, "analysis").extract_single();
 
                     if analysis.is_none() {
-                        ctx.say("You did not provide any value for analysis. Please try again.").await?;
-                        return Ok(false);
+                        analysis = Some("None".to_string());
                     }
 
                     let analysis = analysis.unwrap();
 
-                    let thoughts = crate::_utils::modal_get(&response.data, "thoughts").extract_single();
+                    let mut thoughts = crate::_utils::modal_get(&response.data, "thoughts").extract_single();
                     
                     if thoughts.is_none() {
-                        ctx.say("You did not provide any value for thoughts. Please try again.").await?;
-                        return Ok(false);
+                        thoughts = Some("None".to_string());
                     }
 
                     let thoughts = thoughts.unwrap();

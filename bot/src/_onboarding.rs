@@ -482,8 +482,8 @@ pub async fn handle_onboarding(
             }
 
             // Get more information about this action by launching a modal using a button
-            let msg = ctx.send(|m| {
-                m.content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.")
+            let mut msg = ctx.send(|m| {
+                m.content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.\n\n**If you do not see a button, you will need to rerun the command.**")
                 .components(|c| {
                     c.create_action_row(|r| {
                         r.create_button(|b| {
@@ -511,6 +511,8 @@ pub async fn handle_onboarding(
 
             if let Some(m) = &interaction {
                 let id = &m.data.custom_id;
+
+                msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                 if id == "survey" {
                     // Create a new message with the survey modal in it (via the button click)

@@ -35,7 +35,7 @@ pub async fn invite(
 /// Starts the onboarding process in the newly created server
 #[poise::command(prefix_command, user_cooldown = 10, category = "Testing")]
 pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, None)
+    if !crate::_onboarding::handle_onboarding(ctx, false, None)
         .await?
     {
         return Ok(());
@@ -52,7 +52,7 @@ pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
     category = "Testing"
 )]
 pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, None)
+    if !crate::_onboarding::handle_onboarding(ctx, false, None)
         .await?
     {
         return Ok(());
@@ -71,7 +71,7 @@ pub async fn queue(
 ) -> Result<(), Error> {
     let embed = embed.unwrap_or(Bool::True).to_bool();
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), embed, None)
+    if !crate::_onboarding::handle_onboarding(ctx, embed, None)
         .await?
     {
         return Ok(());
@@ -170,7 +170,6 @@ pub async fn claim_impl(
 ) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(
         ctx,
-        &ctx.author().id.0.to_string(),
         false,
         Some(&bot.id.to_string()),
     )
@@ -410,7 +409,7 @@ pub async fn unclaim_impl(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, &ctx.author().id.0.to_string(), false, None)
+    if !crate::_onboarding::handle_onboarding(ctx, false, None)
         .await?
     {
         return Ok(());
@@ -522,7 +521,6 @@ pub async fn approve(
 ) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(
         ctx,
-        &ctx.author().id.0.to_string(),
         false,
         Some(&reason),
     )
@@ -563,7 +561,6 @@ pub async fn deny(
 ) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(
         ctx,
-        &ctx.author().id.0.to_string(),
         false,
         Some(&reason),
     )

@@ -51,14 +51,13 @@ Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To 
 /// Tries to check if onboarding is required, returns ``false`` if command should stop
 pub async fn handle_onboarding(
     ctx: crate::Context<'_>,
-    user_id: &str,
     embed: bool,
     reason: Option<&str>, // Only applicable for testing-bot
 ) -> Result<bool, crate::Error> {
-    // Get baisc info from ctx for future use
-    let cmd_name = &ctx.command().name;
+    // Get basic info from ctx for future use
+    let cmd_name = ctx.command().name.as_str();
 
-    let onboard_name = ctx.author().id.to_string();
+    let user_id = ctx.author().id.to_string();
 
     info!("{}", cmd_name);
 
@@ -109,7 +108,7 @@ pub async fn handle_onboarding(
 
     // Reset old onboards
     sqlx::query!(
-        "UPDATE users SET staff_onboard_state = 'pending' WHERE staff_onboard_state = 'complete' AND staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'"
+        "UPDATE users SET staff_onboard_state = 'pending', staff_onboard_last_start_time = NOW() WHERE staff_onboard_state = 'complete' AND staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'"
     )
     .execute(&data.pool)
     .await?;
@@ -126,11 +125,11 @@ pub async fn handle_onboarding(
         res.staff_onboard_state
     };
 
-    // Must be mut so we can change it under some cases
+    // Must be mut so we can change it under some cases, we use a second let to create a let binding
     let mut onboard_state = onboard_state.as_str();
 
     let onboarded = sqlx::query!(
-        "SELECT staff, staff_onboarded, staff_onboard_last_start_time FROM users WHERE user_id = $1",
+        "SELECT staff_onboarded, staff_onboard_last_start_time FROM users WHERE user_id = $1",
         user_id
     )
     .fetch_one(&data.pool)
@@ -149,9 +148,7 @@ pub async fn handle_onboarding(
         return Ok(false);
     }
 
-    if onboarded.staff_onboarded {
-        info!("{} is already onboarded", user_id);
-    } else if onboarded.staff_onboard_last_start_time.is_none() {
+    if onboarded.staff_onboard_last_start_time.is_none() {
         // No onboarding record, so we set it to NOW()
         sqlx::query!(
             "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
@@ -178,7 +175,7 @@ pub async fn handle_onboarding(
     }
 
     if onboard_state == "pending" {
-        // Set macro_time
+        // Set macro_time (when the onboarding is first started by the user)
         sqlx::query!(
             "UPDATE users SET staff_onboard_macro_time = NOW() WHERE user_id = $1", 
             user_id
@@ -189,10 +186,9 @@ pub async fn handle_onboarding(
 
     let cur_guild = ctx.guild().unwrap().name;
 
-    if cur_guild.to_lowercase() != onboard_name.to_lowercase() {
+    if cur_guild.to_lowercase() != user_id.to_lowercase() {
         ctx.say("Creating new onboarding server for you!").await?;
 
-        // Reset timer, but here we can't do NOW() exactly as otherwise postgres may fail to see it sooo
         sqlx::query!(
             "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
             user_id
@@ -209,7 +205,7 @@ pub async fn handle_onboarding(
             let name = guild.name(&discord);
 
             if let Some(name) = name {
-                if name.to_lowercase() == onboard_name.to_lowercase() {
+                if name.to_lowercase() == user_id.to_lowercase() {
                     // Create new channel
                     let channel = guild
                         .create_channel(&discord, |c| {
@@ -247,7 +243,7 @@ pub async fn handle_onboarding(
             .await?;
 
             let map = json!({
-                "name": onboard_name,
+                "name": user_id,
             });
 
             let new_guild = discord.http.create_guild(&map).await?;
@@ -373,18 +369,25 @@ pub async fn handle_onboarding(
     }
 
     // Allow users to see queue again
-    if cmd_name == "queue" && !vec!["pending", "complete"].contains(&onboard_state) {
-        // Check that they are in stage 2 of queue command
-        if vec!["claimed-bot", "testing-bot"].contains(&onboard_state) {
+    match (onboard_state, cmd_name) {
+        ("claimed-bot" | "testing-bot", "queue") => {
             onboard_state = "claimed-bot";
-        } else {
+        },
+        (_, "queue") => {
             onboard_state = "queue-step";
-        }
+        },
+        (_, _) => {}
     }
 
     let test_bot = std::env::var("TEST_BOT")?;
     let bot_page = std::env::var("BOT_PAGE")?;
     let current_user = ctx.discord().cache.current_user();
+
+    if cmd_name == "claim" && reason != Some(&test_bot) {
+        ctx.say("You can only claim the test bot at this time!")
+            .await?;
+        return Ok(false);
+    }
 
     // Before matching, make sure 'Ninja Bot' is always pending
     sqlx::query!(
@@ -393,12 +396,6 @@ pub async fn handle_onboarding(
     )
     .execute(&data.pool)
     .await?;
-
-    if cmd_name == "claim" && reason != Some(&test_bot) {
-        ctx.say("You can only claim the test bot at this time!")
-            .await?;
-        return Ok(false);
-    }
 
     // Reset timer
     sqlx::query!(
@@ -676,7 +673,6 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     let survey_modal = json!({
                         "analysis": analysis,
                         "thoughts": thoughts,
-                        "has_onboarded_before": onboarded.staff_onboarded,
                         "invite": inv.url(),
                         "submit_ts": chrono::Utc::now().timestamp(),
                         "start_ts": s_onboard.staff_onboard_macro_time.unwrap_or_default().timestamp(),
@@ -823,16 +819,14 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                 let mut msg = ctx
                     .send(|m| {
                         m.embed(|e| {
-                            e.title("Bot Already Claimed");
-                            e.description(format!(
+                            e.title("Bot Already Claimed")
+                            .description(format!(
                                 "This bot is already claimed by <@{}>",
                                 current_user.id
-                            ));
-                            e.color(0xFF0000);
-                            e
-                        });
-
-                        m.components(|c| {
+                            ))
+                            .color(0xFF0000)
+                        })
+                        .components(|c| {
                             c.create_action_row(|r| {
                                 r.create_button(|b| {
                                     b.custom_id("fclaim")
@@ -846,12 +840,8 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                                         .label("Remind Reviewer")
                                         .disabled(onboard_state == "staff-guide-viewed-reminded" || onboard_state != "staff-guide-viewed")
                                 })
-                            });
-
-                            c
-                        });
-
-                        m
+                            })
+                        })
                     })
                     .await?
                     .into_message()

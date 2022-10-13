@@ -824,7 +824,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
         }
         // Not for us
         "staff-guide" => Ok(true),
-        "staff-guide-viewed" | "staff-guide-read-encouraged" | "staff-guide-viewed-reminded" => {
+        "staff-guide-viewed" | "staff-guide-viewed-reminded" => {
             if cmd_name == "claim" {
                 let mut msg = ctx
                     .send(|m| {
@@ -842,13 +842,13 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                                     b.custom_id("fclaim")
                                         .style(serenity::ButtonStyle::Primary)
                                         .label("Force Claim")
-                                        .disabled(onboard_state != "staff-guide-viewed-reminded" || onboard_state == "staff-guide-viewed")
+                                        .disabled(onboard_state != "staff-guide-viewed-reminded")
                                 });
                                 r.create_button(|b| {
                                     b.custom_id("remind")
                                         .style(serenity::ButtonStyle::Secondary)
                                         .label("Remind Reviewer")
-                                        .disabled(onboard_state == "staff-guide-viewed-reminded" || onboard_state != "staff-guide-viewed")
+                                        .disabled(onboard_state != "staff-guide-viewed")
                                 })
                             })
                         })
@@ -856,8 +856,10 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                     .await?
                     .into_message()
                     .await?;
-
-                ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
+                
+                if onboard_state != "staff-guide-viewed-reminded" {
+                    ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
+                }
 
                 let interaction = msg
                     .await_component_interaction(ctx.discord())
@@ -884,7 +886,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                             .create_webhook_with_avatar(
                                 discord,
                                 "Frostpaw",
-                                "https://silverpelt.infinitybots.gg/images/png/onboarding-v4.png",
+                                "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png",
                             )
                             .await?;
 

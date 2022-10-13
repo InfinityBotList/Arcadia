@@ -6,22 +6,22 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-poise = { git = "https://github.com/kangalioo/poise", branch = "develop"}
-serde = "1.0.137"
+poise = "0.4"
+serde = "1.0"
 docser = { git = "https://github.com/RustLibs/docser.git", branch = "main" }
 log = "0.4.14"
-env_logger = "0.9.0"
-serde_json = "1.0.79"
-serde_repr = "0.1.7"
+env_logger = "0.9"
+serde_json = "1.0"
+serde_repr = "0.1"
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls", "postgres", "chrono", "uuid", "bigdecimal", "json", "offline"] }
-reqwest = { version = "0.11.9", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
-chrono = { version = "0.4.19", features = ["serde"]}
-dotenv = "0.15.0"
-futures-util = "0.3.21"
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
+chrono = { version = "0.4", features = ["serde"]}
+dotenv = "0.15"
+futures-util = "0.3"
 libavacado = { path = "../libavacado" }
 leone = { path = "./leone" }
-ring = "0.16.20"
-data-encoding = "2.3.2"
+ring = "0.16"
+data-encoding = "2.3"
 
 [dependencies.tokio]
 version = "1"

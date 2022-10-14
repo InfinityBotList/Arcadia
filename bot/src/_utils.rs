@@ -258,7 +258,6 @@ pub async fn create_vote(
 
     let mut interaction = msg
         .await_component_interactions(ctx.discord())
-        .author_id(ctx.author().id)
         .timeout(Duration::from_secs(60 * 15))
         .build();
     

@@ -173,7 +173,7 @@ impl VoteData {
         }
 
         if !self.disapproving_users.is_empty() {
-            text.push_str("\n\n**Disapproving users**\n");
+            text.push_str("**Disapproving users**\n");
             for user in &self.disapproving_users {
                 text.push_str(&format!("{user_id}\n (<@{user_id}>)", user_id=user));
             }

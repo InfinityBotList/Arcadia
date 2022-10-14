@@ -389,6 +389,7 @@ pub async fn create_vote(
 
                 vote_data.forced = true;
                 vote_data.approving_users = can_vote.clone(); // Force the poll through
+                vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
                 msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
                 return Ok(vote_data)

@@ -371,18 +371,6 @@ pub async fn handle_onboarding(
         }
     }
 
-    if cmd_name == "staffguide" && onboard_state == "queue-step" {
-        // We are now in staff_onboard_state of staff-guide, set that
-        sqlx::query!(
-            "UPDATE users SET staff_onboard_state = 'staff-guide-viewed' WHERE user_id = $1",
-            user_id
-        )
-        .execute(&data.pool)
-        .await?;
-        _handle_staff_guide(ctx, user_id.to_string()).await?;
-        return Ok(false);
-    }
-
     // Allow users to see queue again
     match (onboard_state, cmd_name) {
         ("claimed-bot" | "testing-bot", "queue") => {
@@ -390,6 +378,17 @@ pub async fn handle_onboarding(
         },
         (_, "queue") => {
             onboard_state = "queue-step";
+        },
+        ("queue-step", "staffguide") => {
+            // We are now in staff_onboard_state of staff-guide, set that
+            sqlx::query!(
+                "UPDATE users SET staff_onboard_state = 'staff-guide-viewed' WHERE user_id = $1",
+                user_id
+            )
+            .execute(&data.pool)
+            .await?;
+            _handle_staff_guide(ctx, user_id.to_string()).await?;
+            return Ok(false);
         },
         (_, _) => {}
     }

@@ -216,6 +216,11 @@ pub async fn create_vote(
 ) -> Result<VoteData, crate::Error> {
     let mut vote_data = VoteData::default();
 
+    /*
+    Force Resolve ends the poll and resolves the winning side as if all users voted
+    Force Poll Through ends the poll and resolves the winning side as if all users voted to approve
+    */
+
     let mut msg = ctx
         .send(|m| {
             m.content("**".to_string()+vote_title+"**\n\nThis message will timeout in 15 minutes" + "\n\n" + &vote_data.display())

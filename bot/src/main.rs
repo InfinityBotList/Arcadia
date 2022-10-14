@@ -558,6 +558,7 @@ async fn main() {
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
                 tests::test_admin(),
+                tests::test_poll(),
                 admin::update_field(),
                 admin::votereset(),
                 admin::voteresetall(),

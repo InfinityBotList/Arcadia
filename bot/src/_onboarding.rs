@@ -510,18 +510,20 @@ Welcome to your onboarding server! Please read the following:
                 return Ok(false);
             }
 
+            let nonce = libavacado::public::gen_random(9)
+
             // Get more information about this action by launching a modal using a button
             let mut msg = ctx.send(|m| {
                 m.content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.\n\n**If you do not see a button, you will need to rerun the command.**")
                 .components(|c| {
                     c.create_action_row(|r| {
                         r.create_button(|b| {
-                            b.custom_id("survey")
+                            b.custom_id("survey".to_string() + &nonce)
                             .label("Survey")
                             .style(serenity::ButtonStyle::Primary)
                         })
                         .create_button(|b| {
-                            b.custom_id("cancel")
+                            b.custom_id("cancel".to_string() + &nonce)
                             .label("Cancel")
                             .style(serenity::ButtonStyle::Danger)
                         })
@@ -540,6 +542,10 @@ Welcome to your onboarding server! Please read the following:
 
             if let Some(m) = &interaction {
                 let id = &m.data.custom_id;
+
+                if !id.ends_with(&nonce) {
+                    return Ok(false);
+                }
 
                 msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
 

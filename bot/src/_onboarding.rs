@@ -221,15 +221,23 @@ pub async fn handle_onboarding(
 
             if let Some(name) = name {
                 if name.to_lowercase() == user_id.to_lowercase() {
-                    // Create new channel
-                    let channel = guild
-                        .create_channel(&discord, |c| {
-                            c.name(
-                                "invite-attempt-".to_string() + &libavacado::public::gen_random(6),
-                            )
-                            .kind(serenity::model::channel::ChannelType::Text)
-                        })
-                        .await?;
+                    // Try to find a channel named readme
+                    let mut channel = None;
+
+                    for (_, chan) in guild.channels(&discord).await? {
+                        if chan.name() == "readme" {
+                            channel = Some(chan);
+                            break;
+                        }
+                    }
+
+                    if channel.is_none() {
+                        // Delete guild and start over
+                        crate::_utils::delete_leave_guild(&discord.http, &discord.cache, *guild).await;
+                        continue;
+                    }
+
+                    let channel = channel.unwrap();
 
                     // Create new invite
                     let invite = channel
@@ -252,27 +260,29 @@ pub async fn handle_onboarding(
         }
 
         if !found {
-            ctx.say(
-                "If the onboarding server still does not exist, please DM a Head Administrator",
-            )
-            .await?;
-
             let map = json!({
                 "name": user_id,
             });
 
             let new_guild = discord.http.create_guild(&map).await?;
 
-            // Create a channel
-            let channel = new_guild
+            let readme = new_guild
                 .create_channel(&discord, |c| {
-                    c.name("invite-attempt-".to_string() + &libavacado::public::gen_random(6))
+                    c.name("readme-")
                         .kind(serenity::model::channel::ChannelType::Text)
                 })
                 .await?;
 
+            readme.say(&discord, "
+Welcome to your onboarding server! Please read the following:
+
+1. To start onboarding, run ``ibb!onboard`` in the #general channel.
+2. There is a 1 hour time limit for onboarding. If you exceed this time limit, you will have to start over. You can extend this limit by progressing through onboarding.
+")
+                .await?;
+
             // Create a invite
-            let invite = channel
+            let invite = readme
                 .create_invite(&discord, |i| {
                     i.max_age(0).max_uses(0).temporary(false).unique(true)
                 })

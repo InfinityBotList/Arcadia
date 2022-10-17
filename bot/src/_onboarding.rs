@@ -247,12 +247,22 @@ pub async fn handle_onboarding(
                         .await?;
 
                     // Send invite
-                    ctx.say(
-                        "Please join the onboarding server here and run ``ibb!queue``: "
-                            .to_string()
-                            + &invite.url(),
-                    )
-                    .await?;
+                    ctx.send(|m| {
+                        m.embed(|e| {
+                            e.title("Onboarding Server")
+                                .description("Click the link below to join the onboarding server.")
+                                .color(0x00ff00)
+                        })
+                        .components(|c| {
+                            c.create_action_row(|r| {
+                                r.create_button(|b| {
+                                    b.label("Join Onboarding Server")
+                                        .style(serenity::ButtonStyle::Link)
+                                        .url(&invite.url())
+                                })
+                            })
+                        })
+                    }).await?;
 
                     found = true;
                 }
@@ -289,12 +299,22 @@ Welcome to your onboarding server! Please read the following:
                 .await?;
 
             // Send invite
-            ctx.say(
-                "Please join the newly created onboarding server here and run ``ibb!onboard``: "
-                    .to_string()
-                    + &invite.url(),
-            )
-            .await?;
+            ctx.send(|m| {
+                m.embed(|e| {
+                    e.title("Onboarding Server")
+                        .description("Click the link below to join the onboarding server, then run ``ibb!onboard``.")
+                        .color(0x00ff00)
+                })
+                .components(|c| {
+                    c.create_action_row(|r| {
+                        r.create_button(|b| {
+                            b.label("Join Onboarding Server")
+                                .style(serenity::ButtonStyle::Link)
+                                .url(&invite.url())
+                        })
+                    })
+                })
+            }).await?;
 
             return Ok(false);
         }

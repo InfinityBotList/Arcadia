@@ -182,6 +182,7 @@ pub async fn get_user(
 pub struct Maint {
     pub title: String,
     pub description: String,
+    pub done: bool,
 }
 
 /// Maintenance status

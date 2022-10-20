@@ -293,7 +293,7 @@ pub async fn update_field(
 
     let data = ctx.data();
 
-    if !sql.to_lowercase().contains(&"WHERE") {
+    if !sql.to_lowercase().contains(&"where") {
         let mut msg = ctx
             .send(|m| {
                 m.content("Whoa there, are you trying to update a whole table?.")
@@ -360,7 +360,7 @@ pub async fn update_field(
 
     // Get current iblhdev's
 
-    let iblhdevs = sqlx::query!("SELECT user_id FROM users WHERE iblhdev = true")
+    let iblhdevs = sqlx::query!("SELECT user_id FROM users WHERE iblhdev = true OR hadmin = true")
         .fetch_all(&data.pool)
         .await?;
 

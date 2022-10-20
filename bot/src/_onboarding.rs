@@ -606,7 +606,7 @@ Welcome to your onboarding server! Please read the following:
                         return Ok(false);
                     }
 
-                    let i_code = i_code.unwrap();
+                    let i_code = i_code.unwrap().replace(' ', "");
 
                     let code = sqlx::query!(
                         "SELECT staff_onboard_session_code FROM users WHERE user_id = $1",

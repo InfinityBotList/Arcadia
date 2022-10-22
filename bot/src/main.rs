@@ -11,14 +11,14 @@ mod _checks;
 mod _onboarding;
 mod _utils;
 mod admin;
+mod botowners;
 mod explain;
+mod help;
 mod search;
 mod staff;
 mod stats;
 mod testing;
 mod tests;
-mod botowners;
-mod help;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -44,9 +44,7 @@ async fn age(
 
 /// Test followup
 #[poise::command(slash_command, prefix_command)]
-async fn actf(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
+async fn actf(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("initial response").await?;
     ctx.say("followup").await?;
 
@@ -55,24 +53,22 @@ async fn actf(
 
 /// Test await_component_interaction
 #[poise::command(slash_command, prefix_command)]
-async fn act(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
-
-    let msg = ctx.send(|m| {
-        m.content("Test")
-        .components(|c| {
-            c.create_action_row(|f| {
-                f.create_button(|b| {
-                    b.label("A")
-                    .custom_id("abc")
-                    .style(serenity::ButtonStyle::Danger)
+async fn act(ctx: Context<'_>) -> Result<(), Error> {
+    let msg = ctx
+        .send(|m| {
+            m.content("Test").components(|c| {
+                c.create_action_row(|f| {
+                    f.create_button(|b| {
+                        b.label("A")
+                            .custom_id("abc")
+                            .style(serenity::ButtonStyle::Danger)
+                    })
                 })
             })
         })
-    }).await?
-    .into_message()
-    .await?;
+        .await?
+        .into_message()
+        .await?;
 
     let interaction = msg
         .await_component_interaction(ctx.discord())
@@ -91,7 +87,6 @@ async fn act(
     Ok(())
 }
 
-
 #[poise::command(prefix_command)]
 async fn register(ctx: Context<'_>) -> Result<(), Error> {
     poise::builtins::register_application_commands_buttons(ctx).await?;
@@ -103,7 +98,7 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     // They are many errors that can occur, so we only handle the ones we want to customize
     // and forward the rest to the default handler
     match error {
-        poise::FrameworkError::Setup { error , .. } => panic!("Failed to start bot: {:?}", error),
+        poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
         poise::FrameworkError::Command { error, ctx } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
             ctx.say(format!(
@@ -114,7 +109,11 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             .unwrap();
         }
         poise::FrameworkError::CommandCheckFailed { error, ctx } => {
-            error!("[Possible] error in command `{}`: {:?}", ctx.command().name, error,);
+            error!(
+                "[Possible] error in command `{}`: {:?}",
+                ctx.command().name,
+                error,
+            );
             if let Some(error) = error {
                 error!("Error in command `{}`: {:?}", ctx.command().name, error,);
                 ctx.say(format!(
@@ -188,13 +187,13 @@ async fn event_listener(
             let _ctx = ctx.to_owned();
             let pool = user_data.pool.clone();
 
-            let autounclaim_events = std::env::var("AUTOUNCLAIM_EVENTS")
-                .unwrap_or_else(|_| "true".to_string());
+            let autounclaim_events =
+                std::env::var("AUTOUNCLAIM_EVENTS").unwrap_or_else(|_| "true".to_string());
 
             if autounclaim_events == "true" {
                 tokio::task::spawn(async move {
                     autounclaim(pool, _ctx.http, _ctx.cache).await;
-                });    
+                });
             }
         }
         poise::Event::CacheReady { guilds } => {
@@ -493,7 +492,7 @@ async fn main() {
     dotenv().ok();
 
     // proxy url is always http://localhost:3219
-    let mut proxy_url = "http://localhost:3219".to_string(); 
+    let mut proxy_url = "http://localhost:3219".to_string();
     if let Ok(v) = std::env::var("PROXY_URL") {
         info!("Setting proxy url to {}", v);
         proxy_url = v;
@@ -502,17 +501,34 @@ async fn main() {
     info!("Proxy URL: {}", proxy_url);
 
     // http_pre is for getting app_info etc., http is for poise framework
-    let http_pre = serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN")).proxy(&proxy_url).expect("proxy error").ratelimiter_disabled(true).build();
-    let http = serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN")).proxy(proxy_url).expect("proxy error").ratelimiter_disabled(true).build();
+    let http_pre =
+        serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
+            .proxy(&proxy_url)
+            .expect("proxy error")
+            .ratelimiter_disabled(true)
+            .build();
+    let http =
+        serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
+            .proxy(proxy_url)
+            .expect("proxy error")
+            .ratelimiter_disabled(true)
+            .build();
 
-    let client_builder = serenity::ClientBuilder::new_with_http(http, serenity::GatewayIntents::all());    
+    let client_builder =
+        serenity::ClientBuilder::new_with_http(http, serenity::GatewayIntents::all());
 
     // Get the bot's owners and id and convert it to hashset
     let app_inf = http_pre.get_current_application_info().await.unwrap();
-    let owners = app_inf.team.as_ref().map(|team| team.members.iter().map(|m| m.user.id).collect()).unwrap_or_else(|| vec![app_inf.owner.id]);
+    let owners = app_inf
+        .team
+        .as_ref()
+        .map(|team| team.members.iter().map(|m| m.user.id).collect())
+        .unwrap_or_else(|| vec![app_inf.owner.id]);
     let owners = owners.into_iter().collect::<std::collections::HashSet<_>>();
 
-    let framework = poise::Framework::new(client_builder, move |_ctx, _ready, _framework| {
+    let framework = poise::Framework::new(
+        client_builder,
+        move |_ctx, _ready, _framework| {
             Box::pin(async move {
                 Ok(Data {
                     pool: PgPoolOptions::new()
@@ -526,7 +542,7 @@ async fn main() {
                     ),
                 })
             })
-        }, 
+        },
         poise::FrameworkOptions {
             owners,
             prefix_options: poise::PrefixFrameworkOptions {
@@ -591,8 +607,10 @@ async fn main() {
             },
             on_error: |error| Box::pin(on_error(error)),
             ..Default::default()
-        }
-    ).await.expect("Error");
+        },
+    )
+    .await
+    .expect("Error");
 
     framework.start().await.expect("Error");
 }

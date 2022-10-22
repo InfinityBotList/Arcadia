@@ -3,6 +3,7 @@ use crate::Error;
 use crate::_checks as checks;
 
 use poise::serenity_prelude::User;
+use poise::serenity_prelude::UserId;
 use sqlx::Column;
 use sqlx::Row;
 
@@ -16,14 +17,11 @@ use poise::serenity_prelude as serenity;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands(
-        "approveonboard",
-        "denyonboard",
-        "resetonboard",
-    )
+    subcommands("approveonboard", "denyonboard", "resetonboard",)
 )]
 pub async fn onboardman(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Some available options are ``onboardman approve`` etc.").await?;
+    ctx.say("Some available options are ``onboardman approve`` etc.")
+        .await?;
     Ok(())
 }
 
@@ -35,7 +33,7 @@ pub async fn onboardman(ctx: Context<'_>) -> Result<(), Error> {
     prefix_command,
     slash_command,
     check = "checks::is_hdev_hadmin",
-    check = "checks::staff_server",
+    check = "checks::staff_server"
 )]
 pub async fn approveonboard(
     ctx: Context<'_>,
@@ -51,7 +49,9 @@ pub async fn approveonboard(
     .fetch_one(&data.pool)
     .await?;
 
-    if onboard_state.staff_onboard_state != "pending-manager-review" && onboard_state.staff_onboard_state != "denied" {
+    if onboard_state.staff_onboard_state != "pending-manager-review"
+        && onboard_state.staff_onboard_state != "denied"
+    {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",
             onboard_state.staff_onboard_state
@@ -59,41 +59,31 @@ pub async fn approveonboard(
         .into());
     }
 
-    let mut msg = ctx
-        .send(|m| {
-            m.content("Are you sure you wish to approve this user?")
-                .components(|c| {
-                    c.create_action_row(|r| {
-                        r.create_button(|b| b.custom_id("continue").label("Continue"))
-                            .create_button(|b| {
-                                b.custom_id("cancel")
-                                    .label("Cancel")
-                                    .style(serenity::ButtonStyle::Danger)
-                            })
-                    })
-                })
-        })
-        .await?
-        .into_message()
+    let iblhdevs = sqlx::query!("SELECT user_id FROM users WHERE iblhdev = true OR hadmin = true")
+        .fetch_all(&data.pool)
         .await?;
 
-    let interaction = msg
-        .await_component_interaction(ctx.discord())
-        .author_id(ctx.author().id)
-        .await;
+    let can_vote_ids = iblhdevs
+        .iter()
+        .map(|x| UserId(x.user_id.parse::<u64>().unwrap()))
+        .collect::<Vec<UserId>>();
 
-    msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+    let poll_result =
+        crate::_utils::create_vote(ctx, "Do you agree to approve this onboarding", can_vote_ids)
+            .await?;
 
-    let pressed_button_id = match &interaction {
-        Some(m) => &m.data.custom_id,
-        None => {
-            ctx.say("You didn't interact in time").await?;
-            return Ok(());
-        }
-    };
+    if poll_result.cancelled {
+        ctx.say("Poll was cancelled").await?;
+        return Ok(());
+    } else if poll_result.winning_side.is_none() {
+        ctx.say("Poll was a draw? Cancelling").await?;
+        return Ok(());
+    }
 
-    if pressed_button_id == "cancel" {
-        ctx.say("Cancelled").await?;
+    let winning_side = poll_result.winning_side.unwrap();
+
+    if !winning_side {
+        ctx.say("Poll was denied, cancelling").await?;
         return Ok(());
     }
 
@@ -123,7 +113,7 @@ pub async fn approveonboard(
     prefix_command,
     slash_command,
     check = "checks::is_hdev_hadmin",
-    check = "checks::staff_server",
+    check = "checks::staff_server"
 )]
 pub async fn denyonboard(
     ctx: crate::Context<'_>,
@@ -147,41 +137,31 @@ pub async fn denyonboard(
         .into());
     }
 
-    let mut msg = ctx
-        .send(|m| {
-            m.content("Are you sure you wish to deny this user?")
-                .components(|c| {
-                    c.create_action_row(|r| {
-                        r.create_button(|b| b.custom_id("continue").label("Continue"))
-                            .create_button(|b| {
-                                b.custom_id("cancel")
-                                    .label("Cancel")
-                                    .style(serenity::ButtonStyle::Danger)
-                            })
-                    })
-                })
-        })
-        .await?
-        .into_message()
+    let iblhdevs = sqlx::query!("SELECT user_id FROM users WHERE iblhdev = true OR hadmin = true")
+        .fetch_all(&data.pool)
         .await?;
 
-    let interaction = msg
-        .await_component_interaction(ctx.discord())
-        .author_id(ctx.author().id)
-        .await;
+    let can_vote_ids = iblhdevs
+        .iter()
+        .map(|x| UserId(x.user_id.parse::<u64>().unwrap()))
+        .collect::<Vec<UserId>>();
 
-    msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+    let poll_result =
+        crate::_utils::create_vote(ctx, "Do you agree to deny this onboarding", can_vote_ids)
+            .await?;
 
-    let pressed_button_id = match &interaction {
-        Some(m) => &m.data.custom_id,
-        None => {
-            ctx.say("You didn't interact in time").await?;
-            return Ok(());
-        }
-    };
+    if poll_result.cancelled {
+        ctx.say("Poll was cancelled").await?;
+        return Ok(());
+    } else if poll_result.winning_side.is_none() {
+        ctx.say("Poll was a draw? Cancelling").await?;
+        return Ok(());
+    }
 
-    if pressed_button_id == "cancel" {
-        ctx.say("Cancelled").await?;
+    let winning_side = poll_result.winning_side.unwrap();
+
+    if !winning_side {
+        ctx.say("Poll was denied, cancelling").await?;
         return Ok(());
     }
 
@@ -211,7 +191,7 @@ pub async fn denyonboard(
     prefix_command,
     slash_command,
     check = "checks::is_hdev_hadmin",
-    check = "checks::staff_server",
+    check = "checks::staff_server"
 )]
 pub async fn resetonboard(
     ctx: crate::Context<'_>,

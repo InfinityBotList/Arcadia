@@ -1,26 +1,24 @@
 use std::time::Duration;
 
-use log::{info, error};
-use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId};
+use log::{error, info};
+use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId, UserId};
 
 use poise::serenity_prelude as serenity;
 use serde_json::json;
 
 /// Internal function to handle the special-cased staff_guide command
-/// 
+///
 /// This internally creates a onboarding 'fragment' which is used to ensure that a user isn't peeping into someone elses staff verification code
-/// 
+///
 /// This fragment is then used by sovngarde to fetch the full code and add it to the guide.
-async fn _handle_staff_guide(
-    ctx: crate::Context<'_>,
-    user_id: String,
-) -> Result<(), crate::Error> {
+async fn _handle_staff_guide(ctx: crate::Context<'_>, user_id: String) -> Result<(), crate::Error> {
     // This is the onboard code user needs to input (random_string@CURRENT_TIME)
-    let onboard_code = libavacado::public::gen_random(64) + "@" + &chrono::Utc::now().timestamp().to_string();
+    let onboard_code =
+        libavacado::public::gen_random(64) + "@" + &chrono::Utc::now().timestamp().to_string();
 
     // Get first 20 characters of the onboard code as onboard_fragment
     let onboard_fragment = onboard_code.chars().take(20).collect::<String>();
-    
+
     // Set onboard code for user
     let data = ctx.data();
 
@@ -70,7 +68,10 @@ pub async fn handle_onboarding(
     });
     if !is_staff {
         // Check if awaiting staff role in main server
-        let main_server = std::env::var("MAIN_SERVER").unwrap().parse::<u64>().unwrap();
+        let main_server = std::env::var("MAIN_SERVER")
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
 
         let member = discord.cache.member(main_server, ctx.author().id);
 
@@ -81,21 +82,21 @@ pub async fn handle_onboarding(
 
         let member = member.unwrap();
 
-        let awaiting_role = std::env::var("AWAITING_STAFF_ROLE").unwrap().parse::<u64>().unwrap();
+        let awaiting_role = std::env::var("AWAITING_STAFF_ROLE")
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
 
         if !member.roles.contains(&RoleId(awaiting_role)) {
             info!("User is not awaiting staff role");
             return Ok(true);
-        } 
+        }
 
         info!("User is awaiting staff role, adding staff perms and removing old onboarding state for the purpose of onboarding");
 
-        sqlx::query!(
-            "UPDATE users SET staff = true WHERE user_id = $1",
-            user_id
-        )
-        .execute(&data.pool)
-        .await?;
+        sqlx::query!("UPDATE users SET staff = true WHERE user_id = $1", user_id)
+            .execute(&data.pool)
+            .await?;
 
         sqlx::query!(
             "UPDATE users SET staff_onboard_state = 'pending' WHERE user_id = $1 AND staff_onboard_state = 'complete'",
@@ -141,7 +142,7 @@ pub async fn handle_onboarding(
 
     if onboard_state == "pending-manager-review" {
         if cmd_name == "queue" {
-            return Ok(true)
+            return Ok(true);
         }
 
         ctx.say(
@@ -153,7 +154,7 @@ pub async fn handle_onboarding(
 
     if onboard_state == "denied" {
         if cmd_name == "queue" {
-            return Ok(true)
+            return Ok(true);
         }
 
         ctx.say(
@@ -192,7 +193,7 @@ pub async fn handle_onboarding(
     if onboard_state == "pending" {
         // Set macro_time (when the onboarding is first started by the user)
         sqlx::query!(
-            "UPDATE users SET staff_onboard_macro_time = NOW() WHERE user_id = $1", 
+            "UPDATE users SET staff_onboard_macro_time = NOW() WHERE user_id = $1",
             user_id
         )
         .execute(&data.pool)
@@ -233,24 +234,30 @@ pub async fn handle_onboarding(
 
                     if channel.is_none() {
                         // Delete guild and start over
-                        crate::_utils::delete_leave_guild(&discord.http, &discord.cache, *guild).await;
+                        crate::_utils::delete_leave_guild(&discord.http, &discord.cache, *guild)
+                            .await;
                         continue;
                     }
 
                     let channel = channel.unwrap();
 
-                    // Create new invite
-                    let invite = channel
+                    // Create DM invite
+                    let dm_invite = channel
                         .create_invite(&discord, |i| {
-                            i.max_age(0).max_uses(0).temporary(false).unique(true)
+                            i.max_age(0).max_uses(1).temporary(false).unique(true)
                         })
                         .await?;
 
-                    // Send invite
-                    ctx.send(|m| {
+                    // Create DM channel
+                    let user_id = UserId(user_id.parse::<u64>().unwrap());
+
+                    let dm_channel = user_id.create_dm_channel(discord).await?;
+
+                    // Send invite in DM
+                    dm_channel.send_message(discord, |m| {
                         m.embed(|e| {
                             e.title("Onboarding Server")
-                                .description("Click the link below to join the onboarding server.")
+                                .description("Click the link below to join the onboarding server. **This link is private**")
                                 .color(0x00ff00)
                         })
                         .components(|c| {
@@ -258,11 +265,12 @@ pub async fn handle_onboarding(
                                 r.create_button(|b| {
                                     b.label("Join Onboarding Server")
                                         .style(serenity::ButtonStyle::Link)
-                                        .url(&invite.url())
+                                        .url(&dm_invite.url())
                                 })
                             })
                         })
-                    }).await?;
+                    })
+                    .await?;
 
                     found = true;
                 }
@@ -291,30 +299,65 @@ Welcome to your onboarding server! Please read the following:
 ")
                 .await?;
 
-            // Create a invite
+            // Create new invite for staff managers
             let invite = readme
                 .create_invite(&discord, |i| {
                     i.max_age(0).max_uses(0).temporary(false).unique(true)
                 })
                 .await?;
 
-            // Send invite
-            ctx.send(|m| {
-                m.embed(|e| {
-                    e.title("Onboarding Server")
-                        .description("Click the link below to join the onboarding server, then run ``ibb!onboard``.")
-                        .color(0x00ff00)
+            // Create DM invite
+            let dm_invite = readme
+                .create_invite(&discord, |i| {
+                    i.max_age(0).max_uses(1).temporary(false).unique(true)
                 })
-                .components(|c| {
-                    c.create_action_row(|r| {
-                        r.create_button(|b| {
-                            b.label("Join Onboarding Server")
-                                .style(serenity::ButtonStyle::Link)
-                                .url(&invite.url())
+                .await?;
+
+            // Create DM channel
+            let user_id = UserId(user_id.parse::<u64>().unwrap());
+
+            let dm_channel = user_id.create_dm_channel(discord).await?;
+
+            // Send invite in DM
+            dm_channel.send_message(discord, |m| {
+                        m.embed(|e| {
+                            e.title("Onboarding Server")
+                                .description("Click the link below to join the onboarding server. **This link is private**")
+                                .color(0x00ff00)
+                        })
+                        .components(|c| {
+                            c.create_action_row(|r| {
+                                r.create_button(|b| {
+                                    b.label("Join Onboarding Server")
+                                        .style(serenity::ButtonStyle::Link)
+                                        .url(&dm_invite.url())
+                                })
+                            })
                         })
                     })
-                })
-            }).await?;
+                    .await?;
+
+            let onboard_channel = std::env::var("ONBOARDING_CHANNEL").unwrap();
+
+            let channel = ChannelId(onboard_channel.parse::<u64>().unwrap());
+
+            // Send invite
+            channel.send_message(discord, |m| {
+                        m.embed(|e| {
+                            e.title("Onboarding Server")
+                                .description("Click the link below to join the onboarding server if you want to as a staff manager do so.")
+                                .color(0x00ff00)
+                        })
+                        .components(|c| {
+                            c.create_action_row(|r| {
+                                r.create_button(|b| {
+                                    b.label("Join Onboarding Server")
+                                        .style(serenity::ButtonStyle::Link)
+                                        .url(&invite.url())
+                                })
+                            })
+                        })
+                    }).await?;
 
             return Ok(false);
         }
@@ -405,10 +448,10 @@ Welcome to your onboarding server! Please read the following:
     match (onboard_state, cmd_name) {
         ("claimed-bot" | "testing-bot", "queue") => {
             onboard_state = "claimed-bot";
-        },
+        }
         (_, "queue") => {
             onboard_state = "queue-step";
-        },
+        }
         ("queue-step", "staffguide") => {
             // We are now in staff_onboard_state of staff-guide, set that
             sqlx::query!(
@@ -419,7 +462,7 @@ Welcome to your onboarding server! Please read the following:
             .await?;
             _handle_staff_guide(ctx, user_id.to_string()).await?;
             return Ok(false);
-        },
+        }
         (_, _) => {}
     }
 
@@ -511,8 +554,8 @@ Welcome to your onboarding server! Please read the following:
             }
 
             // Get more information about this action by launching a modal using a button
-            
-	    let mut msg = ctx.send(|m| {
+
+            let mut msg = ctx.send(|m| {
                 m.content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.\n\n**If you do not see a button, you will need to rerun the command.**")
                 .components(|c| {
                     c.create_action_row(|r| {
@@ -586,23 +629,28 @@ Welcome to your onboarding server! Please read the following:
                     // Wait for user to submit
                     let response = serenity::CollectModalInteraction::new(&discord.shard)
                         .author_id(m.user.id)
-			.message_id(msg.id)
+                        .message_id(msg.id)
                         .await;
 
                     if response.is_none() {
-                        ctx.say("You took too long to respond. Please try again.").await?;
+                        ctx.say("You took too long to respond. Please try again.")
+                            .await?;
                         return Ok(false);
                     }
-                    
+
                     let response = response.unwrap();
-                    
+
                     // Verify the code
                     let i_code = crate::_utils::modal_get(&response.data, "code").extract_single();
 
                     if i_code.is_none() {
-                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
-                            d.content("You did not provide a code. Please try again.")
-                        })).await?;
+                        response
+                            .create_interaction_response(&discord, |ir| {
+                                ir.interaction_response_data(|d| {
+                                    d.content("You did not provide a code. Please try again.")
+                                })
+                            })
+                            .await?;
                         return Ok(false);
                     }
 
@@ -613,8 +661,8 @@ Welcome to your onboarding server! Please read the following:
                         user_id
                     )
                     .fetch_one(&data.pool)
-                    .await?;  
-                    
+                    .await?;
+
                     let code = code.staff_onboard_session_code;
 
                     if code.is_none() {
@@ -633,23 +681,23 @@ Welcome to your onboarding server! Please read the following:
                             d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
                         })).await?;
                         return Ok(false);
-                    }        
-                    
+                    }
+
                     let time_nonce = codesplit[1];
                     let time_nonce = time_nonce.parse::<i64>();
-                
+
                     if time_nonce.is_err() {
                         response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
                             d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
                         })).await?;
                         return Ok(false);
-                    }              
-                    
+                    }
+
                     let time_nonce = time_nonce.unwrap();
 
                     // Get current time and subtract from time_nonce
                     let now = chrono::Utc::now().timestamp();
-                
+
                     if now - time_nonce > 3600 {
                         response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
                             d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
@@ -660,11 +708,14 @@ Welcome to your onboarding server! Please read the following:
                     let code_web = codesplit[0];
 
                     // Take last 37 characters
-                    let mut code_upper = code_web.chars().skip(code_web.len() - 37).collect::<String>();
+                    let mut code_upper = code_web
+                        .chars()
+                        .skip(code_web.len() - 37)
+                        .collect::<String>();
 
                     // Set index 2 and 19 to 'r' and 'x' respectively
-                    code_upper.replace_range(2..3,"r");
-                    code_upper.replace_range(19..20,"x");
+                    code_upper.replace_range(2..3, "r");
+                    code_upper.replace_range(19..20, "x");
 
                     // SHA-512 it using ring
                     let code_upper = code_upper.as_bytes();
@@ -672,8 +723,11 @@ Welcome to your onboarding server! Please read the following:
                     let code_upper = data_encoding::HEXLOWER.encode(code_upper.as_ref());
 
                     // Get last 6 characters
-                    let code_upper = code_upper.chars().skip(code_upper.len() - 6).collect::<String>();
-                    
+                    let code_upper = code_upper
+                        .chars()
+                        .skip(code_upper.len() - 6)
+                        .collect::<String>();
+
                     info!("Wanted {} and user inputted {}", code_upper, i_code);
 
                     if code_upper != i_code {
@@ -709,7 +763,8 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         )
                     ).await?;
 
-                    let mut analysis = crate::_utils::modal_get(&response.data, "analysis").extract_single();
+                    let mut analysis =
+                        crate::_utils::modal_get(&response.data, "analysis").extract_single();
 
                     if analysis.is_none() {
                         analysis = Some("None".to_string());
@@ -717,8 +772,9 @@ This bot *will* now leave this server however you should not! Be prepared to sen
 
                     let analysis = analysis.unwrap();
 
-                    let mut thoughts = crate::_utils::modal_get(&response.data, "thoughts").extract_single();
-                    
+                    let mut thoughts =
+                        crate::_utils::modal_get(&response.data, "thoughts").extract_single();
+
                     if thoughts.is_none() {
                         thoughts = Some("None".to_string());
                     }
@@ -730,7 +786,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         user_id
                     )
                     .fetch_one(&data.pool)
-                    .await?;            
+                    .await?;
 
                     let survey_modal = json!({
                         "analysis": analysis,
@@ -744,7 +800,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     let tok = libavacado::public::gen_random(32);
 
                     sqlx::query!("INSERT INTO onboard_data (user_id, onboard_code, data) VALUES ($1, $2, $3)", 
-                        user_id, 
+                        user_id,
                         tok,
                         survey_modal
                     )
@@ -782,9 +838,10 @@ This bot *will* now leave this server however you should not! Be prepared to sen
 
                     return Ok(false);
                 } else {
-                    m.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
-                        d.content("Cancelled")
-                    })).await?;
+                    m.create_interaction_response(&discord, |ir| {
+                        ir.interaction_response_data(|d| d.content("Cancelled"))
+                    })
+                    .await?;
                     return Ok(false);
                 }
             }
@@ -886,11 +943,11 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                     .send(|m| {
                         m.embed(|e| {
                             e.title("Bot Already Claimed")
-                            .description(format!(
-                                "This bot is already claimed by <@{}>",
-                                current_user.id
-                            ))
-                            .color(0xFF0000)
+                                .description(format!(
+                                    "This bot is already claimed by <@{}>",
+                                    current_user.id
+                                ))
+                                .color(0xFF0000)
                         })
                         .components(|c| {
                             c.create_action_row(|r| {
@@ -912,7 +969,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                     .await?
                     .into_message()
                     .await?;
-                
+
                 if onboard_state != "staff-guide-viewed-reminded" {
                     ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
                 }
@@ -989,7 +1046,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                 // Special override to allow revisiting the staffguide command
                 if cmd_name == "staffguide" {
                     _handle_staff_guide(ctx, user_id.to_string()).await?;
-                    return Ok(false);            
+                    return Ok(false);
                 }
             }
             Ok(false)

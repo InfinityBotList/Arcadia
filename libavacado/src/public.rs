@@ -6,7 +6,7 @@ use crate::types::{DiscordUser, Error};
 
 use deadpool_redis::redis::AsyncCommands;
 use moka::future::Cache;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serenity::model::id::UserId;
 use serenity::{http::CacheHttp, model::id::GuildId};
 

@@ -95,10 +95,11 @@ impl ModalValue {
 
     // ``new`` on ModalValue
     pub fn new(values: Vec<String>) -> Self {
-        Self { values: Some(values) }
+        Self {
+            values: Some(values),
+        }
     }
 }
-
 
 /// Get the action row component given id (for modals)
 /// In buttons, this returns 'found' if found in response
@@ -111,17 +112,23 @@ pub fn modal_get(resp: &serenity::ModalSubmitInteractionData, id: &str) -> Modal
             match component {
                 ActionRowComponent::Button(c) => {
                     if c.custom_id == Some(id) {
-                        return ModalValue { values: Some(vec!["found".to_string()]) };
+                        return ModalValue {
+                            values: Some(vec!["found".to_string()]),
+                        };
                     }
                 }
                 ActionRowComponent::SelectMenu(s) => {
                     if s.custom_id == Some(id) {
-                        return ModalValue { values: Some(s.values.clone()) };
+                        return ModalValue {
+                            values: Some(s.values.clone()),
+                        };
                     }
                 }
                 ActionRowComponent::InputText(t) => {
                     if t.custom_id == id {
-                        return ModalValue { values: Some(vec![t.value.clone()]) };
+                        return ModalValue {
+                            values: Some(vec![t.value.clone()]),
+                        };
                     }
                 }
                 _ => {}
@@ -156,7 +163,7 @@ pub struct VoteData {
     pub disapproving_users: Vec<serenity::UserId>,
     pub cancelled: bool,
     pub winning_side: Option<bool>,
-    pub forced: bool
+    pub forced: bool,
 }
 
 impl VoteData {
@@ -164,9 +171,9 @@ impl VoteData {
         let mut text = String::new();
 
         if !self.approving_users.is_empty() {
-        text.push_str("**Approving users**\n");
+            text.push_str("**Approving users**\n");
             for user in &self.approving_users {
-                text.push_str(&format!("{user_id}\n (<@{user_id}>)", user_id=user));
+                text.push_str(&format!("{user_id}\n (<@{user_id}>)", user_id = user));
             }
 
             text.push_str("\n\n");
@@ -175,7 +182,7 @@ impl VoteData {
         if !self.disapproving_users.is_empty() {
             text.push_str("**Disapproving users**\n");
             for user in &self.disapproving_users {
-                text.push_str(&format!("{user_id}\n (<@{user_id}>)", user_id=user));
+                text.push_str(&format!("{user_id}\n (<@{user_id}>)", user_id = user));
             }
         }
 
@@ -223,39 +230,45 @@ pub async fn create_vote(
 
     let mut msg = ctx
         .send(|m| {
-            m.content("**".to_string()+vote_title+"**\n\nThis message will timeout in 15 minutes" + "\n\n" + &vote_data.display())
-                .ephemeral(true)
-                .components(|c| {
-                    c.create_action_row(|r| {
-                        r.create_button(|b| {
-                            b.style(serenity::ButtonStyle::Primary)
-                                .label("Approve")
-                                .custom_id("approve")
-                        })
-                        .create_button(|b| {
-                            b.style(serenity::ButtonStyle::Primary)
-                                .label("Disapprove")
-                                .custom_id("disapprove")
-                        })
+            m.content(
+                "**".to_string()
+                    + vote_title
+                    + "**\n\nThis message will timeout in 15 minutes"
+                    + "\n\n"
+                    + &vote_data.display(),
+            )
+            .ephemeral(false)
+            .components(|c| {
+                c.create_action_row(|r| {
+                    r.create_button(|b| {
+                        b.style(serenity::ButtonStyle::Primary)
+                            .label("Approve")
+                            .custom_id("approve")
                     })
-                    .create_action_row(|r| {
-                        r.create_button(|b| {
-                            b.style(serenity::ButtonStyle::Danger)
-                                .label("Cancel")
-                                .custom_id("cancel")
-                        })
-                        .create_button(|b| {
-                            b.style(serenity::ButtonStyle::Secondary)
-                                .label("Force Resolve")
-                                .custom_id("force_resolve")
-                        })
-                        .create_button(|b| {
-                            b.style(serenity::ButtonStyle::Danger)
-                                .label("Force Poll Through")
-                                .custom_id("force_poll_through")
-                        })
+                    .create_button(|b| {
+                        b.style(serenity::ButtonStyle::Primary)
+                            .label("Disapprove")
+                            .custom_id("disapprove")
                     })
                 })
+                .create_action_row(|r| {
+                    r.create_button(|b| {
+                        b.style(serenity::ButtonStyle::Danger)
+                            .label("Cancel")
+                            .custom_id("cancel")
+                    })
+                    .create_button(|b| {
+                        b.style(serenity::ButtonStyle::Secondary)
+                            .label("Force Resolve")
+                            .custom_id("force_resolve")
+                    })
+                    .create_button(|b| {
+                        b.style(serenity::ButtonStyle::Danger)
+                            .label("Force Poll Through")
+                            .custom_id("force_poll_through")
+                    })
+                })
+            })
         })
         .await?
         .into_message()
@@ -265,14 +278,14 @@ pub async fn create_vote(
         .await_component_interactions(ctx.discord())
         .timeout(Duration::from_secs(60 * 15))
         .build();
-    
+
     while let Some(item) = interaction.next().await {
         if !can_vote.contains(&item.user.id) {
             item.create_interaction_response(&ctx.discord(), |r| {
                 r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                     .interaction_response_data(|d| {
                         d.content("You are not allowed to vote on this poll")
-                        .ephemeral(true)
+                            .ephemeral(true)
                     })
             })
             .await?;
@@ -292,7 +305,7 @@ pub async fn create_vote(
                         r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|d| {
                                 d.content("You have already approved this poll")
-                                .ephemeral(true)
+                                    .ephemeral(true)
                             })
                     })
                     .await?;
@@ -301,8 +314,7 @@ pub async fn create_vote(
                     item.create_interaction_response(&ctx.discord(), |r| {
                         r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|d| {
-                                d.content("You have made your vote")
-                                .ephemeral(true)
+                                d.content("You have made your vote").ephemeral(true)
                             })
                     })
                     .await?;
@@ -313,7 +325,7 @@ pub async fn create_vote(
                 if vote_data.total_voters() >= can_vote.len() {
                     vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
                     msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
-                    
+
                     interaction.stop();
                     return Ok(vote_data);
                 }
@@ -328,7 +340,7 @@ pub async fn create_vote(
                         r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|d| {
                                 d.content("You have already disapproved this poll")
-                                .ephemeral(true)
+                                    .ephemeral(true)
                             })
                     })
                     .await?;
@@ -337,8 +349,7 @@ pub async fn create_vote(
                     item.create_interaction_response(&ctx.discord(), |r| {
                         r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|d| {
-                                d.content("You have made your vote")
-                                .ephemeral(true)
+                                d.content("You have made your vote").ephemeral(true)
                             })
                     })
                     .await?;
@@ -349,7 +360,7 @@ pub async fn create_vote(
                 if vote_data.total_voters() >= can_vote.len() {
                     vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
                     msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
-                    
+
                     interaction.stop();
                     return Ok(vote_data);
                 }
@@ -357,9 +368,7 @@ pub async fn create_vote(
             "cancel" => {
                 item.create_interaction_response(&ctx.discord(), |r| {
                     r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|d| {
-                            d.content("Vote cancelled")
-                        })
+                        .interaction_response_data(|d| d.content("Vote cancelled"))
                 })
                 .await?;
 
@@ -368,17 +377,14 @@ pub async fn create_vote(
                 vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
                 msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
-                
+
                 interaction.stop();
                 return Ok(vote_data);
-            },
+            }
             "force_resolve" => {
                 item.create_interaction_response(&ctx.discord(), |r| {
                     r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|d| {
-                            d.content("Poll resolved")
-                            .ephemeral(true)
-                        })
+                        .interaction_response_data(|d| d.content("Poll resolved").ephemeral(true))
                 })
                 .await?;
 
@@ -386,16 +392,15 @@ pub async fn create_vote(
                 vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
                 msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
-                
+
                 interaction.stop();
                 return Ok(vote_data);
-            },
+            }
             "force_poll_through" => {
                 item.create_interaction_response(&ctx.discord(), |r| {
                     r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|d| {
-                            d.content("Vote forced through")
-                            .ephemeral(true)
+                            d.content("Vote forced through").ephemeral(true)
                         })
                 })
                 .await?;
@@ -405,25 +410,31 @@ pub async fn create_vote(
                 vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
                 msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
-                
+
                 interaction.stop();
-                return Ok(vote_data)
-            },
+                return Ok(vote_data);
+            }
             _ => {}
         }
 
         // Update the message
         msg.edit(&ctx.discord(), |m| {
-            m.content("**".to_string()+vote_title+"**\n\nThis message will timeout in 15 minutes" + "\n\n" + &vote_data.display())
+            m.content(
+                "**".to_string()
+                    + vote_title
+                    + "**\n\nThis message will timeout in 15 minutes"
+                    + "\n\n"
+                    + &vote_data.display(),
+            )
         })
         .await?;
     }
-    
+
     // Get the winning side
     vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
     msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
-    
+
     interaction.stop();
 
     Ok(vote_data)

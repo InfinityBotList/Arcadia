@@ -93,9 +93,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allowed_origin_fn(|origin, _req_head| {
-                !origin.as_bytes().ends_with(b"bad domain 1")
-            })
+            .allowed_origin_fn(|origin, _req_head| !origin.as_bytes().ends_with(b"bad domain 1"))
             .allowed_methods(vec![
                 "GET", "HEAD", "PUT", "POST", "PATCH", "DELETE", "OPTIONS",
             ])
@@ -103,7 +101,7 @@ async fn main() -> std::io::Result<()> {
                 http::header::AUTHORIZATION,
                 http::header::ACCEPT,
                 http::header::CONTENT_TYPE,
-                http::header::HeaderName::from_bytes(b"SV-Version").unwrap()
+                http::header::HeaderName::from_bytes(b"SV-Version").unwrap(),
             ])
             .supports_credentials()
             .max_age(1);

@@ -5,7 +5,7 @@ use std::fmt::Write as _;
 // import without risk of name clashing
 use serenity::id::UserId;
 
-use crate::{_checks as checks, _utils::{Bool}};
+use crate::{_checks as checks, _utils::Bool};
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -252,7 +252,7 @@ During beta testing, this is available to admins and devs, but once second final
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev",
+    check = "checks::is_admin_hdev"
 )]
 pub async fn staff_add(
     ctx: Context<'_>,
@@ -260,7 +260,10 @@ pub async fn staff_add(
     #[description = "Whether to give roles, true by default"] give_roles: Option<Bool>,
 ) -> Result<(), Error> {
     // Check if awaiting staff role in main server
-    let main_server = std::env::var("MAIN_SERVER").unwrap().parse::<u64>().unwrap();
+    let main_server = std::env::var("MAIN_SERVER")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap();
 
     let member = ctx.discord().cache.member(main_server, member.user.id);
 
@@ -277,9 +280,7 @@ pub async fn staff_add(
 
         if !member.roles.contains(&web_mod_role) {
             // Give user web mod role
-            member
-            .add_role(ctx.discord(), web_mod_role)
-            .await?;
+            member.add_role(ctx.discord(), web_mod_role).await?;
         }
     }
 
@@ -344,20 +345,19 @@ pub async fn staff_del(
 
     if member.roles.contains(&web_mod_role) {
         // Remove users web mod role
-        member
-        .remove_role(ctx.discord(), web_mod_role)
-        .await?;
+        member.remove_role(ctx.discord(), web_mod_role).await?;
     }
 
-    let staff_server = poise::serenity_prelude::GuildId(std::env::var("MAIN_SERVER")?.parse::<u64>()?);
+    let staff_server =
+        poise::serenity_prelude::GuildId(std::env::var("MAIN_SERVER")?.parse::<u64>()?);
 
     staff_server
-    .kick_with_reason(
-        &ctx.discord().http,
-        member.user.id,
-        "Removed from staff list",
-    )
-    .await?;
+        .kick_with_reason(
+            &ctx.discord().http,
+            member.user.id,
+            "Removed from staff list",
+        )
+        .await?;
 
     ctx.say("Removed from staff list").await?;
 

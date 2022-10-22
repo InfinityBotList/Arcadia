@@ -35,9 +35,7 @@ pub async fn invite(
 /// Starts the onboarding process in the newly created server
 #[poise::command(prefix_command, user_cooldown = 10, category = "Testing")]
 pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, false, None)
-        .await?
-    {
+    if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
     }
 
@@ -52,9 +50,7 @@ pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
     category = "Testing"
 )]
 pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, false, None)
-        .await?
-    {
+    if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
     }
 
@@ -71,9 +67,7 @@ pub async fn queue(
 ) -> Result<(), Error> {
     let embed = embed.unwrap_or(Bool::True).to_bool();
 
-    if !crate::_onboarding::handle_onboarding(ctx, embed, None)
-        .await?
-    {
+    if !crate::_onboarding::handle_onboarding(ctx, embed, None).await? {
         return Ok(());
     }
 
@@ -164,17 +158,8 @@ pub async fn queue(
 }
 
 /// Implementation of the claim command
-pub async fn claim_impl(
-    ctx: Context<'_>,
-    bot: serenity::User,
-) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(
-        ctx,
-        false,
-        Some(&bot.id.to_string()),
-    )
-    .await?
-    {
+pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {
+    if !crate::_onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
         return Ok(());
     }
 
@@ -390,7 +375,7 @@ pub async fn claim(
 }
 
 #[poise::command(
-    context_menu_command = "Claim Bot", 
+    context_menu_command = "Claim Bot",
     user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"
@@ -402,16 +387,11 @@ pub async fn claim_context(
     claim_impl(ctx, user).await
 }
 
-pub async fn unclaim_impl(
-    ctx: Context<'_>,
-    bot: serenity::User,
-) -> Result<(), Error> {
+pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, false, None)
-        .await?
-    {
+    if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
     }
 
@@ -436,8 +416,7 @@ pub async fn unclaim_impl(
     let owner = UserId(claimed.owner.parse::<u64>()?);
 
     if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
-        ctx.say(format!("<@{}> is not claimed", bot.id.0))
-            .await?;
+        ctx.say(format!("<@{}> is not claimed", bot.id.0)).await?;
     } else {
         sqlx::query!(
             "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
@@ -494,7 +473,7 @@ pub async fn unclaim(
 }
 
 #[poise::command(
-    context_menu_command = "Unclaim Bot", 
+    context_menu_command = "Unclaim Bot",
     user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"
@@ -519,13 +498,7 @@ pub async fn approve(
     #[description = "The bot you wish to approve"] bot: serenity::Member,
     #[description = "The reason for approval"] reason: String,
 ) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(
-        ctx,
-        false,
-        Some(&reason),
-    )
-    .await?
-    {
+    if !crate::_onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
         return Ok(());
     }
     if !checks::testing_server(ctx).await? {
@@ -559,13 +532,7 @@ pub async fn deny(
     #[description = "The bot you wish to deny"] bot: serenity::User,
     #[description = "The reason for denial"] reason: String,
 ) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(
-        ctx,
-        false,
-        Some(&reason),
-    )
-    .await?
-    {
+    if !crate::_onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
         return Ok(());
     }
 

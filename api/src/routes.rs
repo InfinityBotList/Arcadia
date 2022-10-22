@@ -1,5 +1,5 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
-use libavacado::search::{SearchOpts, SearchFilter};
+use libavacado::search::{SearchFilter, SearchOpts};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -230,28 +230,31 @@ pub struct SearchQuery {
 }
 
 #[get("/tetanus")]
-pub async fn tetanus_search_service(
-    req: HttpRequest, 
-    q: web::Query<SearchQuery>,
-) -> HttpResponse {
+pub async fn tetanus_search_service(req: HttpRequest, q: web::Query<SearchQuery>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
 
-    let search_res = libavacado::search::search_bots(&q.q, &data.pool, &data.avacado_public, &SearchOpts {
-        gc: SearchFilter {
-            from: q.gc_from,
-            to: q.gc_to,
+    let search_res = libavacado::search::search_bots(
+        &q.q,
+        &data.pool,
+        &data.avacado_public,
+        &SearchOpts {
+            gc: SearchFilter {
+                from: q.gc_from,
+                to: q.gc_to,
+            },
+            votes: SearchFilter {
+                from: q.votes_from,
+                to: q.votes_to,
+            },
+            servers: SearchFilter {
+                from: q.servers_from,
+                to: q.servers_to,
+            },
         },
-        votes: SearchFilter {
-            from: q.votes_from,
-            to: q.votes_to,
-        },
-        servers: SearchFilter {
-            from: q.servers_from,
-            to: q.servers_to,
-        },
-    }).await;
+    )
+    .await;
 
     if search_res.is_err() {
         let err = search_res.unwrap_err();
@@ -269,9 +272,7 @@ pub async fn tetanus_search_service(
 
 /// Get all current maintenances
 #[get("/maints")]
-pub async fn get_current_maints(
-    _req: HttpRequest, 
-) -> HttpResponse {
+pub async fn get_current_maints(_req: HttpRequest) -> HttpResponse {
     let maints = libavacado::public::maint_status();
 
     if let Ok(maints) = maints {
@@ -303,8 +304,8 @@ pub async fn staff_verify_onboard_data_api(
     q: web::Query<SVODQuery>,
 ) -> HttpResponse {
     let data: &crate::models::AppState = req
-    .app_data::<web::Data<crate::models::AppState>>()
-    .unwrap();
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
 
     // Check SVAPI version
     let svapi_header = req.headers().get("sv-version");
@@ -353,13 +354,10 @@ pub async fn staff_verify_onboard_data_api(
 
 /// Staff Verify Code Fetch API
 #[get("/svapi")]
-pub async fn staff_verify_fetch_api(
-    req: HttpRequest,
-    q: web::Query<SVQuery>,
-) -> HttpResponse {
+pub async fn staff_verify_fetch_api(req: HttpRequest, q: web::Query<SVQuery>) -> HttpResponse {
     let data: &crate::models::AppState = req
-    .app_data::<web::Data<crate::models::AppState>>()
-    .unwrap();
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
 
     let code = sqlx::query!(
         "SELECT staff_onboard_session_code FROM users WHERE user_id = $1",

@@ -108,11 +108,11 @@ pub async fn search_bots(
             votes: bot.votes,
             certified: bot.certified,
             tags: bot.tags,
-	    r#type: bot.r#type,
-	    banner: bot.banner,
-	    vanity: bot.vanity,
-	    clicks: bot.clicks, 
-	    invite_clicks: bot.invite_clicks
+            r#type: bot.r#type,
+            banner: bot.banner,
+            vanity: bot.vanity,
+            clicks: bot.clicks,
+            invite_clicks: bot.invite_clicks,
         });
     }
 
@@ -160,11 +160,11 @@ pub async fn search_bots(
                 votes: res.votes,
                 certified: res.certified,
                 tags: res.tags,
-		r#type: res.r#type,
-		banner: res.banner,
-		vanity: res.vanity,
-		clicks: res.clicks,
-		invite_clicks: res.invite_clicks
+                r#type: res.r#type,
+                banner: res.banner,
+                vanity: res.vanity,
+                clicks: res.clicks,
+                invite_clicks: res.invite_clicks,
             });
         }
     }
@@ -195,7 +195,10 @@ pub async fn search_bots(
         users: search_users,
     });
 
-    public.search_cache.insert(query.to_string() + &opts.key(), res.clone()).await;
+    public
+        .search_cache
+        .insert(query.to_string() + &opts.key(), res.clone())
+        .await;
 
     Ok(res)
 }

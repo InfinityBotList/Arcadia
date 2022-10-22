@@ -1,18 +1,18 @@
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
 
-
-#[poise::command(category = "Bot Owner", prefix_command, slash_command, user_cooldown = 1)]
+#[poise::command(
+    category = "Bot Owner",
+    prefix_command,
+    slash_command,
+    user_cooldown = 1
+)]
 pub async fn setstats(
-    ctx: Context<'_>, 
-    #[description = "Bot ID to update"]
-    bot_id: String,
-    #[description = "The new guild count"]
-    servers: Option<i32>,
-    #[description = "The new shard count"]
-    shards: Option<i32>,
-    #[description = "The new user count"]
-    users: Option<i32>,
+    ctx: Context<'_>,
+    #[description = "Bot ID to update"] bot_id: String,
+    #[description = "The new guild count"] servers: Option<i32>,
+    #[description = "The new shard count"] shards: Option<i32>,
+    #[description = "The new user count"] users: Option<i32>,
 ) -> Result<(), Error> {
     let data = ctx.data();
 

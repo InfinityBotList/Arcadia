@@ -1,14 +1,16 @@
-use std::fmt::Write;
 use futures_util::StreamExt;
-use poise::serenity_prelude::{self as serenity, ChannelId, MessageId, MessageComponentInteraction};
+use poise::serenity_prelude::{
+    self as serenity, ChannelId, MessageComponentInteraction, MessageId,
+};
 use poise::Command;
+use std::fmt::Write;
 
 use crate::Context;
-use std::time::Duration;
-use std::sync::Arc;
-use crate::Error;
 use crate::Data;
+use crate::Error;
 use log::info;
+use std::sync::Arc;
+use std::time::Duration;
 
 /// Struct to store embed data for the help command
 struct EmbedHelp {
@@ -64,23 +66,23 @@ async fn _embed_help(
                 menu,
                 "/{cmd_name} | ibb!{cmd_name} - {desc}",
                 cmd_name = command.name,
-                desc = command.description.as_deref().unwrap_or("*No description available yet*")
-            ); 
+                desc = command
+                    .description
+                    .as_deref()
+                    .unwrap_or("*No description available yet*")
+            );
 
             if command.context_menu_action.is_some() {
                 let _ = writeln!(
                     menu,
                     "*This command is a context menu command of type {type:#?}*",
-                    r#type=command.context_menu_action.unwrap()
+                    r#type = command.context_menu_action.unwrap()
                 );
                 continue;
             }
 
             if !command.subcommands.is_empty() {
-                let _ = writeln!(
-                    menu,
-                    "**Subcommands**",
-                );
+                let _ = writeln!(menu, "**Subcommands**",);
 
                 for subcmd in command.subcommands.iter() {
                     if subcmd.hide_in_help {
@@ -92,7 +94,10 @@ async fn _embed_help(
                         "/{cmd_name} {subcmd_name} | ibb!{cmd_name} {subcmd_name} - {desc}",
                         cmd_name = command.name,
                         subcmd_name = subcmd.name,
-                        desc = subcmd.description.as_deref().unwrap_or("*No description available yet*")
+                        desc = subcmd
+                            .description
+                            .as_deref()
+                            .unwrap_or("*No description available yet*")
                     );
                 }
             }
@@ -115,57 +120,64 @@ pub struct MsgInfo {
 
 /// Internal function to populate the help action row (select menu)
 #[inline]
-fn _help_select_menu<'a, 'b>(data: &'b [EmbedHelp], ar: &'a mut serenity::builder::CreateActionRow, index: usize) -> &'a mut serenity::builder::CreateActionRow {            
+fn _help_select_menu<'a, 'b>(
+    data: &'b [EmbedHelp],
+    ar: &'a mut serenity::builder::CreateActionRow,
+    index: usize,
+) -> &'a mut serenity::builder::CreateActionRow {
     ar.create_select_menu(|sm| {
         sm.min_values(1)
-        .max_values(1)
-        .custom_id("hnav:selectmenu")
-        .options(|opts| {
-            for (i, pane) in data.iter().enumerate() {
-                if i == index {
-                    opts.create_option(|opt| {
-                        opt.label(pane.category.clone() + " (current)")
-                        .value(i.to_string())
-                    });
-                } else {
-                    opts.create_option(|opt| {
-                        opt.label(pane.category.clone())
-                        .value(i.to_string())
-                    });
+            .max_values(1)
+            .custom_id("hnav:selectmenu")
+            .options(|opts| {
+                for (i, pane) in data.iter().enumerate() {
+                    if i == index {
+                        opts.create_option(|opt| {
+                            opt.label(pane.category.clone() + " (current)")
+                                .value(i.to_string())
+                        });
+                    } else {
+                        opts.create_option(|opt| {
+                            opt.label(pane.category.clone()).value(i.to_string())
+                        });
+                    }
                 }
-            }    
 
-            opts
-        }) 
+                opts
+            })
     })
 }
 
-
 /// Internal function to populate the help action row (buttons)
 #[inline]
-fn _help_components(ar: &mut serenity::builder::CreateActionRow, index: usize, prev_disabled: bool, next_disabled: bool) -> &mut serenity::builder::CreateActionRow {            
+fn _help_components(
+    ar: &mut serenity::builder::CreateActionRow,
+    index: usize,
+    prev_disabled: bool,
+    next_disabled: bool,
+) -> &mut serenity::builder::CreateActionRow {
     ar.create_button(|b| {
         b.label("Previous")
-        .custom_id("hnav:".to_string() + &(index - 1).to_string())
-        .disabled(prev_disabled)
+            .custom_id("hnav:".to_string() + &(index - 1).to_string())
+            .disabled(prev_disabled)
     })
     .create_button(|b| {
         b.label("Cancel")
-        .custom_id("hnav:cancel")
-        .style(serenity::ButtonStyle::Danger)
+            .custom_id("hnav:cancel")
+            .style(serenity::ButtonStyle::Danger)
     })
     .create_button(|b| {
         b.label("Next")
-        .custom_id("hnav:".to_string() + &(index + 1).to_string())
-        .disabled(next_disabled)
+            .custom_id("hnav:".to_string() + &(index + 1).to_string())
+            .disabled(next_disabled)
     })
 }
 
 async fn _help_send_index(
-    ctx: Option<Context<'_>>, 
-    old_msg: Option<MsgInfo>, 
-    http: &Arc<serenity::Http>, 
-    l_data: &Vec<EmbedHelp>, 
+    ctx: Option<Context<'_>>,
+    old_msg: Option<MsgInfo>,
+    http: &Arc<serenity::Http>,
+    l_data: &Vec<EmbedHelp>,
     index: usize,
     interaction: Option<Arc<MessageComponentInteraction>>,
 ) -> Result<Option<serenity::Message>, crate::Error> {
@@ -180,26 +192,50 @@ async fn _help_send_index(
         Some(data) => {
             if let Some(old_msg) = old_msg {
                 if interaction.is_none() {
-                    old_msg.channel_id.edit_message(http, old_msg.message_id, |m| {
-                        m.embed(|e| {
-                            e.title(format!("{} (Page {})", data.category, index + 1));
-                            e.description(&data.desc);
-                            e
-                        })
-                        .components(|c| {
-                            c.create_action_row(|a| {
-                                _help_components(a, index, prev_disabled, next_disabled)
+                    old_msg
+                        .channel_id
+                        .edit_message(http, old_msg.message_id, |m| {
+                            m.embed(|e| {
+                                e.title(format!("{} (Page {})", data.category, index + 1));
+                                e.description(&data.desc);
+                                e
                             })
-                            .create_action_row(|ar| {
-                                _help_select_menu(l_data, ar, index)
+                            .components(|c| {
+                                c.create_action_row(|a| {
+                                    _help_components(a, index, prev_disabled, next_disabled)
+                                })
+                                .create_action_row(|ar| _help_select_menu(l_data, ar, index))
                             })
                         })
-                    })
-                    .await?;
+                        .await?;
                 } else {
                     let interaction = interaction.unwrap();
 
-                    interaction.edit_original_interaction_response(http, |m| {
+                    interaction
+                        .edit_original_interaction_response(http, |m| {
+                            m.embed(|e| {
+                                e.title(format!("{} (Page {})", data.category, index + 1));
+                                e.description(&data.desc);
+                                e
+                            })
+                            .components(|c| {
+                                c.create_action_row(|a| {
+                                    _help_components(a, index, prev_disabled, next_disabled)
+                                })
+                                .create_action_row(|ar| _help_select_menu(l_data, ar, index))
+                            })
+                        })
+                        .await?;
+                }
+
+                return Ok(None);
+            }
+
+            if let Some(ctx) = ctx {
+                let msg = ctx
+                    .send(|m| {
+                        m.ephemeral(true);
+
                         m.embed(|e| {
                             e.title(format!("{} (Page {})", data.category, index + 1));
                             e.description(&data.desc);
@@ -209,39 +245,14 @@ async fn _help_send_index(
                             c.create_action_row(|a| {
                                 _help_components(a, index, prev_disabled, next_disabled)
                             })
-                            .create_action_row(|ar| {
-                                _help_select_menu(l_data, ar, index)
-                            })
-                        })
-                    }).await?;
-                }
-
-                return Ok(None)
-            }
-
-            if let Some(ctx) = ctx {
-                let msg = ctx.send(|m| {
-                    m.ephemeral(true);
-
-                    m.embed(|e| {
-                        e.title(format!("{} (Page {})", data.category, index + 1));
-                        e.description(&data.desc);
-                        e
-                    })
-                    .components(|c| {
-                        c.create_action_row(|a| {
-                            _help_components(a, index, prev_disabled, next_disabled)
-                        })
-                        .create_action_row(|ar| {
-                            _help_select_menu(l_data, ar, index)
+                            .create_action_row(|ar| _help_select_menu(l_data, ar, index))
                         })
                     })
-                })
-                .await?
-                .into_message()
-                .await?;
+                    .await?
+                    .into_message()
+                    .await?;
 
-                return Ok(Some(msg))
+                return Ok(Some(msg));
             }
         }
     }
@@ -261,8 +272,8 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
             .author_id(ctx.author().id)
             .timeout(Duration::from_secs(120))
             .build();
-        
-        while let Some(item) = interaction.next().await { 
+
+        while let Some(item) = interaction.next().await {
             item.defer(&ctx.discord()).await?;
 
             let id = &item.data.custom_id;
@@ -270,7 +281,8 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
             info!("Received interaction: {}", id);
 
             if id == "hnav:cancel" {
-                item.delete_original_interaction_response(ctx.discord()).await?;
+                item.delete_original_interaction_response(ctx.discord())
+                    .await?;
                 interaction.stop();
                 break;
             }
@@ -288,18 +300,17 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
                 let value = value.unwrap().parse::<usize>()?;
 
                 _help_send_index(
-                    None, 
-                    Some(
-                        MsgInfo {
-                            channel_id: msg.channel_id,
-                            message_id: msg.id,
-                        }
-                    ),
-                    &ctx.discord().http, 
-                    &eh, 
+                    None,
+                    Some(MsgInfo {
+                        channel_id: msg.channel_id,
+                        message_id: msg.id,
+                    }),
+                    &ctx.discord().http,
+                    &eh,
                     value,
                     Some(item.clone()),
-                ).await?;
+                )
+                .await?;
 
                 continue;
             }
@@ -309,22 +320,21 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
                 let id = id.parse::<usize>()?;
 
                 _help_send_index(
-                    None, 
-                    Some(
-                        MsgInfo {
-                            channel_id: msg.channel_id,
-                            message_id: msg.id,
-                        }
-                    ),
-                    &ctx.discord().http, 
-                    &eh, 
+                    None,
+                    Some(MsgInfo {
+                        channel_id: msg.channel_id,
+                        message_id: msg.id,
+                    }),
+                    &ctx.discord().http,
+                    &eh,
                     id,
                     Some(item.clone()),
-                ).await?;
+                )
+                .await?;
             }
         }
     } else {
-        return Err("No help message found".into())
+        return Err("No help message found".into());
     }
 
     Ok(())
@@ -335,7 +345,8 @@ pub async fn maint(ctx: Context<'_>) -> Result<(), Error> {
     let maints = libavacado::public::maint_status()?;
 
     if maints.is_empty() {
-        ctx.say("No maintenances are currently happening :)").await?;
+        ctx.say("No maintenances are currently happening :)")
+            .await?;
         return Ok(());
     }
 
@@ -349,7 +360,8 @@ pub async fn maint(ctx: Context<'_>) -> Result<(), Error> {
             });
         }
         m
-    }).await?;
+    })
+    .await?;
 
     Ok(())
 }

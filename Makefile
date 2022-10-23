@@ -10,12 +10,20 @@ HOST ?= 100.86.85.125
 
 all: 
 	@make cross
+_onlylib:
+	@make cross ARGS="--workspace --lib"
+onlyapi:
+	@make _onlylib
+	@make cross ARGS="--workspace --bin api"
+onlybot:
+	@make _onlylib
+	@make cross ARGS="--workspace --bin bot"
 dev:
 	DATABASE_URL=$(DATABASE_URL) RUSTFLAGS=$(RUSTFLAGS_LOCAL) cargo build
 devrun:
 	DATABASE_URL=$(DATABASE_URL) RUSTFLAGS=$(RUSTFLAGS_LOCAL) cargo run
 cross:
-	DATABASE_URL=$(DATABASE_URL) CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=$(CARGO_TARGET_GNU_LINKER) cargo build --target=x86_64-unknown-linux-gnu --release
+	DATABASE_URL=$(DATABASE_URL) CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=$(CARGO_TARGET_GNU_LINKER) cargo build --target=x86_64-unknown-linux-gnu --release ${ARGS}
 push:
 	@for bin in $(BINS) ; do \
 		echo "Pushing $$bin to $(HOST):${PROJ_NAME}/$$bin/$$bin.new"; \

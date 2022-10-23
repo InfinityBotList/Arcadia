@@ -20,7 +20,7 @@ pub struct UserRequest {
     user_id: String,
 }
 
-#[post("/approve")]
+#[post("/herpacyphygohnalaids/approve")]
 pub async fn approve(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
@@ -71,7 +71,7 @@ pub async fn approve(req: HttpRequest, info: web::Json<Request>) -> HttpResponse
     HttpResponse::Ok().body("")
 }
 
-#[post("/deny")]
+#[post("/herpacyphygohnalaids/deny")]
 pub async fn deny(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
@@ -122,7 +122,7 @@ pub async fn deny(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
     HttpResponse::Ok().body("")
 }
 
-#[post("/votes-reset")]
+#[post("/herpacyphygohnalaids/votes-reset")]
 pub async fn vote_reset(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
@@ -173,7 +173,7 @@ pub async fn vote_reset(req: HttpRequest, info: web::Json<Request>) -> HttpRespo
     HttpResponse::Ok().body("")
 }
 
-#[post("/votes-reset/all")]
+#[post("/herpacyphygohnalaids/votes-reset/all")]
 pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()

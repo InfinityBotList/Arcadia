@@ -22,9 +22,9 @@ pub async fn vote_reset(
         .send_message(&discord.http(), |m| {
             m.embed(|e| {
                 e.title("__Bot Vote Reset!__")
-                    .field("Reason", &reason, true)
-                    .field("Moderator", "<@".to_string() + &staff_id + ">", true)
-                    .field("Bot", "<@".to_string() + &bot_id + ">", true)
+                    .field("Reason", reason, true)
+                    .field("Moderator", "<@".to_string() + staff_id + ">", true)
+                    .field("Bot", "<@".to_string() + bot_id + ">", true)
                     .footer(|f| f.text("Sad life!"))
                     .color(0xFF0000)
             })
@@ -59,8 +59,8 @@ pub async fn vote_reset_all(
         .send_message(&discord.http(), |m| {
             m.embed(|e| {
                 e.title("__All Votes Reset!__")
-                    .field("Reason", &reason, true)
-                    .field("Moderator", "<@".to_string() + &staff_id + ">", true)
+                    .field("Reason", reason, true)
+                    .field("Moderator", "<@".to_string() + staff_id + ">", true)
                     .footer(|f| f.text("Sad life!"))
                     .color(0xFF0000)
             })

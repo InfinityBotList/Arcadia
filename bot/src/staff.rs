@@ -380,7 +380,7 @@ pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
 
     for guild in guilds.iter() {
         let name = guild
-            .name(&ctx.discord())
+            .name(ctx.discord())
             .unwrap_or_else(|| "Unknown".to_string())
             + " ("
             + &guild.to_string()

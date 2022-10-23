@@ -12,11 +12,11 @@ pub struct SearchFilter {
 }
 
 impl SearchFilter {
-    pub fn from(self: &Self) -> i32 {
+    pub fn from(&self) -> i32 {
         self.from.unwrap_or(-1)
     }
 
-    pub fn to(self: &Self) -> i32 {
+    pub fn to(&self) -> i32 {
         self.to.unwrap_or(-1)
     }
 }
@@ -29,8 +29,8 @@ pub struct SearchOpts {
 
 impl SearchOpts {
     /// Returns the cache key
-    pub fn key(self: &Self) -> String {
-        return format!(
+    pub fn key(&self) -> String {
+        format!(
             ":{}-{}:{}-{}-{}-{}",
             self.gc.from(),
             self.gc.to(),
@@ -38,7 +38,7 @@ impl SearchOpts {
             self.votes.to(),
             self.servers.from(),
             self.servers.to()
-        );
+        )
     }
 }
 

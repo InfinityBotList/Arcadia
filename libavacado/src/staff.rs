@@ -131,7 +131,7 @@ pub async fn approve_bot(
     }
 
     // Make sure a owner is in the server
-    if !bot_owner_in_server(&pool, &discord, &bot_id).await? {
+    if !bot_owner_in_server(pool, &discord, bot_id).await? {
         return Err("The bot owner is not in the server".into());
     }
 
@@ -141,7 +141,7 @@ pub async fn approve_bot(
     {
         return Err(format!(
             "<@{}> is not claimed? Do ``/claim`` to claim this bot first!",
-            bot_id.clone()
+            bot_id
         )
         .into());
     }
@@ -153,7 +153,7 @@ pub async fn approve_bot(
         return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve/deny it!".into());
     }
 
-    add_action_log(pool, &bot_id, &staff_id, reason, "approve").await?;
+    add_action_log(pool, bot_id, staff_id, reason, "approve").await?;
 
     sqlx::query!(
         "UPDATE bots SET type = 'approved', claimed_by = NULL, claimed = false WHERE bot_id = $1",
@@ -174,7 +174,7 @@ pub async fn approve_bot(
             m.embed(|e| {
                 e.title("Bot Approved!")
                     .description(format!("<@{}> has approved <@{}>", staff_id, bot_id))
-                    .field("Reason", reason.clone(), true)
+                    .field("Reason", reason, true)
                     .footer(|f| f.text("Well done, young traveller!"))
                     .color(0x00ff00)
             })
@@ -185,9 +185,9 @@ pub async fn approve_bot(
         .send_message(&discord.http(), |m| {
             m.embed(|e| {
                 e.title("__Bot Approved!__")
-                    .field("Feedback", &reason, true)
-                    .field("Moderator", "<@".to_string() + &staff_id + ">", true)
-                    .field("Bot", "<@".to_string() + &bot_id + ">", true)
+                    .field("Feedback", reason, true)
+                    .field("Moderator", "<@".to_string() + staff_id + ">", true)
+                    .field("Bot", "<@".to_string() + bot_id + ">", true)
                     .footer(|f| f.text("Congratulations on your achievement!"))
                     .color(0x00ff00)
             })
@@ -200,7 +200,7 @@ pub async fn approve_bot(
             bot_id
         ))
         .query(&[("list_id", std::env::var("LIST_ID")?)])
-        .query(&[("reviewer", bot_id.clone())])
+        .query(&[("reviewer", bot_id)])
         .header("Authorization", std::env::var("SECRET_KEY")?)
         .json(&Reason {
             reason: reason.to_string(),
@@ -209,10 +209,10 @@ pub async fn approve_bot(
         .await?;
 
     if request.status().is_success() {
-        info!("Successfully denied bot {} on metro", bot_id.clone());
-        return Ok(());
+        info!("Successfully denied bot {} on metro", bot_id);
+        Ok(())
     } else {
-        return Err("Failed to deny bot on metro (but successful denial on IBL".into());
+        Err("Failed to deny bot on metro (but successful denial on IBL".into())
     }
 }
 
@@ -264,7 +264,7 @@ pub async fn deny_bot(
     {
         return Err(format!(
             "<@{}> is not claimed? Do ``/claim`` to claim this bot first!",
-            bot_id.clone()
+            bot_id
         )
         .into());
     }
@@ -282,7 +282,7 @@ pub async fn deny_bot(
     let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
 
     // Add action logs
-    add_action_log(&pool, bot_id, staff_id, reason, "deny").await?;
+    add_action_log(pool, bot_id, staff_id, reason, "deny").await?;
 
     sqlx::query!(
         "UPDATE bots SET type = 'denied', claimed_by = NULL, claimed = false WHERE bot_id = $1",
@@ -298,7 +298,7 @@ pub async fn deny_bot(
             m.embed(|e| {
                 e.title("Bot Denied!")
                     .description(format!("<@{}> has denied <@{}>", staff_id, bot_id))
-                    .field("Reason", reason.clone(), true)
+                    .field("Reason", reason, true)
                     .footer(|f| {
                         f.text("Well done, young traveller at getting denied from the club!")
                     })
@@ -311,9 +311,9 @@ pub async fn deny_bot(
         .send_message(&discord.http(), |m| {
             m.embed(|e| {
                 e.title("__Bot Denied!__")
-                    .field("Reason", &reason, true)
-                    .field("Moderator", "<@".to_string() + &staff_id + ">", true)
-                    .field("Bot", "<@".to_string() + &bot_id + ">", true)
+                    .field("Reason", reason, true)
+                    .field("Moderator", "<@".to_string() + staff_id + ">", true)
+                    .field("Bot", "<@".to_string() + bot_id + ">", true)
                     .footer(|f| f.text("Sad life!"))
                     .color(0xFF0000)
             })
@@ -323,7 +323,7 @@ pub async fn deny_bot(
     let request = reqwest::Client::new()
         .post(format!("https://catnip.metrobots.xyz/bots/{}/deny", bot_id))
         .query(&[("list_id", std::env::var("LIST_ID")?)])
-        .query(&[("reviewer", bot_id.clone())])
+        .query(&[("reviewer", bot_id)])
         .header("Authorization", std::env::var("SECRET_KEY")?)
         .json(&Reason {
             reason: reason.to_string(),
@@ -332,9 +332,9 @@ pub async fn deny_bot(
         .await?;
 
     if request.status().is_success() {
-        info!("Successfully denied bot {} on metro", bot_id.clone());
-        return Ok(());
+        info!("Successfully denied bot {} on metro", bot_id);
+        Ok(())
     } else {
-        return Err("Failed to deny bot on metro (but successful denial on IBL".into());
+        Err("Failed to deny bot on metro (but successful denial on IBL".into())
     }
 }

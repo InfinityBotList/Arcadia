@@ -218,7 +218,7 @@ pub async fn handle_onboarding(
         let mut found = false;
 
         for guild in guilds.iter() {
-            let name = guild.name(&discord);
+            let name = guild.name(discord);
 
             if let Some(name) = name {
                 if name.to_lowercase() == user_id.to_lowercase() {
@@ -374,7 +374,7 @@ Welcome to your onboarding server! Please read the following:
         for member in guild.members.iter() {
             // Resolve the users permissions
             if member.0 .0 == ctx.author().id.0 {
-                let permissions = member.1.permissions(&discord)?;
+                let permissions = member.1.permissions(discord)?;
                 if permissions.administrator() {
                     found = true;
                 }
@@ -421,7 +421,7 @@ Welcome to your onboarding server! Please read the following:
                 role_id = Some(role.id);
             }
 
-            if role_id == None {
+            if role_id.is_none() {
                 ctx.say("Failed to fetch admin role").await?;
                 return Ok(false);
             }

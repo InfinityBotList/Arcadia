@@ -273,7 +273,7 @@ pub async fn update_field(
 
     let data = ctx.data();
 
-    if !sql.to_lowercase().contains(&"where") {
+    if !sql.to_lowercase().contains("where") {
         let mut msg = ctx
             .send(|m| {
                 m.content("Whoa there, are you trying to update a whole table?.")

@@ -60,8 +60,8 @@ pub async fn search_bots(
     let search = public.search_cache.get(&(query.to_string() + &opts.key()));
 
     if search.is_some() {
-        let search_inf = search.unwrap().clone();
-        return Ok(search_inf.into());
+        let search_inf = search.unwrap();
+        return Ok(search_inf);
     }
 
     let bots = sqlx::query!(

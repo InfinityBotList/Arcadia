@@ -1,3 +1,5 @@
+#![allow(clippy::pedantic)]
+
 pub mod checks;
 pub mod manage;
 pub mod maps;

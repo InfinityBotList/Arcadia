@@ -1,0 +1,2 @@
+[workspace]
+members = ["bot", "api", "libavacado"]

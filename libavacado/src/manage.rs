@@ -10,7 +10,7 @@ pub async fn vote_reset(
     staff_id: &str,
     reason: &str,
 ) -> Result<(), Error> {
-    crate::staff::add_action_log(pool, &bot_id, staff_id, reason, "vote_reset").await?;
+    crate::staff::add_action_log(pool, bot_id, staff_id, reason, "vote_reset").await?;
 
     sqlx::query!("UPDATE bots SET votes = 0 WHERE bot_id = $1", bot_id)
         .execute(pool)

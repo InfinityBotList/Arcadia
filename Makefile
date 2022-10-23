@@ -10,13 +10,9 @@ HOST ?= 100.86.85.125
 
 all: 
 	@make cross
-_onlylib:
-	@make cross ARGS="--workspace --lib"
 onlyapi:
-	@make _onlylib
 	@make cross ARGS="--workspace --bin api"
 onlybot:
-	@make _onlylib
 	@make cross ARGS="--workspace --bin bot"
 dev:
 	DATABASE_URL=$(DATABASE_URL) RUSTFLAGS=$(RUSTFLAGS_LOCAL) cargo build

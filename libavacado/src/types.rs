@@ -50,3 +50,26 @@ pub struct DiscordUser {
     pub discriminator: String,
     pub avatar: Option<String>,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct StaffAppQuestion {
+    pub id: String,
+    pub question: String,
+    pub para: String,
+    pub placeholder: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct StaffPosition {
+    pub info: String,
+    pub open: bool,
+    pub name: String,
+    pub questions: Vec<StaffAppQuestion>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct StaffAppData {
+    pub positions: Vec<String>,
+    pub staff: StaffPosition,
+    pub dev: StaffPosition,
+}

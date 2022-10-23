@@ -495,3 +495,9 @@ pub async fn seedlist(_req: HttpRequest) -> HttpResponse {
 
     HttpResponse::Ok().json(SEEDLIST)
 }
+
+/// Returns a a staff/dev application form
+#[get("/herpes")]
+pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {
+    HttpResponse::Ok().json(libavacado::staffapps::get_apps())
+}

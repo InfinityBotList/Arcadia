@@ -1,4 +1,6 @@
-use crate::types::{StaffAppData, StaffPosition, StaffAppQuestion};
+use sqlx::PgPool;
+
+use crate::types::{StaffAppData, StaffPosition, StaffAppQuestion, Error, StaffAppResponse};
 
 pub fn get_apps() -> StaffAppData {
     StaffAppData {
@@ -74,4 +76,38 @@ We are a welcoming and laid back team who is always willing to give new people a
             ]
         }
     }
+}
+
+pub async fn get_made_apps(pool: &PgPool) -> Result<Vec<StaffAppResponse>, Error> {
+    let mut apps = Vec::new();
+
+    let apps_db = sqlx::query!("SELECT user_id, created_at, state, answers, likes, dislikes, position FROM apps")
+        .fetch_all(pool)
+        .await?;
+    
+    for app in apps_db {
+        let mut likes = Vec::new();
+
+        for like in app.likes {
+            likes.push(like.to_string());
+        }
+
+        let mut dislikes = Vec::new();
+
+        for dislike in app.dislikes {
+            dislikes.push(dislike.to_string());
+        }
+
+        apps.push(StaffAppResponse {
+            user_id: app.user_id,
+            created_at: app.created_at,
+            state: app.state,
+            answers: app.answers,
+            position: app.position,
+            likes,
+            dislikes,
+        });
+    }
+    
+    Ok(vec![])
 }

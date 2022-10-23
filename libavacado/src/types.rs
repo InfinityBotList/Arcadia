@@ -1,6 +1,8 @@
-use std::sync::Arc;
+use std::{sync::Arc};
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::types::JsonValue;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -72,4 +74,14 @@ pub struct StaffAppData {
     pub positions: Vec<String>,
     pub staff: StaffPosition,
     pub dev: StaffPosition,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct StaffAppResponse {
+    pub user_id: String,
+    pub answers: JsonValue,
+    pub state: String,
+    pub created_at: DateTime<Utc>,
+    pub likes: Vec<String>,
+    pub dislikes: Vec<String>,
 }

@@ -15,6 +15,11 @@ pub struct GenericRequest {
     reason: String,
 }
 
+#[derive(Deserialize)]
+pub struct UserRequest {
+    user_id: String,
+}
+
 #[post("/approve")]
 pub async fn approve(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
@@ -496,8 +501,55 @@ pub async fn seedlist(_req: HttpRequest) -> HttpResponse {
     HttpResponse::Ok().json(SEEDLIST)
 }
 
-/// Returns a a staff/dev application form
+/// Returns a staff/dev application form
 #[get("/herpes")]
 pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {
     HttpResponse::Ok().json(libavacado::staffapps::get_apps())
+}
+
+/// Returns a list of staff applications that have been made
+#[get("/herpes/list")]
+pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> HttpResponse {
+    let data: &crate::models::AppState = req
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
+
+    let auth_default = &HeaderValue::from_str("").unwrap();
+    let auth = req
+        .headers()
+        .get("Authorization")
+        .unwrap_or(auth_default)
+        .to_str()
+        .unwrap();
+    
+    let info = info.into_inner();
+    
+    let check = sqlx::query!(
+        "SELECT iblhdev, hadmin, ibldev, admin, api_token FROM users WHERE user_id = $1",
+        &info.user_id.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if check.is_err() {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let check = check.unwrap();
+
+    if check.api_token != auth || !(check.hadmin || check.iblhdev || check.ibldev || check.admin) {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let req = libavacado::staffapps::get_made_apps(&data.pool).await;
+
+    if req.is_err() {
+        return HttpResponse::InternalServerError().json(crate::models::APIResponse {
+            done: false,
+            reason: req.unwrap_err().to_string(),
+            context: None,
+        });
+    }
+
+    HttpResponse::Ok().json(req.unwrap())
 }

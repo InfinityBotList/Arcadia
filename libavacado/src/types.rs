@@ -84,4 +84,5 @@ pub struct StaffAppResponse {
     pub created_at: DateTime<Utc>,
     pub likes: Vec<String>,
     pub dislikes: Vec<String>,
+    pub position: String,
 }

@@ -37,14 +37,14 @@ pub async fn onboardman(ctx: Context<'_>) -> Result<(), Error> {
 )]
 pub async fn approveonboard(
     ctx: Context<'_>,
-    #[description = "The staff id"] member: serenity::Member,
+    #[description = "The staff id"] member: serenity::User,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
     // Check onboard state of user
     let onboard_state = sqlx::query!(
         "SELECT staff_onboard_state FROM users WHERE user_id = $1",
-        member.user.id.to_string()
+        member.id.to_string()
     )
     .fetch_one(&data.pool)
     .await?;
@@ -90,13 +90,13 @@ pub async fn approveonboard(
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_state = 'complete' WHERE user_id = $1",
-        member.user.id.to_string()
+        member.id.to_string()
     )
     .execute(&data.pool)
     .await?;
 
     // DM user that they have been approved
-    let _ = member.user.dm(&ctx.discord().http, |m| {
+    let _ = member.dm(&ctx.discord().http, |m| {
         m.content("Your onboarding request has been approved. You may now begin approving/denying bots")
     }).await?;
 

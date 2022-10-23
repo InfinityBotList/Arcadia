@@ -515,6 +515,117 @@ pub async fn get_apps_auth_api(_req: HttpRequest) -> HttpResponse {
     )
 }
 
+/// Performs oauth2 callback for app site
+#[get("/herpes/callback")]
+pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::models::OauthReq>) -> HttpResponse {
+    // Get access token using reqwest
+    let client = reqwest::Client::new();
+
+    let data = data.into_inner();
+
+    let res = client
+        .post("https://discord.com/api/oauth2/token")
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(format!(
+            "client_id={}&client_secret={}&grant_type=authorization_code&code={}&redirect_uri={}&scope=identify",
+            std::env::var("APP_SITE_CLIENT_ID").unwrap(),
+            std::env::var("APP_SITE_CLIENT_SECRET").unwrap(),
+            data.code,
+            std::env::var("APP_SITE_REDIRECT_URL").unwrap(),
+        ))
+        .send()
+        .await;
+    
+    if res.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to get access token".to_string(),
+            context: None,
+        });
+    }
+
+    let res = res.unwrap();
+
+    if res.status() != 200 {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to get access token with status code".to_string() + &res.status().to_string(),
+            context: None,
+        });
+    }
+
+    let res = res.json::<crate::models::OauthRes>().await;
+
+    if res.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to get access token".to_string(),
+            context: None,
+        });
+    }
+
+    let res = res.unwrap();
+
+    // Get user ID using access token
+    let res = client
+        .get("https://discord.com/api/users/@me")
+        .header("Authorization", format!("Bearer {}", res.access_token))
+        .send()
+        .await;
+    
+    if res.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to get user ID".to_string(),
+            context: None,
+        });
+    }
+
+    let res = res.unwrap();
+
+    if res.status() != 200 {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to get user ID with status code".to_string() + &res.status().to_string(),
+            context: None,
+        });
+    }
+
+    let res = res.json::<crate::models::OauthUser>().await;
+
+    if res.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to get user ID".to_string(),
+            context: None,
+        });
+    }
+
+    let res = res.unwrap();
+
+    let app_state: &crate::models::AppState = req
+    .app_data::<web::Data<crate::models::AppState>>()
+    .unwrap();
+
+    let row = sqlx::query!("SELECT api_token FROM users WHERE user_id = $1", res.id)
+        .fetch_one(&app_state.pool)
+        .await;
+    
+    if row.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to get api token, try logging in on the main site?".to_string(),
+            context: None,
+        });
+    }
+
+    let row = row.unwrap();
+
+    let redirect = format!("https://{}/login/callback?user_id={}&api_token={}", data.state, res.id, row.api_token);
+    
+    HttpResponse::TemporaryRedirect().append_header(("Location", redirect)).finish()
+}
+
 /// Returns a list of staff applications that have been made
 #[get("/herpes/list")]
 pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> HttpResponse {

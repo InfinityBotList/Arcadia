@@ -16,3 +16,22 @@ pub struct APIResponse {
     pub reason: String,
     pub context: Option<String>,
 }
+
+#[derive(Deserialize)]
+pub struct OauthReq {
+    pub code: String,
+    pub state: String,
+}
+
+#[derive(Deserialize)]
+pub struct OauthRes {
+    pub access_token: String,
+}
+
+#[derive(Deserialize)]
+pub struct OauthUser {
+    pub id: String,
+    pub username: String,
+    pub avatar: Option<String>,
+    pub discriminator: String,
+}

@@ -507,6 +507,14 @@ pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {
     HttpResponse::Ok().json(libavacado::staffapps::get_apps())
 }
 
+/// Returns a callback URL for app site
+#[get("/herpes/auth")]
+pub async fn get_apps_auth_api(_req: HttpRequest) -> HttpResponse {
+    HttpResponse::Ok().body(
+        format!("https://discord.com/api/oauth2/authorize?client_id={}&redirect_uri={}&response_type=code&scope=identify", std::env::var("APP_SITE_CLIENT_ID").unwrap(), std::env::var("APP_SITE_REDIRECT_URL").unwrap())
+    )
+}
+
 /// Returns a list of staff applications that have been made
 #[get("/herpes/list")]
 pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> HttpResponse {

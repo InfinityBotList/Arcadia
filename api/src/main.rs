@@ -133,6 +133,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::get_current_maints)
             .service(routes::get_apps_api)
             .service(routes::get_app_list)
+            .service(routes::get_apps_auth_api)
     })
     .workers(8)
     .bind("localhost:3010")?

@@ -125,7 +125,7 @@ pub async fn create_app(
     app: HashMap<String, String>
 ) -> Result<(), Error> {
     let user_apps = sqlx::query!(
-        "SELECT COUNT(1) FROM apps WHERE user_id = $1 AND position = $2 AND state = 'pending'",
+        "SELECT COUNT(1) FROM apps WHERE user_id = $1 AND position = $2 AND (state = 'pending' OR state = 'pending-interview' OR state = 'pending-final-review')",
         user_id,
         position_id,
     )

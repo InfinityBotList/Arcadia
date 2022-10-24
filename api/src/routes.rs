@@ -507,6 +507,12 @@ pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {
     HttpResponse::Ok().json(libavacado::staffapps::get_apps())
 }
 
+/// Returns the interview questions form
+#[get("/herpes/zoster")]
+pub async fn get_interview_api(_req: HttpRequest) -> HttpResponse {
+   HttpResponse::Ok().json(libavacado::staffapps::get_interview_questions())
+}
+
 /// Returns a callback URL for app site
 #[get("/herpes/auth")]
 pub async fn get_apps_auth_api(_req: HttpRequest) -> HttpResponse {

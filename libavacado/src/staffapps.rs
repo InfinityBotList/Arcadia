@@ -2,6 +2,35 @@ use sqlx::PgPool;
 
 use crate::types::{StaffAppData, StaffPosition, StaffAppQuestion, Error, StaffAppResponse};
 
+pub fn get_interview_questions() -> Vec<StaffAppQuestion> {
+	vec![
+		StaffAppQuestion {
+			id: "motive".to_string(),
+			question: "Why did you apply for this role?".to_string(),
+			para: "Why did you apply for this role? Be specific. We want to know how you can help Infinity Bot List and why you wish to".to_string(),
+			placeholder: "I applied because...".to_string(),
+		},
+		StaffAppQuestion {
+			id: "team-player".to_string(),
+			question: "What is a scenario in which you had to be a team player?".to_string(),
+			para: "What is a scenario in which you had to be a team player? We want to know that you can collaborate effectively with us.".to_string(),
+			placeholder: "I had to...".to_string(),
+		},
+		StaffAppQuestion {
+			id: "some-work".to_string(),
+			question: "What is some of the work you have done? Can you share some links with us?".to_string(),
+			para: "What is some of the work you have done? Can you share some links with us? We want to see your finest works".to_string(),
+			placeholder: "Some work I did...".to_string()
+		},
+		StaffAppQuestion {
+			id: "about-you".to_string(),
+			question: "Tell us a little about yourself".to_string(),
+			para: "Tell us a little about yourself. Its that simple!".to_string(),
+			placeholder: "I am...".to_string()
+		}
+	]
+}
+
 pub fn get_apps() -> StaffAppData {
     StaffAppData {
         positions: vec!["staff".to_string(), "dev".to_string()],

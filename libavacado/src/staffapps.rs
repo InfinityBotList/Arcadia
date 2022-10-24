@@ -47,7 +47,14 @@ We are a welcoming and laid back team who is always willing to give new people a
         dev: StaffPosition {
             open: true,
             name: "Dev Team".to_string(),
-            info: "Join our Dev Team and help us Update, Manage and Maintain all of the Infinity Services!".to_string(),
+            info: r#"Join our Dev Team and help us update, manage and maintain all of the Infinity Services!
+            
+Experience in PostgreSQL and at least one of the below languages is required:
+
+- Rust
+- JavaScript
+- Go
+"#.to_string(),
             questions: vec![
                 StaffAppQuestion {
                     id: "experience".to_string(),

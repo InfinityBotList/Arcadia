@@ -86,3 +86,14 @@ pub struct StaffAppResponse {
     pub dislikes: Vec<String>,
     pub position: String,
 }
+
+impl StaffAppData {
+    // Ensure all positions have a function in this impl
+    pub fn staff_questions(&self, position: &str) -> &StaffPosition {
+        match position {
+            "staff" => &self.staff,
+            "dev" => &self.dev,
+            _ => panic!("Invalid position"),
+        }
+    }
+}

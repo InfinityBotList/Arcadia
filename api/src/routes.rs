@@ -1,6 +1,7 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 use libavacado::search::{SearchFilter, SearchOpts};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Deserialize)]
 pub struct Request {
@@ -18,6 +19,12 @@ pub struct GenericRequest {
 #[derive(Deserialize)]
 pub struct UserRequest {
     user_id: String,
+}
+
+#[derive(Deserialize)]
+pub struct CreateAppQuery {
+    user_id: String,
+    position: String
 }
 
 #[post("/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/approve")]
@@ -511,6 +518,62 @@ pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {
 #[get("/herpes/zoster")]
 pub async fn get_interview_api(_req: HttpRequest) -> HttpResponse {
    HttpResponse::Ok().json(libavacado::staffapps::get_interview_questions())
+}
+
+#[post("/herpes/{position}")]
+pub async fn create_app_api(
+    req: HttpRequest, 
+    info: web::Query<CreateAppQuery>,
+    body: web::Json<HashMap<String, String>>
+) -> HttpResponse {
+    let data: &crate::models::AppState = req
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
+
+    let auth_default = &HeaderValue::from_str("").unwrap();
+    let auth = req
+        .headers()
+        .get("Authorization")
+        .unwrap_or(auth_default)
+        .to_str()
+        .unwrap();
+    
+    let info = info.into_inner();
+    
+    let check = sqlx::query!(
+        "SELECT api_token FROM users WHERE user_id = $1",
+        &info.user_id.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if check.is_err() {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let check = check.unwrap();
+
+    if check.api_token != auth {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let app = libavacado::staffapps::create_app(
+        &data.avacado_public,
+        &data.pool,
+        &info.user_id,
+        &info.position,
+        body.into_inner()
+    ).await;
+
+    if app.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: app.unwrap_err().to_string(),
+            context: None,
+        });
+    }
+
+    HttpResponse::Ok().finish()
 }
 
 /// Returns a callback URL for app site

@@ -1,6 +1,9 @@
 use sqlx::PgPool;
-
 use crate::types::{StaffAppData, StaffPosition, StaffAppQuestion, Error, StaffAppResponse};
+use crate::public::AvacadoPublic;
+use std::collections::HashMap;
+use serde_json::json;
+use serenity::model::id::ChannelId;
 
 pub fn get_interview_questions() -> Vec<StaffAppQuestion> {
 	vec![
@@ -112,6 +115,87 @@ Experience in PostgreSQL and at least one of the below languages is required:
             ]
         }
     }
+}
+
+pub async fn create_app(
+    public: &AvacadoPublic,
+    pool: &PgPool, 
+    user_id: &str, 
+    position_id: &str, 
+    app: HashMap<String, String>
+) -> Result<(), Error> {
+    let user_apps = sqlx::query!(
+        "SELECT COUNT(1) FROM apps WHERE user_id = $1 AND position = $2 AND state = 'pending'",
+        user_id,
+        position_id,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if user_apps.count.unwrap_or(0) > 0 {
+        return Err("You already have a pending application for this position".into());
+    }
+
+    let app_questions = get_apps();
+
+    let position = app_questions.staff_questions(position_id);
+
+    if !position.open {
+        return Err("This position is currently closed".into());
+    }
+
+    let mut app_map = HashMap::new();
+    for question in &position.questions {
+        // Get question from app.
+        let answer = app.get(&question.id).ok_or("Missing question")?;
+
+        // Check if answer is empty.
+        if answer.is_empty() {
+            return Err("An answer you have sent is empty".into());
+        }
+
+        // Check if answer is too short.
+        if answer.len() < 50 {
+            return Err("An answer you have sent is too short".into());
+        }
+
+        // Add answer to map.
+        app_map.insert(&question.id, answer.to_string());
+    }
+
+    let app_id = crate::public::gen_random(128);
+
+    // Create app
+    sqlx::query!(
+        "INSERT INTO apps (app_id, user_id, position, answers) VALUES ($1, $2, $3, $4)",
+        app_id,
+        user_id,
+        position_id,
+        json!(app_map),
+    )
+    .execute(pool)
+    .await?;
+
+    // Send a message to the APPS channel
+    let app_channel = std::env::var("APP_CHANNEL_ID")?;
+
+    let app_channel = ChannelId(app_channel.parse::<u64>()?);
+
+    app_channel.send_message(&public.http, |m| {
+        m.embed(|e| {
+            e.title("New Application");
+            e.description(format!("{} has applied for the {} position.", user_id, position_id));
+            e.field("User ID", user_id, false);
+            e.field("Position", position_id, false);
+            e.field("Answers (For right now, to allow testing)", "https://ptb.botlist.app/testview/".to_string() + &app_id, false);
+            e.url("https://ptb.infinitybots.gg/apps/view/".to_string() + &app_id);
+            e
+        });
+
+        m
+    }).await?;
+
+    Ok(())
 }
 
 pub async fn get_made_apps(pool: &PgPool) -> Result<Vec<StaffAppResponse>, Error> {

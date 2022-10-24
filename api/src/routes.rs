@@ -520,7 +520,7 @@ pub async fn get_interview_api(_req: HttpRequest) -> HttpResponse {
    HttpResponse::Ok().json(libavacado::staffapps::get_interview_questions())
 }
 
-#[post("/herpes/{position}")]
+#[post("/herpes")]
 pub async fn create_app_api(
     req: HttpRequest, 
     info: web::Query<CreateAppQuery>,

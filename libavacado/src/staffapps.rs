@@ -171,7 +171,10 @@ pub async fn create_app(
         app_id,
         user_id,
         position_id,
-        json!(app_map),
+        json!({
+            "questions": position.questions,
+            "answers": app_map
+        }),
     )
     .execute(pool)
     .await?;

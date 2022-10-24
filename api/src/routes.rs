@@ -1,6 +1,7 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 use libavacado::search::{SearchFilter, SearchOpts};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::HashMap;
 
 #[derive(Deserialize)]
@@ -25,6 +26,11 @@ pub struct UserRequest {
 pub struct CreateAppQuery {
     user_id: String,
     position: String
+}
+
+#[derive(Deserialize)]
+pub struct GetAppQuery {
+    app_id: String
 }
 
 #[post("/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/approve")]
@@ -693,6 +699,36 @@ pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::mod
     let redirect = format!("https://{}/login/callback?user_id={}&api_token={}", data.state, res.id, row.api_token);
     
     HttpResponse::TemporaryRedirect().append_header(("Location", redirect)).finish()
+}
+
+#[get("/herpes/app")]
+pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> HttpResponse {
+    // For now, user auth is ignored and we just return the app if it exists
+    let data: &crate::models::AppState = req
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
+
+    let row = sqlx::query!(
+        "SELECT position, answers FROM apps WHERE app_id = $1",
+        info.app_id
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if row.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to get app".to_string(),
+            context: None,
+        });
+    }
+
+    let row = row.unwrap();
+
+    HttpResponse::Ok().json(json!({
+        "position": row.position,
+        "answers": row.answers
+    }))
 }
 
 /// Returns a list of staff applications that have been made

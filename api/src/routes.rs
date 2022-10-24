@@ -809,7 +809,7 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
 
     let row = row.unwrap();
 
-    if row.count == 0 {
+    if row.count.unwrap_or(0) == 0 {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
             reason: "Failed to find app".to_string(),
@@ -817,7 +817,7 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
         });
     }
 
-    let err = libavacado::staffapps::send_interview(&data.avacado_public, &data.pool, info.app_id).await;
+    let err = libavacado::staffapps::send_interview(&data.avacado_public, &data.pool, &info.app_id).await;
 
     if err.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {

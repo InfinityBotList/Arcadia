@@ -794,6 +794,7 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
 
     let row = sqlx::query!(
         "SELECT COUNT(1) FROM apps WHERE app_id = $1",
+        info.app_id
     )
     .fetch_one(&data.pool)
     .await;
@@ -816,7 +817,7 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
         });
     }
 
-    let err = libavacado::staffapps::send_interview(&data.avacado_public, &data.pool, app_id).await;
+    let err = libavacado::staffapps::send_interview(&data.avacado_public, &data.pool, info.app_id).await;
 
     if err.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {

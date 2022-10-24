@@ -1,3 +1,4 @@
+use serenity::model::prelude::UserId;
 use sqlx::PgPool;
 use crate::types::{StaffAppData, StaffPosition, StaffAppQuestion, Error, StaffAppResponse};
 use crate::public::AvacadoPublic;
@@ -197,6 +198,75 @@ pub async fn create_app(
 
         m
     }).await?;
+
+    Ok(())
+}
+
+pub async fn send_interview(
+    public: &AvacadoPublic,
+    pool: &PgPool, 
+    app_id: &str
+) -> Result<(), Error> {
+    sqlx::query!(
+        "UPDATE apps SET state = 'pending-interview' WHERE app_id = $1",
+        app_id
+    )
+    .execute(pool)
+    .await?;
+
+    let row = sqlx::query!(
+        "SELECT user_id, position FROM apps WHERE app_id = $1",
+        app_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    // Send a message to the APPS channel
+    let app_channel = std::env::var("APP_CHANNEL_ID")?;
+
+    let app_channel = ChannelId(app_channel.parse::<u64>()?);
+
+    app_channel.send_message(&public.http, |m| {
+        m.embed(|e| {
+            e.title("New Application");
+            e.description(format!("{} has been selected for an interview for the {} position.", row.user_id, row.position));
+            e.field("User ID", &row.user_id, false);
+            e.field("Position", &row.position, false);
+            e.field("Answers (For right now, to allow testing)", "https://ptb.botlist.app/testview/".to_string() + &app_id, false);
+            e.url("https://ptb.infinitybots.gg/apps/view/".to_string() + &app_id);
+            e
+        });
+
+        m
+    }).await?;
+
+    let user_id = UserId(row.user_id.parse::<u64>()?);
+
+    // Create DM channel
+    let dm = user_id.create_dm_channel(&public.http).await;
+
+    if dm.is_err() {
+        println!("Failed to send DM to {}", row.user_id);
+        return Err("Failed to send DM to user [dm channel create failed]".into());
+    }
+
+    let dm = dm.unwrap();
+
+    let resp = dm.send_message(&public.http, |m| {
+        m.embed(|e| {
+            e.title("Interview");
+            e.description(format!("You have been selected for an interview for the {} position. [Click here]({})", row.position, "https://ptb.botlist.app/interview/".to_string() + &app_id));
+            e.url("https://ptb.botlist.app/interview/".to_string() + &app_id);
+            e
+        });
+
+        m
+    }).await;
+
+    if resp.is_err() {
+        println!("Failed to send DM to {}", row.user_id);
+        return Err("Failed to send DM to user".into());
+    }
 
     Ok(())
 }

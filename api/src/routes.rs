@@ -30,7 +30,8 @@ pub struct CreateAppQuery {
 
 #[derive(Deserialize)]
 pub struct GetAppQuery {
-    app_id: String
+    app_id: String,
+    user_id: String,
 }
 
 #[post("/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/approve")]
@@ -703,10 +704,35 @@ pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::mod
 
 #[get("/herpes/app")]
 pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> HttpResponse {
-    // For now, user auth is ignored and we just return the app if it exists
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
+
+    let auth_default = &HeaderValue::from_str("").unwrap();
+    let auth = req
+        .headers()
+        .get("Authorization")
+        .unwrap_or(auth_default)
+        .to_str()
+        .unwrap();
+
+    let check = sqlx::query!(
+        "SELECT api_token FROM users WHERE user_id = $1",
+        &info.user_id
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if check.is_err() {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let check = check.unwrap();
+
+    if check.api_token != auth {
+        return HttpResponse::Unauthorized().finish();
+    }
+    
 
     let row = sqlx::query!(
         "SELECT position, answers, state FROM apps WHERE app_id = $1",
@@ -731,6 +757,82 @@ pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> Htt
         "answers": row.answers
     }))
 }
+
+/// Selects a candidate for a interview
+#[post("/herpes/app/interview")]
+pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> HttpResponse {
+    let data: &crate::models::AppState = req
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
+    
+    let auth_default = &HeaderValue::from_str("").unwrap();
+    let auth = req
+        .headers()
+        .get("Authorization")
+        .unwrap_or(auth_default)
+        .to_str()
+        .unwrap();
+    
+
+    let check = sqlx::query!(
+        "SELECT api_token, iblhdev, hadmin FROM users WHERE user_id = $1",
+        &info.user_id
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if check.is_err() {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let check = check.unwrap();
+
+    if check.api_token != auth || !(check.hadmin || check.iblhdev) {
+        return HttpResponse::Unauthorized().finish();
+    }
+    
+
+    let row = sqlx::query!(
+        "SELECT COUNT(1) FROM apps WHERE app_id = $1",
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if row.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to find app".to_string(),
+            context: None,
+        });
+    }
+
+    let row = row.unwrap();
+
+    if row.count == 0 {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to find app".to_string(),
+            context: None,
+        });
+    }
+
+    let err = libavacado::staffapps::send_interview(&data.avacado_public, &data.pool, app_id).await;
+
+    if err.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to send interview".to_string() + &err.unwrap_err().to_string(),
+            context: None,
+        });
+    }
+
+    HttpResponse::Ok().json(crate::models::APIResponse {
+        done: true,
+        reason: "Sent interview".to_string(),
+        context: None,
+    })
+}
+
 
 /// Returns a list of staff applications that have been made
 #[get("/herpes/list")]

@@ -132,7 +132,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::seedlist)
             .service(routes::get_current_maints)
             .service(routes::get_apps_api)
-	        .service(routes::get_interview_api)
+	    .service(routes::get_interview_api)
             .service(routes::get_app_list)
             .service(routes::get_apps_auth_api)
             .service(routes::perform_apps_auth_api)

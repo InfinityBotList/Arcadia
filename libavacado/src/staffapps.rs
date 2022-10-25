@@ -85,20 +85,20 @@ We are a welcoming and laid back team who is always willing to give new people a
 Experience in PostgreSQL and at least one of the below languages is required:
 
 - Rust
-- JavaScript
+- TypeScript (Javascript with type-safety)
 - Go
 "#.to_string(),
             questions: vec![
                 StaffAppQuestion {
                     id: "experience".to_string(),
-                    question: "Do you have experience in Javascript, Rust and/or Golang. Give examples of projects/code you have written".to_string(),
-                    para: "Do you have experience in Javascript, Rust and/or Golang. Give examples of projects/code you have written.".to_string(),
+                    question: "Do you have experience in Typescript, Rust and/or Golang. Give examples of projects/code you have written".to_string(),
+                    para: "Do you have experience in Typescript, Rust and/or Golang. Give examples of projects/code you have written.".to_string(),
                     placeholder: "I have worked on...".to_string(),
                 },
                 StaffAppQuestion {
                     id: "strengths".to_string(),
-                    question: "What are your strengths in coding Javascript, Rust and/or Golang.".to_string(),
-                    para: "What are your strengths in coding Javascript, Rust and/or Golang.".to_string(),
+                    question: "What are your strengths in coding".to_string(),
+                    para: "What are your strengths in coding".to_string(),
                     placeholder: "I am good at...".to_string(),
                 },
                 StaffAppQuestion {

@@ -735,7 +735,7 @@ pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> Htt
     
 
     let row = sqlx::query!(
-        "SELECT position, answers, state FROM apps WHERE app_id = $1",
+        "SELECT user_id, position, answers, state FROM apps WHERE app_id = $1",
         info.app_id
     )
     .fetch_one(&data.pool)
@@ -752,6 +752,7 @@ pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> Htt
     let row = row.unwrap();
 
     HttpResponse::Ok().json(json!({
+	"user_id": row.user_id,
         "position": row.position,
         "state": row.state,
         "answers": row.answers

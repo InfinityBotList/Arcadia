@@ -240,12 +240,9 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -
 #[derive(Deserialize)]
 pub struct SearchQuery {
     q: String,
-    gc_from: Option<i32>,
-    gc_to: Option<i32>,
-    votes_from: Option<i32>,
-    votes_to: Option<i32>,
-    servers_from: Option<i32>,
-    servers_to: Option<i32>,
+    gc: Option<SearchFilter>,
+    votes: Option<SearchFilter>,
+    servers: Option<SearchFilter>,
 }
 
 #[get("/tetanus")]
@@ -259,18 +256,9 @@ pub async fn tetanus_search_service(req: HttpRequest, q: web::Query<SearchQuery>
         &data.pool,
         &data.avacado_public,
         &SearchOpts {
-            gc: SearchFilter {
-                from: q.gc_from,
-                to: q.gc_to,
-            },
-            votes: SearchFilter {
-                from: q.votes_from,
-                to: q.votes_to,
-            },
-            servers: SearchFilter {
-                from: q.servers_from,
-                to: q.servers_to,
-            },
+            gc: q.gc.unwrap_or_default(),
+            votes: q.votes.unwrap_or_default(),
+            servers: q.servers.unwrap_or_default(),
         },
     )
     .await;

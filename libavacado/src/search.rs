@@ -4,8 +4,10 @@ use crate::types::{Error, Search, SearchBot, SearchPack, SearchUser};
 
 use crate::public::{get_user, AvacadoPublic};
 
+use serde::Deserialize;
 use sqlx::PgPool;
 
+#[derive(Deserialize, Default, Copy, Clone)]
 pub struct SearchFilter {
     pub from: Option<i32>,
     pub to: Option<i32>,

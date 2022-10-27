@@ -33,11 +33,11 @@ Follow https://stackoverflow.com/questions/40424255/cross-compilation-to-x86-64-
 
 **Path update**
 
-``PATH=/opt/homebrew/Cellar/x86_64-unknown-linux-gnu/7.2.0/bin:$PATH``
+``PATH=/opt/homebrew/Cellar/x86_64-unknown-linux-gnu/0.1.0/bin:$PATH``
 
 **Not always needed, try running ``make cross`` before doing the below**
 
-Symlink ``gcc`` if needed by ring at ``/opt/homebrew/Cellar/x86_64-unknown-linux-gnu/7.2.0/bin`` based on the error you get
+Symlink ``gcc`` if needed by ring at ``/opt/homebrew/Cellar/x86_64-unknown-linux-gnu/0.1.0/bin`` based on the error you get
 
 Replace 7.2.0 with whatever gcc version you need
 

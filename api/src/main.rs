@@ -129,7 +129,6 @@ async fn main() -> std::io::Result<()> {
             .service(routes::tetanus_search_service)
             .service(routes::staff_verify_fetch_api)
             .service(routes::staff_verify_onboard_data_api)
-            .service(routes::seedlist)
             .service(routes::get_current_maints)
             .service(routes::get_apps_api)
 	    .service(routes::get_interview_api)

@@ -479,42 +479,6 @@ pub async fn staff_verify_fetch_api(req: HttpRequest, q: web::Query<SVQuery>) ->
     })
 }
 
-#[derive(Serialize)]
-pub struct SeedList {
-    name: &'static str,
-    id: &'static str,
-    url: &'static str,
-}
-
-/// Get a list of all links for seedguide index
-#[get("/seedlist")]
-pub async fn seedlist(_req: HttpRequest) -> HttpResponse {
-    const SEEDLIST: &[SeedList] = &[
-        SeedList {
-            name: "Index",
-            id: "index",
-            url: "/",
-        },
-        SeedList {
-            name: "Staff Guide",
-            id: "sguide",
-            url: "/sovngarde",
-        },
-        SeedList {
-            name: "Dev Changelog",
-            id: "changelog",
-            url: "/changelog",
-        },
-        SeedList {
-            name: "Dev Seed Guide",
-            id: "devseedguide",
-            url: "/seed",
-        },
-    ];
-
-    HttpResponse::Ok().json(SEEDLIST)
-}
-
 /// Returns a staff/dev application form
 #[get("/herpes")]
 pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {

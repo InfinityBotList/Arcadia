@@ -78,6 +78,7 @@ pub struct StaffAppData {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StaffAppResponse {
+    pub app_id: String,
     pub user_id: String,
     pub answers: JsonValue,
     pub state: String,

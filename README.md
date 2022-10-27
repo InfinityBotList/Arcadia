@@ -18,7 +18,7 @@
 
 ## Database Seeds
 
-You can find a seed of the Infinity Bot List database at https://seed.infinitybots.gg/. This seed is public and available for all contributors
+You can find a seed of the Infinity Bot List database at https://ptb.botlist.app/dev/seed. This seed is public and available for all contributors
 
 ## Contributing
 

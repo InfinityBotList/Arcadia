@@ -32,7 +32,7 @@ async fn _handle_staff_guide(ctx: crate::Context<'_>, user_id: String) -> Result
 
     ctx.say(
         format!(
-            r#"The staff guide can be found at https://seed.infinitybots.gg/sovngarde?svu={uid}@{ocf}. Please **do not** bookmark this page as the URL may change in the future
+            r#"The staff guide can be found at https://ptb.botlist.app/staff/guide?svu={uid}@{ocf}. Please **do not** bookmark this page as the URL may change in the future
             
 Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To get started, **invite ``Ninja Bot`` using ``ibb!invite [ID]`` where [ID] is the ID from the ``queue`` command**, then claim ``Ninja Bot``!
 
@@ -823,7 +823,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                             user_id = user_id,
                             action = cmd_name,
                             reason = reason.unwrap_or_default(),
-                            url = "https://seed.infinitybots.gg/sovngarde/onboard?tok=".to_string() + &tok
+                            url = "https://ptb.botlist.app/staff/onboardresp/".to_string() + &tok
                         )
                     ).await?;
 

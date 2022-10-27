@@ -274,7 +274,7 @@ pub async fn send_interview(
 pub async fn get_made_apps(pool: &PgPool) -> Result<Vec<StaffAppResponse>, Error> {
     let mut apps = Vec::new();
 
-    let apps_db = sqlx::query!("SELECT user_id, created_at, state, answers, likes, dislikes, position FROM apps")
+    let apps_db = sqlx::query!("SELECT app_id, user_id, created_at, state, answers, likes, dislikes, position FROM apps")
         .fetch_all(pool)
         .await?;
     
@@ -292,6 +292,7 @@ pub async fn get_made_apps(pool: &PgPool) -> Result<Vec<StaffAppResponse>, Error
         }
 
         apps.push(StaffAppResponse {
+	    app_id: app.app_id,
             user_id: app.user_id,
             created_at: app.created_at,
             state: app.state,

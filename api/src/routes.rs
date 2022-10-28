@@ -1,7 +1,6 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
-use libavacado::search::{SearchFilter, SearchOpts};
+use libavacado::{search::{SearchFilter, SearchOpts}, types::StaffAppResponse};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::collections::HashMap;
 
 #[derive(Deserialize)]
@@ -479,6 +478,63 @@ pub async fn get_interview_api(_req: HttpRequest) -> HttpResponse {
    HttpResponse::Ok().json(libavacado::staffapps::get_interview_questions())
 }
 
+/// Finalizes the application
+#[post("/herpes/zoster")]
+pub async fn finalize_app_api(
+    req: HttpRequest, 
+    info: web::Query<GetAppQuery>,
+    body: web::Json<HashMap<String, String>>,
+) -> HttpResponse {
+        let data: &crate::models::AppState = req
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
+
+    let auth_default = &HeaderValue::from_str("").unwrap();
+    let auth = req
+        .headers()
+        .get("Authorization")
+        .unwrap_or(auth_default)
+        .to_str()
+        .unwrap();
+
+    let info = info.into_inner();
+
+    let check = sqlx::query!(
+        "SELECT api_token FROM users WHERE user_id = $1",
+        &info.user_id.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if check.is_err() {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let check = check.unwrap();
+
+    if check.api_token != auth {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let app = libavacado::staffapps::finalize_app(
+        &data.avacado_public,
+        &data.pool,
+        &info.app_id,
+        body.into_inner()
+    ).await;
+
+    if app.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: app.unwrap_err().to_string(),
+            context: None,
+        });
+    }
+
+    HttpResponse::Ok().finish()
+}
+
+
 #[post("/herpes")]
 pub async fn create_app_api(
     req: HttpRequest, 
@@ -687,7 +743,7 @@ pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> Htt
     
 
     let row = sqlx::query!(
-        "SELECT user_id, position, answers, state FROM apps WHERE app_id = $1",
+        "SELECT app_id, user_id, position, answers, interview_answers, state, created_at, likes, dislikes FROM apps WHERE app_id = $1",
         info.app_id
     )
     .fetch_one(&data.pool)
@@ -703,12 +759,29 @@ pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> Htt
 
     let row = row.unwrap();
 
-    HttpResponse::Ok().json(json!({
-	"user_id": row.user_id,
-        "position": row.position,
-        "state": row.state,
-        "answers": row.answers
-    }))
+    let mut likes = Vec::new();
+
+    for like in row.likes {
+        likes.push(like.to_string());
+    }
+
+    let mut dislikes = Vec::new();
+
+    for dislike in row.dislikes {
+        dislikes.push(dislike.to_string());
+    }
+
+    HttpResponse::Ok().json(StaffAppResponse {
+        user_id: row.user_id,
+        app_id: row.app_id,
+        created_at: row.created_at,
+        answers: row.answers,
+        interview: row.interview_answers,
+        position: row.position,
+        state: row.state,
+        likes,
+        dislikes,
+    })
 }
 
 /// Selects a candidate for a interview

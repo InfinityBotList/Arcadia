@@ -1,4 +1,5 @@
 use serenity::model::prelude::UserId;
+use serenity::prelude::Mentionable;
 use sqlx::PgPool;
 use crate::types::{StaffAppData, StaffPosition, StaffAppQuestion, Error, StaffAppResponse};
 use crate::public::AvacadoPublic;
@@ -126,7 +127,7 @@ pub async fn create_app(
     app: HashMap<String, String>
 ) -> Result<(), Error> {
     let user_apps = sqlx::query!(
-        "SELECT COUNT(1) FROM apps WHERE user_id = $1 AND position = $2 AND (state = 'pending' OR state = 'pending-interview' OR state = 'pending-final-review')",
+        "SELECT COUNT(1) FROM apps WHERE user_id = $1 AND position = $2 AND (state = 'pending' OR state = 'pending-interview' OR state = 'pending-approval')",
         user_id,
         position_id,
     )
@@ -207,6 +208,17 @@ pub async fn send_interview(
     pool: &PgPool, 
     app_id: &str
 ) -> Result<(), Error> {
+    let res = sqlx::query!(
+        "SELECT state FROM apps WHERE app_id = $1",
+        app_id,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if res.state != "pending" {
+        return Err("This application is not in the 'pending' state".into());
+    }
+
     sqlx::query!(
         "UPDATE apps SET state = 'pending-interview' WHERE app_id = $1",
         app_id
@@ -271,10 +283,83 @@ pub async fn send_interview(
     Ok(())
 }
 
+pub async fn finalize_app(
+    public: &AvacadoPublic,
+    pool: &PgPool, 
+    app_id: &str, 
+    interview: HashMap<String, String>
+) -> Result<(), Error> {
+    let row = sqlx::query!(
+        "SELECT user_id, state, position FROM apps WHERE app_id = $1",
+        app_id,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if row.state != "pending-interview" {
+        return Err("This application is not in the 'pending-interview' state".into());
+    }
+
+    let questions = get_interview_questions();
+
+    let mut app_map = HashMap::new();
+    for question in &questions {
+        // Get question from app.
+        let answer = interview.get(&question.id).ok_or("Missing question")?;
+
+        // Check if answer is empty.
+        if answer.is_empty() {
+            return Err("An answer you have sent is empty".into());
+        }
+
+        // Check if answer is too short.
+        if answer.len() < 50 {
+            return Err("An answer you have sent is too short".into());
+        }
+
+        // Add answer to map.
+        app_map.insert(&question.id, answer.to_string());
+    }
+
+    sqlx::query!(
+        "UPDATE apps SET state = 'pending-approval', interview_answers = $1 WHERE app_id = $2",
+        json!({
+            "questions": questions,
+            "answers": app_map
+        }),
+        app_id
+    )
+    .execute(pool)
+    .await?;
+
+    // Send a message to the APPS channel
+    let user_id = UserId(row.user_id.parse::<u64>()?);
+
+    let app_channel = std::env::var("APP_CHANNEL_ID")?;
+
+    let app_channel = ChannelId(app_channel.parse::<u64>()?);
+    
+    app_channel.send_message(&public.http, |m| {
+        m.embed(|e| {
+            e.title("Application Finalized");
+            e.description(format!("{} has been finalized their application with an interview.", user_id.mention()));
+            e.field("User ID", &row.user_id, false);
+            e.field("Position", &row.position, false);
+            e.field("Answers (For right now, to allow testing)", "https://ptb.botlist.app/testview/".to_string() + &app_id, false);
+            e.url("https://ptb.infinitybots.gg/apps/view/".to_string() + &app_id);
+            e
+        });
+
+        m
+    }).await?;
+
+    Ok(())
+}
+
 pub async fn get_made_apps(pool: &PgPool) -> Result<Vec<StaffAppResponse>, Error> {
     let mut apps = Vec::new();
 
-    let apps_db = sqlx::query!("SELECT app_id, user_id, created_at, state, answers, likes, dislikes, position FROM apps")
+    let apps_db = sqlx::query!("SELECT app_id, user_id, created_at, state, answers, interview_answers, likes, dislikes, position FROM apps")
         .fetch_all(pool)
         .await?;
     
@@ -291,16 +376,19 @@ pub async fn get_made_apps(pool: &PgPool) -> Result<Vec<StaffAppResponse>, Error
             dislikes.push(dislike.to_string());
         }
 
-        apps.push(StaffAppResponse {
-	    app_id: app.app_id,
-            user_id: app.user_id,
-            created_at: app.created_at,
-            state: app.state,
-            answers: app.answers,
-            position: app.position,
-            likes,
-            dislikes,
-        });
+        apps.push(
+            StaffAppResponse {
+                app_id: app.app_id,
+                user_id: app.user_id,
+                created_at: app.created_at,
+                state: app.state,
+                answers: app.answers,
+                interview: app.interview_answers,
+                position: app.position,
+                likes,
+                dislikes,
+            }
+        );
     }
     
     Ok(vec![])

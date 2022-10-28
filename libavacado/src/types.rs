@@ -81,6 +81,7 @@ pub struct StaffAppResponse {
     pub app_id: String,
     pub user_id: String,
     pub answers: JsonValue,
+    pub interview: JsonValue,
     pub state: String,
     pub created_at: DateTime<Utc>,
     pub likes: Vec<String>,

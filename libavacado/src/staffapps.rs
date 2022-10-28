@@ -148,9 +148,7 @@ Note that this is a dummy postition, it is still unclear as to how certification
             needs_interview: false,
             app_site_rendered: true,
             name: "Partners".to_string(),
-            info: r#"
-Partner your Discord Bot, Discord Server or Business today! It's easier than ever before!
-            "#.to_string(),
+            info: r#"Partner your Discord Bot, Discord Server or Business today! It's easier than ever before!"#.to_string(),
             questions: vec![
                 StaffAppQuestion {
                     id: "what".to_string(),

@@ -123,17 +123,17 @@ Experience in PostgreSQL and at least one of the below languages is required:
         certification: StaffPosition {
             open: true,
             needs_interview: false,
-            app_site_rendered: false,
+            app_site_rendered: true, // For now, until this is decided
             name: "Bot Certification".to_string(),
             info: r#"
 Certify your discord bot for extra perks and more!
 
 Requirements:
 
-<ul>
-    <li>Insert requirements here</li>
-</ul>
-            "#.to_string(),
+- Insert requirements here
+
+Note that this is a dummy postition, it is still unclear as to how certification will work.
+"#.to_string(),
             questions: vec![
                 StaffAppQuestion {
                     id: "blah".to_string(),

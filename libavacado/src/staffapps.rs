@@ -182,6 +182,8 @@ pub async fn create_app(
     .await?;
 
     // Send a message to the APPS channel
+    let user_id = UserId(user_id.parse::<u64>()?);
+
     let app_channel = std::env::var("APP_CHANNEL_ID")?;
 
     let app_channel = ChannelId(app_channel.parse::<u64>()?);
@@ -189,7 +191,7 @@ pub async fn create_app(
     app_channel.send_message(&public.http, |m| {
         m.embed(|e| {
             e.title("New Application");
-            e.description(format!("{} has applied for the {} position.", user_id, position_id));
+            e.description(format!("{} has applied for the {} position.", user_id.mention(), position_id));
             e.field("User ID", user_id, false);
             e.field("Position", position_id, false);
             e.field("Answers (For right now, to allow testing)", "https://ptb.botlist.app/testview/".to_string() + &app_id, false);
@@ -234,14 +236,16 @@ pub async fn send_interview(
     .await?;
 
     // Send a message to the APPS channel
+    let user_id = UserId(row.user_id.parse::<u64>()?);
+
     let app_channel = std::env::var("APP_CHANNEL_ID")?;
 
     let app_channel = ChannelId(app_channel.parse::<u64>()?);
 
     app_channel.send_message(&public.http, |m| {
         m.embed(|e| {
-            e.title("New Application");
-            e.description(format!("{} has been selected for an interview for the {} position.", row.user_id, row.position));
+            e.title("User Selected For Interview");
+            e.description(format!("{} has been selected for an interview for the {} position.", user_id.mention(), row.position));
             e.field("User ID", &row.user_id, false);
             e.field("Position", &row.position, false);
             e.field("Answers (For right now, to allow testing)", "https://ptb.botlist.app/testview/".to_string() + &app_id, false);
@@ -251,8 +255,6 @@ pub async fn send_interview(
 
         m
     }).await?;
-
-    let user_id = UserId(row.user_id.parse::<u64>()?);
 
     // Create DM channel
     let dm = user_id.create_dm_channel(&public.http).await;

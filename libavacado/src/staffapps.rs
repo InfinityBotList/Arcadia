@@ -42,6 +42,7 @@ pub fn get_apps() -> StaffAppData {
         staff: StaffPosition {
             open: true,
             needs_interview: true,
+            app_site_rendered: true,
             name: "Staff Team".to_string(),
             info: r#"Join the Infinity Staff Team and help us Approve, Deny and Certify Discord Bots. 
 
@@ -82,6 +83,7 @@ We are a welcoming and laid back team who is always willing to give new people a
         dev: StaffPosition {
             open: true,
             needs_interview: true,
+            app_site_rendered: true,
             name: "Dev Team".to_string(),
             info: r#"Join our Dev Team and help us update, manage and maintain all of the Infinity Services!
             

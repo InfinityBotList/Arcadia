@@ -68,6 +68,7 @@ pub struct StaffPosition {
     pub needs_interview: bool,
     pub name: String,
     pub questions: Vec<StaffAppQuestion>,
+    pub app_site_rendered: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

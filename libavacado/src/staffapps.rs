@@ -38,7 +38,7 @@ pub fn get_interview_questions() -> Vec<StaffAppQuestion> {
 
 pub fn get_apps() -> StaffAppData {
     StaffAppData {
-        positions: vec!["staff".to_string(), "dev".to_string(), "certification".to_string()],
+        positions: vec!["staff".to_string(), "dev".to_string(), "certification".to_string(), "partners".to_string()],
         staff: StaffPosition {
             open: true,
             needs_interview: true,
@@ -141,6 +141,47 @@ Note that this is a dummy postition, it is still unclear as to how certification
                     para: "Blah".to_string(),
                     placeholder: "Blah".to_string(),
                 }
+            ],
+        },
+        partners: StaffPosition {
+            open: true,
+            needs_interview: false,
+            app_site_rendered: true,
+            name: "Partners".to_string(),
+            info: r#"
+Partner your Discord Bot, Discord Server or Business today! It's easier than ever before!
+            "#.to_string(),
+            questions: vec![
+                StaffAppQuestion {
+                    id: "what".to_string(),
+                    question: "What are you looking to partner with us for?".to_string(),
+                    para: "What are you looking to partner with us for? Be descriptive here".to_string(),
+                    placeholder: "I wish to partner a bot/website called Foobar because...".to_string(),
+                },
+                StaffAppQuestion {
+                    id: "why".to_string(),
+                    question: "Why do you want to partner with us?".to_string(),
+                    para: "Why do you want to partner with us? Be specific".to_string(),
+                    placeholder: "I want to partner with Infinity Bot List because...".to_string(),
+                },
+                StaffAppQuestion {
+                    id: "how".to_string(),
+                    question: "How will you promote us?".to_string(),
+                    para: "How will you promote Infinity Bot List? This could be a partner command or a link on your website!".to_string(),
+                    placeholder: "I will promote Infinity Bot List using...".to_string(),
+                },
+                StaffAppQuestion {
+                    id: "demo".to_string(),
+                    question: "Do you have anything to showcase what you wish to partner with us?".to_string(),
+                    para: "Links to show us demos of what you're partnering or how many members your server or bot has.".to_string(),
+                    placeholder: "LINK 1 etc.".to_string(),
+                },
+                StaffAppQuestion {
+                    id: "other".to_string(),
+                    question: "Anything else you want to add?".to_string(),
+                    para: "Anything else you want to add?".to_string(),
+                    placeholder: "Just state anything that doesn't hit anywhere else".to_string(),
+                },
             ],
         },
     }

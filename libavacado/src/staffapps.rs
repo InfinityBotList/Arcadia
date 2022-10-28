@@ -123,7 +123,7 @@ Experience in PostgreSQL and at least one of the below languages is required:
         certification: StaffPosition {
             open: true,
             needs_interview: false,
-            app_site_rendered: false, // For now, until this is decided
+            app_site_rendered: true, // For now, until this is decided
             name: "Bot Certification".to_string(),
             info: r#"
 Certify your discord bot for extra perks and more!

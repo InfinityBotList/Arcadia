@@ -76,6 +76,7 @@ pub struct StaffAppData {
     pub positions: Vec<String>,
     pub staff: StaffPosition,
     pub dev: StaffPosition,
+    pub certification: StaffPosition,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -97,6 +98,7 @@ impl StaffAppData {
         match position {
             "staff" => &self.staff,
             "dev" => &self.dev,
+            "certification" => &self.certification,
             _ => panic!("Invalid position"),
         }
     }

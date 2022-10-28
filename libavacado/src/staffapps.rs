@@ -38,7 +38,7 @@ pub fn get_interview_questions() -> Vec<StaffAppQuestion> {
 
 pub fn get_apps() -> StaffAppData {
     StaffAppData {
-        positions: vec!["staff".to_string(), "dev".to_string()],
+        positions: vec!["staff".to_string(), "dev".to_string(), "certification".to_string()],
         staff: StaffPosition {
             open: true,
             needs_interview: true,
@@ -119,7 +119,30 @@ Experience in PostgreSQL and at least one of the below languages is required:
                     placeholder: "I want to join the dev team because...".to_string(),
                 },
             ]
-        }
+        },
+        certification: StaffPosition {
+            open: true,
+            needs_interview: false,
+            app_site_rendered: false,
+            name: "Bot Certification".to_string(),
+            info: r#"
+Certify your discord bot for extra perks and more!
+
+Requirements:
+
+<ul>
+    <li>Insert requirements here</li>
+</ul>
+            "#.to_string(),
+            questions: vec![
+                StaffAppQuestion {
+                    id: "blah".to_string(),
+                    question: "Blah".to_string(),
+                    para: "Blah".to_string(),
+                    placeholder: "Blah".to_string(),
+                }
+            ],
+        },
     }
 }
 

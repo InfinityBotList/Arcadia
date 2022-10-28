@@ -41,6 +41,7 @@ pub fn get_apps() -> StaffAppData {
         positions: vec!["staff".to_string(), "dev".to_string()],
         staff: StaffPosition {
             open: true,
+            needs_interview: true,
             name: "Staff Team".to_string(),
             info: r#"Join the Infinity Staff Team and help us Approve, Deny and Certify Discord Bots. 
 
@@ -80,6 +81,7 @@ We are a welcoming and laid back team who is always willing to give new people a
         },
         dev: StaffPosition {
             open: true,
+            needs_interview: true,
             name: "Dev Team".to_string(),
             info: r#"Join our Dev Team and help us update, manage and maintain all of the Infinity Services!
             
@@ -221,18 +223,26 @@ pub async fn send_interview(
         return Err("This application is not in the 'pending' state".into());
     }
 
-    sqlx::query!(
-        "UPDATE apps SET state = 'pending-interview' WHERE app_id = $1",
-        app_id
-    )
-    .execute(pool)
-    .await?;
-
     let row = sqlx::query!(
         "SELECT user_id, position FROM apps WHERE app_id = $1",
         app_id
     )
     .fetch_one(pool)
+    .await?;
+
+    let app_questions = get_apps();
+
+    let position = app_questions.staff_questions(&row.position);
+
+    if !position.needs_interview {
+        return Err("This position does not need an interview".into());
+    }
+
+    sqlx::query!(
+        "UPDATE apps SET state = 'pending-interview' WHERE app_id = $1",
+        app_id
+    )
+    .execute(pool)
     .await?;
 
     // Send a message to the APPS channel
@@ -298,41 +308,58 @@ pub async fn finalize_app(
     .fetch_one(pool)
     .await?;
 
-    if row.state != "pending-interview" {
-        return Err("This application is not in the 'pending-interview' state".into());
-    }
+    let app_questions = get_apps();
 
-    let questions = get_interview_questions();
+    let position = app_questions.staff_questions(&row.position);
 
-    let mut app_map = HashMap::new();
-    for question in &questions {
-        // Get question from app.
-        let answer = interview.get(&question.id).ok_or("Missing question")?;
-
-        // Check if answer is empty.
-        if answer.is_empty() {
-            return Err("An answer you have sent is empty".into());
+    if !position.needs_interview {
+        if row.state != "pending" {
+            return Err("This application is not in the 'pending' state".into());
         }
 
-        // Check if answer is too short.
-        if answer.len() < 50 {
-            return Err("An answer you have sent is too short".into());
+        sqlx::query!(
+            "UPDATE apps SET state = 'approved' WHERE app_id = $1",
+            app_id
+        )
+        .execute(pool)
+        .await?;
+    } else {
+        if row.state != "pending-interview" {
+            return Err("This application is not in the 'pending-interview' state".into());
         }
 
-        // Add answer to map.
-        app_map.insert(&question.id, answer.to_string());
-    }
+        let questions = get_interview_questions();
 
-    sqlx::query!(
-        "UPDATE apps SET state = 'pending-approval', interview_answers = $1 WHERE app_id = $2",
-        json!({
-            "questions": questions,
-            "answers": app_map
-        }),
-        app_id
-    )
-    .execute(pool)
-    .await?;
+        let mut app_map = HashMap::new();
+        for question in &questions {
+            // Get question from app.
+            let answer = interview.get(&question.id).ok_or("Missing question")?;
+
+            // Check if answer is empty.
+            if answer.is_empty() {
+                return Err("An answer you have sent is empty".into());
+            }
+
+            // Check if answer is too short.
+            if answer.len() < 50 {
+                return Err("An answer you have sent is too short".into());
+            }
+
+            // Add answer to map.
+            app_map.insert(&question.id, answer.to_string());
+        }
+
+        sqlx::query!(
+            "UPDATE apps SET state = 'pending-approval', interview_answers = $1 WHERE app_id = $2",
+            json!({
+                "questions": questions,
+                "answers": app_map
+            }),
+            app_id
+        )
+        .execute(pool)
+        .await?;
+    }
 
     // Send a message to the APPS channel
     let user_id = UserId(row.user_id.parse::<u64>()?);

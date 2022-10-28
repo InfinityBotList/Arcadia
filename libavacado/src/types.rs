@@ -65,6 +65,7 @@ pub struct StaffAppQuestion {
 pub struct StaffPosition {
     pub info: String,
     pub open: bool,
+    pub needs_interview: bool,
     pub name: String,
     pub questions: Vec<StaffAppQuestion>,
 }

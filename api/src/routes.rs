@@ -909,7 +909,7 @@ pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> Ht
 }
 
 /// Adds a bot to the list
-#[get("/hiv")]
+#[post("/hiv")]
 pub async fn add_bot_api(req: HttpRequest, info: web::Query<UserRequest>, bot: web::Json<CreateBot>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()

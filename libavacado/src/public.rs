@@ -128,6 +128,7 @@ pub async fn get_user(
             username: member.user.name.to_string(),
             discriminator: member.user.discriminator.to_string(),
             avatar: member.user.avatar_url(),
+            valid: true,
         };
 
         let arc_user = Arc::new(user);
@@ -153,6 +154,7 @@ pub async fn get_user(
                 username: "Unknown User".to_string(),
                 discriminator: "0000".to_string(),
                 avatar: None,
+                valid: false,
             }));
         } else {
             return Err(Box::new(user.unwrap_err()));
@@ -166,6 +168,7 @@ pub async fn get_user(
         username: user.name.to_string(),
         discriminator: user.discriminator.to_string(),
         avatar: user.avatar_url(),
+        valid: true,
     });
 
     public.user_cache.insert(id_u64, arc_user.clone()).await;

@@ -1458,6 +1458,7 @@ dependencies = [
  "chrono",
  "deadpool",
  "deadpool-redis",
+ "itertools",
  "log",
  "moka",
  "rand",

@@ -51,6 +51,7 @@ pub struct DiscordUser {
     pub username: String,
     pub discriminator: String,
     pub avatar: Option<String>,
+    pub valid: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -104,4 +105,22 @@ impl StaffAppData {
             _ => panic!("Invalid position"),
         }
     }
+}
+
+#[derive(Deserialize)]
+pub struct CreateBot {
+    pub bot_id: String,
+    pub short: String,
+    pub long: String,
+    pub prefix: String,
+    pub invite: String,
+    pub support: String,
+    pub website: String,
+    pub github: String,
+    pub library: String,
+    pub donate: String,
+    pub tags: Vec<String>,
+    pub nsfw: bool,
+    pub cross_add: bool,
+    pub additional_owners: Vec<String>,
 }

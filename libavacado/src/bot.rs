@@ -99,6 +99,11 @@ pub async fn add_bot(
         return Err("Whoa there! The donate must be HTTPS".into());
     }
 
+    // Ensure background is HTTPS
+    if !bot.background.starts_with("https://") {
+        return Err("Whoa there! The background must be HTTPS".into());
+    }
+
     // Ensure tags are not empty
     if bot.tags.is_empty() {
         return Err("Whoa there! You must have at least one tag".into());
@@ -123,7 +128,7 @@ pub async fn add_bot(
 
     // Now we can insert the bot into the database
     sqlx::query!(
-        "INSERT INTO bots (bot_id, owner, additional_owners, short, long, prefix, invite, github, website, support, donate, tags, library, nsfw, cross_add) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+        "INSERT INTO bots (bot_id, owner, additional_owners, short, long, prefix, invite, github, website, support, donate, tags, library, nsfw, cross_add, approval_note, banner) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
         bot.bot_id,
         main_owner,
         &bot.additional_owners,
@@ -138,7 +143,9 @@ pub async fn add_bot(
         &bot.tags,
         bot.library,
         bot.nsfw,
-        bot.cross_add
+        bot.cross_add,
+        bot.staff_note,
+        bot.background
     )
     .execute(pool)
     .await?;

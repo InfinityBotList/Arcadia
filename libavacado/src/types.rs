@@ -123,4 +123,6 @@ pub struct CreateBot {
     pub nsfw: bool,
     pub cross_add: bool,
     pub additional_owners: Vec<String>,
+    pub staff_note: String,
+    pub background: String,
 }

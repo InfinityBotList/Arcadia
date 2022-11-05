@@ -908,6 +908,26 @@ pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> Ht
     HttpResponse::Ok().json(req.unwrap())
 }
 
+/// Sanitizes text to protect against XSS
+#[post("/thrombosis")]
+pub async fn sanitize_str(_req: HttpRequest, bytes: web::Bytes) -> HttpResponse {
+    let string = std::str::from_utf8(&bytes);
+
+    if string.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: "Failed to parse string".to_string(),
+            context: None,
+        });
+    }
+
+    let string = string.unwrap();
+
+    let string = libavacado::bot::sanitize(string);
+
+    HttpResponse::Ok().body(string)
+}
+
 /// Adds a bot to the list
 #[post("/hiv")]
 pub async fn add_bot_api(req: HttpRequest, info: web::Query<UserRequest>, bot: web::Json<CreateBot>) -> HttpResponse {

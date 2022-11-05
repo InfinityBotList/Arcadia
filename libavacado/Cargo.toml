@@ -19,6 +19,7 @@ rand = "0.8.5"
 deadpool-redis = { version = "0.10.2", features = ["rt_tokio_1", "serde"] }
 deadpool = { version = "0.9.5", features = ["rt_tokio_1", "serde"] }
 itertools = "0.10.5"
+ammonia = "3.2.1"
 
 [build-dependencies]
 vergen = "7.3.2"

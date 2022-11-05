@@ -4,6 +4,46 @@ use crate::{types::{Error, CreateBot}, public::{AvacadoPublic, get_user}};
 
 use itertools::Itertools;
 
+pub fn sanitize(
+    text: &str,
+) -> String {
+    ammonia::Builder::new()
+        .rm_clean_content_tags(&["style", "iframe"])
+        .add_tags(&[
+            "span", "img", "video", "iframe", "style", "p", "br", "center", "div", "h1", "h2",
+            "h3", "h4", "h5", "section", "article", "lang",
+        ])
+        .add_generic_attributes(&[
+            "id",
+            "class",
+            "style",
+            "data-src",
+            "data-background-image",
+            "data-background-image-set",
+            "data-background-delimiter",
+            "data-icon",
+            "data-inline",
+            "data-height",
+            "code",
+        ])
+        .add_tag_attributes("iframe", &["src", "height", "width"])
+        .add_tag_attributes(
+            "img",
+            &[
+                "src",
+                "alt",
+                "width",
+                "height",
+                "crossorigin",
+                "referrerpolicy",
+                "sizes",
+                "srcset",
+            ],
+        )
+        .clean(&text)
+        .to_string()
+}
+
 pub async fn add_bot(
     public: &AvacadoPublic,
     pool: &PgPool, 

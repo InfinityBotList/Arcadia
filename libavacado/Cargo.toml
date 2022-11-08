@@ -20,6 +20,7 @@ deadpool-redis = { version = "0.10.2", features = ["rt_tokio_1", "serde"] }
 deadpool = { version = "0.9.5", features = ["rt_tokio_1", "serde"] }
 itertools = "0.10.5"
 ammonia = "3.2.1"
+indexmap = { version = "1.9.1", features = ["serde"] }
 
 [build-dependencies]
 vergen = "7.3.2"

@@ -4,6 +4,8 @@ use crate::{types::{Error, CreateBot}, public::{AvacadoPublic, get_user}};
 
 use itertools::Itertools;
 
+use serde_json::json;
+
 pub fn sanitize(
     text: &str,
 ) -> String {
@@ -114,29 +116,43 @@ pub async fn add_bot(
         return Err("Whoa there! The prefix must be 10 characters or less".into());
     }
 
+    // Ensure all extra links are HTTPS
+    let mut private = 0;
+    let mut public = 0;
+    for (name, link) in &bot.extra_links {
+        if name.starts_with("_") {
+            // Private link, don't validate HTTPS
+            private += 1;
+
+            if link.len() > 8192 {
+                return Err("Whoa there! One of your private links is too long".into());
+            }
+
+            continue;
+        }
+
+        public += 1;
+
+        if !link.starts_with("https://") {
+            return Err(("Whoa there! Extra link (".to_string() + name + ") must be HTTPS").into());
+        }
+
+        if link.len() > 512 {
+            return Err("Whoa there! One of your extra links is too long".into());
+        }
+    }
+
+    if private > 10 {
+        return Err("Whoa there! You can only have 10 private extra links".into());
+    }
+
+    if public > 10 {
+        return Err("Whoa there! You can only have 10 public extra links".into());
+    }
+
     // Ensure invite is HTTPS
     if !bot.invite.starts_with("https://") {
         return Err("Whoa there! The invite must be HTTPS".into());
-    }
-
-    // Ensure github is HTTPS
-    if !bot.github.starts_with("https://") {
-        return Err("Whoa there! The github must be HTTPS".into());
-    }
-
-    // Ensure website is HTTPS
-    if !bot.website.starts_with("https://") {
-        return Err("Whoa there! The website must be HTTPS".into());
-    }
-
-    // Ensure support is HTTPS
-    if !bot.support.starts_with("https://") {
-        return Err("Whoa there! The support must be HTTPS".into());
-    }
-
-    // Ensure donate is HTTPS
-    if !bot.donate.starts_with("https://") {
-        return Err("Whoa there! The donate must be HTTPS".into());
     }
 
     // Ensure background is HTTPS
@@ -168,7 +184,7 @@ pub async fn add_bot(
 
     // Now we can insert the bot into the database
     sqlx::query!(
-        "INSERT INTO bots (bot_id, owner, additional_owners, short, long, prefix, invite, github, website, support, donate, tags, library, nsfw, cross_add, approval_note, banner) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
+        "INSERT INTO bots (bot_id, owner, additional_owners, short, long, prefix, invite, extra_links, tags, library, nsfw, cross_add, approval_note, banner) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
         bot.bot_id,
         main_owner,
         &bot.additional_owners,
@@ -176,10 +192,7 @@ pub async fn add_bot(
         bot.long,
         bot.prefix,
         bot.invite,
-        bot.github,
-        bot.website,
-        bot.support,
-        bot.donate,
+        json!(bot.extra_links),
         &bot.tags,
         bot.library,
         bot.nsfw,

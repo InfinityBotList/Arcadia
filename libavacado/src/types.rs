@@ -3,6 +3,7 @@ use std::{sync::Arc};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
+use indexmap::IndexMap;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -114,15 +115,12 @@ pub struct CreateBot {
     pub long: String,
     pub prefix: String,
     pub invite: String,
-    pub support: String,
-    pub website: String,
-    pub github: String,
     pub library: String,
-    pub donate: String,
     pub tags: Vec<String>,
     pub nsfw: bool,
     pub cross_add: bool,
     pub additional_owners: Vec<String>,
     pub staff_note: String,
     pub background: String,
+    pub extra_links: IndexMap<String, String>,
 }

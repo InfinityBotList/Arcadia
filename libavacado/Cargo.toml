@@ -16,7 +16,7 @@ log = "0.4"
 chrono = { version = "0.4", features = ["serde"]}
 moka = { version = "0.9", features = ["future"] }
 rand = "0.8.5"
-deadpool-redis = { version = "0.10.2", features = ["rt_tokio_1", "serde"] }
+deadpool-redis = { version = "0.11.0", features = ["rt_tokio_1", "serde"] }
 deadpool = { version = "0.9.5", features = ["rt_tokio_1", "serde"] }
 itertools = "0.10.5"
 ammonia = "3.2.1"

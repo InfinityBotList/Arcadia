@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use actix_cors::Cors;
 use actix_web::middleware::Logger;
+use actix_web::get;
 use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use libavacado::public::AvacadoPublic;
 use log::{debug, error, info};
@@ -9,6 +10,7 @@ use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::gateway::{GatewayIntents, Ready};
 use sqlx::postgres::PgPoolOptions;
+use utoipa::{Modify, OpenApi};
 
 use dotenv::dotenv;
 
@@ -91,6 +93,32 @@ async fn main() -> std::io::Result<()> {
         )),
     });
 
+    // Docs
+    #[derive(OpenApi)]
+    #[openapi(
+        paths(
+            routes::tetanus_search_service
+        ),
+        components(
+            schemas(
+                libavacado::search::SearchFilter,
+                libavacado::types::SearchBot,
+                libavacado::types::SearchUser,
+                libavacado::types::SearchPack,
+            )
+        ),
+        modifiers(&Server)
+    )]
+    struct ApiDoc;
+
+    #[get("/eternatus")]
+    async fn docs() -> HttpResponse {
+        let openapi = ApiDoc::openapi();
+
+        HttpResponse::Ok()
+            .json(openapi)
+    }
+
     HttpServer::new(move || {
         let cors = Cors::default()
             .allowed_origin_fn(|origin, _req_head| !origin.as_bytes().ends_with(b"bad domain 1"))
@@ -141,9 +169,27 @@ async fn main() -> std::io::Result<()> {
             .service(routes::send_interview_api)
             .service(routes::add_bot_api)
             .service(routes::sanitize_str)
+            .service(docs)
     })
     .workers(8)
     .bind("localhost:3010")?
     .run()
     .await
+}
+
+pub struct Server;
+
+impl Modify for Server {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        openapi.info.title = "Internal API".to_string();
+
+         openapi.servers = Some(
+             vec![
+                utoipa::openapi::ServerBuilder::new()
+                    .url("https://sovngarde.infinitybots.gg")
+                    .description(Some("The high-performance API server for Infinity Bot List"))
+                    .build()
+             ]
+         )
+     }
 }

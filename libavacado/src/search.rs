@@ -3,11 +3,12 @@ use std::sync::Arc;
 use crate::types::{Error, Search, SearchBot, SearchPack, SearchUser};
 
 use crate::public::{get_user, AvacadoPublic};
+use utoipa::ToSchema;
 
 use serde::Deserialize;
 use sqlx::PgPool;
 
-#[derive(Deserialize, Default, Copy, Clone)]
+#[derive(Deserialize, Default, Copy, Clone, ToSchema)]
 pub struct SearchFilter {
     pub from: Option<i32>,
     pub to: Option<i32>,

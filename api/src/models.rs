@@ -35,3 +35,4 @@ pub struct OauthUser {
     pub avatar: Option<String>,
     pub discriminator: String,
 }
+

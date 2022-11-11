@@ -1,6 +1,7 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 use libavacado::{search::{SearchFilter, SearchOpts}, types::{StaffAppResponse, CreateBot}};
 use serde::{Deserialize, Serialize};
+use utoipa::IntoParams;
 use std::collections::HashMap;
 
 #[derive(Deserialize)]
@@ -236,7 +237,7 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -
     HttpResponse::Ok().body("")
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, IntoParams)]
 pub struct SearchQuery {
     q: String,
     gc: Option<SearchFilter>,
@@ -244,6 +245,16 @@ pub struct SearchQuery {
     servers: Option<SearchFilter>,
 }
 
+/// Searches a list returning a list of search results
+#[utoipa::path(
+    get,
+    responses(
+        (status = 200, description = "Search result", body = inline(libavacado::types::Search))
+    ),
+    params(
+        SearchQuery
+    ),
+)]
 #[get("/tetanus")]
 pub async fn tetanus_search_service(req: HttpRequest, q: web::Query<SearchQuery>) -> HttpResponse {
     let data: &crate::models::AppState = req

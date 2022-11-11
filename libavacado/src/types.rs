@@ -4,17 +4,18 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
 use indexmap::IndexMap;
+use utoipa::ToSchema;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct Search {
     pub bots: Vec<SearchBot>,
     pub packs: Vec<SearchPack>,
     pub users: Vec<SearchUser>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct SearchBot {
     pub user: Arc<DiscordUser>,
     pub tags: Vec<String>,
@@ -31,7 +32,7 @@ pub struct SearchBot {
     pub vanity: Option<String>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct SearchPack {
     pub name: String,
     pub url: String,
@@ -40,13 +41,13 @@ pub struct SearchPack {
     pub votes: i64,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct SearchUser {
     pub user: Arc<DiscordUser>,
     pub about: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct DiscordUser {
     pub id: String,
     pub username: String,
@@ -55,7 +56,7 @@ pub struct DiscordUser {
     pub valid: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct StaffAppQuestion {
     pub id: String,
     pub question: String,
@@ -63,7 +64,7 @@ pub struct StaffAppQuestion {
     pub placeholder: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct StaffPosition {
     pub info: String,
     pub open: bool,
@@ -73,7 +74,7 @@ pub struct StaffPosition {
     pub app_site_rendered: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct StaffAppData {
     pub positions: Vec<String>,
     pub staff: StaffPosition,
@@ -82,7 +83,7 @@ pub struct StaffAppData {
     pub partners: StaffPosition,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct StaffAppResponse {
     pub app_id: String,
     pub user_id: String,
@@ -108,7 +109,7 @@ impl StaffAppData {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct CreateBot {
     pub bot_id: String,
     pub short: String,

@@ -22,3 +22,4 @@ libavacado = { path = "../libavacado" }
 moka = { version = "0.9", features = ["future"] }
 chrono = { version = "0.4.19", features = ["serde"]}
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
+utoipa = { version = "2", features = ["actix_extras"] }

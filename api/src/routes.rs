@@ -245,7 +245,9 @@ pub struct SearchQuery {
     servers: Option<SearchFilter>,
 }
 
-/// Searches a list returning a list of search results
+/// Search List
+/// 
+/// Search the list based on conditions. This endpoint returns cached data if possible.
 #[utoipa::path(
     post,
     request_body = inline(SearchQuery),

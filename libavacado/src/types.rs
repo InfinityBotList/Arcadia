@@ -17,6 +17,7 @@ pub struct Search {
 
 #[derive(Serialize, Debug, ToSchema)]
 pub struct SearchBot {
+    #[schema(value_type = DiscordUser)]
     pub user: Arc<DiscordUser>,
     pub tags: Vec<String>,
     pub description: String,
@@ -43,6 +44,7 @@ pub struct SearchPack {
 
 #[derive(Serialize, Debug, ToSchema)]
 pub struct SearchUser {
+    #[schema(value_type = DiscordUser)]
     pub user: Arc<DiscordUser>,
     pub about: Option<String>,
 }

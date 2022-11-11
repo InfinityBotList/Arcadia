@@ -247,16 +247,14 @@ pub struct SearchQuery {
 
 /// Searches a list returning a list of search results
 #[utoipa::path(
-    get,
+    post,
+    request_body = SearchQuery,
     responses(
         (status = 200, description = "Search result", body = inline(libavacado::types::Search))
     ),
-    params(
-        SearchQuery
-    ),
 )]
-#[get("/tetanus")]
-pub async fn tetanus_search_service(req: HttpRequest, q: web::Query<SearchQuery>) -> HttpResponse {
+#[post("/tetanus")]
+pub async fn tetanus_search_service(req: HttpRequest, q: web::Json<SearchQuery>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();

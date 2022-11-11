@@ -105,6 +105,7 @@ async fn main() -> std::io::Result<()> {
                 libavacado::types::SearchBot,
                 libavacado::types::SearchUser,
                 libavacado::types::SearchPack,
+                libavacado::types::DiscordUser,
             )
         ),
         modifiers(&Server)

@@ -218,6 +218,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-ws"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "535aec173810be3ca6f25dd5b4d431ae7125d62000aa3cbae1ec739921b02cf3"
+dependencies = [
+ "actix-codec",
+ "actix-http",
+ "actix-web",
+ "futures-core",
+ "tokio",
+]
+
+[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -293,6 +306,7 @@ dependencies = [
  "actix-cors",
  "actix-rt",
  "actix-web",
+ "actix-ws",
  "chrono",
  "dotenv",
  "env_logger",
@@ -1163,6 +1177,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "getopts"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14dbbfd5c71d70241ecf9e6f13737f7b5ce823821063188d7e46c41d371eebd5"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1502,6 +1525,7 @@ dependencies = [
  "itertools",
  "log",
  "moka",
+ "pulldown-cmark",
  "rand",
  "reqwest",
  "serde",
@@ -2029,6 +2053,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d9cc634bc78768157b5cbfe988ffcd1dcba95cd2b2f03a88316c08c6d00ed63"
 dependencies = [
  "bitflags",
+ "getopts",
  "memchr",
  "unicase",
 ]

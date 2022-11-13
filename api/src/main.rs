@@ -170,6 +170,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::send_interview_api)
             .service(routes::add_bot_api)
             .service(routes::sanitize_str)
+            .service(routes::preview_description)
             .service(docs)
     })
     .workers(8)

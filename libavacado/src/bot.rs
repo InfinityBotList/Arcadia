@@ -5,10 +5,17 @@ use crate::{types::{Error, CreateBot}, public::{AvacadoPublic, get_user}};
 use itertools::Itertools;
 
 use serde_json::json;
+use pulldown_cmark::{html::push_html, Options, Parser};
 
 pub fn sanitize(
     text: &str,
 ) -> String {
+    // Parse to HTML
+    let options = Options::all();
+    let md_parse = Parser::new_ext(text, options);
+    let mut html = String::new();
+    push_html(&mut html, md_parse);
+
     ammonia::Builder::new()
         .rm_clean_content_tags(&["style", "iframe"])
         .add_tags(&[
@@ -42,7 +49,7 @@ pub fn sanitize(
                 "srcset",
             ],
         )
-        .clean(&text)
+        .clean(&html)
         .to_string()
 }
 

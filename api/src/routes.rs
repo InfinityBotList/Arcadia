@@ -1,8 +1,11 @@
-use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
+use actix_web::{get, Error, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 use libavacado::{search::{SearchFilter, SearchOpts}, types::{StaffAppResponse, CreateBot}};
 use serde::{Deserialize, Serialize};
 use utoipa::{ToSchema};
 use std::collections::HashMap;
+use std::time::Instant;
+use actix_ws::{Message, CloseReason, CloseCode};
+use futures::StreamExt;
 
 #[derive(Deserialize)]
 pub struct Request {
@@ -919,7 +922,7 @@ pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> Ht
     HttpResponse::Ok().json(req.unwrap())
 }
 
-/// Sanitizes text to protect against XSS
+/// Sanitizes text to protect against XSS as well as perform markdown parsing using pulldown_cmark
 #[post("/thrombosis")]
 pub async fn sanitize_str(_req: HttpRequest, bytes: web::Bytes) -> HttpResponse {
     let string = std::str::from_utf8(&bytes);
@@ -990,4 +993,72 @@ pub async fn add_bot_api(req: HttpRequest, info: web::Query<UserRequest>, bot: w
         reason: "Added bot".to_string(),
         context: None,
     })
+}
+
+// WS for previews
+#[get("/ashfur")]
+pub async fn preview_description(req: HttpRequest, body: web::Payload) -> Result<HttpResponse, Error> {
+    let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
+
+    let mut close_reason = None;
+
+    actix_rt::spawn(async move {
+        let mut hb = Instant::now();
+
+        while let Some(Ok(msg)) = msg_stream.next().await {
+            match msg {
+                Message::Ping(bytes) => {
+                    if session.pong(&bytes).await.is_err() {
+                        break;
+                    }
+                }
+                Message::Pong(_) => {
+                    hb = Instant::now();
+                }
+                Message::Text(text) => {
+                    if text == "PING" && session.text(Instant::now().duration_since(hb).as_micros().to_string()).await.is_err() {
+                        close_reason = Some(CloseReason {
+                            code: CloseCode::Error,
+                            description: Some("Failed to send ping".to_string()),
+                        });
+                        break;
+                    }
+
+                    else if text.starts_with("R:") {
+                        let html = libavacado::bot::sanitize(text.trim_start_matches("R:"));
+                    
+                        if session
+                        .text("D:".to_string()+&html)
+                        .await
+                        .is_err() {
+                            close_reason = Some(CloseReason {
+                                code: CloseCode::Error,
+                                description: Some("Failed to send sanitized data".to_string()),
+                            });        
+                            break;
+                        }
+                    }
+
+                    else {
+                        close_reason = Some(CloseReason {
+                            code: CloseCode::Error,
+                            description: Some("Invalid message".to_string()),
+                        });        
+                        break;
+                    }
+                }
+
+                Message::Close(reason) => {
+                    close_reason = reason;
+                    break;
+                }
+
+                _ => break,
+            }
+        }
+
+        let _ = session.close(close_reason).await;
+    });
+
+    Ok(response)
 }

@@ -210,7 +210,6 @@ DEALINGS IN THE SOFTWARE.
         flush: bool,
         values: Vec<OwnedKVList>,
         io: RefCell<W>,
-        pretty: bool,
     }
     
     impl<W> Json<W>
@@ -267,11 +266,7 @@ DEALINGS IN THE SOFTWARE.
             logger_values: &OwnedKVList,
         ) -> io::Result<()> {
             let mut io = self.io.borrow_mut();
-            let io = if self.pretty {
-                let mut serializer = serde_json::Serializer::pretty(&mut *io);
-                self.log_impl(&mut serializer, rinfo, logger_values)?;
-                serializer.into_inner()
-            } else {
+            let io = {
                 let mut serializer = serde_json::Serializer::new(&mut *io);
                 self.log_impl(&mut serializer, rinfo, logger_values)?;
                 serializer.into_inner()
@@ -297,7 +292,6 @@ DEALINGS IN THE SOFTWARE.
         flush: bool,
         values: Vec<OwnedKVList>,
         io: W,
-        pretty: bool,
     }
     
     impl<W> JsonBuilder<W>
@@ -310,7 +304,6 @@ DEALINGS IN THE SOFTWARE.
                 flush: false,
                 values: vec![],
                 io,
-                pretty: false,
             }
         }
     
@@ -323,7 +316,6 @@ DEALINGS IN THE SOFTWARE.
                 newlines: self.newlines,
                 flush: self.flush,
                 io: RefCell::new(self.io),
-                pretty: self.pretty,
             }
         }
     
@@ -338,13 +330,7 @@ DEALINGS IN THE SOFTWARE.
             self.flush = enabled;
             self
         }
-    
-        /// Set whether or not pretty formatted logging should be used
-        pub fn set_pretty(mut self, enabled: bool) -> Self {
-            self.pretty = enabled;
-            self
-        }
-    
+        
         /// Add custom values to be printed with this formatter
         pub fn add_key_value<T>(mut self, value: slog::OwnedKV<T>) -> Self
         where

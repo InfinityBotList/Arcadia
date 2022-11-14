@@ -65,7 +65,6 @@ async fn main() -> std::io::Result<()> {
     let sqlx_logs = std::env::var("SQLX_LOG").unwrap_or_else(|_| "off".to_string()) == "on";
 
     let jfile = _slogjson::Json::new(file)
-        .set_pretty(false)
         .set_newlines(true)
         .add_default_keys()
         .build()

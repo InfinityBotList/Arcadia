@@ -1,4 +1,5 @@
 // This software is a fork of https://github.com/slog-rs/json at version 2.6.1 and is licensed under the MIT as below:
+// Other changes made are removing set_newline and set_pretty to reduce code size and speed.
 
 /*
 Copyright (c) 2014 The Rust Project Developers
@@ -206,7 +207,6 @@ DEALINGS IN THE SOFTWARE.
     /// Each record will be printed as a Json map
     /// to a given `io`
     pub struct Json<W: io::Write> {
-        newlines: bool,
         flush: bool,
         values: Vec<OwnedKVList>,
         io: RefCell<W>,
@@ -271,9 +271,8 @@ DEALINGS IN THE SOFTWARE.
                 self.log_impl(&mut serializer, rinfo, logger_values)?;
                 serializer.into_inner()
             };
-            if self.newlines {
-                io.write_all("\n".as_bytes())?;
-            }
+            // We always want to write a newline in Arcadia
+            io.write_all("\n".as_bytes())?;
             if self.flush {
                 io.flush()?;
             }
@@ -288,7 +287,6 @@ DEALINGS IN THE SOFTWARE.
     ///
     /// Create with `Json::new`.
     pub struct JsonBuilder<W: io::Write> {
-        newlines: bool,
         flush: bool,
         values: Vec<OwnedKVList>,
         io: W,
@@ -300,7 +298,6 @@ DEALINGS IN THE SOFTWARE.
     {
         fn new(io: W) -> Self {
             JsonBuilder {
-                newlines: true,
                 flush: false,
                 values: vec![],
                 io,
@@ -313,18 +310,11 @@ DEALINGS IN THE SOFTWARE.
         pub fn build(self) -> Json<W> {
             Json {
                 values: self.values,
-                newlines: self.newlines,
                 flush: self.flush,
                 io: RefCell::new(self.io),
             }
         }
-    
-        /// Set writing a newline after every log record
-        pub fn set_newlines(mut self, enabled: bool) -> Self {
-            self.newlines = enabled;
-            self
-        }
-    
+        
         /// Enable flushing of the `io::Write` after every log record
         pub fn set_flush(mut self, enabled: bool) -> Self {
             self.flush = enabled;

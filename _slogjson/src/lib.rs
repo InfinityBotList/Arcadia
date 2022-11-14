@@ -1,4 +1,4 @@
-// This software is a fork of https://github.com/slog-rs/json and is licensed under the MIT as below:
+// This software is a fork of https://github.com/slog-rs/json at version 2.6.1 and is licensed under the MIT as below:
 
 /*
 Copyright (c) 2014 The Rust Project Developers

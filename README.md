@@ -11,10 +11,11 @@
 
 ## Project Structure
 
-- bot => Rewrite of the Discord Bot used for Managing the Infinity Bot List Servers
-  - leone => a library crate containing proc-macros for the bot
-- api => Arcadia Staff API (statistics, maybe a claim/unclaim/approve/deny api for panel if needed etc)
-- libavacado => Common shared logic for ``bot``, ``api`` and any possible addition to Arcadia
+- ``bot`` => Rewrite of the Discord Bot used for Managing the Infinity Bot List Servers
+  - ``leone`` => a library crate containing proc-macros for the bot
+- ``api`` => Arcadia Staff API (statistics, maybe a claim/unclaim/approve/deny api for panel if needed etc)
+- ``libavacado`` => Common shared logic for ``bot``, ``api`` and any possible addition to Arcadia
+- ``_slogjson`` => A vendored fork of the ``slog-json`` crate with some modifications to make it work better with Arcadia
 
 ## Database Seeds
 

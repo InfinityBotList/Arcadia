@@ -23,7 +23,7 @@ reqwest = { version = "0.11", default-features = false, features = ["json", "rus
 utoipa = { version = "2", features = ["actix_extras"] }
 actix-ws = "0.2.5"
 slog = "2.7.0"
-slog-json = "2.6.1"
+_slogjson = { path = "../_slogjson" }
 slog-async = "2.7.0"
 slog-stdlog = "4.1.1"
 slog-scope = "4.4.0"

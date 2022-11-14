@@ -1,0 +1,19 @@
+[package]
+name = "_slogjson"
+version = "0.1.0"
+edition = "2021"
+description = "Fork/modified version of slog-json for arcadia"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+nested-values = ["erased-serde", "slog/nested-values"]
+dynamic-keys = ["slog/dynamic-keys"]
+default = []
+
+[dependencies]
+slog = { version = "2.7.0" }
+serde_json = "1"
+serde = "1"
+erased-serde = {version = "0.3", optional = true }
+time = { version = "0.3.6", features = ["formatting"] }

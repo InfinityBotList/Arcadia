@@ -62,15 +62,20 @@ async fn main() -> std::io::Result<()> {
         .open("/var/log/arcadia-api.log")
         .unwrap();
 
+    let sqlx_logs = std::env::var("SQLX_LOG").unwrap_or_else(|_| "off".to_string()) == "on";
+
     let jfile = slog_json::Json::new(file)
         .set_pretty(false)
         .set_newlines(true)
         .add_default_keys()
         .build()
         .fuse()
-        .filter(|f| {
+        .filter(move |f| {
             // Disable debug logging and spammy stuff
-            f.level().is_at_least(slog::Level::Error) || f.level().is_at_least(slog::Level::Info) && !(f.tag() == "tracing::span" || f.tag().starts_with("serenity"))
+            f.level().is_at_least(slog::Level::Error) 
+            || 
+                f.level().is_at_least(slog::Level::Info) 
+                && !(f.tag() == "tracing::span" || f.tag().starts_with("serenity") || (!sqlx_logs && f.tag().starts_with("sqlx")))
         })
         .fuse();
 

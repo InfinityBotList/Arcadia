@@ -67,6 +67,11 @@ async fn main() -> std::io::Result<()> {
         .set_newlines(true)
         .add_default_keys()
         .build()
+        .fuse()
+        .filter(|f| {
+            // Disable debug logging and spammy stuff
+            f.level().is_at_least(slog::Level::Error) || f.level().is_at_least(slog::Level::Info) && !(f.tag() == "tracing::span" || f.tag().starts_with("serenity"))
+        })
         .fuse();
 
     let drain = slog_async::Async::new(Mutex::new(jfile).map(slog::Fuse))
@@ -75,6 +80,9 @@ async fn main() -> std::io::Result<()> {
         .fuse();
     
     let log = slog::Logger::root(drain, o!("version" => env!("CARGO_PKG_VERSION")));
+
+    let _scope_guard = slog_scope::set_global_logger(log.clone());
+    let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();
 
     info!(log, "Starting up now!");
 

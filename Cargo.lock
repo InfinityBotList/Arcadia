@@ -311,6 +311,7 @@ dependencies = [
  "dotenv",
  "futures",
  "libavacado",
+ "log",
  "moka",
  "reqwest",
  "serde",
@@ -319,10 +320,18 @@ dependencies = [
  "slog",
  "slog-async",
  "slog-json",
+ "slog-scope",
+ "slog-stdlog",
  "sqlx",
  "tokio",
  "utoipa",
 ]
+
+[[package]]
+name = "arc-swap"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "983cd8b9d4b02a6dc6ffa557262eb5858a27a0038ffffe21a0f133eaa819a164"
 
 [[package]]
 name = "async-io"
@@ -2584,6 +2593,28 @@ dependencies = [
  "serde_json",
  "slog",
  "time 0.3.15",
+]
+
+[[package]]
+name = "slog-scope"
+version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f95a4b4c3274cd2869549da82b57ccc930859bdbf5bcea0424bc5f140b3c786"
+dependencies = [
+ "arc-swap",
+ "lazy_static",
+ "slog",
+]
+
+[[package]]
+name = "slog-stdlog"
+version = "4.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6706b2ace5bbae7291d3f8d2473e2bfab073ccd7d03670946197aec98471fa3e"
+dependencies = [
+ "log",
+ "slog",
+ "slog-scope",
 ]
 
 [[package]]

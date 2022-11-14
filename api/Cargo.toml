@@ -10,8 +10,6 @@ actix-web = { version = "4.0.1", features = ["rustls"] }
 actix-cors = "0.6.2"
 tokio = "1.20.0"
 actix-rt = "2.6.0"
-env_logger = "0.9.0"
-log = "0.4.14"
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls" , "postgres", "chrono", "uuid", "bigdecimal", "json"] }
 futures = "0.3.21"
 serde = { version = "1.0", features = ["derive"] }
@@ -24,3 +22,6 @@ chrono = { version = "0.4.19", features = ["serde"]}
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
 utoipa = { version = "2", features = ["actix_extras"] }
 actix-ws = "0.2.5"
+slog = "2.7.0"
+slog-json = "2.6.1"
+slog-async = "2.7.0"

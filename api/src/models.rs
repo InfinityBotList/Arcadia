@@ -8,6 +8,7 @@ pub struct AppState {
     pub pool: sqlx::PgPool,
     pub cache_http: Arc<CacheAndHttp>,
     pub avacado_public: Arc<AvacadoPublic>,
+    pub logger: slog::Logger,
 }
 
 #[derive(Serialize, Deserialize)]

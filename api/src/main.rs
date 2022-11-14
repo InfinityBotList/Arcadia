@@ -1,14 +1,15 @@
-use std::sync::Arc;
+use std::fs::OpenOptions;
+use std::sync::{Arc, Mutex};
 
 use actix_cors::Cors;
 use actix_web::middleware::Logger;
 use actix_web::get;
 use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use libavacado::public::AvacadoPublic;
-use log::{debug, error, info};
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::gateway::{GatewayIntents, Ready};
+use slog::{Drain, o, info};
 use sqlx::postgres::PgPoolOptions;
 use utoipa::{Modify, OpenApi};
 
@@ -38,12 +39,14 @@ fn actix_handle_err<T: std::error::Error + 'static>(err: T) -> actix_web::error:
     actix_web::error::InternalError::from_response(err, response).into()
 }
 
-struct MainHandler;
+struct MainHandler {
+    log: slog::Logger,
+}
 
 #[async_trait]
 impl EventHandler for MainHandler {
     async fn ready(&self, _ctx: Context, ready: Ready) {
-        debug!("{} is connected!", ready.user.name);
+        info!(self.log, "Bot is connected!"; "user" => ready.user.name);
     }
 }
 
@@ -51,9 +54,29 @@ impl EventHandler for MainHandler {
 async fn main() -> std::io::Result<()> {
     const MAX_CONNECTIONS: u32 = 3;
 
-    std::env::set_var("RUST_LOG", "api=debug,actix_web=info");
-    env_logger::init();
-    info!("Starting up...");
+    // Setup slog
+    let file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .truncate(false)
+        .open("/var/log/arcadia-api.log")
+        .unwrap();
+
+    let jfile = slog_json::Json::new(file)
+        .set_pretty(false)
+        .set_newlines(true)
+        .add_default_keys()
+        .build()
+        .fuse();
+
+    let drain = slog_async::Async::new(Mutex::new(jfile).map(slog::Fuse))
+        //.overflow_strategy(OverflowStrategy::Block)
+        .build()
+        .fuse();
+    
+    let log = slog::Logger::root(drain, o!("version" => env!("CARGO_PKG_VERSION")));
+
+    info!(log, "Starting up now!");
 
     dotenv().ok();
 
@@ -63,11 +86,7 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Could not initialize connection");
 
-    debug!("Connected to postgres/redis");
-
-    error!("This is a error");
-
-    debug!("Server is starting...");
+    info!(log, "Connected to postgres/redis"; "pool_size" => pool.size());
 
     let mut main_cli = serenity::Client::builder(
         std::env::var("DISCORD_TOKEN").expect("No DISCORD_TOKEN specified"),
@@ -76,7 +95,9 @@ async fn main() -> std::io::Result<()> {
             | GatewayIntents::GUILD_MEMBERS
             | GatewayIntents::GUILD_PRESENCES,
     )
-    .event_handler(MainHandler)
+    .event_handler(MainHandler {
+        log: log.clone(),
+    })
     .await
     .unwrap();
 
@@ -91,6 +112,7 @@ async fn main() -> std::io::Result<()> {
             cache_http.cache.clone(),
             cache_http.http.clone(),
         )),
+        logger: log.clone(),
     });
 
     // Docs

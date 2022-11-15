@@ -485,8 +485,11 @@ For more information, you can contact the current reviewer <@{}>
 async fn main() {
     const MAX_CONNECTIONS: u32 = 3; // max connections to the database, we don't need too many here
 
-    std::env::set_var("RUST_LOG", "bot=debug");
-    env_logger::init();
+    let logger = libteapot::logger::setup_logging("/var/log/arcadia-bot.log");
+
+    let _scope_guard = slog_scope::set_global_logger(logger.clone());
+    let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();
+
     info!("Starting Arcadia (bot)...");
 
     dotenv().ok();

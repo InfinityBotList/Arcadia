@@ -460,6 +460,7 @@ dependencies = [
  "futures-util",
  "leone",
  "libavacado",
+ "libteapot",
  "log",
  "poise",
  "reqwest",
@@ -467,6 +468,9 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "slog",
+ "slog-scope",
+ "slog-stdlog",
  "sqlx",
  "tokio",
 ]

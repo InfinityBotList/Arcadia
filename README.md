@@ -22,7 +22,7 @@
 To use it, use the following code
 
 ```rust
-let logger = libteapot::logger::setup_logging("/var/log/arcadia-api.log");
+let logger = libteapot::logger::setup_logging("/var/log/FILENAME.log");
 
 let _scope_guard = slog_scope::set_global_logger(logger.clone());
 let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();

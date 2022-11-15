@@ -77,7 +77,7 @@ where
                 "reqIp" => req_ip,
                 "size" => "Not Implemented",
                 "protocol" => format!("{:?}", req_ver),
-                "latency" => elapsed.as_millis(),
+                "latency" => elapsed.as_micros(),
                 "userAgent" => user_agent,
                 "reqId" => req_id,
             );

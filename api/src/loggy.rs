@@ -48,7 +48,7 @@ where
         let start = std::time::Instant::now();
         let path = req.uri().to_string();
         let method = req.method().to_string();
-        let req_ip = req.connection_info().peer_addr().unwrap_or("unknown").to_string();
+        let req_ip = req.connection_info().realip_remote_addr().unwrap_or("Unknown IP").to_string();
         let req_ver = req.version();
         let user_agent = req
             .headers()

@@ -18,6 +18,3 @@ time = { version = "0.3.6", features = ["formatting"] }
 slog-async = "2.7.0"
 slog-scope = "4.4.0"
 log = "0.4"
-
-# Vendored actix logging
-actix-web = { version = "4.0.1", features = ["rustls"] }

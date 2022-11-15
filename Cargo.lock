@@ -1578,7 +1578,6 @@ dependencies = [
 name = "libteapot"
 version = "0.1.0"
 dependencies = [
- "actix-web",
  "erased-serde",
  "log",
  "serde",

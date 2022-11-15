@@ -51,7 +51,10 @@ impl EventHandler for MainHandler {
 async fn main() -> std::io::Result<()> {
     const MAX_CONNECTIONS: u32 = 3;
 
-    libteapot::logger::setup_logging("/var/log/arcadia-api.log");
+    let logger = libteapot::logger::setup_logging("/var/log/arcadia-api.log");
+
+    let _scope_guard = slog_scope::set_global_logger(logger.clone());
+    let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();
 
     info!("Starting up now!");
 

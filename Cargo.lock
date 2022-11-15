@@ -322,6 +322,7 @@ dependencies = [
  "serenity",
  "slog",
  "slog-scope",
+ "slog-stdlog",
  "sqlx",
  "tokio",
  "utoipa",
@@ -1585,7 +1586,6 @@ dependencies = [
  "slog",
  "slog-async",
  "slog-scope",
- "slog-stdlog",
  "time 0.3.15",
 ]
 

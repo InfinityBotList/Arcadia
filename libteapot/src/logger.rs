@@ -2,7 +2,7 @@ use std::{fs::OpenOptions, sync::Mutex};
 
 use slog::{o, Drain};
 
-pub fn setup_logging(filename: &str) {
+pub fn setup_logging(filename: &str) -> slog::Logger {
         // Setup slog
         let file = OpenOptions::new()
         .create(true)
@@ -34,6 +34,5 @@ pub fn setup_logging(filename: &str) {
     
     let log = slog::Logger::root(drain, o!("version" => env!("CARGO_PKG_VERSION")));
 
-    let _scope_guard = slog_scope::set_global_logger(log.clone());
-    let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();
+    log
 }

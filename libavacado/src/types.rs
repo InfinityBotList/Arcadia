@@ -56,6 +56,7 @@ pub struct DiscordUser {
     pub discriminator: String,
     pub avatar: Option<String>,
     pub valid: bool,
+    pub bot: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
@@ -114,6 +115,7 @@ impl StaffAppData {
 #[derive(Deserialize, ToSchema)]
 pub struct CreateBot {
     pub bot_id: String,
+    pub client_id: String,
     pub short: String,
     pub long: String,
     pub prefix: String,
@@ -126,4 +128,5 @@ pub struct CreateBot {
     pub staff_note: String,
     pub background: String,
     pub extra_links: IndexMap<String, String>,
+    pub guild_count: i64, // The client should set to zero as it is filled in by the server
 }

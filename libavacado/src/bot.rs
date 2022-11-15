@@ -1,3 +1,5 @@
+use log::info;
+use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::{types::{Error, CreateBot}, public::{AvacadoPublic, get_user}};
@@ -53,6 +55,73 @@ pub fn sanitize(
         .to_string()
 }
 
+#[derive(Deserialize)]
+struct JapiApp {
+    cached: bool,
+    data: JapiAppData,
+}
+
+#[derive(Deserialize)]
+struct JapiAppData {
+    application: JapiAppDataApplication,
+    bot: JapiAppDataBot,
+}
+
+#[derive(Deserialize)]
+struct JapiAppDataApplication {
+    id: String,
+    bot_public: bool,
+}
+
+#[derive(Deserialize)]
+struct JapiAppDataBot {
+    id: String,
+    approximate_guild_count: i64,
+}
+
+pub async fn check_bot_client_id(bot: &mut CreateBot) -> Result<(), Error> {
+    let req = reqwest::get(format!("https://japi.rest/discord/v1/application/{}", bot.client_id))
+        .await?;
+    
+    if req.status() == 429 {
+        return Err(
+            format!(
+                "Whoa there! We're being ratelimited by our anti-abuse provider! Please try again in {} seconds.", 
+                req.headers().get("retry-after").map_or("unknown", |v| v.to_str().unwrap_or("unknown"))
+            ).into()
+        );
+    } else if !req.status().is_success() {
+        return Err(
+            format!(
+                "We couldn't find a bot with that client ID! Status code: {}",
+                req.status()
+            ).into()
+        );
+    }
+
+    // Note that warnings are not handled here, as they are not fatal to adding a bot
+    let japi_app: JapiApp = req.json().await?;
+
+    if !japi_app.data.application.bot_public {
+        return Err("This bot is not public!".into());
+    }
+
+    if !japi_app.cached {
+        info!("JAPI cache MISS for {}", bot.client_id);
+    } else {
+        info!("JAPI cache HIT for {}", bot.client_id);
+    }
+
+    // This check exists to ensure we can put the API check after the database and user check
+    if bot.bot_id != japi_app.data.bot.id || bot.client_id != japi_app.data.application.id {
+        return Err("The bot ID provided does not match the bot ID found!".into());
+    }
+
+    bot.guild_count = japi_app.data.bot.approximate_guild_count;
+
+    Ok(())
+}
+
 pub async fn add_bot(
     public: &AvacadoPublic,
     pool: &PgPool, 
@@ -77,12 +146,23 @@ pub async fn add_bot(
         return Err("Whoa there! This bot does not exist".into());
     }
 
+    if !bot_user.bot {
+        return Err("Whoa there! This user is not a bot!".into());
+    }
+
     // Ensure the owner exists
     let owner_user = get_user(public, main_owner, true).await?;
 
     if !owner_user.valid {
         return Err("Whoa there! The main owner of this bot does not exist".into());
     }
+
+    if owner_user.bot {
+        return Err("Whoa there! The main owner of this bot is a bot!".into());
+    }
+
+    // Validate bot API side as well to prevent any client hacks
+    check_bot_client_id(bot).await?;
 
     // Ensure maximum of 7 additional owners
     if bot.additional_owners.len() > 7 {
@@ -95,6 +175,10 @@ pub async fn add_bot(
 
         if !owner_user.valid {
             return Err(("Whoa there! Additional owner (".to_string() + owner + ") of this bot does not exist").into());
+        }
+
+        if owner_user.bot {
+            return Err(("Whoa there! Additional owner (".to_string() + owner + ") of this bot is a bot!").into());
         }
     }
 
@@ -191,8 +275,9 @@ pub async fn add_bot(
 
     // Now we can insert the bot into the database
     sqlx::query!(
-        "INSERT INTO bots (bot_id, owner, additional_owners, short, long, prefix, invite, extra_links, tags, library, nsfw, cross_add, approval_note, banner) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+        "INSERT INTO bots (bot_id, client_id, owner, additional_owners, short, long, prefix, invite, extra_links, tags, library, nsfw, cross_add, approval_note, banner) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
         bot.bot_id,
+        bot.client_id,
         main_owner,
         &bot.additional_owners,
         bot.short,

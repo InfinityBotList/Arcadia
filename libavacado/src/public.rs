@@ -128,6 +128,7 @@ pub async fn get_user(
             username: member.user.name.to_string(),
             discriminator: member.user.discriminator.to_string(),
             avatar: member.user.avatar_url(),
+            bot: member.user.bot,
             valid: true,
         };
 
@@ -154,6 +155,7 @@ pub async fn get_user(
                 username: "Unknown User".to_string(),
                 discriminator: "0000".to_string(),
                 avatar: None,
+                bot: false,
                 valid: false,
             }));
         } else {
@@ -168,6 +170,7 @@ pub async fn get_user(
         username: user.name.to_string(),
         discriminator: user.discriminator.to_string(),
         avatar: user.avatar_url(),
+        bot: user.bot,
         valid: true,
     });
 

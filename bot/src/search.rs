@@ -8,31 +8,31 @@ type Context<'a> = crate::Context<'a>;
 pub async fn searchbots(
     ctx: Context<'_>,
     #[description = "Search Query"] query: String,
-    #[description = "Search Count (FROM)"] gc_from: Option<i32>,
-    #[description = "Search Count (TO)"] gc_to: Option<i32>,
-    #[description = "Votes Count (FROM)"] votes_from: Option<i32>,
-    #[description = "Votes Count (TO)"] votes_to: Option<i32>,
     #[description = "Server Count (FROM)"] servers_from: Option<i32>,
     #[description = "Server Count (TO)"] servers_to: Option<i32>,
+    #[description = "Votes Count (FROM)"] votes_from: Option<i32>,
+    #[description = "Votes Count (TO)"] votes_to: Option<i32>,
+    #[description = "Shard Count (FROM)"] shards_from: Option<i32>,
+    #[description = "Shard Count (TO)"] shards_to: Option<i32>,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
     let search_res = libavacado::search::search_bots(
-        &query,
         &data.pool,
         &data.avacado_public,
         &SearchOpts {
-            gc: SearchFilter {
-                from: gc_from,
-                to: gc_to,
+            query,
+            servers: SearchFilter {
+                from: servers_from,
+                to: servers_to,
             },
             votes: SearchFilter {
                 from: votes_from,
                 to: votes_to,
             },
-            servers: SearchFilter {
-                from: servers_from,
-                to: servers_to,
+            shards: SearchFilter {
+                from: shards_from,
+                to: shards_to,
             },
         },
     )

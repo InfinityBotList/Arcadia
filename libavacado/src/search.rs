@@ -5,10 +5,10 @@ use crate::types::{Error, Search, SearchBot, SearchPack, SearchUser};
 use crate::public::{get_user, AvacadoPublic};
 use utoipa::ToSchema;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-#[derive(Deserialize, Default, Copy, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Default, Copy, Clone, ToSchema)]
 pub struct SearchFilter {
     pub from: Option<i32>,
     pub to: Option<i32>,
@@ -24,8 +24,10 @@ impl SearchFilter {
     }
 }
 
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct SearchOpts {
-    pub gc: SearchFilter,
+    pub query: String,
+    pub shards: SearchFilter,
     pub votes: SearchFilter,
     pub servers: SearchFilter,
 }
@@ -34,13 +36,14 @@ impl SearchOpts {
     /// Returns the cache key
     pub fn key(&self) -> String {
         format!(
-            ":{}-{}:{}-{}-{}-{}",
-            self.gc.from(),
-            self.gc.to(),
+            "{}:{}-{}:{}-{}-{}-{}",
+            self.query,
+            self.servers.from(),
+            self.servers.to(),
             self.votes.from(),
             self.votes.to(),
-            self.servers.from(),
-            self.servers.to()
+            self.shards.from(),
+            self.shards.to()
         )
     }
 }
@@ -55,12 +58,11 @@ AND (($N+1 = -1) OR (bots.FIELD <= $N+1)) -- TO
 */
 
 pub async fn search_bots(
-    query: &String,
     pool: &PgPool,
     public: &AvacadoPublic,
     opts: &SearchOpts,
 ) -> Result<Arc<Search>, Error> {
-    let search = public.search_cache.get(&(query.to_string() + &opts.key()));
+    let search = public.search_cache.get(&opts.key());
 
     if search.is_some() {
         let search_inf = search.unwrap();
@@ -82,19 +84,19 @@ pub async fn search_bots(
         AND (votes >= $5)
         AND (($6 = -1) OR (votes <= $6))
 
-        -- Servers filter (7-8)
-        AND (servers >= $7)
-        AND (($8 = -1) OR (servers <= $8))
+        -- Shards filter (7-8)
+        AND (shards >= $7)
+        AND (($8 = -1) OR (shards <= $8))
 
         ORDER BY votes DESC, certified DESC LIMIT 6",
-        query,
-        "%".to_string() + query + "%",
-        opts.gc.from(),
-        opts.gc.to(),
+        &opts.query,
+        "%".to_string() + &opts.query + "%",
+        opts.servers.from(),
+        opts.servers.to(),
         opts.votes.from(),
         opts.votes.to(),
-        opts.servers.from(),
-        opts.servers.to()
+        opts.shards.from(),
+        opts.shards.to()
     )
     .fetch_all(pool)
     .await?;
@@ -123,8 +125,8 @@ pub async fn search_bots(
         "SELECT DISTINCT name, short, bots, votes, url FROM (
             SELECT name, short, owner, bots, votes, url, unnest(bots) AS bot_unnest FROM packs
         ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner @@ $1) LIMIT 6",
-        query,
-        "%".to_string() + query + "%"
+        &opts.query,
+        "%".to_string() + &opts.query + "%"
     )
     .fetch_all(pool)
     .await?;
@@ -177,8 +179,8 @@ pub async fn search_bots(
         INNER JOIN bots ON bots.owner = users.user_id 
         WHERE (bots.name ILIKE $2 OR bots.short @@ $1 OR bots.bot_id @@ $1) 
         OR (users.username @@ $1) LIMIT 6",
-        query,
-        "%".to_string() + query + "%"
+        &opts.query,
+        "%".to_string() + &opts.query + "%"
     )
     .fetch_all(pool)
     .await?;
@@ -200,7 +202,7 @@ pub async fn search_bots(
 
     public
         .search_cache
-        .insert(query.to_string() + &opts.key(), res.clone())
+        .insert(opts.key(), res.clone())
         .await;
 
     Ok(res)

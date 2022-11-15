@@ -2,7 +2,7 @@ use std::{fs::OpenOptions, sync::Mutex};
 
 use slog::{o, Drain};
 
-pub fn setup_logging(filename: &str) -> slog::Logger {
+pub fn setup_logging(filename: &'static str) -> slog::Logger {
         // Setup slog
         let file = OpenOptions::new()
         .create(true)
@@ -33,6 +33,20 @@ pub fn setup_logging(filename: &str) -> slog::Logger {
         .fuse();
     
     let log = slog::Logger::root(drain, o!("version" => env!("CARGO_PKG_VERSION")));
+
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(35));
+        loop {
+            interval.tick().await;
+            // Check if file is too large (over 10MB)
+            if let Ok(metadata) = std::fs::metadata(filename) {
+                if metadata.len() > 10_000_000 {
+                    // Truncate file
+                    let _ = OpenOptions::new().truncate(true).open(filename);
+                }
+            }
+        }
+    });
 
     log
 }

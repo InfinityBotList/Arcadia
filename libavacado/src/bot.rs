@@ -128,63 +128,16 @@ pub async fn add_bot(
     main_owner: &str,
     bot: &mut CreateBot
 ) -> Result<(), Error> {
-    // First ensure bot isn't already in the database
-    let bot_exists = sqlx::query!("SELECT EXISTS(SELECT 1 FROM bots WHERE bot_id = $1)", bot.bot_id)
-        .fetch_one(pool)
-        .await?
-        .exists;
-
-    // If it is, return an error, we are conservative here, if this returns None then something is wrong
-    if bot_exists.unwrap_or(true) {
-        return Err("Bot already exists in the database (or something badly went wrong!)".into());
-    }
-
-    // Ensure the bot actually exists
-    let bot_user = get_user(public, &bot.bot_id, true).await?;
-
-    if !bot_user.valid {
-        return Err("Whoa there! This bot does not exist".into());
-    }
-
-    if !bot_user.bot {
-        return Err("Whoa there! This user is not a bot!".into());
-    }
-
-    // Ensure the owner exists
-    let owner_user = get_user(public, main_owner, true).await?;
-
-    if !owner_user.valid {
-        return Err("Whoa there! The main owner of this bot does not exist".into());
-    }
-
-    if owner_user.bot {
-        return Err("Whoa there! The main owner of this bot is a bot!".into());
-    }
-
-    // Validate bot API side as well to prevent any client hacks
-    check_bot_client_id(bot).await?;
-
-    // Ensure maximum of 7 additional owners
-    if bot.additional_owners.len() > 7 {
-        return Err("Whoa there! You can only have 7 additional owners".into());
-    }
-
-    // Ensure that additional owners exist
-    for owner in &bot.additional_owners {
-        let owner_user = get_user(public, owner, true).await?;
-
-        if !owner_user.valid {
-            return Err(("Whoa there! Additional owner (".to_string() + owner + ") of this bot does not exist").into());
-        }
-
-        if owner_user.bot {
-            return Err(("Whoa there! Additional owner (".to_string() + owner + ") of this bot is a bot!").into());
-        }
-    }
+    // Put the simple checks first
 
     // Ensure main owner is not in additional owners
     if bot.additional_owners.contains(&main_owner.to_string()) {
         return Err("Whoa there! The main owner of this bot is also in the additional owners list".into());
+    }
+
+    // Ensure maximum of 7 additional owners
+    if bot.additional_owners.len() > 7 {
+        return Err("Whoa there! You can only have 7 additional owners".into());
     }
 
     // Ensure short is between 50 and 150 characters
@@ -207,38 +160,45 @@ pub async fn add_bot(
         return Err("Whoa there! The prefix must be 10 characters or less".into());
     }
 
-    // Ensure all extra links are HTTPS
-    let mut private = 0;
-    let mut public = 0;
-    for (name, link) in &bot.extra_links {
-        if name.starts_with("_") {
-            // Private link, don't validate HTTPS
-            private += 1;
+    // Ensure all extra links are HTTPS, this needs special scoping
+    {
+        let mut private = 0;
+        let mut public = 0;
+        for (name, link) in &bot.extra_links {
+            if name.starts_with("_") {
+                // Private link, don't validate HTTPS
+                private += 1;
 
-            if link.len() > 8192 {
-                return Err("Whoa there! One of your private links is too long".into());
+                if link.len() > 8192 {
+                    return Err("Whoa there! One of your private links is too long".into());
+                }
+
+                // this only applies to private links
+                if link.replace(' ', "").is_empty() {
+                    return Err("Whoa there! One of your private links is empty".into());
+                }
+
+                continue;
             }
 
-            continue;
+            public += 1;
+
+            if !link.starts_with("https://") {
+                return Err(("Whoa there! Extra link (".to_string() + name + ") must be HTTPS").into());
+            }
+
+            if link.len() > 512 {
+                return Err("Whoa there! One of your extra links is too long".into());
+            }
         }
 
-        public += 1;
-
-        if !link.starts_with("https://") {
-            return Err(("Whoa there! Extra link (".to_string() + name + ") must be HTTPS").into());
+        if private > 10 {
+            return Err("Whoa there! You can only have 10 private extra links".into());
         }
 
-        if link.len() > 512 {
-            return Err("Whoa there! One of your extra links is too long".into());
+        if public > 10 {
+            return Err("Whoa there! You can only have 10 public extra links".into());
         }
-    }
-
-    if private > 10 {
-        return Err("Whoa there! You can only have 10 private extra links".into());
-    }
-
-    if public > 10 {
-        return Err("Whoa there! You can only have 10 public extra links".into());
     }
 
     // Ensure invite is HTTPS
@@ -272,6 +232,57 @@ pub async fn add_bot(
             return Err("Whoa there! Tags must be 20 characters or less".into());
         }
     }
+
+    // More complex checks in terms of resources
+
+    // Ensure bot isn't already in the database
+    let bot_exists = sqlx::query!("SELECT EXISTS(SELECT 1 FROM bots WHERE bot_id = $1)", bot.bot_id)
+        .fetch_one(pool)
+        .await?
+        .exists;
+
+    // If it is, return an error, we are conservative here, if this returns None then something is wrong
+    if bot_exists.unwrap_or(true) {
+        return Err("Bot already exists in the database (or something badly went wrong!)".into());
+    }
+
+    // Ensure the bot actually exists
+    let bot_user = get_user(public, &bot.bot_id, true).await?;
+
+    if !bot_user.valid {
+        return Err("Whoa there! This bot does not exist".into());
+    }
+
+    if !bot_user.bot {
+        return Err("Whoa there! This user is not a bot!".into());
+    }
+    
+    // Ensure the owner exists
+    let owner_user = get_user(public, main_owner, true).await?;
+
+    if !owner_user.valid {
+        return Err("Whoa there! The main owner of this bot does not exist".into());
+    }
+
+    if owner_user.bot {
+        return Err("Whoa there! The main owner of this bot is a bot!".into());
+    }
+
+    // Ensure that additional owners exist
+    for owner in &bot.additional_owners {
+        let owner_user = get_user(public, owner, true).await?;
+
+        if !owner_user.valid {
+            return Err(("Whoa there! Additional owner (".to_string() + owner + ") of this bot does not exist").into());
+        }
+
+        if owner_user.bot {
+            return Err(("Whoa there! Additional owner (".to_string() + owner + ") of this bot is a bot!").into());
+        }
+    }
+
+    // Validate the bot IDs API side as well to prevent any client hacks
+    check_bot_client_id(bot).await?;
 
     // Now we can insert the bot into the database
     sqlx::query!(

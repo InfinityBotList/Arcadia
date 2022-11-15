@@ -8,7 +8,7 @@ use utoipa::ToSchema;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-#[derive(Serialize, Deserialize, Default, Copy, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, ToSchema)]
 pub struct SearchFilter {
     pub from: Option<i32>,
     pub to: Option<i32>,
@@ -24,11 +24,23 @@ impl SearchFilter {
     }
 }
 
+impl Default for SearchFilter {
+    fn default() -> Self {
+        Self {
+            from: None,
+            to: None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct SearchOpts {
     pub query: String,
+    #[serde(default)]
     pub shards: SearchFilter,
+    #[serde(default)]
     pub votes: SearchFilter,
+    #[serde(default)]
     pub servers: SearchFilter,
 }
 

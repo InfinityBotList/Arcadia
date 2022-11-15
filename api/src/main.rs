@@ -1,15 +1,13 @@
-use std::fs::OpenOptions;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use actix_cors::Cors;
-use actix_web::middleware::Logger;
 use actix_web::get;
 use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use libavacado::public::AvacadoPublic;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::gateway::{GatewayIntents, Ready};
-use slog::{Drain, o, info};
+use slog_scope::info;
 use sqlx::postgres::PgPoolOptions;
 use utoipa::{Modify, OpenApi};
 
@@ -17,6 +15,7 @@ use dotenv::dotenv;
 
 mod models;
 mod routes;
+mod loggy;
 
 use crate::models::APIResponse;
 
@@ -39,14 +38,12 @@ fn actix_handle_err<T: std::error::Error + 'static>(err: T) -> actix_web::error:
     actix_web::error::InternalError::from_response(err, response).into()
 }
 
-struct MainHandler {
-    log: slog::Logger,
-}
+struct MainHandler {}
 
 #[async_trait]
 impl EventHandler for MainHandler {
     async fn ready(&self, _ctx: Context, ready: Ready) {
-        info!(self.log, "Bot is connected!"; "user" => ready.user.name);
+        info!("Bot is connected!"; "user" => ready.user.name);
     }
 }
 
@@ -54,40 +51,9 @@ impl EventHandler for MainHandler {
 async fn main() -> std::io::Result<()> {
     const MAX_CONNECTIONS: u32 = 3;
 
-    // Setup slog
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .truncate(false)
-        .open("/var/log/arcadia-api.log")
-        .unwrap();
+    libteapot::logger::setup_logging("/var/log/arcadia-api.log");
 
-    let sqlx_logs = std::env::var("SQLX_LOG").unwrap_or_else(|_| "off".to_string()) == "on";
-
-    let jfile = _slogjson::Json::new(file)
-        .add_default_keys()
-        .build()
-        .fuse()
-        .filter(move |f| {
-            // Disable debug logging and spammy stuff
-            f.level().is_at_least(slog::Level::Error) 
-            || 
-                f.level().is_at_least(slog::Level::Info) 
-                && !(f.tag() == "tracing::span" || f.tag().starts_with("serenity") || (!sqlx_logs && f.tag().starts_with("sqlx")))
-        })
-        .fuse();
-
-    let drain = slog_async::Async::new(Mutex::new(jfile).map(slog::Fuse))
-        //.overflow_strategy(OverflowStrategy::Block)
-        .build()
-        .fuse();
-    
-    let log = slog::Logger::root(drain, o!("version" => env!("CARGO_PKG_VERSION")));
-
-    let _scope_guard = slog_scope::set_global_logger(log.clone());
-    let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();
-
-    info!(log, "Starting up now!");
+    info!("Starting up now!");
 
     dotenv().ok();
 
@@ -97,7 +63,7 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Could not initialize connection");
 
-    info!(log, "Connected to postgres/redis"; "pool_size" => pool.size());
+    info!("Connected to postgres/redis"; "pool_size" => pool.size());
 
     let mut main_cli = serenity::Client::builder(
         std::env::var("DISCORD_TOKEN").expect("No DISCORD_TOKEN specified"),
@@ -106,9 +72,7 @@ async fn main() -> std::io::Result<()> {
             | GatewayIntents::GUILD_MEMBERS
             | GatewayIntents::GUILD_PRESENCES,
     )
-    .event_handler(MainHandler {
-        log: log.clone(),
-    })
+    .event_handler(MainHandler {})
     .await
     .unwrap();
 
@@ -123,7 +87,6 @@ async fn main() -> std::io::Result<()> {
             cache_http.cache.clone(),
             cache_http.http.clone(),
         )),
-        logger: log.clone(),
     });
 
     // Docs
@@ -179,7 +142,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::PathConfig::default().error_handler(|err, _req| actix_handle_err(err)))
             .wrap(cors)
             .wrap(middleware::Compress::default())
-            .wrap(Logger::default())
+            .wrap(crate::loggy::Logger)
             .wrap(middleware::NormalizePath::new(
                 middleware::TrailingSlash::MergeOnly,
             ))

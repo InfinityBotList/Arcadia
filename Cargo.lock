@@ -3,17 +3,6 @@
 version = 3
 
 [[package]]
-name = "_slogjson"
-version = "0.1.0"
-dependencies = [
- "erased-serde",
- "serde",
- "serde_json",
- "slog",
- "time 0.3.15",
-]
-
-[[package]]
 name = "actix-codec"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -314,7 +303,6 @@ checksum = "216261ddc8289130e551ddcd5ce8a064710c0d064a4d2895c67151c92b5443f6"
 name = "api"
 version = "0.1.0"
 dependencies = [
- "_slogjson",
  "actix-cors",
  "actix-rt",
  "actix-web",
@@ -322,17 +310,18 @@ dependencies = [
  "chrono",
  "dotenv",
  "futures",
+ "futures-util",
  "libavacado",
+ "libteapot",
  "log",
  "moka",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",
  "serenity",
  "slog",
- "slog-async",
  "slog-scope",
- "slog-stdlog",
  "sqlx",
  "tokio",
  "utoipa",
@@ -1582,6 +1571,22 @@ dependencies = [
  "libc",
  "libz-sys",
  "pkg-config",
+]
+
+[[package]]
+name = "libteapot"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "erased-serde",
+ "log",
+ "serde",
+ "serde_json",
+ "slog",
+ "slog-async",
+ "slog-scope",
+ "slog-stdlog",
+ "time 0.3.15",
 ]
 
 [[package]]

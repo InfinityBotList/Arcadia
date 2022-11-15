@@ -3,12 +3,12 @@ use std::sync::Arc;
 use libavacado::public::AvacadoPublic;
 use serde::{Deserialize, Serialize};
 use serenity::CacheAndHttp;
+use rand::{thread_rng, Rng, distributions::Alphanumeric};
 
 pub struct AppState {
     pub pool: sqlx::PgPool,
     pub cache_http: Arc<CacheAndHttp>,
     pub avacado_public: Arc<AvacadoPublic>,
-    pub logger: slog::Logger,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -37,3 +37,11 @@ pub struct OauthUser {
     pub discriminator: String,
 }
 
+
+pub fn create_token(length: usize) -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect()
+}

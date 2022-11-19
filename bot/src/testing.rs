@@ -22,7 +22,7 @@ pub async fn invite(
     let data = ctx.data();
 
     let invite_data = sqlx::query!(
-        "SELECT invite FROM bots WHERE bot_id = $1 OR name = $1 OR vanity = $1",
+        "SELECT invite FROM bots WHERE bot_id = $1 OR vanity = $1",
         bot
     )
     .fetch_one(&data.pool)
@@ -80,7 +80,7 @@ pub async fn queue(
     .await?;
 
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note, name FROM bots WHERE type = 'pending'",
+        "SELECT claimed_by, bot_id, approval_note FROM bots WHERE type = 'pending'",
     )
     .fetch_all(&data.pool)
     .await?;
@@ -96,12 +96,20 @@ pub async fn queue(
     let page = 1;
 
     for bot in bots {
+        let user = libavacado::public::get_user(&data.avacado_public, &bot.bot_id, false).await;
+
+        if user.is_err() {
+            continue;
+        }
+
+        let user = user.unwrap();
+
         if let Some(claimed_by) = bot.claimed_by {
             writeln!(
                 desc_str,
                 "**{i}.** {name} ({bot_id}) [Claimed by: {claimed_by} (<@{claimed_by}>)]\n**Note:** {ap_note}",
                 i = i,
-                name = bot.name,
+                name = user.username,
                 bot_id = bot.bot_id,
                 claimed_by = claimed_by,
                 ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
@@ -111,7 +119,7 @@ pub async fn queue(
                 desc_str,
                 "**{i}.** {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}",
                 i = i,
-                name = bot.name,
+                name = user.username,
                 bot_id = bot.bot_id,
                 ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
             )?;
@@ -158,7 +166,7 @@ pub async fn queue(
 }
 
 /// Implementation of the claim command
-pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {
+pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
         return Ok(());
     }
@@ -179,7 +187,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
 
     let claimed = sqlx::query!(
         "SELECT type, owner, claimed_by FROM bots WHERE bot_id = $1",
-        bot.id.0.to_string()
+        bot.id
     )
     .fetch_one(&data.pool)
     .await?;
@@ -196,14 +204,14 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
         sqlx::query!(
             "UPDATE bots SET claimed = true, last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
             ctx.author().id.0.to_string(),
-            bot.id.0.to_string()
+            bot.id
         )
         .execute(&data.pool)
         .await?;
 
         libavacado::staff::add_action_log(
             &data.pool,
-            &bot.id.0.to_string(),
+            &bot.id,
             &ctx.author().id.0.to_string(),
             "Claimed",
             "claim",
@@ -213,7 +221,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
         ctx.send(|m| {
             m.embed(|e| {
                 e.title("Bot Claimed")
-                    .description(format!("You have claimed {}", bot.name))
+                    .description(format!("You have claimed {}", bot.username))
                     .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
             })
         })
@@ -228,7 +236,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
                     e.description(format!(
                         "<@{}> has claimed <@{}>",
                         ctx.author().id.0,
-                        bot.id.0
+                        bot.id
                     ));
                     e.footer(|f| {
                         f.text("This is completely normal, don't worry!");
@@ -289,7 +297,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
             if id == "remind" {
                 libavacado::staff::add_action_log(
                     &data.pool,
-                    &bot.id.0.to_string(),
+                    &bot.id,
                     &claimed_by,
                     "User reminder",
                     "reminder",
@@ -299,7 +307,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
                     format!(
                         "<@{claimed_by}>, did you forgot to finish testing <@{bot_id}>? This reminder has been recorded internally for staff activity tracking purposes!", 
                         claimed_by = claimed_by,
-                        bot_id = bot.id.0
+                        bot_id = bot.id
                     )
                 ).await?;
             } else {
@@ -307,14 +315,14 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
                 sqlx::query!(
                     "UPDATE bots SET claimed = true, last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
                     ctx.author().id.0.to_string(),
-                    bot.id.0.to_string()
+                    bot.id
                 )
                 .execute(&data.pool)
                 .await?;
 
                 libavacado::staff::add_action_log(
                     &data.pool,
-                    &bot.id.0.to_string(),
+                    &bot.id,
                     &ctx.author().id.0.to_string(),
                     "Force claim since previous staff did not finish reviewing bot",
                     "claim",
@@ -330,7 +338,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
                             e.description(format!(
                                 "<@{}> has reclaimed <@{}> from <{}>",
                                 ctx.author().id.0,
-                                bot.id.0,
+                                bot.id,
                                 claimed_by
                             ));
                             e.footer(|f| {
@@ -345,7 +353,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
 
                 ctx.say(format!(
                     "You have claimed <@{bot_id}> and the bot owner has been notified!",
-                    bot_id = bot.id.0
+                    bot_id = bot.id
                 ))
                 .await?;
             }
@@ -362,7 +370,6 @@ pub async fn claim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Err
 /// Claims a bot
 #[poise::command(
     prefix_command,
-    slash_command,
     user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"
@@ -371,7 +378,57 @@ pub async fn claim(
     ctx: Context<'_>,
     #[description = "The bot you wish to claim"] bot: serenity::Member,
 ) -> Result<(), Error> {
-    claim_impl(ctx, bot.user).await
+    claim_impl(ctx, &libavacado::types::DiscordUser::from_user(bot.user)).await
+}
+
+async fn claim_autocomplete<'a>(
+    ctx: Context<'_>,
+    partial: &'a str,
+) -> Vec<poise::AutocompleteChoice<String>> {
+    let data = ctx.data();
+
+    let bots = sqlx::query!(
+        "SELECT bot_id, vanity FROM bots WHERE bot_id ILIKE $1 OR vanity ILIKE $1 AND claimed = false",
+        format!("%{}%", partial)
+    )
+    .fetch_all(&data.pool)
+    .await;
+
+    if bots.is_err() {
+        return vec![];
+    }
+
+    let bots = bots.unwrap();
+
+    let mut out = vec![];
+
+    for bot in bots {
+        out.push(poise::AutocompleteChoice {
+            name: format!("{} ({})", bot.vanity, bot.bot_id),
+            value: bot.bot_id,
+        });
+    }
+
+    out
+}
+
+#[poise::command(
+    slash_command,
+    user_cooldown = 3,
+    category = "Testing",
+    rename = "claim",
+    check = "checks::is_staff"
+)]
+pub async fn claim_slash(
+    ctx: Context<'_>,
+    #[autocomplete = "claim_autocomplete"]
+    #[description = "The bot you wish to claim"] bot: String,
+) -> Result<(), Error> {
+    let public = ctx.data();
+
+    let user = libavacado::public::get_user(&public.avacado_public, &bot, false).await?;
+
+    claim_impl(ctx, user.as_ref()).await
 }
 
 #[poise::command(
@@ -384,7 +441,7 @@ pub async fn claim_context(
     ctx: Context<'_>,
     #[description = "User"] user: serenity::User,
 ) -> Result<(), Error> {
-    claim_impl(ctx, user).await
+    claim_impl(ctx, &libavacado::types::DiscordUser::from_user(user)).await
 }
 
 pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {

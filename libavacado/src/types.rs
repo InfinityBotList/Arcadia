@@ -3,7 +3,6 @@ use std::{sync::Arc};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
-use indexmap::IndexMap;
 use utoipa::ToSchema;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -30,7 +29,7 @@ pub struct SearchBot {
     pub banner: Option<String>,
     pub invite_clicks: i32,
     pub clicks: i32,
-    pub vanity: Option<String>,
+    pub vanity: String,
 }
 
 #[derive(Serialize, Debug, ToSchema)]
@@ -39,7 +38,14 @@ pub struct SearchPack {
     pub url: String,
     pub description: String,
     pub bots: Vec<SearchBot>,
-    pub votes: i64,
+    pub votes: Vec<PackVote>,
+}
+
+#[derive(Serialize, Debug, ToSchema)]
+pub struct PackVote {
+    pub user_id: String,
+    pub upvote: bool,
+    pub date: DateTime<Utc>,
 }
 
 #[derive(Serialize, Debug, ToSchema)]
@@ -57,6 +63,19 @@ pub struct DiscordUser {
     pub avatar: Option<String>,
     pub valid: bool,
     pub bot: bool,
+}
+
+impl DiscordUser {
+    pub fn from_user(user: serenity::model::user::User) -> Self {
+        Self {
+            id: user.id.to_string(),
+            username: user.name.clone(),
+            discriminator: user.discriminator.to_string(),
+            avatar: user.avatar_url(),
+            valid: true,
+            bot: user.bot,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
@@ -112,6 +131,12 @@ impl StaffAppData {
     }
 }
 
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct Link {
+    pub name: String,
+    pub value: String
+}
+
 #[derive(Deserialize, ToSchema)]
 pub struct CreateBot {
     pub bot_id: String,
@@ -127,6 +152,6 @@ pub struct CreateBot {
     pub additional_owners: Vec<String>,
     pub staff_note: String,
     pub background: String,
-    pub extra_links: IndexMap<String, String>,
+    pub extra_links: Vec<Link>,
     pub guild_count: i64, // The client should set to zero as it is filled in by the server
 }

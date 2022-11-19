@@ -164,17 +164,17 @@ pub async fn add_bot(
     {
         let mut private = 0;
         let mut public = 0;
-        for (name, link) in &bot.extra_links {
-            if name.starts_with("_") {
+        for link in &bot.extra_links {
+            if link.name.starts_with("_") {
                 // Private link, don't validate HTTPS
                 private += 1;
 
-                if link.len() > 8192 {
+                if link.name.len() > 512 || link.value.len() > 8192 {
                     return Err("Whoa there! One of your private links is too long".into());
                 }
 
                 // this only applies to private links
-                if link.replace(' ', "").is_empty() {
+                if link.name.replace(' ', "").is_empty() || link.value.replace(' ', "").is_empty() {
                     return Err("Whoa there! One of your private links is empty".into());
                 }
 
@@ -183,11 +183,11 @@ pub async fn add_bot(
 
             public += 1;
 
-            if !link.starts_with("https://") {
-                return Err(("Whoa there! Extra link (".to_string() + name + ") must be HTTPS").into());
+            if !link.value.starts_with("https://") {
+                return Err(("Whoa there! Extra link (".to_string() + &link.name + ") must be HTTPS").into());
             }
 
-            if link.len() > 512 {
+            if link.name.len() > 64 || link.value.len() > 512 {
                 return Err("Whoa there! One of your extra links is too long".into());
             }
         }

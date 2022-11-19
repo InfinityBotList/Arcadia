@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::types::{Error, Search, SearchBot, SearchPack, SearchUser};
+use crate::types::{Error, Search, SearchBot, SearchPack, SearchUser, PackVote};
 
 use crate::public::{get_user, AvacadoPublic};
 use utoipa::ToSchema;
@@ -82,11 +82,11 @@ pub async fn search_bots(
     }
 
     let bots = sqlx::query!(
-        "SELECT DISTINCT bot_id, clicks, invite_clicks, vanity, type, banner, name, short, invite, servers, shards, votes, certified, tags FROM (
-            SELECT bot_id, clicks, invite_clicks, vanity, owner, name, type, banner, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
+        "SELECT DISTINCT bot_id, clicks, invite_clicks, vanity, type, banner, short, invite, servers, shards, votes, certified, tags FROM (
+            SELECT bot_id, clicks, invite_clicks, vanity, owner, type, banner, short, invite, servers, shards, votes, certified, tags, unnest(tags) AS tag_unnest FROM bots
         ) bots 
         WHERE type = 'approved' 
-        AND (name ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) 
+        AND (vanity ILIKE $2 OR owner @@ $1 OR short @@ $1 OR tag_unnest @@ $1) 
 
         -- Guild count filter (3-4)
         AND (servers >= $3)
@@ -134,8 +134,8 @@ pub async fn search_bots(
     }
 
     let packs = sqlx::query!(
-        "SELECT DISTINCT name, short, bots, votes, url FROM (
-            SELECT name, short, owner, bots, votes, url, unnest(bots) AS bot_unnest FROM packs
+        "SELECT DISTINCT name, short, bots, url FROM (
+            SELECT name, short, owner, bots, url, unnest(bots) AS bot_unnest FROM packs
         ) packs WHERE (name ILIKE $2 OR bot_unnest @@ $1 OR short @@ $1 OR owner @@ $1) LIMIT 6",
         &opts.query,
         "%".to_string() + &opts.query + "%"
@@ -146,17 +146,34 @@ pub async fn search_bots(
     let mut search_packs = Vec::new();
 
     for pack in packs {
+        let pack_votes_query = sqlx::query!(
+            "SELECT user_id, upvote, date FROM pack_votes WHERE url = $1",
+            pack.url
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut pack_votes = Vec::new();
+
+        for vote in pack_votes_query {
+            pack_votes.push(PackVote {
+                user_id: vote.user_id,
+                upvote: vote.upvote,
+                date: vote.date,
+            });
+        }
+
         search_packs.push(SearchPack {
             name: pack.name,
             description: pack.short,
             url: pack.url,
             bots: Vec::new(),
-            votes: pack.votes,
+            votes: pack_votes,
         });
 
         for bot in pack.bots {
             let res = sqlx::query!(
-                "SELECT type, vanity, clicks, invite_clicks, banner, bot_id, name, short, invite, servers, shards, votes, certified, tags FROM bots WHERE bot_id = $1",
+                "SELECT type, vanity, clicks, invite_clicks, banner, bot_id, short, invite, servers, shards, votes, certified, tags FROM bots WHERE bot_id = $1",
                 bot
             )
             .fetch_one(pool)
@@ -189,7 +206,7 @@ pub async fn search_bots(
     let users = sqlx::query!(
         "SELECT DISTINCT users.user_id, users.username, users.about FROM users 
         INNER JOIN bots ON bots.owner = users.user_id 
-        WHERE (bots.name ILIKE $2 OR bots.short @@ $1 OR bots.bot_id @@ $1) 
+        WHERE (bots.vanity ILIKE $2 OR bots.short @@ $1 OR bots.bot_id @@ $1) 
         OR (users.username @@ $1) LIMIT 6",
         &opts.query,
         "%".to_string() + &opts.query + "%"

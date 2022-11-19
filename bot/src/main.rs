@@ -567,6 +567,7 @@ async fn main() {
                 testing::onboard(),
                 testing::invite(),
                 testing::claim(),
+                testing::claim_slash(),
                 testing::claim_context(),
                 testing::unclaim(),
                 testing::unclaim_context(),

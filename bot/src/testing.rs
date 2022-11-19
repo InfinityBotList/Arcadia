@@ -3,6 +3,7 @@ use crate::_utils::Bool;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::UserId;
 use serde::Serialize;
+use log::{error, info};
 use std::fmt::Write;
 
 type Error = crate::Error;
@@ -22,7 +23,7 @@ pub async fn invite(
     let data = ctx.data();
 
     let invite_data = sqlx::query!(
-        "SELECT invite FROM bots WHERE bot_id = $1 OR vanity = $1",
+        "SELECT invite FROM bots WHERE bot_id = $1 OR queue_name ILIKE $1 OR vanity = $1 ORDER BY date DESC LIMIT 1",
         bot
     )
     .fetch_one(&data.pool)
@@ -80,7 +81,7 @@ pub async fn queue(
     .await?;
 
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note FROM bots WHERE type = 'pending'",
+        "SELECT claimed_by, bot_id, approval_note, queue_name FROM bots WHERE type = 'pending'",
     )
     .fetch_all(&data.pool)
     .await?;
@@ -96,20 +97,12 @@ pub async fn queue(
     let page = 1;
 
     for bot in bots {
-        let user = libavacado::public::get_user(&data.avacado_public, &bot.bot_id, false).await;
-
-        if user.is_err() {
-            continue;
-        }
-
-        let user = user.unwrap();
-
         if let Some(claimed_by) = bot.claimed_by {
             writeln!(
                 desc_str,
                 "**{i}.** {name} ({bot_id}) [Claimed by: {claimed_by} (<@{claimed_by}>)]\n**Note:** {ap_note}",
                 i = i,
-                name = user.username,
+                name = bot.queue_name,
                 bot_id = bot.bot_id,
                 claimed_by = claimed_by,
                 ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
@@ -119,7 +112,7 @@ pub async fn queue(
                 desc_str,
                 "**{i}.** {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}",
                 i = i,
-                name = user.username,
+                name = bot.queue_name,
                 bot_id = bot.bot_id,
                 ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
             )?;
@@ -370,31 +363,56 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) 
 /// Claims a bot
 #[poise::command(
     prefix_command,
+    slash_command,
     user_cooldown = 3,
     category = "Testing",
     check = "checks::is_staff"
 )]
 pub async fn claim(
     ctx: Context<'_>,
-    #[description = "The bot you wish to claim"] bot: serenity::Member,
+    #[autocomplete = "claim_autocomplete"]
+    #[description = "The bot you wish to claim"] bot: String,
 ) -> Result<(), Error> {
-    claim_impl(ctx, &libavacado::types::DiscordUser::from_user(bot.user)).await
+    let mut resolved_id = bot;
+
+    if resolved_id.starts_with("<@") {
+        resolved_id = resolved_id.replace("<@", "");
+        resolved_id = resolved_id.replace(">", "");
+    }
+
+    // Try parsing as a user
+    let user = resolved_id.parse::<u64>();
+
+    if user.is_err() {
+        return Err("Invalid user ID".into());
+    }
+
+    let public = ctx.data();
+
+    let user = libavacado::public::get_user(&public.avacado_public, &resolved_id, false).await?;
+
+    claim_impl(ctx, user.as_ref()).await?;
+
+    Ok(())
 }
 
 async fn claim_autocomplete<'a>(
     ctx: Context<'_>,
     partial: &'a str,
 ) -> Vec<poise::AutocompleteChoice<String>> {
+    info!("Called claim autocomplete");
+
     let data = ctx.data();
 
     let bots = sqlx::query!(
-        "SELECT bot_id, vanity FROM bots WHERE bot_id ILIKE $1 OR vanity ILIKE $1 AND claimed = false",
+        "SELECT bot_id, queue_name FROM bots WHERE bot_id ILIKE $1 OR vanity ILIKE $1 AND claimed = false AND type = 'pending'",
         format!("%{}%", partial)
     )
     .fetch_all(&data.pool)
     .await;
 
     if bots.is_err() {
+        error!("Error getting bots: {:?}", bots);
         return vec![];
     }
 
@@ -404,31 +422,12 @@ async fn claim_autocomplete<'a>(
 
     for bot in bots {
         out.push(poise::AutocompleteChoice {
-            name: format!("{} ({})", bot.vanity, bot.bot_id),
+            name: format!("{} ({})", bot.queue_name, bot.bot_id),
             value: bot.bot_id,
         });
     }
 
     out
-}
-
-#[poise::command(
-    slash_command,
-    user_cooldown = 3,
-    category = "Testing",
-    rename = "claim",
-    check = "checks::is_staff"
-)]
-pub async fn claim_slash(
-    ctx: Context<'_>,
-    #[autocomplete = "claim_autocomplete"]
-    #[description = "The bot you wish to claim"] bot: String,
-) -> Result<(), Error> {
-    let public = ctx.data();
-
-    let user = libavacado::public::get_user(&public.avacado_public, &bot, false).await?;
-
-    claim_impl(ctx, user.as_ref()).await
 }
 
 #[poise::command(

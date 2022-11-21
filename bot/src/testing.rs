@@ -403,10 +403,15 @@ async fn claim_autocomplete<'a>(
 ) -> Vec<poise::AutocompleteChoice<String>> {
     info!("Called claim autocomplete");
 
-    if let Ok(v) = onboard_autocomplete(ctx, partial).await {
-        if v.is_empty() {
+    let onboard_ac = onboard_autocomplete(ctx, partial).await;
+
+    if let Ok(v) = onboard_ac {
+        if !v.is_empty() {
             return v;
         }
+    } else {
+        let err = onboard_ac.err().unwrap();
+        error!("Error getting onboard autocomplete: {:?}", err);
     }
 
     let data = ctx.data();

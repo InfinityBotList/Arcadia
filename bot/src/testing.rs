@@ -1,4 +1,4 @@
-use crate::_checks as checks;
+use crate::{_checks as checks, _onboarding::onboard_autocomplete};
 use crate::_utils::Bool;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::UserId;
@@ -90,13 +90,14 @@ pub async fn queue(
         return Err("There are no bots in the queue!".into());
     }
 
-    let i = 1;
+    let mut i = 0;
 
     let mut desc_str = "".to_string();
 
     let page = 1;
 
     for bot in bots {
+        i += 1;
         if let Some(claimed_by) = bot.claimed_by {
             writeln!(
                 desc_str,
@@ -402,10 +403,16 @@ async fn claim_autocomplete<'a>(
 ) -> Vec<poise::AutocompleteChoice<String>> {
     info!("Called claim autocomplete");
 
+    if let Ok(v) = onboard_autocomplete(ctx, partial).await {
+        if v.is_empty() {
+            return v;
+        }
+    }
+
     let data = ctx.data();
 
     let bots = sqlx::query!(
-        "SELECT bot_id, queue_name FROM bots WHERE bot_id ILIKE $1 OR vanity ILIKE $1 AND claimed = false AND type = 'pending'",
+        "SELECT bot_id, queue_name FROM bots WHERE (bot_id ILIKE $1 OR vanity ILIKE $1) AND type = 'pending'",
         format!("%{}%", partial)
     )
     .fetch_all(&data.pool)

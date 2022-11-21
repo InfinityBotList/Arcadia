@@ -6,6 +6,109 @@ use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId, UserI
 use poise::serenity_prelude as serenity;
 use serde_json::json;
 
+/// Function to handle autocomplete in onboarding
+pub async fn onboard_autocomplete(
+    ctx: crate::Context<'_>,
+    typed: &str,
+) -> Result<Vec<poise::AutocompleteChoice<String>>, crate::Error> {
+    let data = ctx.data();
+    let discord = ctx.discord();
+    let user_id = ctx.author().id.to_string();
+
+    // Verify staff first
+    let is_staff = crate::_checks::is_any_staff(ctx).await.unwrap_or_else(|e| {
+        error!("{}", e);
+        false
+    });
+    if !is_staff {
+        // Check if awaiting staff role in main server
+        let main_server = std::env::var("MAIN_SERVER")
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+
+        let member = discord.cache.member(main_server, ctx.author().id);
+
+        if member.is_none() {
+            info!("Member not found in main server");
+            return Ok(Vec::new())
+        }
+
+        let member = member.unwrap();
+
+        let awaiting_role = std::env::var("AWAITING_STAFF_ROLE")
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+
+        if !member.roles.contains(&RoleId(awaiting_role)) {
+            info!("User is not awaiting staff role");
+            return Ok(Vec::new());
+        }
+
+        info!("User is awaiting staff role, adding staff perms and removing old onboarding state for the purpose of onboarding");
+
+        sqlx::query!("UPDATE users SET staff = true WHERE user_id = $1", user_id)
+            .execute(&data.pool)
+            .await?;
+
+        sqlx::query!(
+            "UPDATE users SET staff_onboard_state = 'pending' WHERE user_id = $1 AND staff_onboard_state = 'complete'",
+            user_id
+        )
+        .execute(&data.pool)
+        .await?;
+    }
+
+    // Reset old onboards
+    sqlx::query!(
+        "UPDATE users SET staff_onboard_state = 'pending', staff_onboard_last_start_time = NOW() WHERE staff_onboard_state = 'complete' AND staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'"
+    )
+    .execute(&data.pool)
+    .await?;
+
+    // Get onboard state (staff_onboard_state may be used later but is right now None and it will in the future be used to allow retaking of onboarding)
+    let onboard_state = {
+        let res = sqlx::query!(
+            "SELECT staff_onboard_state FROM users WHERE user_id = $1",
+            user_id
+        )
+        .fetch_one(&data.pool)
+        .await?;
+
+        res.staff_onboard_state
+    };    
+
+    if onboard_state == "complete" {
+        return Ok(Vec::new());
+    }
+
+    let cmd_name = &ctx.command().name;
+
+    match (onboard_state.as_str(), cmd_name.as_str()) {
+        ("claimed-bot" | "testing-bot", "claim") => {
+            // Bot already claimed, return empty
+            Ok(Vec::new())
+        }
+        (_, "claim") => {
+            if "Ninja Bot".starts_with(typed) {
+                Ok(vec![
+                    poise::AutocompleteChoice {
+                        name: "Ninja Bot (".to_string() + &std::env::var("TEST_BOT")? + ")",
+                        value: std::env::var("TEST_BOT")?,
+                    },
+                ])
+            } else {
+                Ok(Vec::new())
+            }
+        }
+        (_, _) => {
+            // No autocomplete
+            return Ok(Vec::new());
+        }
+    }
+}
+
 /// Internal function to handle the special-cased staff_guide command
 ///
 /// This internally creates a onboarding 'fragment' which is used to ensure that a user isn't peeping into someone elses staff verification code

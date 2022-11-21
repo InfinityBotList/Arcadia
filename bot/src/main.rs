@@ -14,7 +14,6 @@ mod admin;
 mod botowners;
 mod explain;
 mod help;
-mod search;
 mod staff;
 mod stats;
 mod testing;
@@ -582,7 +581,6 @@ async fn main() {
                 admin::votereset(),
                 admin::voteresetall(),
                 admin::onboardman(),
-                search::searchbots(),
                 stats::stats(),
                 botowners::setstats(),
             ],

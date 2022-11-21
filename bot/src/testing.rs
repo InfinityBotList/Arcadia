@@ -161,6 +161,12 @@ pub async fn queue(
 
 /// Implementation of the claim command
 pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) -> Result<(), Error> {
+    let test_bot_id = std::env::var("TEST_BOT")?;
+
+    if bot.id == test_bot_id {
+        return Err("You cannot claim the test bot!".into());
+    }
+
     if !crate::_onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
         return Ok(());
     }
@@ -412,6 +418,7 @@ async fn claim_autocomplete<'a>(
     } else {
         let err = onboard_ac.err().unwrap();
         error!("Error getting onboard autocomplete: {:?}", err);
+        return Vec::new();
     }
 
     let data = ctx.data();
@@ -432,7 +439,12 @@ async fn claim_autocomplete<'a>(
 
     let mut out = vec![];
 
+    let test_bot_id = std::env::var("TEST_BOT").unwrap();
     for bot in bots {
+        if bot.bot_id == test_bot_id {
+            continue
+        }
+
         out.push(poise::AutocompleteChoice {
             name: format!("{} ({})", bot.queue_name, bot.bot_id),
             value: bot.bot_id,

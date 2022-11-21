@@ -99,7 +99,7 @@ pub async fn onboard_autocomplete(
                     },
                 ])
             } else {
-                Ok(Vec::new())
+                Err("ExitAutocomplete".into())
             }
         }
         (_, _) => {

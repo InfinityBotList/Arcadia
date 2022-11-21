@@ -1,5 +1,5 @@
 use actix_web::{get, Error, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
-use libavacado::{search::SearchOpts, types::{StaffAppResponse, CreateBot}};
+use libavacado::types::{StaffAppResponse, CreateBot};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -237,43 +237,6 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -
     }
 
     HttpResponse::Ok().body("")
-}
-
-/// Search List
-/// 
-/// Search the list based on conditions. This endpoint returns cached data if possible.
-#[utoipa::path(
-    post,
-    request_body = inline(SearchOpts),
-    responses(
-        (status = 200, description = "Search result", body = inline(libavacado::types::Search))
-    ),
-)]
-#[post("/tetanus")]
-pub async fn tetanus_search_service(req: HttpRequest, q: web::Json<SearchOpts>) -> HttpResponse {
-    let data: &crate::models::AppState = req
-        .app_data::<web::Data<crate::models::AppState>>()
-        .unwrap();
-
-    let search_res = libavacado::search::search_bots(
-        &data.pool,
-        &data.avacado_public,
-        &q.into_inner(),
-    )
-    .await;
-
-    if search_res.is_err() {
-        let err = search_res.unwrap_err();
-        return HttpResponse::BadRequest().json(crate::models::APIResponse {
-            done: false,
-            reason: err.to_string(),
-            context: None,
-        });
-    }
-
-    let search_res = search_res.unwrap();
-
-    HttpResponse::Ok().json(search_res)
 }
 
 /// Get all current maintenances

@@ -137,7 +137,6 @@ async fn main() -> std::io::Result<()> {
             .service(routes::finalize_app_api)
             .service(routes::get_app_api)
             .service(routes::send_interview_api)
-            .service(routes::add_bot_api)
             .service(routes::sanitize_str)
             .service(routes::preview_description)
     })

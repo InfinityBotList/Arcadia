@@ -1,59 +1,9 @@
-use std::{sync::Arc};
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
 use utoipa::ToSchema;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
-
-#[derive(Serialize, Debug, ToSchema)]
-pub struct Search {
-    pub bots: Vec<SearchBot>,
-    pub packs: Vec<SearchPack>,
-    pub users: Vec<SearchUser>,
-}
-
-#[derive(Serialize, Debug, ToSchema)]
-pub struct SearchBot {
-    #[schema(value_type = DiscordUser)]
-    pub user: Arc<DiscordUser>,
-    pub tags: Vec<String>,
-    pub description: String,
-    pub invite: String,
-    pub servers: i32,
-    pub shards: i32,
-    pub votes: i32,
-    pub certified: bool,
-    pub r#type: String,
-    pub banner: Option<String>,
-    pub invite_clicks: i32,
-    pub clicks: i32,
-    pub vanity: String,
-}
-
-#[derive(Serialize, Debug, ToSchema)]
-pub struct SearchPack {
-    pub name: String,
-    pub url: String,
-    pub description: String,
-    pub bots: Vec<SearchBot>,
-    pub votes: Vec<PackVote>,
-}
-
-#[derive(Serialize, Debug, ToSchema)]
-pub struct PackVote {
-    pub user_id: String,
-    pub upvote: bool,
-    pub date: DateTime<Utc>,
-}
-
-#[derive(Serialize, Debug, ToSchema)]
-pub struct SearchUser {
-    #[schema(value_type = DiscordUser)]
-    pub user: Arc<DiscordUser>,
-    pub about: Option<String>,
-}
 
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct DiscordUser {
@@ -135,23 +85,4 @@ impl StaffAppData {
 pub struct Link {
     pub name: String,
     pub value: String
-}
-
-#[derive(Deserialize, ToSchema)]
-pub struct CreateBot {
-    pub bot_id: String,
-    pub client_id: String,
-    pub short: String,
-    pub long: String,
-    pub prefix: String,
-    pub invite: String,
-    pub library: String,
-    pub tags: Vec<String>,
-    pub nsfw: bool,
-    pub cross_add: bool,
-    pub additional_owners: Vec<String>,
-    pub staff_note: String,
-    pub background: String,
-    pub extra_links: Vec<Link>,
-    pub guild_count: i64, // The client should set to zero as it is filled in by the server
 }

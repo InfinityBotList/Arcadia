@@ -1,5 +1,5 @@
 use actix_web::{get, Error, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
-use libavacado::types::{StaffAppResponse, CreateBot};
+use libavacado::types::{StaffAppResponse};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -889,59 +889,6 @@ pub async fn sanitize_str(_req: HttpRequest, bytes: web::Bytes) -> HttpResponse 
     let string = libavacado::bot::sanitize(string);
 
     HttpResponse::Ok().body(string)
-}
-
-/// Adds a bot to the list
-#[post("/hiv")]
-pub async fn add_bot_api(req: HttpRequest, info: web::Query<UserRequest>, bot: web::Json<CreateBot>) -> HttpResponse {
-    let data: &crate::models::AppState = req
-        .app_data::<web::Data<crate::models::AppState>>()
-        .unwrap();
-
-    let auth_default = &HeaderValue::from_str("").unwrap();
-    let auth = req
-        .headers()
-        .get("Authorization")
-        .unwrap_or(auth_default)
-        .to_str()
-        .unwrap();
-    
-    let info = info.into_inner();
-    
-    let check = sqlx::query!(
-        "SELECT api_token FROM users WHERE user_id = $1",
-        &info.user_id.to_string()
-    )
-    .fetch_one(&data.pool)
-    .await;
-
-    if check.is_err() {
-        return HttpResponse::Unauthorized().finish();
-    }
-
-    let check = check.unwrap();
-
-    if check.api_token != auth {
-        return HttpResponse::Unauthorized().finish();
-    }
-
-    let mut bot = bot.into_inner();
-
-    let req = libavacado::bot::add_bot(&data.avacado_public, &data.pool, &info.user_id, &mut bot).await;
-
-    if req.is_err() {
-        return HttpResponse::BadRequest().json(crate::models::APIResponse {
-            done: false,
-            reason: req.unwrap_err().to_string(),
-            context: None,
-        });
-    }
-
-    HttpResponse::Ok().json(crate::models::APIResponse {
-        done: true,
-        reason: "Added bot".to_string(),
-        context: None,
-    })
 }
 
 // WS for previews

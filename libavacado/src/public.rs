@@ -30,7 +30,6 @@ impl CacheHttp for AvcCacheHttpImpl {
 
 // Public avacado client used to store caches
 pub struct AvacadoPublic {
-    pub search_cache: Cache<String, Arc<crate::types::Search>>,
     pub redis: deadpool_redis::Pool,
     pub user_cache: Cache<u64, Arc<DiscordUser>>,
     pub cache: Arc<serenity::cache::Cache>,
@@ -47,13 +46,6 @@ impl AvacadoPublic {
     pub fn new(cache: Arc<serenity::cache::Cache>, http: Arc<serenity::http::Http>) -> Self {
         let cfg = deadpool_redis::Config::from_url("redis://127.0.0.1:6379/8");
         Self {
-            search_cache: Cache::builder()
-                // Time to live (TTL): 5 minutes
-                .time_to_live(Duration::from_secs(60 * 5))
-                // Time to idle (TTI): 3 minutes
-                .time_to_idle(Duration::from_secs(60 * 3))
-                // Create the cache.
-                .build(),
             user_cache: Cache::builder()
                 // Time to live (TTL): 3 hours
                 .time_to_live(Duration::from_secs(3 * 60 * 60))

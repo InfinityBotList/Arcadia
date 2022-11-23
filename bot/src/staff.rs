@@ -86,13 +86,13 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
         let user_id = user_id?;
 
-        let cache_user = ctx.discord().cache.member(guild.id, UserId(user_id));
+        let cache_user = ctx.serenity_context().cache.member(guild.id, UserId(user_id));
 
         let user = match cache_user {
             Some(user) => user.user,
             None => {
                 // User not found in cache, fetch from API
-                let user = UserId(user_id).to_user(&ctx.discord().http).await?;
+                let user = UserId(user_id).to_user(&ctx.serenity_context().http).await?;
 
                 write!(not_in_staff_server, "{} ({})", user.id.0, user.name)?;
                 user
@@ -163,10 +163,10 @@ During beta testing, this is available to admins and devs, but once second final
     .await?;
 
     let interaction = msg
-        .await_component_interaction(ctx.discord())
+        .await_component_interaction(ctx.serenity_context())
         .author_id(ctx.author().id)
         .await;
-    msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
     let pressed_button_id = match &interaction {
         Some(m) => &m.data.custom_id,
@@ -265,7 +265,7 @@ pub async fn staff_add(
         .parse::<u64>()
         .unwrap();
 
-    let member = ctx.discord().cache.member(main_server, member.user.id);
+    let member = ctx.serenity_context().cache.member(main_server, member.user.id);
 
     if member.is_none() {
         info!("Member not found in main server");
@@ -280,7 +280,7 @@ pub async fn staff_add(
 
         if !member.roles.contains(&web_mod_role) {
             // Give user web mod role
-            member.add_role(ctx.discord(), web_mod_role).await?;
+            member.add_role(ctx.serenity_context(), web_mod_role).await?;
         }
     }
 
@@ -345,7 +345,7 @@ pub async fn staff_del(
 
     if member.roles.contains(&web_mod_role) {
         // Remove users web mod role
-        member.remove_role(ctx.discord(), web_mod_role).await?;
+        member.remove_role(ctx.serenity_context(), web_mod_role).await?;
     }
 
     let staff_server =
@@ -353,7 +353,7 @@ pub async fn staff_del(
 
     staff_server
         .kick_with_reason(
-            &ctx.discord().http,
+            &ctx.serenity_context().http,
             member.user.id,
             "Removed from staff list",
         )
@@ -374,13 +374,13 @@ pub async fn staff_del(
     check = "checks::staff_server"
 )]
 pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
-    let guilds = ctx.discord().cache.guilds();
+    let guilds = ctx.serenity_context().cache.guilds();
 
     let mut guild_list = String::new();
 
     for guild in guilds.iter() {
         let name = guild
-            .name(ctx.discord())
+            .name(ctx.serenity_context())
             .unwrap_or_else(|| "Unknown".to_string())
             + " ("
             + &guild.to_string()
@@ -408,7 +408,7 @@ pub async fn staff_guilddel(
 ) -> Result<(), Error> {
     let gid = guild.parse::<u64>()?;
 
-    ctx.discord().http.delete_guild(gid).await?;
+    ctx.serenity_context().http.delete_guild(gid).await?;
 
     ctx.say("Removed guild").await?;
 
@@ -430,7 +430,7 @@ pub async fn staff_guildleave(
 ) -> Result<(), Error> {
     let gid = guild.parse::<u64>()?;
 
-    ctx.discord().http.leave_guild(gid).await?;
+    ctx.serenity_context().http.leave_guild(gid).await?;
 
     ctx.say("Removed guild").await?;
 

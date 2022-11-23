@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-poise = "0.4"
+poise = "0.5"
 serde = "1.0"
 docser = { git = "https://github.com/RustLibs/docser.git", branch = "main" }
 log = "0.4.14"

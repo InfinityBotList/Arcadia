@@ -275,13 +275,13 @@ pub async fn create_vote(
         .await?;
 
     let mut interaction = msg
-        .await_component_interactions(ctx.discord())
+        .await_component_interactions(ctx.serenity_context())
         .timeout(Duration::from_secs(60 * 15))
         .build();
 
     while let Some(item) = interaction.next().await {
         if !can_vote.contains(&item.user.id) {
-            item.create_interaction_response(&ctx.discord(), |r| {
+            item.create_interaction_response(&ctx.serenity_context(), |r| {
                 r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                     .interaction_response_data(|d| {
                         d.content("You are not allowed to vote on this poll")
@@ -301,7 +301,7 @@ pub async fn create_vote(
                 }
 
                 if vote_data.approving_users.contains(&item.user.id) {
-                    item.create_interaction_response(&ctx.discord(), |r| {
+                    item.create_interaction_response(&ctx.serenity_context(), |r| {
                         r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|d| {
                                 d.content("You have already approved this poll")
@@ -311,7 +311,7 @@ pub async fn create_vote(
                     .await?;
                     continue;
                 } else {
-                    item.create_interaction_response(&ctx.discord(), |r| {
+                    item.create_interaction_response(&ctx.serenity_context(), |r| {
                         r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|d| {
                                 d.content("You have made your vote").ephemeral(true)
@@ -324,7 +324,7 @@ pub async fn create_vote(
 
                 if vote_data.total_voters() >= can_vote.len() {
                     vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
-                    msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                     interaction.stop();
                     return Ok(vote_data);
@@ -336,7 +336,7 @@ pub async fn create_vote(
                 }
 
                 if vote_data.disapproving_users.contains(&item.user.id) {
-                    item.create_interaction_response(&ctx.discord(), |r| {
+                    item.create_interaction_response(&ctx.serenity_context(), |r| {
                         r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|d| {
                                 d.content("You have already disapproved this poll")
@@ -346,7 +346,7 @@ pub async fn create_vote(
                     .await?;
                     continue;
                 } else {
-                    item.create_interaction_response(&ctx.discord(), |r| {
+                    item.create_interaction_response(&ctx.serenity_context(), |r| {
                         r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                             .interaction_response_data(|d| {
                                 d.content("You have made your vote").ephemeral(true)
@@ -359,14 +359,14 @@ pub async fn create_vote(
 
                 if vote_data.total_voters() >= can_vote.len() {
                     vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
-                    msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                     interaction.stop();
                     return Ok(vote_data);
                 }
             }
             "cancel" => {
-                item.create_interaction_response(&ctx.discord(), |r| {
+                item.create_interaction_response(&ctx.serenity_context(), |r| {
                     r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|d| d.content("Vote cancelled"))
                 })
@@ -376,13 +376,13 @@ pub async fn create_vote(
 
                 vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
-                msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                 interaction.stop();
                 return Ok(vote_data);
             }
             "force_resolve" => {
-                item.create_interaction_response(&ctx.discord(), |r| {
+                item.create_interaction_response(&ctx.serenity_context(), |r| {
                     r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|d| d.content("Poll resolved").ephemeral(true))
                 })
@@ -391,13 +391,13 @@ pub async fn create_vote(
                 // Get the winning side
                 vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
-                msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                 interaction.stop();
                 return Ok(vote_data);
             }
             "force_poll_through" => {
-                item.create_interaction_response(&ctx.discord(), |r| {
+                item.create_interaction_response(&ctx.serenity_context(), |r| {
                     r.kind(serenity::InteractionResponseType::ChannelMessageWithSource)
                         .interaction_response_data(|d| {
                             d.content("Vote forced through").ephemeral(true)
@@ -409,7 +409,7 @@ pub async fn create_vote(
                 vote_data.approving_users = can_vote.clone(); // Force the poll through
                 vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
-                msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                 interaction.stop();
                 return Ok(vote_data);
@@ -418,7 +418,7 @@ pub async fn create_vote(
         }
 
         // Update the message
-        msg.edit(&ctx.discord(), |m| {
+        msg.edit(&ctx.serenity_context(), |m| {
             m.content(
                 "**".to_string()
                     + vote_title
@@ -433,7 +433,7 @@ pub async fn create_vote(
     // Get the winning side
     vote_data.winning_side = vote_data.get_winning_side(can_vote.len());
 
-    msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
     interaction.stop();
 

@@ -96,7 +96,7 @@ pub async fn approveonboard(
     .await?;
 
     // DM user that they have been approved
-    let _ = member.dm(&ctx.discord().http, |m| {
+    let _ = member.dm(&ctx.serenity_context().http, |m| {
         m.content("Your onboarding request has been approved. You may now begin approving/denying bots")
     }).await?;
 
@@ -174,7 +174,7 @@ pub async fn denyonboard(
     .await?;
 
     // DM user that they have been denied
-    let _ = user.dm(&ctx.discord().http, |m| {
+    let _ = user.dm(&ctx.serenity_context().http, |m| {
         m.content("Your onboarding request has been denied. Please contact a manager for more information")
     }).await?;
 
@@ -218,11 +218,11 @@ pub async fn resetonboard(
         .await?;
 
     let interaction = msg
-        .await_component_interaction(ctx.discord())
+        .await_component_interaction(ctx.serenity_context())
         .author_id(ctx.author().id)
         .await;
 
-    msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
     let pressed_button_id = match &interaction {
         Some(m) => &m.data.custom_id,
@@ -246,7 +246,7 @@ pub async fn resetonboard(
     .await?;
 
     // DM user that they have been force reset
-    let _ = user.dm(&ctx.discord().http, |m| {
+    let _ = user.dm(&ctx.serenity_context().http, |m| {
         m.content("Your onboarding request has been force reset. Please contact a manager for more information. You will, in most cases, need to redo onboarding")
     }).await?;
 
@@ -297,10 +297,10 @@ pub async fn update_field(
             .await?;
 
         let interaction = msg
-            .await_component_interaction(ctx.discord())
+            .await_component_interaction(ctx.serenity_context())
             .author_id(ctx.author().id)
             .await;
-        msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+        msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
         if let Some(m) = &interaction {
             if m.data.custom_id != "yes" {
@@ -347,7 +347,7 @@ pub async fn update_field(
     let id = ctx.author().id;
 
     let interaction = msg
-        .await_component_interaction(ctx.discord())
+        .await_component_interaction(ctx.serenity_context())
         .filter(move |f| {
             if f.user.id != id && iblhdevs.iter().any(|u| u.user_id == f.user.id.to_string()) {
                 return true;
@@ -356,7 +356,7 @@ pub async fn update_field(
         })
         .timeout(Duration::from_secs(360))
         .await;
-    msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
     if let Some(m) = &interaction {
         if m.data.custom_id != "yes" {
@@ -424,7 +424,7 @@ pub async fn votereset(
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
     libavacado::manage::vote_reset(
-        &ctx.discord(),
+        &ctx.serenity_context(),
         &ctx.data().pool,
         &bot.id.to_string(),
         &ctx.author().id.to_string(),
@@ -445,7 +445,7 @@ pub async fn voteresetall(
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
     libavacado::manage::vote_reset_all(
-        &ctx.discord(),
+        &ctx.serenity_context(),
         &ctx.data().pool,
         &ctx.author().id.to_string(),
         &reason,

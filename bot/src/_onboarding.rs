@@ -12,7 +12,7 @@ pub async fn onboard_autocomplete(
     typed: &str,
 ) -> Result<Vec<poise::AutocompleteChoice<String>>, crate::Error> {
     let data = ctx.data();
-    let discord = ctx.discord();
+    let discord = ctx.serenity_context();
     let user_id = ctx.author().id.to_string();
 
     // Verify staff first
@@ -162,7 +162,7 @@ pub async fn handle_onboarding(
     info!("{}", cmd_name);
 
     let data = ctx.data();
-    let discord = ctx.discord();
+    let discord = ctx.serenity_context();
 
     // Verify staff first
     let is_staff = crate::_checks::is_any_staff(ctx).await.unwrap_or_else(|e| {
@@ -539,7 +539,7 @@ Welcome to your onboarding server! Please read the following:
             ctx.say(
                 format!(
                     "You will need to reinvite this bot to the server so that Discord can set the required scopes for this bot! Reinvite the bot using https://discord.com/oauth2/authorize?client_id={}&scope=bot%20applications.commands&permissions=8. Do this now, then run ``ibb!onboard`` to continue!",
-                    ctx.discord().cache.current_user().id
+                    ctx.serenity_context().cache.current_user().id
                 )
             ).await?;
 
@@ -571,7 +571,7 @@ Welcome to your onboarding server! Please read the following:
 
     let test_bot = std::env::var("TEST_BOT")?;
     let bot_page = std::env::var("BOT_PAGE")?;
-    let current_user = ctx.discord().cache.current_user();
+    let current_user = ctx.serenity_context().cache.current_user();
 
     if cmd_name == "claim" && reason != Some(&test_bot) {
         ctx.say("You can only claim the test bot at this time!")
@@ -680,7 +680,7 @@ Welcome to your onboarding server! Please read the following:
             .await?;
 
             let interaction = msg
-                .await_component_interaction(ctx.discord())
+                .await_component_interaction(ctx.serenity_context())
                 .author_id(ctx.author().id)
                 .timeout(Duration::from_secs(120))
                 .await;
@@ -688,7 +688,7 @@ Welcome to your onboarding server! Please read the following:
             if let Some(m) = &interaction {
                 let id = &m.data.custom_id;
 
-                msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                 if id == "survey" {
                     // Create a new message with the survey modal in it (via the button click)
@@ -1078,11 +1078,11 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                 }
 
                 let interaction = msg
-                    .await_component_interaction(ctx.discord())
+                    .await_component_interaction(ctx.serenity_context())
                     .author_id(ctx.author().id)
                     .await;
 
-                msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
                 if let Some(m) = &interaction {
                     let id = &m.data.custom_id;

@@ -177,7 +177,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) 
 
     // Check if its claimed by someone
     let data = ctx.data();
-    let discord = ctx.discord();
+    let discord = ctx.serenity_context();
 
     sqlx::query!(
         "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
@@ -284,10 +284,10 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) 
             .await?;
 
         let interaction = msg
-            .await_component_interaction(ctx.discord())
+            .await_component_interaction(ctx.serenity_context())
             .author_id(ctx.author().id)
             .await;
-        msg.edit(ctx.discord(), |b| b.components(|b| b)).await?; // remove buttons after button press
+        msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
 
         if let Some(m) = &interaction {
             let id = &m.data.custom_id;
@@ -469,7 +469,7 @@ pub async fn claim_context(
 
 pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {
     let data = ctx.data();
-    let discord = ctx.discord();
+    let discord = ctx.serenity_context();
 
     if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
@@ -586,7 +586,7 @@ pub async fn approve(
     }
 
     libavacado::staff::approve_bot(
-        &ctx.discord(),
+        &ctx.serenity_context(),
         &ctx.data().pool,
         &bot.user.id.to_string(),
         &ctx.author().id.to_string(),
@@ -621,7 +621,7 @@ pub async fn deny(
     }
 
     libavacado::staff::deny_bot(
-        &ctx.discord(),
+        &ctx.serenity_context(),
         &ctx.data().pool,
         &bot.id.to_string(),
         &ctx.author().id.to_string(),

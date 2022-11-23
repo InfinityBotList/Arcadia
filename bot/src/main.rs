@@ -70,7 +70,7 @@ async fn act(ctx: Context<'_>) -> Result<(), Error> {
         .await?;
 
     let interaction = msg
-        .await_component_interaction(ctx.discord())
+        .await_component_interaction(ctx.serenity_context())
         .author_id(ctx.author().id)
         .await;
 
@@ -551,7 +551,7 @@ async fn main() {
                 prefix: Some("ibb!".into()),
                 ..poise::PrefixFrameworkOptions::default()
             },
-            listener: |ctx, event, _framework, user_data| {
+            event_handler: |ctx, event, _framework, user_data| {
                 Box::pin(event_listener(ctx, event, user_data))
             },
             commands: vec![

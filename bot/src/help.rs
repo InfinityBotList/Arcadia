@@ -264,24 +264,24 @@ async fn _help_send_index(
 pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
     let eh = _embed_help(ctx, ctx.framework()).await?;
 
-    let msg = _help_send_index(Some(ctx), None, &ctx.discord().http, &eh, 0, None).await?;
+    let msg = _help_send_index(Some(ctx), None, &ctx.serenity_context().http, &eh, 0, None).await?;
 
     if let Some(msg) = msg {
         let mut interaction = msg
-            .await_component_interactions(ctx.discord())
+            .await_component_interactions(ctx.serenity_context())
             .author_id(ctx.author().id)
             .timeout(Duration::from_secs(120))
             .build();
 
         while let Some(item) = interaction.next().await {
-            item.defer(&ctx.discord()).await?;
+            item.defer(&ctx.serenity_context()).await?;
 
             let id = &item.data.custom_id;
 
             info!("Received interaction: {}", id);
 
             if id == "hnav:cancel" {
-                item.delete_original_interaction_response(ctx.discord())
+                item.delete_original_interaction_response(ctx.serenity_context())
                     .await?;
                 interaction.stop();
                 break;
@@ -305,7 +305,7 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
                         channel_id: msg.channel_id,
                         message_id: msg.id,
                     }),
-                    &ctx.discord().http,
+                    &ctx.serenity_context().http,
                     &eh,
                     value,
                     Some(item.clone()),
@@ -325,7 +325,7 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
                         channel_id: msg.channel_id,
                         message_id: msg.id,
                     }),
-                    &ctx.discord().http,
+                    &ctx.serenity_context().http,
                     &eh,
                     id,
                     Some(item.clone()),

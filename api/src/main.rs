@@ -138,7 +138,6 @@ async fn main() -> std::io::Result<()> {
             .service(routes::get_app_api)
             .service(routes::send_interview_api)
             .service(routes::sanitize_str)
-            .service(routes::preview_description)
     })
     .workers(8)
     .bind("localhost:3010")?

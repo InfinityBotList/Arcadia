@@ -178,7 +178,7 @@ async fn event_listener(
                 data_about_bot.user.name
             );
             sqlx::query!(
-                "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+                "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
             )
             .execute(&user_data.pool)
             .await?;
@@ -251,7 +251,7 @@ async fn autounclaim(
         info!("Checking for claimed bots greater than 1 hour claim interval");
 
         let res = sqlx::query!(
-            "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE claimed = true AND NOW() - last_claimed > INTERVAL '1 hour'",
+            "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
         )
         .fetch_all(&pool)
         .await;
@@ -273,7 +273,7 @@ async fn autounclaim(
                     bot.bot_id
                 );
                 let res = sqlx::query!(
-                    "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
+                    "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
                     bot.bot_id
                 )
                 .execute(&pool)
@@ -297,7 +297,7 @@ async fn autounclaim(
                     bot.bot_id
                 );
                 let res = sqlx::query!(
-                    "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
+                    "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
                     bot.bot_id
                 )
                 .execute(&pool)
@@ -323,7 +323,7 @@ async fn autounclaim(
                 bot.bot_id, claimed_by
             );
             let res = sqlx::query!(
-                "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
+                "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
                 bot.bot_id
             )
             .execute(&pool)

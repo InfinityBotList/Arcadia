@@ -114,7 +114,7 @@ pub async fn approve_bot(
     }
 
     sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
     )
     .execute(pool)
     .await?;
@@ -156,7 +156,7 @@ pub async fn approve_bot(
     add_action_log(pool, bot_id, staff_id, reason, "approve").await?;
 
     sqlx::query!(
-        "UPDATE bots SET type = 'approved', claimed_by = NULL, claimed = false WHERE bot_id = $1",
+        "UPDATE bots SET type = 'approved', claimed_by = NULL WHERE bot_id = $1",
         bot_id
     )
     .execute(pool)
@@ -242,7 +242,7 @@ pub async fn deny_bot(
     }
 
     sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
     )
     .execute(pool)
     .await?;
@@ -285,7 +285,7 @@ pub async fn deny_bot(
     add_action_log(pool, bot_id, staff_id, reason, "deny").await?;
 
     sqlx::query!(
-        "UPDATE bots SET type = 'denied', claimed_by = NULL, claimed = false WHERE bot_id = $1",
+        "UPDATE bots SET type = 'denied', claimed_by = NULL WHERE bot_id = $1",
         bot_id
     )
     .execute(pool)

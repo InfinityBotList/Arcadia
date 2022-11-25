@@ -23,7 +23,7 @@ pub async fn invite(
     let data = ctx.data();
 
     let invite_data = sqlx::query!(
-        "SELECT invite FROM bots WHERE bot_id = $1 OR queue_name ILIKE $1 OR vanity = $1 ORDER BY date DESC LIMIT 1",
+        "SELECT invite FROM bots WHERE bot_id = $1 OR queue_name ILIKE $1 OR vanity = $1 ORDER BY created_at DESC LIMIT 1",
         bot
     )
     .fetch_one(&data.pool)
@@ -75,7 +75,7 @@ pub async fn queue(
     let data = ctx.data();
 
     sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
     )
     .execute(&data.pool)
     .await?;
@@ -106,7 +106,7 @@ pub async fn queue(
                 name = bot.queue_name,
                 bot_id = bot.bot_id,
                 claimed_by = claimed_by,
-                ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
+                ap_note = bot.approval_note,
             )?;
         } else {
             writeln!(
@@ -115,7 +115,7 @@ pub async fn queue(
                 i = i,
                 name = bot.queue_name,
                 bot_id = bot.bot_id,
-                ap_note = bot.approval_note.unwrap_or_else(|| "None".to_string()),
+                ap_note = bot.approval_note,
             )?;
         }
 
@@ -180,7 +180,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) 
     let discord = ctx.serenity_context();
 
     sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
     )
     .execute(&data.pool)
     .await?;
@@ -202,7 +202,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) 
     if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
         // Claim it
         sqlx::query!(
-            "UPDATE bots SET claimed = true, last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
+            "UPDATE bots SET type = 'claimed', last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
             ctx.author().id.0.to_string(),
             bot.id
         )
@@ -313,7 +313,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) 
             } else {
                 // Force claim
                 sqlx::query!(
-                    "UPDATE bots SET claimed = true, last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
+                    "UPDATE bots SET type = 'claimed', last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
                     ctx.author().id.0.to_string(),
                     bot.id
                 )
@@ -480,7 +480,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
     }
 
     sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, claimed = false WHERE LOWER(claimed_by) = 'none'",
+        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
     )
     .execute(&data.pool)
     .await?;
@@ -499,7 +499,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
         ctx.say(format!("<@{}> is not claimed", bot.id.0)).await?;
     } else {
         sqlx::query!(
-            "UPDATE bots SET claimed_by = NULL, claimed = false WHERE bot_id = $1",
+            "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
             bot.id.0.to_string()
         )
         .execute(&data.pool)

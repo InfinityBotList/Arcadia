@@ -82,7 +82,7 @@ pub async fn queue(
     .await?;
 
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note, short, queue_name FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at DESC",
+        "SELECT claimed_by, bot_id, approval_note, short, queue_name FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at ASC",
     )
     .fetch_all(&data.pool)
     .await?;
@@ -100,7 +100,15 @@ pub async fn queue(
     let mut msg = ctx.send(|m| {
         let bot = &bots[current_bot];
 
-        let text_msg = format!("**Bot {}**\n**ID:** {}\n**Claimed by:** {}\n**Approval note:** {}\n**Short:** {}\n**Queue name:** {}", current_bot + 1, bot.bot_id, bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), bot.approval_note, bot.short, bot.queue_name);
+        let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}", 
+            name = bot.queue_name,
+            c_bot = current_bot + 1, 
+            bot_len = bot_len,
+            id = bot.bot_id, 
+            claimed_by = bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), 
+            approve_note = bot.approval_note, 
+            short = bot.short
+        );
 
         if !embed {
             m.content(text_msg);
@@ -185,7 +193,15 @@ pub async fn queue(
         msg.edit(ctx, |m| {
             let bot = &bots[current_bot];
     
-            let text_msg = format!("**Bot {}**\n**ID:** {}\n**Claimed by:** {}\n**Approval note:** {}\n**Short:** {}\n**Queue name:** {}", current_bot + 1, bot.bot_id, bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), bot.approval_note, bot.short, bot.queue_name);
+            let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}", 
+                name = bot.queue_name,
+                c_bot = current_bot + 1, 
+                bot_len = bot_len,
+                id = bot.bot_id, 
+                claimed_by = bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), 
+                approve_note = bot.approval_note, 
+                short = bot.short
+            );
             
             if !embed {
                 m.content(text_msg);

@@ -1,10 +1,11 @@
 use crate::{_checks as checks, _onboarding::onboard_autocomplete};
 use crate::_utils::Bool;
+use futures_util::StreamExt;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::UserId;
 use serde::Serialize;
 use log::{error, info};
-use std::fmt::Write;
+use std::time::Duration;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -81,94 +82,172 @@ pub async fn queue(
     .await?;
 
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note, queue_name FROM bots WHERE type = 'pending'",
+        "SELECT claimed_by, bot_id, approval_note, short, queue_name FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at DESC",
     )
     .fetch_all(&data.pool)
     .await?;
 
     if bots.is_empty() {
-        return Err("There are no bots in the queue!".into());
+        ctx.say("There are no bots in the queue!").await?;
+        return Ok(());
     }
 
-    let mut i = 0;
+    let mut current_bot = 0;
+    let bot_len = bots.len();
 
-    let mut desc_str = "".to_string();
 
-    let page = 1;
+    // Send message with buttons
+    let mut msg = ctx.send(|m| {
+        let bot = &bots[current_bot];
 
-    for bot in bots {
-        i += 1;
-        if let Some(claimed_by) = bot.claimed_by {
-            writeln!(
-                desc_str,
-                "**{i}.** {name} ({bot_id}) [Claimed by: {claimed_by} (<@{claimed_by}>)]\n**Note:** {ap_note}",
-                i = i,
-                name = bot.queue_name,
-                bot_id = bot.bot_id,
-                claimed_by = claimed_by,
-                ap_note = bot.approval_note,
-            )?;
+        let text_msg = format!("**Bot {}**\n**ID:** {}\n**Claimed by:** {}\n**Approval note:** {}\n**Short:** {}\n**Queue name:** {}", current_bot + 1, bot.bot_id, bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), bot.approval_note, bot.short, bot.queue_name);
+
+        if !embed {
+            m.content(text_msg);
         } else {
-            writeln!(
-                desc_str,
-                "**{i}.** {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}",
-                i = i,
-                name = bot.queue_name,
-                bot_id = bot.bot_id,
-                ap_note = bot.approval_note,
-            )?;
+            m.embed(
+                |e| {
+                    e
+                    .title(format!("Bot {}", current_bot + 1))
+                    .field("ID", bot.bot_id.clone(), true)
+                    .field("Claimed by", bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), true)
+                    .field("Approval note", bot.approval_note.clone(), true)
+                    .field("Short", bot.short.clone(), true)
+                    .field("Queue name", bot.queue_name.clone(), true)
+                }
+            );
         }
 
-        if desc_str.len() > 1998 {
-            if embed {
-                ctx.send(|m| {
-                    m.embed(|e| {
-                        e.title("Bot Queue (Page".to_string() + &page.to_string() + ")")
-                            .description(&desc_str)
-                            .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
-                            .color(0xA020F0)
-                    })
-                })
+        m.components(|c| {
+            c.create_action_row(|ar| {                
+                ar.create_button(|b| {
+                    b.label("Prev")
+                    .style(serenity::ButtonStyle::Primary)
+                    .custom_id("q:prev")
+                    .disabled(current_bot <= 0)
+                });
+
+                ar.create_button(|b| {
+                    b.label("Cancel")
+                    .style(serenity::ButtonStyle::Danger)
+                    .custom_id("q:cancel")
+                });
+
+                ar.create_button(|b| {
+                    b.label("Next")
+                    .style(serenity::ButtonStyle::Primary)
+                    .custom_id("q:next")
+                    .disabled(current_bot >= bot_len - 1)
+                });
+
+                ar
+            })
+        })
+    })
+    .await?
+    .into_message()
+    .await?;
+
+    let mut interaction = msg
+    .await_component_interactions(ctx.serenity_context())
+    .author_id(ctx.author().id)
+    .timeout(Duration::from_secs(120))
+    .build();
+
+    while let Some(item) = interaction.next().await {
+        item.defer(&ctx.serenity_context()).await?;
+
+        let id = &item.data.custom_id;
+
+        info!("Received interaction: {}", id);
+
+        if id == "q:cancel" {
+            item.delete_original_interaction_response(ctx.serenity_context())
                 .await?;
-            } else {
-                ctx.say(desc_str.clone() + "\n\nUse ibb!invite or /invite to get the bots invite")
-                    .await?;
+            interaction.stop();
+            break;
+        }
+
+        if id == "q:prev" {
+            if current_bot == 0 {
+                current_bot = 0
             }
 
-            desc_str = "".to_string();
-        }
-    }
+            current_bot -= 1;
+        } else if id == "q:next" {
+            if current_bot >= bot_len - 1 {
+                current_bot = bot_len - 1
+            }
 
-    if !desc_str.is_empty() {
-        if embed {
-            ctx.send(|m| {
-                m.embed(|e| {
-                    e.title("Bot Queue (Page".to_string() + &page.to_string() + ")")
-                        .description(desc_str)
-                        .footer(|f| f.text("Use ibb!invite or /invite to get the bots invite"))
-                        .color(0xA020F0)
-                })
-            })
-            .await?;
-        } else {
-            ctx.say(desc_str + "\n\nUse ibb!invite or /invite to get the bots invite")
-                .await?;
+            current_bot += 1
         }
+
+        msg.edit(ctx, |m| {
+            let bot = &bots[current_bot];
+    
+            let text_msg = format!("**Bot {}**\n**ID:** {}\n**Claimed by:** {}\n**Approval note:** {}\n**Short:** {}\n**Queue name:** {}", current_bot + 1, bot.bot_id, bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), bot.approval_note, bot.short, bot.queue_name);
+            
+            if !embed {
+                m.content(text_msg);
+            } else {
+                m.embed(
+                    |e| {
+                        e
+                        .title(format!("Bot {}", current_bot + 1))
+                        .field("ID", bot.bot_id.clone(), true)
+                        .field("Claimed by", bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), true)
+                        .field("Approval note", bot.approval_note.clone(), true)
+                        .field("Short", bot.short.clone(), true)
+                        .field("Queue name", bot.queue_name.clone(), true)
+                    }
+                );
+            }
+    
+            m.components(|c| {
+                c.create_action_row(|ar| {                
+                    ar.create_button(|b| {
+                        b.label("Prev")
+                        .style(serenity::ButtonStyle::Primary)
+                        .custom_id("q:prev")
+                        .disabled(current_bot <= 0)
+                    });
+    
+                    ar.create_button(|b| {
+                        b.label("Cancel")
+                        .style(serenity::ButtonStyle::Danger)
+                        .custom_id("q:cancel")
+                    });
+    
+                    ar.create_button(|b| {
+                        b.label("Next")
+                        .style(serenity::ButtonStyle::Primary)
+                        .custom_id("q:next")
+                        .disabled(current_bot >= bot_len - 1)
+                    });
+    
+                    ar
+                })
+            })    
+        }).await?;
     }
 
     Ok(())
 }
 
 /// Implementation of the claim command
-pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) -> Result<(), Error> {
+pub async fn claim_impl(ctx: Context<'_>, bot: &libavacado::types::DiscordUser) -> Result<(), Error> {    
+    if !crate::_onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
+        return Ok(());
+    }
+
     let test_bot_id = std::env::var("TEST_BOT")?;
+
+    if !checks::is_staff(ctx).await? {
+        return Err("You must be staff to use this command!".into());
+    }
 
     if bot.id == test_bot_id {
         return Err("You cannot claim the test bot!".into());
-    }
-
-    if !crate::_onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
-        return Ok(());
     }
 
     if !checks::testing_server(ctx).await? {

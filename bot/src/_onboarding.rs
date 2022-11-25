@@ -581,7 +581,7 @@ Welcome to your onboarding server! Please read the following:
 
     // Before matching, make sure 'Ninja Bot' is always pending
     sqlx::query!(
-        "UPDATE bots SET type = 'pending' WHERE bot_id = $1",
+        "UPDATE bots SET type = 'testbot' WHERE bot_id = $1",
         test_bot
     )
     .execute(&data.pool)

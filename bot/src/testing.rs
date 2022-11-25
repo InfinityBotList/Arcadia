@@ -82,7 +82,7 @@ pub async fn queue(
     .await?;
 
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note, short, queue_name FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at ASC",
+        "SELECT claimed_by, bot_id, approval_note, short, queue_name, owner FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at ASC",
     )
     .fetch_all(&data.pool)
     .await?;
@@ -100,14 +100,15 @@ pub async fn queue(
     let mut msg = ctx.send(|m| {
         let bot = &bots[current_bot];
 
-        let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}", 
+        let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}\n**Owner:** {owner}", 
             name = bot.queue_name,
             c_bot = current_bot + 1, 
             bot_len = bot_len,
             id = bot.bot_id, 
             claimed_by = bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), 
             approve_note = bot.approval_note, 
-            short = bot.short
+            short = bot.short,
+            owner = bot.owner
         );
 
         if !embed {
@@ -116,15 +117,15 @@ pub async fn queue(
             m.embed(
                 |e| {
                     e
-                    .title(format!("Bot {}", current_bot + 1))
-                    .field("ID", bot.bot_id.clone(), true)
-                    .field("Claimed by", bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), true)
+                    .title(format!("{name} {c_bot}/{bot_len}", name = bot.queue_name, c_bot = current_bot + 1, bot_len = bot_len))
+                    .field("ID", bot.bot_id.clone(), false)
+                    .field("Claimed by", bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), false)
                     .field("Approval note", bot.approval_note.clone(), true)
                     .field("Short", bot.short.clone(), true)
                     .field("Queue name", bot.queue_name.clone(), true)
                 }
             );
-        }
+    }
 
         m.components(|c| {
             c.create_action_row(|ar| {                
@@ -193,14 +194,15 @@ pub async fn queue(
         msg.edit(ctx, |m| {
             let bot = &bots[current_bot];
     
-            let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}", 
+            let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}\n**Owner:** {owner}", 
                 name = bot.queue_name,
                 c_bot = current_bot + 1, 
                 bot_len = bot_len,
                 id = bot.bot_id, 
                 claimed_by = bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), 
                 approve_note = bot.approval_note, 
-                short = bot.short
+                short = bot.short,
+                owner = bot.owner
             );
             
             if !embed {
@@ -209,9 +211,9 @@ pub async fn queue(
                 m.embed(
                     |e| {
                         e
-                        .title(format!("Bot {}", current_bot + 1))
-                        .field("ID", bot.bot_id.clone(), true)
-                        .field("Claimed by", bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), true)
+                        .title(format!("{name} {c_bot}/{bot_len}", name = bot.queue_name, c_bot = current_bot + 1, bot_len = bot_len))
+                        .field("ID", bot.bot_id.clone(), false)
+                        .field("Claimed by", bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), false)
                         .field("Approval note", bot.approval_note.clone(), true)
                         .field("Short", bot.short.clone(), true)
                         .field("Queue name", bot.queue_name.clone(), true)

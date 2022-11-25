@@ -119,9 +119,9 @@ pub async fn queue(
                     e
                     .title(format!("{name} {c_bot}/{bot_len}", name = bot.queue_name, c_bot = current_bot + 1, bot_len = bot_len))
                     .field("ID", bot.bot_id.clone(), false)
+                    .field("Short", bot.short.clone(), false)
                     .field("Claimed by", bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), false)
                     .field("Approval note", bot.approval_note.clone(), true)
-                    .field("Short", bot.short.clone(), true)
                     .field("Queue name", bot.queue_name.clone(), true)
                 }
             );
@@ -213,13 +213,13 @@ pub async fn queue(
                         e
                         .title(format!("{name} {c_bot}/{bot_len}", name = bot.queue_name, c_bot = current_bot + 1, bot_len = bot_len))
                         .field("ID", bot.bot_id.clone(), false)
+                        .field("Short", bot.short.clone(), false)
                         .field("Claimed by", bot.claimed_by.clone().unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), false)
                         .field("Approval note", bot.approval_note.clone(), true)
-                        .field("Short", bot.short.clone(), true)
                         .field("Queue name", bot.queue_name.clone(), true)
                     }
                 );
-            }
+                }
     
             m.components(|c| {
                 c.create_action_row(|ar| {                

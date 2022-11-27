@@ -160,6 +160,8 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 .unwrap();
 
             loop {
+                interval.tick().await;
+
                 info!("Performing staff recalc");
 
                 let dev_role =
@@ -251,8 +253,6 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
                 // Commit the transaction
                 tx.commit().await?;
-
-                interval.tick().await;
 
                 info!("Checking for claimed bots greater than 1 hour claim interval");
 

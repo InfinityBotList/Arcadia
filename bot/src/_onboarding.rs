@@ -130,11 +130,13 @@ pub async fn handle_onboarding(
     let mut onboard_state = onboard_state.as_str();
 
     let onboarded = sqlx::query!(
-        "SELECT staff_onboarded, staff_onboard_last_start_time FROM users WHERE user_id = $1",
+        "SELECT staff_onboarded, staff_onboard_guild, staff_onboard_last_start_time FROM users WHERE user_id = $1",
         user_id
     )
     .fetch_one(&data.pool)
     .await?;
+
+    let onboard_guild = onboarded.staff_onboard_guild.unwrap_or_default();
 
     // Onboarding is complete, exit early
     if onboard_state == "complete" {
@@ -201,10 +203,10 @@ pub async fn handle_onboarding(
         .await?;
     }
 
-    let cur_guild = ctx.guild().unwrap().name.clone();
+    let cur_guild = ctx.guild().unwrap().id;
 
-    if cur_guild.to_lowercase() != user_id.to_lowercase() {
-        ctx.say("Creating new onboarding server for you!").await?;
+    if cur_guild.to_string() != onboard_guild {
+        ctx.say("Creating/finding an onboarding server for you!").await?;
 
         sqlx::query!(
             "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
@@ -214,98 +216,93 @@ pub async fn handle_onboarding(
         .await?;
 
         // Check for old onboarding server
-        let guilds = discord.cache.guilds();
+        let id = if let Some(guild) = discord.cache.guild(onboard_guild.parse::<NonZeroU64>()?) {
+            Some(guild.id)
+        } else {
+            None
+        };
 
-        let mut found = false;
+        if let Some(guild) = id {
+            let mut channel = None;
+            for (_, chan) in guild.channels(&discord.http).await? {
+                if chan.name() == "readme" {
+                    channel = Some(chan);
+                    break;
+                }
+            }
 
-        for guild in guilds.iter() {
-            let name = guild.name(discord);
+            if channel.is_none() {
+                // Create a new readme channel
+                let readme = guild
+                .create_channel(
+                    &discord, 
+                    CreateChannel::new("readme")
+                )
+                .await?;
 
-            if let Some(name) = name {
-                if name.to_lowercase() == user_id.to_lowercase() {
-                    // Try to find a channel named readme
-                    let mut channel = None;
-
-                    for (_, chan) in guild.channels(&discord).await? {
-                        if chan.name() == "readme" {
-                            channel = Some(chan);
-                            break;
-                        }
-                    }
-
-                    if channel.is_none() {
-                        // Create a new readme channel
-                        let readme = guild
-                        .create_channel(
-                            &discord, 
-                            CreateChannel::new("readme")
-                        )
-                        .await?;
-
-                        readme.say(&discord, r#"
+                readme.say(&discord, r#"
 Welcome to your onboarding server! Please read the following:
 
 1. To start onboarding, run ``ibb!onboard`` in the #general channel.
 2. There is a 1 hour time limit for onboarding. If you exceed this time limit, you will have to start over. You can extend this limit by progressing through onboarding.                        
-                        "#).await?;
-                    }
+                "#).await?;
 
-                    let channel = channel.unwrap();
-
-                    // Create DM invite
-                    let invite = CreateInvite::new()
-                        .max_age(0)
-                        .max_uses(1)
-                        .temporary(false)
-                        .unique(true);
-                    let dm_invite = channel.create_invite(&discord, invite).await?;
-
-                    // Create DM channel
-                    let user_id = UserId(user_id.parse::<NonZeroU64>().unwrap());
-
-                    let dm_channel = user_id.create_dm_channel(discord).await?;
-
-                    // Send invite in DM
-                    let msg = CreateMessage::new()
-                    .embed(
-                        CreateEmbed::default()
-                        .title("Onboarding Server")
-                        .description("Click the link below to join the onboarding server. **This link is private**")
-                        .color(0x00ff00)
-                    )
-                    .components(
-                        vec![
-                            CreateActionRow::Buttons(
-                                vec![
-                                    CreateButton::new_link(&dm_invite.url()).label("Join Onboarding Server")
-                                ]
-                            )
-                        ]
-                    );
-
-                    dm_channel.send_message(discord, msg).await?;
-
-                    found = true;
-                }
+                channel = Some(readme);
             }
-        }
 
-        if !found {
+            let channel = channel.unwrap();
+
+            // Create DM invite
+            let invite = CreateInvite::new()
+                .max_age(0)
+                .max_uses(1)
+                .temporary(false)
+                .unique(true);
+            let dm_invite = channel.create_invite(&discord, invite).await?;
+
+            // Create DM channel
+            let user_id = UserId(user_id.parse::<NonZeroU64>().unwrap());
+
+            let dm_channel = user_id.create_dm_channel(discord).await?;
+
+            // Send invite in DM
+            let msg = CreateMessage::new()
+            .embed(
+                CreateEmbed::default()
+                .title("Onboarding Server")
+                .description("Click the link below to join the onboarding server. **This link is private**")
+                .color(0x00ff00)
+            )
+            .components(
+                vec![
+                    CreateActionRow::Buttons(
+                        vec![
+                            CreateButton::new_link(&dm_invite.url()).label("Join Onboarding Server")
+                        ]
+                    )
+                ]
+            );
+
+            dm_channel.send_message(discord, msg).await?;
+
+            return Ok(false);
+        } else {
+            // Create a new guild
             let map = json!({
                 "name": user_id,
             });
 
-            let new_guild = discord.http.create_guild(&map).await?;
+            let guild = discord
+            .http
+            .create_guild(&map)
+            .await?;
 
-            sqlx::query!(
-                "UPDATE users SET staff_onboard_guild = $1 WHERE user_id = $2",
-                new_guild.id.to_string(),
-                user_id
-            )
+            sqlx::query!("UPDATE users SET staff_onboard_guild = $1 WHERE user_id = $2", guild.id.to_string(), user_id)
             .execute(&data.pool)
             .await?;
 
-            let readme = new_guild
+            // Create a new readme channel
+            let readme = guild
             .create_channel(
                 &discord, 
                 CreateChannel::new("readme")
@@ -319,27 +316,13 @@ Welcome to your onboarding server! Please read the following:
 2. There is a 1 hour time limit for onboarding. If you exceed this time limit, you will have to start over. You can extend this limit by progressing through onboarding.                        
             "#).await?;
 
-            // Create new invite for staff managers
+            // Create invite
             let invite = CreateInvite::new()
                 .max_age(0)
-                .max_uses(0)
+                .max_uses(1)
                 .temporary(false)
                 .unique(true);
-
-            let invite = readme
-                .create_invite(&discord, invite)
-                .await?;
-
-            // Create DM invite
-            let dm_invite = CreateInvite::new()
-                .max_age(0)
-                .max_uses(0)
-                .temporary(false)
-                .unique(true);
-
-            let dm_invite = readme
-                .create_invite(&discord, dm_invite)
-                .await?;
+            let invite = readme.create_invite(&discord, invite).await?;
 
             // Create DM channel
             let user_id = UserId(user_id.parse::<NonZeroU64>().unwrap());
@@ -347,24 +330,24 @@ Welcome to your onboarding server! Please read the following:
             let dm_channel = user_id.create_dm_channel(discord).await?;
 
             // Send invite in DM
-            let dm_invite_msg = CreateMessage::default()
+            let msg = CreateMessage::new()
             .embed(
                 CreateEmbed::default()
                 .title("Onboarding Server")
-                .description("Click the link below to join the onboarding server. **This link is private and should not be shared**")
+                .description("Click the link below to join the onboarding server. **This link is private**")
                 .color(0x00ff00)
             )
             .components(
                 vec![
                     CreateActionRow::Buttons(
                         vec![
-                            CreateButton::new_link(&dm_invite.url()).label("Join Onboarding Server")
+                            CreateButton::new_link(&invite.url()).label("Join Onboarding Server")
                         ]
                     )
                 ]
             );
 
-            dm_channel.send_message(discord, dm_invite_msg).await?;
+            dm_channel.send_message(discord, msg).await?;
 
             let onboard_channel = std::env::var("ONBOARDING_CHANNEL").unwrap();
 
@@ -389,10 +372,8 @@ Welcome to your onboarding server! Please read the following:
             );
             channel.send_message(discord, sm_invite_msg).await?;
 
-            return Ok(false);
+            return Ok(false)
         }
-
-        return Ok(false);
     } else {
         // Check if user is admin
         let mut found = false;

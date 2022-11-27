@@ -452,9 +452,25 @@ For more information, you can contact the current reviewer <@{}>
                     if res.count.unwrap_or_default() == 0 {
                         // This guild can be deleted or left
                         if guild_id.0 == bowner {
-                            guild_id.delete(&http).await?;
+                            let err = guild_id.delete(&http).await;
+
+                            if err.is_err() {
+                                error!(
+                                    "Error while deleting guild {}: {:?}",
+                                    guild_id.0,
+                                    err.unwrap_err()
+                                );
+                            }
                         } else {
-                            guild_id.leave(&http).await?;
+                            let err = guild_id.leave(&http).await;
+
+                            if err.is_err() {
+                                error!(
+                                    "Error while leaving guild {}: {:?}",
+                                    guild_id.0,
+                                    err.unwrap_err()
+                                );
+                            }
                         }
                     }
                 }

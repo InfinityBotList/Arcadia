@@ -173,7 +173,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
             let ctx = ctx.to_owned();
             let pool = user_data.pool.clone();
 
-            let mut interval = tokio::time::interval(Duration::from_millis(30000));
+            let mut interval = tokio::time::interval(Duration::from_secs(120));
 
             let lounge_channel_id = ChannelId(
                 std::env::var("LOUNGE_CHANNEL")

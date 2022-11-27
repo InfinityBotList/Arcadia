@@ -432,6 +432,8 @@ For more information, you can contact the current reviewer <@{}>
 
                 let bowner = ctx.cache.current_user().id.0;
 
+                info!("Checking {} guilds", guilds.len());
+
                 // We do this to avoid the async cache guard introduced in serenity next
                 for guild_id in guilds {
                     // Check if guild is official (main/testing/staff)

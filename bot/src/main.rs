@@ -61,15 +61,6 @@ async fn age(
     Ok(())
 }
 
-/// Test followup
-#[poise::command(slash_command, prefix_command)]
-async fn actf(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("initial response").await?;
-    ctx.say("followup").await?;
-
-    Ok(())
-}
-
 #[poise::command(prefix_command)]
 async fn register(ctx: Context<'_>) -> Result<(), Error> {
     poise::builtins::register_application_commands_buttons(ctx).await?;
@@ -117,25 +108,6 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             }
         }
     }
-}
-
-#[poise::command(track_edits, prefix_command, slash_command)]
-async fn simplehelp(
-    ctx: Context<'_>,
-    #[description = "Specific command to show help about"]
-    #[autocomplete = "poise::builtins::autocomplete_command"]
-    command: Option<String>,
-) -> Result<(), Error> {
-    poise::builtins::help(
-        ctx,
-        command.as_deref(),
-        poise::builtins::HelpConfiguration {
-            show_context_menu_commands: true,
-            ..poise::builtins::HelpConfiguration::default()
-        },
-    )
-    .await?;
-    Ok(())
 }
 
 async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error> {
@@ -639,9 +611,8 @@ async fn main() {
             listener: |event, _ctx, user_data| Box::pin(event_listener(event, user_data)),
             commands: vec![
                 age(),
-                actf(),
                 register(),
-                simplehelp(),
+                help::simplehelp(),
                 help::help(),
                 explain::explainme(),
                 staff::staff(),

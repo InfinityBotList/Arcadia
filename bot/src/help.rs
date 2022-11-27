@@ -350,3 +350,22 @@ pub async fn maint(ctx: Context<'_>) -> Result<(), Error> {
     ctx.send(create_message).await?;
     Ok(())
 }
+
+#[poise::command(track_edits, prefix_command, slash_command)]
+pub async fn simplehelp(
+    ctx: Context<'_>,
+    #[description = "Specific command to show help about"]
+    #[autocomplete = "poise::builtins::autocomplete_command"]
+    command: Option<String>,
+) -> Result<(), Error> {
+    poise::builtins::help(
+        ctx,
+        command.as_deref(),
+        poise::builtins::HelpConfiguration {
+            show_context_menu_commands: true,
+            ..poise::builtins::HelpConfiguration::default()
+        },
+    )
+    .await?;
+    Ok(())
+}

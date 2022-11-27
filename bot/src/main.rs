@@ -436,6 +436,7 @@ For more information, you can contact the current reviewer <@{}>
 
                 // We do this to avoid the async cache guard introduced in serenity next
                 for guild_id in guilds {
+                    let guild_owner = ctx.cache.guild(guild_id).unwrap().owner_id;
                     // Check if guild is official (main/testing/staff)
                     if guild_id.0 == main_server
                         || guild_id.0 == testing_server
@@ -453,7 +454,7 @@ For more information, you can contact the current reviewer <@{}>
 
                     if res.count.unwrap_or_default() == 0 {
                         // This guild can be deleted or left
-                        if guild_id.0 == bowner {
+                        if guild_owner.0 == bowner {
                             let err = guild_id.delete(&http).await;
 
                             if err.is_err() {

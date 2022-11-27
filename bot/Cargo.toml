@@ -8,8 +8,7 @@ edition = "2021"
 [dependencies]
 poise = { git = "https://github.com/serenity-rs/poise", branch = "serenity-next" }
 serde = "1.0"
-docser = { git = "https://github.com/RustLibs/docser.git", branch = "main" }
-log = "0.4.14"
+log = "0.4"
 env_logger = "0.9"
 serde_json = "1.0"
 serde_repr = "0.1"
@@ -19,7 +18,6 @@ chrono = { version = "0.4", features = ["serde"]}
 dotenv = "0.15"
 futures-util = "0.3"
 libavacado = { path = "../libavacado" }
-leone = { path = "./leone" }
 ring = "0.16"
 data-encoding = "2.3"
 

@@ -15,18 +15,6 @@
   - ``leone`` => a library crate containing proc-macros for the bot
 - ``api`` => Arcadia Staff API (statistics, maybe a claim/unclaim/approve/deny api for panel if needed etc)
 - ``libavacado`` => Common shared logic for ``bot``, ``api`` and any possible addition to Arcadia
-- ``libteapot`` => A vendored fork of the ``slog-json`` crate with some modifications to make it work better with Arcadia as well as the core logging setup code.
-
-**libteapot requires additional configuration before it can be used.**
-
-To use it, use the following code
-
-```rust
-let logger = libteapot::logger::setup_logging("/var/log/FILENAME.log");
-
-let _scope_guard = slog_scope::set_global_logger(logger.clone());
-let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();
-```
 
 ## Database Seeds
 

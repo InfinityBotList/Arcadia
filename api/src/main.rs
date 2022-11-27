@@ -3,15 +3,14 @@ use std::sync::Arc;
 use actix_cors::Cors;
 use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use libavacado::public::AvacadoPublic;
+use log::info;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::gateway::{GatewayIntents, Ready};
-use slog_scope::info;
 use sqlx::postgres::PgPoolOptions;
 
 use dotenv::dotenv;
 
-mod loggy;
 mod models;
 mod routes;
 
@@ -41,7 +40,7 @@ struct MainHandler {}
 #[async_trait]
 impl EventHandler for MainHandler {
     async fn ready(&self, _ctx: Context, ready: Ready) {
-        info!("Bot is connected!"; "user" => ready.user.name);
+        info!("Bot is connected: {}", ready.user.name);
     }
 }
 
@@ -49,14 +48,13 @@ impl EventHandler for MainHandler {
 async fn main() -> std::io::Result<()> {
     const MAX_CONNECTIONS: u32 = 3;
 
-    let logger = libteapot::logger::setup_logging("/var/log/arcadia-api.log");
-
-    let _scope_guard = slog_scope::set_global_logger(logger.clone());
-    let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();
-
     info!("Starting up now!");
 
     dotenv().ok();
+
+    std::env::set_var("RUST_LOG", "api=info");
+
+    env_logger::init();
 
     let pool = PgPoolOptions::new()
         .max_connections(MAX_CONNECTIONS)
@@ -64,7 +62,7 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Could not initialize connection");
 
-    info!("Connected to postgres/redis"; "pool_size" => pool.size());
+    info!("Connected to postgres with pool size: {}", pool.size());
 
     let mut main_cli = serenity::Client::builder(
         std::env::var("DISCORD_TOKEN").expect("No DISCORD_TOKEN specified"),
@@ -116,7 +114,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::PathConfig::default().error_handler(|err, _req| actix_handle_err(err)))
             .wrap(cors)
             .wrap(middleware::Compress::default())
-            .wrap(crate::loggy::Logger)
+            .wrap(middleware::Logger::default())
             .wrap(middleware::NormalizePath::new(
                 middleware::TrailingSlash::MergeOnly,
             ))

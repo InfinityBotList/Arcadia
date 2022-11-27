@@ -1,9 +1,9 @@
 use crate::_utils::Bool;
-use crate::{_checks as checks, _onboarding::onboard_autocomplete};
+use crate::{_checks as checks};
 use futures_util::StreamExt;
-use log::{error, info};
+use log::info;
 use poise::{serenity_prelude as serenity, CreateReply};
-use poise::serenity_prelude::{UserId, CreateActionRow, CreateMessage, CreateButton, CreateEmbed, CreateEmbedFooter};
+use poise::serenity_prelude::{UserId, CreateActionRow, CreateMessage, CreateButton, CreateEmbed, CreateEmbedFooter, User};
 use serde::Serialize;
 use std::num::NonZeroU64;
 use std::time::Duration;
@@ -231,7 +231,7 @@ pub async fn queue(
 /// Implementation of the claim command
 pub async fn claim_impl(
     ctx: Context<'_>,
-    bot: &libavacado::types::DiscordUser,
+    bot: &User,
 ) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
         return Ok(());
@@ -243,7 +243,7 @@ pub async fn claim_impl(
         return Err("You must be staff to use this command!".into());
     }
 
-    if bot.id == test_bot_id {
+    if bot.id.to_string() == test_bot_id {
         return Err("You cannot claim the test bot!".into());
     }
 
@@ -263,7 +263,7 @@ pub async fn claim_impl(
 
     let claimed = sqlx::query!(
         "SELECT type, owner, claimed_by FROM bots WHERE bot_id = $1",
-        bot.id
+        bot.id.to_string()
     )
     .fetch_one(&data.pool)
     .await?;
@@ -280,14 +280,14 @@ pub async fn claim_impl(
         sqlx::query!(
             "UPDATE bots SET type = 'claimed', last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
             ctx.author().id.0.to_string(),
-            bot.id
+            bot.id.to_string()
         )
         .execute(&data.pool)
         .await?;
 
         libavacado::staff::add_action_log(
             &data.pool,
-            &bot.id,
+            &bot.id.to_string(),
             &ctx.author().id.0.to_string(),
             "Claimed",
             "claim",
@@ -298,7 +298,7 @@ pub async fn claim_impl(
         .embed(
             CreateEmbed::default()
             .title("Bot Claimed")
-            .description(format!("You have claimed <@{}>", bot.username))
+            .description(format!("You have claimed <@{}>", bot.name))
             .footer(CreateEmbedFooter::new("Use ibb!invite or /invite to get the bots invite"))
         );
 
@@ -369,7 +369,7 @@ pub async fn claim_impl(
             if id == "remind" {
                 libavacado::staff::add_action_log(
                     &data.pool,
-                    &bot.id,
+                    &bot.id.to_string(),
                     &claimed_by,
                     "User reminder",
                     "reminder",
@@ -387,14 +387,14 @@ pub async fn claim_impl(
                 sqlx::query!(
                     "UPDATE bots SET type = 'claimed', last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
                     ctx.author().id.0.to_string(),
-                    bot.id
+                    bot.id.to_string()
                 )
                 .execute(&data.pool)
                 .await?;
 
                 libavacado::staff::add_action_log(
                     &data.pool,
-                    &bot.id,
+                    &bot.id.to_string(),
                     &ctx.author().id.0.to_string(),
                     "Force claim since previous staff did not finish reviewing bot",
                     "claim",
@@ -444,82 +444,12 @@ pub async fn claim_impl(
 )]
 pub async fn claim(
     ctx: Context<'_>,
-    #[autocomplete = "claim_autocomplete"]
     #[description = "The bot you wish to claim"]
-    bot: String,
+    bot: User,
 ) -> Result<(), Error> {
-    let mut resolved_id = bot;
-
-    if resolved_id.starts_with("<@") {
-        resolved_id = resolved_id.replace("<@", "");
-        resolved_id = resolved_id.replace(">", "");
-    }
-
-    // Try parsing as a user
-    let user = resolved_id.parse::<NonZeroU64>();
-
-    if user.is_err() {
-        return Err("Invalid user ID".into());
-    }
-
-    let public = ctx.data();
-
-    let user = libavacado::public::get_user(&public.avacado_public, &resolved_id, false).await?;
-
-    claim_impl(ctx, user.as_ref()).await?;
+    claim_impl(ctx, &bot).await?;
 
     Ok(())
-}
-
-async fn claim_autocomplete<'a>(
-    ctx: Context<'_>,
-    partial: &'a str,
-) -> Vec<poise::AutocompleteChoice<String>> {
-    info!("Called claim autocomplete");
-
-    let onboard_ac = onboard_autocomplete(ctx, partial).await;
-
-    if let Ok(v) = onboard_ac {
-        if !v.is_empty() {
-            return v;
-        }
-    } else {
-        let err = onboard_ac.err().unwrap();
-        error!("Error getting onboard autocomplete: {:?}", err);
-        return Vec::new();
-    }
-
-    let data = ctx.data();
-
-    let bots = sqlx::query!(
-        "SELECT bot_id, queue_name FROM bots WHERE (bot_id ILIKE $1 OR vanity ILIKE $1) AND (type = 'pending' OR type = 'claimed')",
-        format!("%{}%", partial)
-    )
-    .fetch_all(&data.pool)
-    .await;
-
-    if bots.is_err() {
-        error!("Error getting bots: {:?}", bots);
-        return vec![];
-    }
-
-    let bots = bots.unwrap();
-
-    let mut out = vec![];
-
-    let test_bot_id = std::env::var("TEST_BOT").unwrap();
-    for bot in bots {
-        if bot.bot_id == test_bot_id {
-            continue;
-        }
-
-        out.push(poise::AutocompleteChoice {
-            name: format!("{} ({})", bot.queue_name, bot.bot_id),
-            value: bot.bot_id,
-        });
-    }
-
-    out
 }
 
 #[poise::command(
@@ -532,7 +462,7 @@ pub async fn claim_context(
     ctx: Context<'_>,
     #[description = "User"] user: serenity::User,
 ) -> Result<(), Error> {
-    claim_impl(ctx, &libavacado::types::DiscordUser::from_user(user)).await
+    claim_impl(ctx, &user).await
 }
 
 pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {

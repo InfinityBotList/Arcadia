@@ -1,11 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
-use utoipa::ToSchema;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
-#[derive(Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct DiscordUser {
     pub id: String,
     pub username: String,
@@ -28,7 +27,7 @@ impl DiscordUser {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct StaffAppQuestion {
     pub id: String,
     pub question: String,
@@ -36,7 +35,7 @@ pub struct StaffAppQuestion {
     pub placeholder: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct StaffPosition {
     pub info: String,
     pub open: bool,
@@ -46,7 +45,7 @@ pub struct StaffPosition {
     pub app_site_rendered: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct StaffAppData {
     pub positions: Vec<String>,
     pub staff: StaffPosition,
@@ -55,7 +54,7 @@ pub struct StaffAppData {
     pub partners: StaffPosition,
 }
 
-#[derive(Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct StaffAppResponse {
     pub app_id: String,
     pub user_id: String,
@@ -81,7 +80,7 @@ impl StaffAppData {
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
 pub struct Link {
     pub name: String,
     pub value: String,

@@ -14,15 +14,9 @@ serde = "1.0"
 serde_json = "1.0"
 log = "0.4"
 chrono = { version = "0.4", features = ["serde"]}
-moka = { version = "0.9", features = ["future"] }
 rand = "0.8.5"
-deadpool-redis = { version = "0.10.2", features = ["rt_tokio_1", "serde"] }
-deadpool = { version = "0.9.5", features = ["rt_tokio_1", "serde"] }
 itertools = "0.10.5"
-ammonia = "3.2.1"
 indexmap = { version = "1.9.1", features = ["serde"] }
-utoipa = { version = "2" }
-pulldown-cmark = "0.9.2"
 
 [build-dependencies]
 vergen = "7.3.2"

@@ -28,7 +28,6 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pool: sqlx::PgPool,
-    avacado_public: libavacado::public::AvacadoPublic,
 }
 
 struct CollectedGuild {
@@ -698,10 +697,6 @@ async fn main() {
                         .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
                         .await
                         .expect("Could not initialize connection"),
-                    avacado_public: libavacado::public::AvacadoPublic::new(
-                        _ctx.cache.clone(),
-                        _ctx.http.clone(),
-                    ),
                 })
             })
         },

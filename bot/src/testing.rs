@@ -268,14 +268,14 @@ pub async fn claim_impl(
     .fetch_one(&data.pool)
     .await?;
 
-    if claimed.r#type != "pending" {
+    if claimed.r#type != "pending" && claimed.r#type != "claimed" {
         return Err("This bot is not pending review".into());
     }
 
     // Get main owner
     let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
 
-    if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
+    if claimed.r#type == "pending" {
         // Claim it
         sqlx::query!(
             "UPDATE bots SET type = 'claimed', last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
@@ -492,7 +492,7 @@ async fn claim_autocomplete<'a>(
     let data = ctx.data();
 
     let bots = sqlx::query!(
-        "SELECT bot_id, queue_name FROM bots WHERE (bot_id ILIKE $1 OR vanity ILIKE $1) AND type = 'pending'",
+        "SELECT bot_id, queue_name FROM bots WHERE (bot_id ILIKE $1 OR vanity ILIKE $1) AND (type = 'pending' OR type = 'claimed')",
         format!("%{}%", partial)
     )
     .fetch_all(&data.pool)

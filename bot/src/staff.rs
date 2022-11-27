@@ -18,6 +18,7 @@ type Context<'a> = crate::Context<'a>;
     guild_cooldown = 10,
     subcommands(
         "staff_add",
+        "staff_list",
         "staff_del",
         "staff_guildlist",
         "staff_guilddel",

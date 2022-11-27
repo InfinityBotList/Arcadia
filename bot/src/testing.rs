@@ -536,11 +536,17 @@ pub async fn claim_context(
 }
 
 pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {
+    if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
+        return Ok(());
+    }
+
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
-        return Ok(());
+    let test_bot_id = std::env::var("TEST_BOT")?;
+
+    if bot.id.to_string() == test_bot_id {
+        return Err("You cannot claim the test bot!".into());
     }
 
     if !checks::testing_server(ctx).await? {

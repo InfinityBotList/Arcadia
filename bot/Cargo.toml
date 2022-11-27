@@ -10,7 +10,7 @@ poise = { git = "https://github.com/serenity-rs/poise", branch = "serenity-next"
 serde = "1.0"
 docser = { git = "https://github.com/RustLibs/docser.git", branch = "main" }
 log = "0.4.14"
-env_logger = "0.9"
+env_logger = "0.10"
 serde_json = "1.0"
 serde_repr = "0.1"
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls", "postgres", "chrono", "uuid", "bigdecimal", "json", "offline"] }

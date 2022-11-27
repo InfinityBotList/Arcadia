@@ -30,12 +30,6 @@ pub struct Data {
     pool: sqlx::PgPool,
 }
 
-struct CollectedGuild {
-    guild_id: NonZeroU64,
-    guild_name: String,
-    owner_id: NonZeroU64,
-}
-
 enum StaffPosition {
     Staff,
     Manager,
@@ -141,7 +135,6 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
             .execute(&user_data.pool)
             .await?;
 
-            let ctx = ctx.to_owned();
             let pool = user_data.pool.clone();
 
             let mut interval = tokio::time::interval(Duration::from_secs(120));
@@ -437,7 +430,7 @@ For more information, you can contact the current reviewer <@{}>
 
                 let http = ctx.http.clone();
 
-                let mut collected_guilds = Vec::new();
+                let bowner = ctx.cache.current_user().id.0;
 
                 // We do this to avoid the async cache guard introduced in serenity next
                 for guild_id in guilds {
@@ -449,104 +442,19 @@ For more information, you can contact the current reviewer <@{}>
                         continue;
                     }
 
-                    let guild = guild_id.to_guild_cached(&ctx);
+                    let res = sqlx::query!(
+                        "SELECT COUNT(*) FROM users WHERE staff_onboard_guild = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = 'complete' OR staff_onboard_state = 'pending-manager-review')",
+                        guild_id.0.to_string()
+                    )
+                    .fetch_one(&pool)
+                    .await?;
 
-                    if guild.is_none() {
-                        continue;
-                    }
-
-                    let guild = guild.unwrap();
-
-                    // Collect the guild
-                    collected_guilds.push(CollectedGuild {
-                        guild_id: guild_id.0,
-                        owner_id: guild.owner_id.0,
-                        guild_name: guild.name.clone(),
-                    });
-                }
-
-                // Get the current bot ID (for checking ownership here)
-                let bowner = ctx.cache.current_user().id.0;
-
-                for collected in collected_guilds {
-                    // Try parsing guild name to u64
-                    let guild_u64 = collected.guild_name.parse::<NonZeroU64>();
-
-                    if guild_u64.is_err() {
-                        // We have a bad guild name, delete or leave if we are not owner
-                        info!(
-                            "Deleting guild {} because it is not a valid guild name: {}",
-                            collected.guild_id, collected.guild_name
-                        );
-
-                        if bowner == collected.owner_id {
-                            let err = http.delete_guild(GuildId(collected.guild_id)).await;
-
-                            if err.is_err() {
-                                error!(
-                                    "Error while deleting guild {}: {:?}",
-                                    collected.guild_id,
-                                    err.unwrap_err()
-                                );
-                                continue;
-                            }
+                    if res.count.unwrap_or_default() == 0 {
+                        // This guild can be deleted or left
+                        if guild_id.0 == bowner {
+                            guild_id.delete(&http).await?;
                         } else {
-                            let err = http.leave_guild(GuildId(collected.guild_id)).await;
-
-                            if err.is_err() {
-                                error!(
-                                    "Error while leaving guild {}: {:?}",
-                                    collected.guild_id,
-                                    err.unwrap_err()
-                                );
-                                continue;
-                            }
-                        }
-                    } else {
-                        // Check that this guild_u64 is in database under users AND that it is not dead
-                        let res = sqlx::query!(
-                            "SELECT user_id FROM users WHERE user_id = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = 'complete' OR staff_onboard_state = 'pending-manager-review')",
-                            guild_u64.unwrap().to_string()
-                        )
-                        .fetch_one(&pool)
-                        .await;
-
-                        if res.is_err() {
-                            match res.as_ref().unwrap_err() {
-                                sqlx::Error::RowNotFound => {
-                                    if collected.owner_id == bowner {
-                                        let err =
-                                            http.delete_guild(GuildId(collected.guild_id)).await;
-
-                                        if err.is_err() {
-                                            error!(
-                                                "Error while deleting guild with ID: {:?} (error: {:?})",
-                                                collected.guild_id,
-                                                err.unwrap_err()
-                                            );
-                                        }
-                                    } else {
-                                        let err =
-                                            http.leave_guild(GuildId(collected.guild_id)).await;
-
-                                        if err.is_err() {
-                                            error!(
-                                                "Error while leaving guild with ID: {:?} (error: {:?})",
-                                                collected.guild_id,
-                                                err.unwrap_err()
-                                            );
-                                        }
-                                    }
-                                    continue;
-                                }
-                                _ => {
-                                    error!(
-                                        "Error while checking if guild is in database: {:?}",
-                                        res.unwrap_err()
-                                    );
-                                    continue;
-                                }
-                            }
+                            guild_id.leave(&http).await?;
                         }
                     }
                 }

@@ -297,6 +297,14 @@ Welcome to your onboarding server! Please read the following:
 
             let new_guild = discord.http.create_guild(&map).await?;
 
+            sqlx::query!(
+                "UPDATE users SET staff_onboard_guild = $1 WHERE user_id = $2",
+                new_guild.id.to_string(),
+                user_id
+            )
+            .execute(&data.pool)
+            .await?;
+
             let readme = new_guild
             .create_channel(
                 &discord, 

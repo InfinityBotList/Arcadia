@@ -1,8 +1,9 @@
 use futures_util::StreamExt;
 use poise::serenity_prelude::{
-    self as serenity, ChannelId, MessageComponentInteraction, MessageId,
+    self as serenity, ChannelId, ComponentInteraction, ComponentInteractionDataKind,
+    CreateActionRow, CreateButton, CreateEmbed, CreateSelectMenuOption, MessageId,
 };
-use poise::Command;
+use poise::{Command, CreateReply};
 use std::fmt::Write;
 
 use crate::Context;
@@ -118,59 +119,58 @@ pub struct MsgInfo {
     pub message_id: MessageId,
 }
 
-/// Internal function to populate the help action row (select menu)
-#[inline]
-fn _help_select_menu<'a, 'b>(
-    data: &'b [EmbedHelp],
-    ar: &'a mut serenity::builder::CreateActionRow,
+/// Internal function that creates a select menu
+fn _create_select_menu<'a>(
+    data: &'a [EmbedHelp],
     index: usize,
-) -> &'a mut serenity::builder::CreateActionRow {
-    ar.create_select_menu(|sm| {
-        sm.min_values(1)
-            .max_values(1)
-            .custom_id("hnav:selectmenu")
-            .options(|opts| {
-                for (i, pane) in data.iter().enumerate() {
-                    if i == index {
-                        opts.create_option(|opt| {
-                            opt.label(pane.category.clone() + " (current)")
-                                .value(i.to_string())
-                        });
-                    } else {
-                        opts.create_option(|opt| {
-                            opt.label(pane.category.clone()).value(i.to_string())
-                        });
-                    }
-                }
+) -> serenity::builder::CreateSelectMenu {
+    let mut options = Vec::new();
 
-                opts
-            })
-    })
+    for (i, pane) in data.iter().enumerate() {
+        if i == index {
+            options.push(CreateSelectMenuOption::new(
+                pane.category.clone() + " (current)",
+                i.to_string(),
+            ))
+        } else {
+            options.push(CreateSelectMenuOption::new(pane.category.clone(), i.to_string()));
+        }
+    }
+
+    serenity::builder::CreateSelectMenu::new(
+        "hnav:selectmenu",
+        serenity::builder::CreateSelectMenuKind::String { options },
+    )
+    .custom_id("hnav:selectmenu")
 }
 
-/// Internal function to populate the help action row (buttons)
-#[inline]
-fn _help_components(
-    ar: &mut serenity::builder::CreateActionRow,
+fn _create_reply(
+    data: &EmbedHelp,
+    l_data: &Vec<EmbedHelp>,
     index: usize,
     prev_disabled: bool,
     next_disabled: bool,
-) -> &mut serenity::builder::CreateActionRow {
-    ar.create_button(|b| {
-        b.label("Previous")
-            .custom_id("hnav:".to_string() + &(index - 1).to_string())
-            .disabled(prev_disabled)
-    })
-    .create_button(|b| {
-        b.label("Cancel")
-            .custom_id("hnav:cancel")
-            .style(serenity::ButtonStyle::Danger)
-    })
-    .create_button(|b| {
-        b.label("Next")
-            .custom_id("hnav:".to_string() + &(index + 1).to_string())
-            .disabled(next_disabled)
-    })
+) -> CreateReply {
+    CreateReply::default()
+        .embed(
+            CreateEmbed::default()
+                .title(format!("{} (Page {})", data.category, index + 1))
+                .description(&data.desc),
+        )
+        .components(vec![
+            CreateActionRow::Buttons(vec![
+                CreateButton::new("hnav:".to_string() + &(index - 1).to_string())
+                    .label("Previous")
+                    .disabled(prev_disabled),
+                CreateButton::new("hnav:cancel")
+                    .label("Cancel")
+                    .style(serenity::ButtonStyle::Danger),
+                CreateButton::new("hnav:".to_string() + &(index + 1).to_string())
+                    .label("Next")
+                    .disabled(next_disabled),
+            ]),
+            CreateActionRow::SelectMenu(_create_select_menu(l_data, index)),
+        ])
 }
 
 async fn _help_send_index(
@@ -179,7 +179,7 @@ async fn _help_send_index(
     http: &Arc<serenity::Http>,
     l_data: &Vec<EmbedHelp>,
     index: usize,
-    interaction: Option<Arc<MessageComponentInteraction>>,
+    interaction: Option<Arc<ComponentInteraction>>,
 ) -> Result<Option<serenity::Message>, crate::Error> {
     let next_disabled = index >= l_data.len() - 1;
 
@@ -194,37 +194,22 @@ async fn _help_send_index(
                 if interaction.is_none() {
                     old_msg
                         .channel_id
-                        .edit_message(http, old_msg.message_id, |m| {
-                            m.embed(|e| {
-                                e.title(format!("{} (Page {})", data.category, index + 1));
-                                e.description(&data.desc);
-                                e
-                            })
-                            .components(|c| {
-                                c.create_action_row(|a| {
-                                    _help_components(a, index, prev_disabled, next_disabled)
-                                })
-                                .create_action_row(|ar| _help_select_menu(l_data, ar, index))
-                            })
-                        })
+                        .edit_message(
+                            http,
+                            old_msg.message_id,
+                            _create_reply(data, l_data, index, prev_disabled, next_disabled)
+                                .to_prefix_edit(),
+                        )
                         .await?;
                 } else {
                     let interaction = interaction.unwrap();
 
                     interaction
-                        .edit_original_interaction_response(http, |m| {
-                            m.embed(|e| {
-                                e.title(format!("{} (Page {})", data.category, index + 1));
-                                e.description(&data.desc);
-                                e
-                            })
-                            .components(|c| {
-                                c.create_action_row(|a| {
-                                    _help_components(a, index, prev_disabled, next_disabled)
-                                })
-                                .create_action_row(|ar| _help_select_menu(l_data, ar, index))
-                            })
-                        })
+                        .edit_response(
+                            http,
+                            _create_reply(data, l_data, index, prev_disabled, next_disabled)
+                                .to_slash_initial_response_edit(),
+                        )
                         .await?;
                 }
 
@@ -233,21 +218,13 @@ async fn _help_send_index(
 
             if let Some(ctx) = ctx {
                 let msg = ctx
-                    .send(|m| {
-                        m.ephemeral(true);
-
-                        m.embed(|e| {
-                            e.title(format!("{} (Page {})", data.category, index + 1));
-                            e.description(&data.desc);
-                            e
-                        })
-                        .components(|c| {
-                            c.create_action_row(|a| {
-                                _help_components(a, index, prev_disabled, next_disabled)
-                            })
-                            .create_action_row(|ar| _help_select_menu(l_data, ar, index))
-                        })
-                    })
+                    .send(_create_reply(
+                        data,
+                        l_data,
+                        index,
+                        prev_disabled,
+                        next_disabled,
+                    ))
                     .await?
                     .into_message()
                     .await?;
@@ -264,40 +241,45 @@ async fn _help_send_index(
 pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
     let eh = _embed_help(ctx, ctx.framework()).await?;
 
-    let msg = _help_send_index(Some(ctx), None, &ctx.serenity_context().http, &eh, 0, None).await?;
+    let msg = _help_send_index(Some(ctx), None, &ctx.discord().http, &eh, 0, None).await?;
 
     if let Some(msg) = msg {
-        let mut interaction = msg
-            .await_component_interactions(ctx.serenity_context())
+        // Create a collector
+        let interaction = msg
+            .component_interaction_collector(ctx.discord())
             .author_id(ctx.author().id)
-            .timeout(Duration::from_secs(120))
-            .build();
+            .timeout(Duration::from_secs(120));
 
-        while let Some(item) = interaction.next().await {
-            item.defer(&ctx.serenity_context()).await?;
+        let mut collect_stream = interaction.collect_stream();
+
+        while let Some(item) = collect_stream.next().await {
+            item.defer(&ctx.discord()).await?;
 
             let id = &item.data.custom_id;
 
             info!("Received interaction: {}", id);
 
             if id == "hnav:cancel" {
-                item.delete_original_interaction_response(ctx.serenity_context())
-                    .await?;
-                interaction.stop();
-                break;
+                item.delete_response(ctx.discord()).await?;
+                return Ok(());
             }
 
             if id == "hnav:selectmenu" {
                 // This is a select menu, get the value using modal_get
-                let value = crate::_utils::ModalValue::new(item.data.values.clone());
+                let value = match item.data.kind {
+                    ComponentInteractionDataKind::StringSelect { ref values, .. } => {
+                        if values.is_empty() {
+                            return Err("Internal error: No value selected".into());
+                        }
 
-                let value = value.extract_single();
+                        &values[0]
+                    }
+                    _ => {
+                        return Err("Internal error: Invalid interaction type".into());
+                    }
+                };
 
-                if value.is_none() {
-                    continue;
-                }
-
-                let value = value.unwrap().parse::<usize>()?;
+                let value = value.parse::<usize>()?;
 
                 _help_send_index(
                     None,
@@ -305,10 +287,10 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
                         channel_id: msg.channel_id,
                         message_id: msg.id,
                     }),
-                    &ctx.serenity_context().http,
+                    &ctx.discord().http,
                     &eh,
                     value,
-                    Some(item.clone()),
+                    Some(Arc::new(item.clone())),
                 )
                 .await?;
 
@@ -325,10 +307,10 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
                         channel_id: msg.channel_id,
                         message_id: msg.id,
                     }),
-                    &ctx.serenity_context().http,
+                    &ctx.discord().http,
                     &eh,
                     id,
-                    Some(item.clone()),
+                    Some(Arc::new(item.clone())),
                 )
                 .await?;
             }
@@ -350,18 +332,21 @@ pub async fn maint(ctx: Context<'_>) -> Result<(), Error> {
         return Ok(());
     }
 
-    ctx.send(|m| {
-        for maint in maints {
-            m.embed(|e| {
-                e.title(maint.title);
-                e.description(maint.description);
-                e.color(0xFF0000);
-                e
-            });
-        }
-        m
-    })
-    .await?;
+    let mut create_message = CreateReply::new();
 
+    let mut embeds = Vec::new();
+
+    for maint in maints {
+        embeds.push(
+            CreateEmbed::default()
+                .title(maint.title)
+                .description(maint.description)
+                .color(0xFF0000),
+        );
+    }
+
+    create_message.embeds = embeds;
+
+    ctx.send(create_message).await?;
     Ok(())
 }

@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 /*
 Implementation of common staff functions that can be shared between bot and API
 
@@ -8,7 +10,10 @@ Smaller utilities specific to staff like add_action_log are also here
 use crate::types::Error;
 use log::info;
 use serde::Serialize;
-use serenity::http::CacheHttp;
+use serenity::{
+    builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
+    http::CacheHttp,
+};
 use sqlx::PgPool;
 
 use serenity::model::id::{ChannelId, GuildId, UserId};
@@ -52,7 +57,7 @@ pub async fn bot_owner_in_server(
     .await?;
 
     // Check if owner is in server ``MAIN_SERVER``
-    let main_server = GuildId(std::env::var("MAIN_SERVER")?.parse::<u64>()?);
+    let main_server = GuildId(std::env::var("MAIN_SERVER")?.parse::<NonZeroU64>()?);
 
     let main_owner = owners.owner.parse::<u64>()?;
 
@@ -163,36 +168,29 @@ pub async fn approve_bot(
     .await?;
 
     // Get main owner and modlogs
-    let owner = UserId(claimed.owner.parse::<u64>()?);
+    let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
+    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<NonZeroU64>()?);
 
     let private_channel = owner.create_dm_channel(&discord).await?;
 
+    let msg = CreateMessage::default().embed(
+        CreateEmbed::default()
+            .title("Bot Approved!")
+            .description(format!("<@{}> has approved <@{}>", staff_id, bot_id))
+            .field("Feedback", reason, true)
+            .field("Moderator", "<@".to_string() + staff_id + ">", true)
+            .field("Bot", "<@".to_string() + bot_id + ">", true)
+            .footer(CreateEmbedFooter::new("Well done, young traveller!"))
+            .color(0x00ff00),
+    );
+
+    // Clone here is OK, we want to copy the message
     private_channel
-        .send_message(&discord.http(), |m| {
-            m.embed(|e| {
-                e.title("Bot Approved!")
-                    .description(format!("<@{}> has approved <@{}>", staff_id, bot_id))
-                    .field("Reason", reason, true)
-                    .footer(|f| f.text("Well done, young traveller!"))
-                    .color(0x00ff00)
-            })
-        })
+        .send_message(&discord.http(), msg.clone())
         .await?;
 
-    modlogs
-        .send_message(&discord.http(), |m| {
-            m.embed(|e| {
-                e.title("__Bot Approved!__")
-                    .field("Feedback", reason, true)
-                    .field("Moderator", "<@".to_string() + staff_id + ">", true)
-                    .field("Bot", "<@".to_string() + bot_id + ">", true)
-                    .footer(|f| f.text("Congratulations on your achievement!"))
-                    .color(0x00ff00)
-            })
-        })
-        .await?;
+    modlogs.send_message(&discord.http(), msg).await?;
 
     let request = reqwest::Client::new()
         .post(format!(
@@ -277,9 +275,9 @@ pub async fn deny_bot(
     }
 
     // Get main owner and modlogs
-    let owner = UserId(claimed.owner.parse::<u64>()?);
+    let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<u64>()?);
+    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<NonZeroU64>()?);
 
     // Add action logs
     add_action_log(pool, bot_id, staff_id, reason, "deny").await?;
@@ -293,32 +291,22 @@ pub async fn deny_bot(
 
     let private_channel = owner.create_dm_channel(&discord).await?;
 
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("Bot Denied!")
+            .description(format!("<@{}> has denied <@{}>", staff_id, bot_id))
+            .field("Reason", reason, true)
+            .footer(CreateEmbedFooter::new(
+                "Well done, young traveller at getting denied from the club!",
+            ))
+            .color(0x00ff00),
+    );
+
     private_channel
-        .send_message(&discord.http(), |m| {
-            m.embed(|e| {
-                e.title("Bot Denied!")
-                    .description(format!("<@{}> has denied <@{}>", staff_id, bot_id))
-                    .field("Reason", reason, true)
-                    .footer(|f| {
-                        f.text("Well done, young traveller at getting denied from the club!")
-                    })
-                    .color(0x00ff00)
-            })
-        })
+        .send_message(&discord.http(), msg.clone())
         .await?;
 
-    modlogs
-        .send_message(&discord.http(), |m| {
-            m.embed(|e| {
-                e.title("__Bot Denied!__")
-                    .field("Reason", reason, true)
-                    .field("Moderator", "<@".to_string() + staff_id + ">", true)
-                    .field("Bot", "<@".to_string() + bot_id + ">", true)
-                    .footer(|f| f.text("Sad life!"))
-                    .color(0xFF0000)
-            })
-        })
-        .await?;
+    modlogs.send_message(&discord.http(), msg).await?;
 
     let request = reqwest::Client::new()
         .post(format!("https://catnip.metrobots.xyz/bots/{}/deny", bot_id))

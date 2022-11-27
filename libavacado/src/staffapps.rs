@@ -1,14 +1,16 @@
+use crate::public::AvacadoPublic;
+use crate::types::{Error, StaffAppData, StaffAppQuestion, StaffAppResponse, StaffPosition};
+use serde_json::json;
+use serenity::builder::{CreateEmbed, CreateMessage};
+use serenity::model::id::ChannelId;
 use serenity::model::prelude::UserId;
 use serenity::prelude::Mentionable;
 use sqlx::PgPool;
-use crate::types::{StaffAppData, StaffPosition, StaffAppQuestion, Error, StaffAppResponse};
-use crate::public::AvacadoPublic;
 use std::collections::HashMap;
-use serde_json::json;
-use serenity::model::id::ChannelId;
+use std::num::NonZeroU64;
 
 pub fn get_interview_questions() -> Vec<StaffAppQuestion> {
-	vec![
+    vec![
 		StaffAppQuestion {
 			id: "motive".to_string(),
 			question: "Why did you apply for this role?".to_string(),
@@ -187,10 +189,10 @@ Note that this is a dummy postition, it is still unclear as to how certification
 
 pub async fn create_app(
     public: &AvacadoPublic,
-    pool: &PgPool, 
-    user_id: &str, 
-    position_id: &str, 
-    app: HashMap<String, String>
+    pool: &PgPool,
+    user_id: &str,
+    position_id: &str,
+    app: HashMap<String, String>,
 ) -> Result<(), Error> {
     let user_apps = sqlx::query!(
         "SELECT COUNT(1) FROM apps WHERE user_id = $1 AND position = $2 AND (state = 'pending' OR state = 'pending-interview' OR state = 'pending-approval')",
@@ -248,40 +250,43 @@ pub async fn create_app(
     .await?;
 
     // Send a message to the APPS channel
-    let user_id = UserId(user_id.parse::<u64>()?);
+    let user_id = UserId(user_id.parse::<NonZeroU64>()?);
 
     let app_channel = std::env::var("APP_CHANNEL_ID")?;
 
-    let app_channel = ChannelId(app_channel.parse::<u64>()?);
+    let app_channel = ChannelId(app_channel.parse::<NonZeroU64>()?);
 
-    app_channel.send_message(&public.http, |m| {
-        m.embed(|e| {
-            e.title("New Application");
-            e.description(format!("{} has applied for the {} position.", user_id.mention(), position_id));
-            e.field("User ID", user_id, false);
-            e.field("Position", position_id, false);
-            e.field("Answers (For right now, to allow testing)", "https://ptb.botlist.app/testview/".to_string() + &app_id, false);
-            e.url("https://ptb.infinitybots.gg/apps/view/".to_string() + &app_id);
-            e
-        });
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("New Application")
+            .description(format!(
+                "{} has applied for the {} position.",
+                user_id.mention(),
+                position_id
+            ))
+            .field("User ID", user_id.to_string(), false)
+            .field("Position", position_id, false)
+            .field(
+                "Answers (For right now, to allow testing)",
+                "https://ptb.botlist.app/testview/".to_string() + &app_id,
+                false,
+            )
+            .url("https://ptb.infinitybots.gg/apps/view/".to_string() + &app_id),
+    );
 
-        m
-    }).await?;
+    app_channel.send_message(&public.http, msg).await?;
 
     Ok(())
 }
 
 pub async fn send_interview(
     public: &AvacadoPublic,
-    pool: &PgPool, 
-    app_id: &str
+    pool: &PgPool,
+    app_id: &str,
 ) -> Result<(), Error> {
-    let res = sqlx::query!(
-        "SELECT state FROM apps WHERE app_id = $1",
-        app_id,
-    )
-    .fetch_one(pool)
-    .await?;
+    let res = sqlx::query!("SELECT state FROM apps WHERE app_id = $1", app_id,)
+        .fetch_one(pool)
+        .await?;
 
     if res.state != "pending" {
         return Err("This application is not in the 'pending' state".into());
@@ -310,25 +315,31 @@ pub async fn send_interview(
     .await?;
 
     // Send a message to the APPS channel
-    let user_id = UserId(row.user_id.parse::<u64>()?);
+    let user_id = UserId(row.user_id.parse::<NonZeroU64>()?);
 
     let app_channel = std::env::var("APP_CHANNEL_ID")?;
 
-    let app_channel = ChannelId(app_channel.parse::<u64>()?);
+    let app_channel = ChannelId(app_channel.parse::<NonZeroU64>()?);
 
-    app_channel.send_message(&public.http, |m| {
-        m.embed(|e| {
-            e.title("User Selected For Interview");
-            e.description(format!("{} has been selected for an interview for the {} position.", user_id.mention(), row.position));
-            e.field("User ID", &row.user_id, false);
-            e.field("Position", &row.position, false);
-            e.field("Answers (For right now, to allow testing)", "https://ptb.botlist.app/testview/".to_string() + &app_id, false);
-            e.url("https://ptb.infinitybots.gg/apps/view/".to_string() + &app_id);
-            e
-        });
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("User Selected For Interview")
+            .description(format!(
+                "{} has been selected for an interview for the {} position.",
+                user_id.mention(),
+                &row.position
+            ))
+            .field("User ID", user_id.to_string(), false)
+            .field("Position", &row.position, false)
+            .field(
+                "Answers",
+                "https://ptb.botlist.app/testview/".to_string() + &app_id,
+                false,
+            )
+            .url("https://ptb.infinitybots.gg/apps/view/".to_string() + &app_id),
+    );
 
-        m
-    }).await?;
+    app_channel.send_message(&public.http, msg).await?;
 
     // Create DM channel
     let dm = user_id.create_dm_channel(&public.http).await;
@@ -340,16 +351,18 @@ pub async fn send_interview(
 
     let dm = dm.unwrap();
 
-    let resp = dm.send_message(&public.http, |m| {
-        m.embed(|e| {
-            e.title("Interview");
-            e.description(format!("You have been selected for an interview for the {} position. [Click here]({})", row.position, "https://ptb.botlist.app/interview/".to_string() + &app_id));
-            e.url("https://ptb.botlist.app/interview/".to_string() + &app_id);
-            e
-        });
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("Interview")
+            .description(format!(
+                "You have been selected for an interview for the {} position. [Click here]({})",
+                &row.position,
+                "https://ptb.botlist.app/interview/".to_string() + &app_id
+            ))
+            .url("https://ptb.botlist.app/interview/".to_string() + &app_id),
+    );
 
-        m
-    }).await;
+    let resp = dm.send_message(&public.http, msg).await;
 
     if resp.is_err() {
         println!("Failed to send DM to {}", row.user_id);
@@ -361,9 +374,9 @@ pub async fn send_interview(
 
 pub async fn finalize_app(
     public: &AvacadoPublic,
-    pool: &PgPool, 
-    app_id: &str, 
-    interview: HashMap<String, String>
+    pool: &PgPool,
+    app_id: &str,
+    interview: HashMap<String, String>,
 ) -> Result<(), Error> {
     let row = sqlx::query!(
         "SELECT user_id, state, position FROM apps WHERE app_id = $1",
@@ -426,25 +439,30 @@ pub async fn finalize_app(
     }
 
     // Send a message to the APPS channel
-    let user_id = UserId(row.user_id.parse::<u64>()?);
+    let user_id = UserId(row.user_id.parse::<NonZeroU64>()?);
 
     let app_channel = std::env::var("APP_CHANNEL_ID")?;
 
-    let app_channel = ChannelId(app_channel.parse::<u64>()?);
-    
-    app_channel.send_message(&public.http, |m| {
-        m.embed(|e| {
-            e.title("Application Finalized");
-            e.description(format!("{} has been finalized their application with an interview.", user_id.mention()));
-            e.field("User ID", &row.user_id, false);
-            e.field("Position", &row.position, false);
-            e.field("Answers (For right now, to allow testing)", "https://ptb.botlist.app/testview/".to_string() + &app_id, false);
-            e.url("https://ptb.infinitybots.gg/apps/view/".to_string() + &app_id);
-            e
-        });
+    let app_channel = ChannelId(app_channel.parse::<NonZeroU64>()?);
 
-        m
-    }).await?;
+    let msg = CreateMessage::default().embed(
+        CreateEmbed::default()
+            .title("Application Finalized")
+            .description(format!(
+                "{} has been finalized their application with an interview.",
+                user_id.mention()
+            ))
+            .field("User ID", &row.user_id, false)
+            .field("Position", &row.position, false)
+            .field(
+                "Answers",
+                "https://ptb.botlist.app/testview/".to_string() + &app_id,
+                false,
+            )
+            .url("https://ptb.botlist.app/testview/".to_string() + &app_id),
+    );
+
+    app_channel.send_message(&public.http, msg).await?;
 
     Ok(())
 }
@@ -455,7 +473,7 @@ pub async fn get_made_apps(pool: &PgPool) -> Result<Vec<StaffAppResponse>, Error
     let apps_db = sqlx::query!("SELECT app_id, user_id, created_at, state, answers, interview_answers, likes, dislikes, position FROM apps")
         .fetch_all(pool)
         .await?;
-    
+
     for app in apps_db {
         let mut likes = Vec::new();
 
@@ -469,20 +487,18 @@ pub async fn get_made_apps(pool: &PgPool) -> Result<Vec<StaffAppResponse>, Error
             dislikes.push(dislike.to_string());
         }
 
-        apps.push(
-            StaffAppResponse {
-                app_id: app.app_id,
-                user_id: app.user_id,
-                created_at: app.created_at,
-                state: app.state,
-                answers: app.answers,
-                interview: app.interview_answers,
-                position: app.position,
-                likes,
-                dislikes,
-            }
-        );
+        apps.push(StaffAppResponse {
+            app_id: app.app_id,
+            user_id: app.user_id,
+            created_at: app.created_at,
+            state: app.state,
+            answers: app.answers,
+            interview: app.interview_answers,
+            position: app.position,
+            likes,
+            dislikes,
+        });
     }
-    
+
     Ok(vec![])
 }

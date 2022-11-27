@@ -49,6 +49,7 @@ pub async fn is_admin(ctx: Context<'_>) -> Result<bool, Error> {
     checks::is_admin(&ctx.author().id.to_string(), &ctx.data().pool).await
 }
 
+#[allow(dead_code)]
 pub async fn is_hdev(ctx: Context<'_>) -> Result<bool, Error> {
     checks::is_hdev(&ctx.author().id.to_string(), &ctx.data().pool).await
 }

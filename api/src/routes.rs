@@ -1,5 +1,5 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
-use libavacado::types::{StaffAppResponse};
+use libavacado::types::StaffAppResponse;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -24,7 +24,7 @@ pub struct UserRequest {
 #[derive(Deserialize)]
 pub struct CreateAppQuery {
     user_id: String,
-    position: String
+    position: String,
 }
 
 #[derive(Deserialize)]
@@ -33,7 +33,9 @@ pub struct GetAppQuery {
     user_id: String,
 }
 
-#[post("/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/approve")]
+#[post(
+    "/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/approve"
+)]
 pub async fn approve(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
@@ -84,7 +86,9 @@ pub async fn approve(req: HttpRequest, info: web::Json<Request>) -> HttpResponse
     HttpResponse::Ok().body("")
 }
 
-#[post("/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/deny")]
+#[post(
+    "/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/deny"
+)]
 pub async fn deny(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
@@ -435,17 +439,17 @@ pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {
 /// Returns the interview questions form
 #[get("/herpes/zoster")]
 pub async fn get_interview_api(_req: HttpRequest) -> HttpResponse {
-   HttpResponse::Ok().json(libavacado::staffapps::get_interview_questions())
+    HttpResponse::Ok().json(libavacado::staffapps::get_interview_questions())
 }
 
 /// Finalizes the application
 #[post("/herpes/zoster")]
 pub async fn finalize_app_api(
-    req: HttpRequest, 
+    req: HttpRequest,
     info: web::Query<GetAppQuery>,
     body: web::Json<HashMap<String, String>>,
 ) -> HttpResponse {
-        let data: &crate::models::AppState = req
+    let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
 
@@ -480,8 +484,9 @@ pub async fn finalize_app_api(
         &data.avacado_public,
         &data.pool,
         &info.app_id,
-        body.into_inner()
-    ).await;
+        body.into_inner(),
+    )
+    .await;
 
     if app.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
@@ -494,12 +499,11 @@ pub async fn finalize_app_api(
     HttpResponse::Ok().finish()
 }
 
-
 #[post("/herpes")]
 pub async fn create_app_api(
-    req: HttpRequest, 
+    req: HttpRequest,
     info: web::Query<CreateAppQuery>,
-    body: web::Json<HashMap<String, String>>
+    body: web::Json<HashMap<String, String>>,
 ) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
@@ -512,9 +516,9 @@ pub async fn create_app_api(
         .unwrap_or(auth_default)
         .to_str()
         .unwrap();
-    
+
     let info = info.into_inner();
-    
+
     let check = sqlx::query!(
         "SELECT api_token FROM users WHERE user_id = $1",
         &info.user_id.to_string()
@@ -537,8 +541,9 @@ pub async fn create_app_api(
         &data.pool,
         &info.user_id,
         &info.position,
-        body.into_inner()
-    ).await;
+        body.into_inner(),
+    )
+    .await;
 
     if app.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
@@ -561,7 +566,10 @@ pub async fn get_apps_auth_api(_req: HttpRequest) -> HttpResponse {
 
 /// Performs oauth2 callback for app site
 #[get("/herpes/callback")]
-pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::models::OauthReq>) -> HttpResponse {
+pub async fn perform_apps_auth_api(
+    req: HttpRequest,
+    data: web::Query<crate::models::OauthReq>,
+) -> HttpResponse {
     // Get access token using reqwest
     let client = reqwest::Client::new();
 
@@ -579,7 +587,7 @@ pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::mod
         ))
         .send()
         .await;
-    
+
     if res.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
@@ -593,7 +601,8 @@ pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::mod
     if res.status() != 200 {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
-            reason: "Failed to get access token with status code".to_string() + &res.status().to_string(),
+            reason: "Failed to get access token with status code".to_string()
+                + &res.status().to_string(),
             context: None,
         });
     }
@@ -616,7 +625,7 @@ pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::mod
         .header("Authorization", format!("Bearer {}", res.access_token))
         .send()
         .await;
-    
+
     if res.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
@@ -630,7 +639,8 @@ pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::mod
     if res.status() != 200 {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
-            reason: "Failed to get user ID with status code".to_string() + &res.status().to_string(),
+            reason: "Failed to get user ID with status code".to_string()
+                + &res.status().to_string(),
             context: None,
         });
     }
@@ -648,13 +658,13 @@ pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::mod
     let res = res.unwrap();
 
     let app_state: &crate::models::AppState = req
-    .app_data::<web::Data<crate::models::AppState>>()
-    .unwrap();
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
 
     let row = sqlx::query!("SELECT api_token FROM users WHERE user_id = $1", res.id)
         .fetch_one(&app_state.pool)
         .await;
-    
+
     if row.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
@@ -665,9 +675,14 @@ pub async fn perform_apps_auth_api(req: HttpRequest, data: web::Query<crate::mod
 
     let row = row.unwrap();
 
-    let redirect = format!("https://{}/login/callback?user_id={}&api_token={}", data.state, res.id, row.api_token);
-    
-    HttpResponse::TemporaryRedirect().append_header(("Location", redirect)).finish()
+    let redirect = format!(
+        "https://{}/login/callback?user_id={}&api_token={}",
+        data.state, res.id, row.api_token
+    );
+
+    HttpResponse::TemporaryRedirect()
+        .append_header(("Location", redirect))
+        .finish()
 }
 
 #[get("/herpes/app")]
@@ -700,7 +715,6 @@ pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> Htt
     if check.api_token != auth {
         return HttpResponse::Unauthorized().finish();
     }
-    
 
     let row = sqlx::query!(
         "SELECT app_id, user_id, position, answers, interview_answers, state, created_at, likes, dislikes FROM apps WHERE app_id = $1",
@@ -750,7 +764,7 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
-    
+
     let auth_default = &HeaderValue::from_str("").unwrap();
     let auth = req
         .headers()
@@ -758,7 +772,6 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
         .unwrap_or(auth_default)
         .to_str()
         .unwrap();
-    
 
     let check = sqlx::query!(
         "SELECT api_token, iblhdev, hadmin FROM users WHERE user_id = $1",
@@ -776,14 +789,10 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
     if check.api_token != auth || !(check.hadmin || check.iblhdev) {
         return HttpResponse::Unauthorized().finish();
     }
-    
 
-    let row = sqlx::query!(
-        "SELECT COUNT(1) FROM apps WHERE app_id = $1",
-        info.app_id
-    )
-    .fetch_one(&data.pool)
-    .await;
+    let row = sqlx::query!("SELECT COUNT(1) FROM apps WHERE app_id = $1", info.app_id)
+        .fetch_one(&data.pool)
+        .await;
 
     if row.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
@@ -803,7 +812,8 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
         });
     }
 
-    let err = libavacado::staffapps::send_interview(&data.avacado_public, &data.pool, &info.app_id).await;
+    let err =
+        libavacado::staffapps::send_interview(&data.avacado_public, &data.pool, &info.app_id).await;
 
     if err.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
@@ -820,7 +830,6 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
     })
 }
 
-
 /// Returns a list of staff applications that have been made
 #[get("/herpes/list")]
 pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> HttpResponse {
@@ -835,9 +844,9 @@ pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> Ht
         .unwrap_or(auth_default)
         .to_str()
         .unwrap();
-    
+
     let info = info.into_inner();
-    
+
     let check = sqlx::query!(
         "SELECT iblhdev, hadmin, ibldev, admin, api_token FROM users WHERE user_id = $1",
         &info.user_id.to_string()
@@ -866,24 +875,4 @@ pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> Ht
     }
 
     HttpResponse::Ok().json(req.unwrap())
-}
-
-/// Sanitizes text to protect against XSS as well as perform markdown parsing using pulldown_cmark
-#[post("/thrombosis")]
-pub async fn sanitize_str(_req: HttpRequest, bytes: web::Bytes) -> HttpResponse {
-    let string = std::str::from_utf8(&bytes);
-
-    if string.is_err() {
-        return HttpResponse::BadRequest().json(crate::models::APIResponse {
-            done: false,
-            reason: "Failed to parse string".to_string(),
-            context: None,
-        });
-    }
-
-    let string = string.unwrap();
-
-    let string = libavacado::bot::sanitize(string);
-
-    HttpResponse::Ok().body(string)
 }

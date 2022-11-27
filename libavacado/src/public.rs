@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::Read;
+use std::num::NonZeroU64;
 use std::{sync::Arc, time::Duration};
 
 use crate::types::{DiscordUser, Error};
@@ -31,7 +32,7 @@ impl CacheHttp for AvcCacheHttpImpl {
 // Public avacado client used to store caches
 pub struct AvacadoPublic {
     pub redis: deadpool_redis::Pool,
-    pub user_cache: Cache<u64, Arc<DiscordUser>>,
+    pub user_cache: Cache<NonZeroU64, Arc<DiscordUser>>,
     pub cache: Arc<serenity::cache::Cache>,
 
     // Http is unused right now but will be used later
@@ -80,7 +81,7 @@ pub async fn get_user(
     id: &str,
     no_err: bool,
 ) -> Result<Arc<DiscordUser>, Error> {
-    let id_u64 = id.parse::<u64>()?;
+    let id_u64 = id.parse::<NonZeroU64>()?;
 
     let cached = public.user_cache.get(&id_u64);
 
@@ -108,7 +109,7 @@ pub async fn get_user(
     // Next try fetching it from main server as a member
     let main_server = std::env::var("MAIN_SERVER")?;
 
-    let main_server_u64 = main_server.parse::<u64>()?;
+    let main_server_u64 = main_server.parse::<NonZeroU64>()?;
 
     let member = public
         .cache

@@ -84,5 +84,5 @@ impl StaffAppData {
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct Link {
     pub name: String,
-    pub value: String
+    pub value: String,
 }

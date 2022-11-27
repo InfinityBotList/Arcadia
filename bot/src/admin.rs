@@ -2,12 +2,11 @@ use crate::Context;
 use crate::Error;
 use crate::_checks as checks;
 
+use poise::CreateReply;
+use poise::serenity_prelude::CreateActionRow;
+use poise::serenity_prelude::CreateButton;
+use poise::serenity_prelude::CreateMessage;
 use poise::serenity_prelude::User;
-use poise::serenity_prelude::UserId;
-use sqlx::Column;
-use sqlx::Row;
-
-use std::time::Duration;
 
 use poise::serenity_prelude as serenity;
 
@@ -59,34 +58,6 @@ pub async fn approveonboard(
         .into());
     }
 
-    let iblhdevs = sqlx::query!("SELECT user_id FROM users WHERE iblhdev = true OR hadmin = true")
-        .fetch_all(&data.pool)
-        .await?;
-
-    let can_vote_ids = iblhdevs
-        .iter()
-        .map(|x| UserId(x.user_id.parse::<u64>().unwrap()))
-        .collect::<Vec<UserId>>();
-
-    let poll_result =
-        crate::_utils::create_vote(ctx, "Do you agree to approve this onboarding", can_vote_ids)
-            .await?;
-
-    if poll_result.cancelled {
-        ctx.say("Poll was cancelled").await?;
-        return Ok(());
-    } else if poll_result.winning_side.is_none() {
-        ctx.say("Poll was a draw? Cancelling").await?;
-        return Ok(());
-    }
-
-    let winning_side = poll_result.winning_side.unwrap();
-
-    if !winning_side {
-        ctx.say("Poll was denied, cancelling").await?;
-        return Ok(());
-    }
-
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_state = 'complete' WHERE user_id = $1",
@@ -96,9 +67,11 @@ pub async fn approveonboard(
     .await?;
 
     // DM user that they have been approved
-    let _ = member.dm(&ctx.serenity_context().http, |m| {
-        m.content("Your onboarding request has been approved. You may now begin approving/denying bots")
-    }).await?;
+    let _ = member.dm(
+        &ctx.discord().http, 
+        CreateMessage::new()
+        .content("Your onboarding request has been approved. You may now begin approving/denying bots") 
+    ).await?;
 
     ctx.say("Onboarding request approved!").await?;
 
@@ -137,34 +110,6 @@ pub async fn denyonboard(
         .into());
     }
 
-    let iblhdevs = sqlx::query!("SELECT user_id FROM users WHERE iblhdev = true OR hadmin = true")
-        .fetch_all(&data.pool)
-        .await?;
-
-    let can_vote_ids = iblhdevs
-        .iter()
-        .map(|x| UserId(x.user_id.parse::<u64>().unwrap()))
-        .collect::<Vec<UserId>>();
-
-    let poll_result =
-        crate::_utils::create_vote(ctx, "Do you agree to deny this onboarding", can_vote_ids)
-            .await?;
-
-    if poll_result.cancelled {
-        ctx.say("Poll was cancelled").await?;
-        return Ok(());
-    } else if poll_result.winning_side.is_none() {
-        ctx.say("Poll was a draw? Cancelling").await?;
-        return Ok(());
-    }
-
-    let winning_side = poll_result.winning_side.unwrap();
-
-    if !winning_side {
-        ctx.say("Poll was denied, cancelling").await?;
-        return Ok(());
-    }
-
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_state = 'denied' WHERE user_id = $1",
@@ -174,9 +119,7 @@ pub async fn denyonboard(
     .await?;
 
     // DM user that they have been denied
-    let _ = user.dm(&ctx.serenity_context().http, |m| {
-        m.content("Your onboarding request has been denied. Please contact a manager for more information")
-    }).await?;
+    let _ = user.dm(&ctx.discord().http, CreateMessage::new().content("Your onboarding request has been denied. Please contact a manager for more information")).await?;
 
     ctx.say("Onboarding request denied!").await?;
 
@@ -199,30 +142,32 @@ pub async fn resetonboard(
 ) -> Result<(), Error> {
     let data = ctx.data();
 
+    let builder = CreateReply::new()
+        .content("Are you sure you wish to reset this user's onboard state and force them to redo onboarding?")
+        .components(
+            vec![
+                CreateActionRow::Buttons(
+                    vec![
+                        CreateButton::new("continue").label("Continue").style(serenity::ButtonStyle::Primary),
+                        CreateButton::new("cancel").label("Cancel").style(serenity::ButtonStyle::Danger),
+                    ]
+                )
+            ]
+        );
+
     let mut msg = ctx
-        .send(|m| {
-            m.content("Are you sure you wish to reset this user's onboard state and force them to redo onboarding?")
-                .components(|c| {
-                    c.create_action_row(|r| {
-                        r.create_button(|b| b.custom_id("continue").label("Continue"))
-                            .create_button(|b| {
-                                b.custom_id("cancel")
-                                    .label("Cancel")
-                                    .style(serenity::ButtonStyle::Danger)
-                            })
-                    })
-                })
-        })
+        .send(builder.clone())
         .await?
         .into_message()
         .await?;
 
     let interaction = msg
-        .await_component_interaction(ctx.serenity_context())
+        .component_interaction_collector(ctx.discord())
         .author_id(ctx.author().id)
+        .collect_single()
         .await;
 
-    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
+    msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![])).await?; // remove buttons after button press
 
     let pressed_button_id = match &interaction {
         Some(m) => &m.data.custom_id,
@@ -246,170 +191,13 @@ pub async fn resetonboard(
     .await?;
 
     // DM user that they have been force reset
-    let _ = user.dm(&ctx.serenity_context().http, |m| {
-        m.content("Your onboarding request has been force reset. Please contact a manager for more information. You will, in most cases, need to redo onboarding")
-    }).await?;
+    let _ = user.dm(&ctx.discord().http, CreateMessage::new().content("Your onboarding request has been force reset. Please contact a manager for more information. You will, in most cases, need to redo onboarding")).await?;
 
     ctx.say("Onboarding request reset!").await?;
 
     Ok(())
 }
 
-/// Returns a field on a specific bot id
-#[poise::command(
-    category = "Admin",
-    track_edits,
-    prefix_command,
-    slash_command,
-    check = "checks::is_hdev"
-)]
-pub async fn update_field(
-    ctx: crate::Context<'_>,
-    #[description = "The sql statement"] sql: String,
-) -> Result<(), crate::Error> {
-    if !checks::staff_server(ctx).await? {
-        return Err("You are not in the staff server".into());
-    }
-
-    let data = ctx.data();
-
-    if !sql.to_lowercase().contains("where") {
-        let mut msg = ctx
-            .send(|m| {
-                m.content("Whoa there, are you trying to update a whole table?.")
-                    .components(|c| {
-                        c.create_action_row(|r| {
-                            r.create_button(|b| {
-                                b.custom_id("yes")
-                                    .style(serenity::ButtonStyle::Primary)
-                                    .label("Yes")
-                            });
-                            r.create_button(|b| {
-                                b.custom_id("cancel")
-                                    .style(serenity::ButtonStyle::Secondary)
-                                    .label("Cancel")
-                            })
-                        })
-                    })
-            })
-            .await?
-            .into_message()
-            .await?;
-
-        let interaction = msg
-            .await_component_interaction(ctx.serenity_context())
-            .author_id(ctx.author().id)
-            .await;
-        msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
-
-        if let Some(m) = &interaction {
-            if m.data.custom_id != "yes" {
-                return Err("Cancelled".into());
-            }
-        } else {
-            return Ok(());
-        }
-    }
-
-    // Ask for approval from someone else
-    let mut msg = ctx
-        .send(|m| {
-            m.content(
-                "Please have someone else approve running this SQL statement: ``".to_string()
-                    + &sql
-                    + "``",
-            )
-            .components(|c| {
-                c.create_action_row(|r| {
-                    r.create_button(|b| {
-                        b.custom_id("yes")
-                            .style(serenity::ButtonStyle::Primary)
-                            .label("Yes")
-                    });
-                    r.create_button(|b| {
-                        b.custom_id("cancel")
-                            .style(serenity::ButtonStyle::Secondary)
-                            .label("Cancel")
-                    })
-                })
-            })
-        })
-        .await?
-        .into_message()
-        .await?;
-
-    // Get current iblhdev's
-
-    let iblhdevs = sqlx::query!("SELECT user_id FROM users WHERE iblhdev = true OR hadmin = true")
-        .fetch_all(&data.pool)
-        .await?;
-
-    let id = ctx.author().id;
-
-    let interaction = msg
-        .await_component_interaction(ctx.serenity_context())
-        .filter(move |f| {
-            if f.user.id != id && iblhdevs.iter().any(|u| u.user_id == f.user.id.to_string()) {
-                return true;
-            }
-            false
-        })
-        .timeout(Duration::from_secs(360))
-        .await;
-    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
-
-    if let Some(m) = &interaction {
-        if m.data.custom_id != "yes" {
-            return Err("Cancelled".into());
-        }
-    } else {
-        return Ok(());
-    }
-
-    let res = sqlx::query(&sql).fetch_all(&data.pool).await?;
-
-    let mut sql_data = Vec::new();
-
-    // Parse PgRow into a Vec<String>
-    for row in res {
-        let row = row;
-        let mut row_data = Vec::new();
-        for field in row.columns() {
-            let field_str = format!("{:?}: {:?}", field.name(), serde_json::to_string(&field)?);
-            row_data.push(field_str);
-        }
-        sql_data.push(row_data);
-    }
-
-    ctx.say("SQL statement executed").await?;
-
-    // Split SQL into 1998 character chunks and keep sending
-    let sql_full = format!("{:?}", sql_data);
-
-    let mut sql_chunks = Vec::new();
-
-    let mut sql_chunk = String::new();
-    for (i, c) in sql_full.chars().enumerate() {
-        sql_chunk.push(c);
-        if i % 1998 == 0 && i > 0 {
-            sql_chunks.push(sql_chunk.clone());
-            sql_chunk.clear();
-        }
-    }
-
-    for chunk in sql_chunks {
-        if !chunk.is_empty() {
-            ctx.say(chunk).await?;
-        }
-    }
-
-    // Empty buffer
-    if !sql_chunk.is_empty() {
-        ctx.say(sql_chunk).await?;
-    }
-
-    Ok(())
-}
 
 #[poise::command(
     category = "Admin",
@@ -424,7 +212,7 @@ pub async fn votereset(
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
     libavacado::manage::vote_reset(
-        &ctx.serenity_context(),
+        &ctx.discord(),
         &ctx.data().pool,
         &bot.id.to_string(),
         &ctx.author().id.to_string(),
@@ -445,7 +233,7 @@ pub async fn voteresetall(
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
     libavacado::manage::vote_reset_all(
-        &ctx.serenity_context(),
+        &ctx.discord(),
         &ctx.data().pool,
         &ctx.author().id.to_string(),
         &reason,

@@ -11,9 +11,9 @@ use sqlx::postgres::PgPoolOptions;
 
 use dotenv::dotenv;
 
+mod loggy;
 mod models;
 mod routes;
-mod loggy;
 
 use crate::models::APIResponse;
 
@@ -77,7 +77,7 @@ async fn main() -> std::io::Result<()> {
     .await
     .unwrap();
 
-    let cache_http = main_cli.cache_and_http.clone();
+    let cache_http = Arc::new(main_cli.cache_and_http.clone());
 
     tokio::task::spawn(async move { main_cli.start().await });
 
@@ -129,7 +129,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::staff_verify_onboard_data_api)
             .service(routes::get_current_maints)
             .service(routes::get_apps_api)
-	        .service(routes::get_interview_api)
+            .service(routes::get_interview_api)
             .service(routes::get_app_list)
             .service(routes::get_apps_auth_api)
             .service(routes::perform_apps_auth_api)
@@ -137,7 +137,6 @@ async fn main() -> std::io::Result<()> {
             .service(routes::finalize_app_api)
             .service(routes::get_app_api)
             .service(routes::send_interview_api)
-            .service(routes::sanitize_str)
     })
     .workers(8)
     .bind("localhost:3010")?

@@ -1,9 +1,10 @@
+use std::num::NonZeroU64;
 use std::time::Duration;
 
 use log::{error, info};
-use poise::serenity_prelude::{ChannelId, Mentionable, Permissions, RoleId, UserId};
+use poise::serenity_prelude::{ChannelId, CreateInvite, Mentionable, Permissions, RoleId, UserId, CreateChannel, CreateWebhook, CreateAttachment, CreateMessage, CreateEmbed, CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditRole, CreateEmbedFooter, CreateQuickModal, CreateInputText, EditGuild, ExecuteWebhook};
 
-use poise::serenity_prelude as serenity;
+use poise::{serenity_prelude as serenity, CreateReply};
 use serde_json::json;
 
 /// Function to handle autocomplete in onboarding
@@ -12,7 +13,7 @@ pub async fn onboard_autocomplete(
     typed: &str,
 ) -> Result<Vec<poise::AutocompleteChoice<String>>, crate::Error> {
     let data = ctx.data();
-    let discord = ctx.serenity_context();
+    let discord = ctx.discord();
     let user_id = ctx.author().id.to_string();
 
     // Verify staff first
@@ -24,21 +25,21 @@ pub async fn onboard_autocomplete(
         // Check if awaiting staff role in main server
         let main_server = std::env::var("MAIN_SERVER")
             .unwrap()
-            .parse::<u64>()
+            .parse::<NonZeroU64>()
             .unwrap();
 
         let member = discord.cache.member(main_server, ctx.author().id);
 
         if member.is_none() {
             info!("Member not found in main server");
-            return Ok(Vec::new())
+            return Ok(Vec::new());
         }
 
         let member = member.unwrap();
 
         let awaiting_role = std::env::var("AWAITING_STAFF_ROLE")
             .unwrap()
-            .parse::<u64>()
+            .parse::<NonZeroU64>()
             .unwrap();
 
         if !member.roles.contains(&RoleId(awaiting_role)) {
@@ -77,7 +78,7 @@ pub async fn onboard_autocomplete(
         .await?;
 
         res.staff_onboard_state
-    };    
+    };
 
     if onboard_state == "complete" {
         return Ok(Vec::new());
@@ -92,12 +93,10 @@ pub async fn onboard_autocomplete(
         }
         (_, "claim") => {
             if "Ninja Bot".starts_with(typed) {
-                Ok(vec![
-                    poise::AutocompleteChoice {
-                        name: "Ninja Bot (".to_string() + &std::env::var("TEST_BOT")? + ")",
-                        value: std::env::var("TEST_BOT")?,
-                    },
-                ])
+                Ok(vec![poise::AutocompleteChoice {
+                    name: "Ninja Bot (".to_string() + &std::env::var("TEST_BOT")? + ")",
+                    value: std::env::var("TEST_BOT")?,
+                }])
             } else {
                 Err("ExitAutocomplete".into())
             }
@@ -162,7 +161,7 @@ pub async fn handle_onboarding(
     info!("{}", cmd_name);
 
     let data = ctx.data();
-    let discord = ctx.serenity_context();
+    let discord = ctx.discord();
 
     // Verify staff first
     let is_staff = crate::_checks::is_any_staff(ctx).await.unwrap_or_else(|e| {
@@ -173,7 +172,7 @@ pub async fn handle_onboarding(
         // Check if awaiting staff role in main server
         let main_server = std::env::var("MAIN_SERVER")
             .unwrap()
-            .parse::<u64>()
+            .parse::<NonZeroU64>()
             .unwrap();
 
         let member = discord.cache.member(main_server, ctx.author().id);
@@ -187,7 +186,7 @@ pub async fn handle_onboarding(
 
         let awaiting_role = std::env::var("AWAITING_STAFF_ROLE")
             .unwrap()
-            .parse::<u64>()
+            .parse::<NonZeroU64>()
             .unwrap();
 
         if !member.roles.contains(&RoleId(awaiting_role)) {
@@ -303,7 +302,7 @@ pub async fn handle_onboarding(
         .await?;
     }
 
-    let cur_guild = ctx.guild().unwrap().name;
+    let cur_guild = ctx.guild().unwrap().name.clone();
 
     if cur_guild.to_lowercase() != user_id.to_lowercase() {
         ctx.say("Creating new onboarding server for you!").await?;
@@ -336,44 +335,56 @@ pub async fn handle_onboarding(
                     }
 
                     if channel.is_none() {
-                        // Delete guild and start over
-                        crate::_utils::delete_leave_guild(&discord.http, &discord.cache, *guild)
-                            .await;
-                        continue;
+                        // Create a new readme channel
+                        let readme = guild
+                        .create_channel(
+                            &discord, 
+                            CreateChannel::new("readme")
+                        )
+                        .await?;
+
+                        readme.say(&discord, r#"
+Welcome to your onboarding server! Please read the following:
+
+1. To start onboarding, run ``ibb!onboard`` in the #general channel.
+2. There is a 1 hour time limit for onboarding. If you exceed this time limit, you will have to start over. You can extend this limit by progressing through onboarding.                        
+                        "#).await?;
                     }
 
                     let channel = channel.unwrap();
 
                     // Create DM invite
-                    let dm_invite = channel
-                        .create_invite(&discord, |i| {
-                            i.max_age(0).max_uses(1).temporary(false).unique(true)
-                        })
-                        .await?;
+                    let invite = CreateInvite::new()
+                        .max_age(0)
+                        .max_uses(1)
+                        .temporary(false)
+                        .unique(true);
+                    let dm_invite = channel.create_invite(&discord, invite).await?;
 
                     // Create DM channel
-                    let user_id = UserId(user_id.parse::<u64>().unwrap());
+                    let user_id = UserId(user_id.parse::<NonZeroU64>().unwrap());
 
                     let dm_channel = user_id.create_dm_channel(discord).await?;
 
                     // Send invite in DM
-                    dm_channel.send_message(discord, |m| {
-                        m.embed(|e| {
-                            e.title("Onboarding Server")
-                                .description("Click the link below to join the onboarding server. **This link is private**")
-                                .color(0x00ff00)
-                        })
-                        .components(|c| {
-                            c.create_action_row(|r| {
-                                r.create_button(|b| {
-                                    b.label("Join Onboarding Server")
-                                        .style(serenity::ButtonStyle::Link)
-                                        .url(&dm_invite.url())
-                                })
-                            })
-                        })
-                    })
-                    .await?;
+                    let msg = CreateMessage::new()
+                    .embed(
+                        CreateEmbed::default()
+                        .title("Onboarding Server")
+                        .description("Click the link below to join the onboarding server. **This link is private**")
+                        .color(0x00ff00)
+                    )
+                    .components(
+                        vec![
+                            CreateActionRow::Buttons(
+                                vec![
+                                    CreateButton::new_link(&dm_invite.url()).label("Join Onboarding Server")
+                                ]
+                            )
+                        ]
+                    );
+
+                    dm_channel.send_message(discord, msg).await?;
 
                     found = true;
                 }
@@ -388,79 +399,88 @@ pub async fn handle_onboarding(
             let new_guild = discord.http.create_guild(&map).await?;
 
             let readme = new_guild
-                .create_channel(&discord, |c| {
-                    c.name("readme-")
-                        .kind(serenity::model::channel::ChannelType::Text)
-                })
-                .await?;
+            .create_channel(
+                &discord, 
+                CreateChannel::new("readme")
+            )
+            .await?;
 
-            readme.say(&discord, "
+            readme.say(&discord, r#"
 Welcome to your onboarding server! Please read the following:
 
 1. To start onboarding, run ``ibb!onboard`` in the #general channel.
-2. There is a 1 hour time limit for onboarding. If you exceed this time limit, you will have to start over. You can extend this limit by progressing through onboarding.
-")
-                .await?;
+2. There is a 1 hour time limit for onboarding. If you exceed this time limit, you will have to start over. You can extend this limit by progressing through onboarding.                        
+            "#).await?;
 
             // Create new invite for staff managers
+            let invite = CreateInvite::new()
+                .max_age(0)
+                .max_uses(0)
+                .temporary(false)
+                .unique(true);
+
             let invite = readme
-                .create_invite(&discord, |i| {
-                    i.max_age(0).max_uses(0).temporary(false).unique(true)
-                })
+                .create_invite(&discord, invite)
                 .await?;
 
             // Create DM invite
+            let dm_invite = CreateInvite::new()
+                .max_age(0)
+                .max_uses(0)
+                .temporary(false)
+                .unique(true);
+
             let dm_invite = readme
-                .create_invite(&discord, |i| {
-                    i.max_age(0).max_uses(1).temporary(false).unique(true)
-                })
+                .create_invite(&discord, dm_invite)
                 .await?;
 
             // Create DM channel
-            let user_id = UserId(user_id.parse::<u64>().unwrap());
+            let user_id = UserId(user_id.parse::<NonZeroU64>().unwrap());
 
             let dm_channel = user_id.create_dm_channel(discord).await?;
 
             // Send invite in DM
-            dm_channel.send_message(discord, |m| {
-                        m.embed(|e| {
-                            e.title("Onboarding Server")
-                                .description("Click the link below to join the onboarding server. **This link is private**")
-                                .color(0x00ff00)
-                        })
-                        .components(|c| {
-                            c.create_action_row(|r| {
-                                r.create_button(|b| {
-                                    b.label("Join Onboarding Server")
-                                        .style(serenity::ButtonStyle::Link)
-                                        .url(&dm_invite.url())
-                                })
-                            })
-                        })
-                    })
-                    .await?;
+            let dm_invite_msg = CreateMessage::default()
+            .embed(
+                CreateEmbed::default()
+                .title("Onboarding Server")
+                .description("Click the link below to join the onboarding server. **This link is private and should not be shared**")
+                .color(0x00ff00)
+            )
+            .components(
+                vec![
+                    CreateActionRow::Buttons(
+                        vec![
+                            CreateButton::new_link(&dm_invite.url()).label("Join Onboarding Server")
+                        ]
+                    )
+                ]
+            );
+
+            dm_channel.send_message(discord, dm_invite_msg).await?;
 
             let onboard_channel = std::env::var("ONBOARDING_CHANNEL").unwrap();
 
-            let channel = ChannelId(onboard_channel.parse::<u64>().unwrap());
+            let channel = ChannelId(onboard_channel.parse::<NonZeroU64>().unwrap());
 
             // Send invite
-            channel.send_message(discord, |m| {
-                        m.embed(|e| {
-                            e.title("Onboarding Server")
-                                .description("Click the link below to join the onboarding server if you want to as a staff manager do so.")
-                                .color(0x00ff00)
-                        })
-                        .components(|c| {
-                            c.create_action_row(|r| {
-                                r.create_button(|b| {
-                                    b.label("Join Onboarding Server")
-                                        .style(serenity::ButtonStyle::Link)
-                                        .url(&invite.url())
-                                })
-                            })
-                        })
-                    }).await?;
+            let sm_invite_msg = CreateMessage::default()
+            .embed(
+                CreateEmbed::default()
+                .title("Onboarding Server")
+                .description("Click the link below to join the onboarding server if you want to as a staff manager do so.")
+                .color(0x00ff00)
+            )
+            .components(
+                vec![
+                    CreateActionRow::Buttons(
+                        vec![
+                            CreateButton::new_link(&invite.url()).label("Join Onboarding Server")
+                        ]
+                    )
+                ]
+            );
+            channel.send_message(discord, sm_invite_msg).await?;
 
             return Ok(false);
         }
@@ -468,15 +488,11 @@ Welcome to your onboarding server! Please read the following:
         return Ok(false);
     } else {
         // Check if user is admin
-        let guild = ctx.guild().unwrap();
-
-        info!("{} {:?}", guild.name, guild.members);
-
         let mut found = false;
 
-        for member in guild.members.iter() {
+        for member in ctx.guild().unwrap().members.iter() {
             // Resolve the users permissions
-            if member.0 .0 == ctx.author().id.0 {
+            if member.0.0 == ctx.author().id.0 {
                 let permissions = member.1.permissions(discord)?;
                 if permissions.administrator() {
                     found = true;
@@ -486,13 +502,11 @@ Welcome to your onboarding server! Please read the following:
 
         if !found {
             // Check for admin role
-            let guild = ctx.guild().unwrap();
-
             let mut found = false;
 
             let mut role_id: Option<RoleId> = None;
 
-            for role in guild.roles.iter() {
+            for role in ctx.guild().unwrap().roles.iter() {
                 if role.1.name == "Head Administrator" {
                     found = true;
                     role_id = Some(*role.0);
@@ -510,16 +524,16 @@ Welcome to your onboarding server! Please read the following:
                 }
 
                 // Create role
-                let guild = ctx.guild().unwrap();
-
-                let role = guild
-                    .create_role(&discord, |r| {
-                        r.name("Head Administrator")
-                            .colour(0x00ff00)
-                            .permissions(Permissions::ADMINISTRATOR)
-                            .mentionable(true)
-                    })
-                    .await?;
+                let guild_id = ctx.guild().unwrap().id;
+                let role = guild_id.create_role(
+                    &discord,
+                    EditRole::new()
+                    .name("Head Administrator")
+                    .colour(0x00ff00)
+                    .permissions(Permissions::ADMINISTRATOR)
+                    .mentionable(true)
+                )
+                .await?;
 
                 role_id = Some(role.id);
             }
@@ -535,15 +549,6 @@ Welcome to your onboarding server! Please read the following:
             let mut member = member.unwrap().into_owned();
 
             member.add_role(&discord, role_id.unwrap()).await?;
-
-            ctx.say(
-                format!(
-                    "You will need to reinvite this bot to the server so that Discord can set the required scopes for this bot! Reinvite the bot using https://discord.com/oauth2/authorize?client_id={}&scope=bot%20applications.commands&permissions=8. Do this now, then run ``ibb!onboard`` to continue!",
-                    ctx.serenity_context().cache.current_user().id
-                )
-            ).await?;
-
-            return Ok(false);
         }
     }
 
@@ -571,7 +576,8 @@ Welcome to your onboarding server! Please read the following:
 
     let test_bot = std::env::var("TEST_BOT")?;
     let bot_page = std::env::var("BOT_PAGE")?;
-    let current_user = ctx.serenity_context().cache.current_user();
+    let current_user_id = ctx.discord().cache.current_user().id;
+    let current_user_name = ctx.discord().cache.current_user().name.clone();
 
     if cmd_name == "claim" && reason != Some(&test_bot) {
         ctx.say("You can only claim the test bot at this time!")
@@ -607,25 +613,25 @@ Welcome to your onboarding server! Please read the following:
 
             ctx.say("**Welcome to Infinity Bot List**\n\nSince you seem new to this place, how about a nice look arou-?").await?;
 
-            ctx.send(|m| {
-                m.embed(|e| {
-                    e.title("Bot Resubmitted")
+            ctx.send(
+                CreateReply::new()
+                .embed(
+                    CreateEmbed::new()
+                    .title("Bot Resubmitted")
                     .description(
                         format!(
                             "**Bot:** {bot_id} ({bot_name})\n\n**Owner:** {owner_id} ({owner_name})\n\n**Bot Page:** {bot_page}",
                             bot_id = "<@".to_string() + &test_bot + ">",
                             bot_name = "Ninja Bot",
-                            owner_id = current_user.id.mention(),
-                            owner_name = current_user.name,
+                            owner_id = current_user_id.mention(),
+                            owner_name = current_user_name,
                             bot_page = bot_page + "/bot/" + &test_bot
                         )
                     )
-                    .footer(|f| {
-                        f.text("Are you ready to take on your first challenge, young padawan?")
-                    })
+                    .footer(CreateEmbedFooter::new("Are you ready to take on your first challenge, young padawan?"))
                     .color(0xA020F0)
-                })
-            }).await?;
+                )
+            ).await?;
 
             sqlx::query!(
                 "UPDATE users SET staff_onboard_state = 'queue-step' WHERE user_id = $1",
@@ -657,107 +663,89 @@ Welcome to your onboarding server! Please read the following:
             }
 
             // Get more information about this action by launching a modal using a button
-
-            let mut msg = ctx.send(|m| {
-                m.content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.\n\n**If you do not see a button, you will need to rerun the command.**")
-                .components(|c| {
-                    c.create_action_row(|r| {
-                        r.create_button(|b| {
-                            b.custom_id("survey")
+            let builder = CreateReply::default()
+            .content("Are you sure that you truly wish to ".to_string() + cmd_name + " this test bot?  If so, click 'Survey' to launch the final onboarding survey.\n\n**If you do not see a button, you will need to rerun the command.**")
+            .components(
+                vec![
+                    CreateActionRow::Buttons(
+                        vec![
+                            CreateButton::new("survey")
                             .label("Survey")
-                            .style(serenity::ButtonStyle::Primary)
-                        })
-                        .create_button(|b| {
-                            b.custom_id("cancel")
+                            .style(serenity::ButtonStyle::Primary),
+                            CreateButton::new("cancel")
                             .label("Cancel")
                             .style(serenity::ButtonStyle::Danger)
-                        })
-                    })
-                })
-            })
-            .await?
+                        ]
+                    )
+                ]
+            );
+
+            let mut msg = ctx.send(
+                builder.clone()
+            ).await?
             .into_message()
             .await?;
 
             let interaction = msg
-                .await_component_interaction(ctx.serenity_context())
-                .author_id(ctx.author().id)
-                .timeout(Duration::from_secs(120))
-                .await;
+            .component_interaction_collector(ctx.discord())
+            .author_id(ctx.author().id)
+            .timeout(Duration::from_secs(120))
+            .collect_single()
+            .await;
 
             if let Some(m) = &interaction {
                 let id = &m.data.custom_id;
 
-                msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                msg.edit(ctx.discord(), builder.to_prefix_edit()).await?; // remove buttons after button press
 
                 if id == "survey" {
                     // Create a new message with the survey modal in it (via the button click)
-                    m.create_interaction_response(discord, |b| {
-                        b.kind(serenity::InteractionResponseType::Modal)
-                        .interaction_response_data(|d| {
-                            d.custom_id("survey")
-                            .title("Survey")
-                            .content("Sent survey response model")
-                            .components(|c| {
-                                c.create_action_row(|r| {
-                                    r.create_input_text(|it| {
-                                        it.custom_id("analysis")
-                                        .label("In-depth analysis of all commands")
-                                        .placeholder("State your analysis of all commands. What would you do for each command if this was a real bot")
-                                        .style(serenity::InputTextStyle::Paragraph)
-                                    })
-                                });
+                    let qm = m.quick_modal(
+                        discord, 
+                        CreateQuickModal::new("Onboarding Survey")
+                        .field(
+                            CreateInputText::new(
+                                serenity::InputTextStyle::Paragraph,
+                                "In-depth analysis of all commands",
+                                "analysis"   
+                            )
+                            .placeholder("State your analysis of all commands. What would you do for each command if this was a real bot")
+                            .required(true)
+                        )
+                        .field(
+                            CreateInputText::new(
+                                serenity::InputTextStyle::Paragraph,
+                                "Your thoughts on onboarding",
+                                "thoughts",
+                            )
+                            .placeholder("What did you think of the onboarding system? Your feedback will help us improve our services")
+                            .required(true)
+                        )
+                        .field(
+                            CreateInputText::new(
+                            serenity::InputTextStyle::Short,
+                            "Staff Verify Code",
+                            "code",
+                            )
+                            .placeholder("You can find this by running the staffguide command")
+                            .required(true)
+                        )
+                        .timeout(Duration::from_secs(300))
+                    ).await?;
 
-                                c.create_action_row(|r| {
-                                    r.create_input_text(|it| {
-                                        it.custom_id("thoughts")
-                                        .label("Your thoughts on onboarding")
-                                        .placeholder("What did you think of the onboarding system? Your feedback will help us improve our services")
-                                        .style(serenity::InputTextStyle::Paragraph)
-                                    })
-                                });
-
-                                c.create_action_row(|r| {
-                                    r.create_input_text(|it| {
-                                        it.custom_id("code")
-                                        .label("Staff Verify Code")
-                                        .placeholder("You can find this by running the staffguide command")
-                                        .style(serenity::InputTextStyle::Short)
-                                    })
-                                })
-                            })
-                        })
-                    }).await?;
-
-                    // Wait for user to submit
-                    let response = serenity::CollectModalInteraction::new(&discord.shard)
-                        .author_id(m.user.id)
-                        .message_id(msg.id)
-                        .await;
-
-                    if response.is_none() {
-                        ctx.say("You took too long to respond. Please try again.")
-                            .await?;
+                    if qm.is_none() {
+                        ctx.say("You took too long to respond. Please try again").await?;
                         return Ok(false);
                     }
 
-                    let response = response.unwrap();
+                    let qm = qm.unwrap();
+                    let inputs = qm.inputs;
+
+                    let (analysis, thoughts, i_code) = (&inputs[0], &inputs[1], &inputs[2]);
 
                     // Verify the code
-                    let i_code = crate::_utils::modal_get(&response.data, "code").extract_single();
 
-                    if i_code.is_none() {
-                        response
-                            .create_interaction_response(&discord, |ir| {
-                                ir.interaction_response_data(|d| {
-                                    d.content("You did not provide a code. Please try again.")
-                                })
-                            })
-                            .await?;
-                        return Ok(false);
-                    }
-
-                    let i_code = i_code.unwrap().replace(' ', "");
+                    let i_code = i_code.replace(' ', "");
 
                     let code = sqlx::query!(
                         "SELECT staff_onboard_session_code FROM users WHERE user_id = $1",
@@ -769,9 +757,10 @@ Welcome to your onboarding server! Please read the following:
                     let code = code.staff_onboard_session_code;
 
                     if code.is_none() {
-                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
-                            d.content("SVSession has expired, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
-                        })).await?;
+                        qm.interaction.create_response(&discord, CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::default()
+                            .content("SVSession has expired, rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
+                        )).await?;
                         return Ok(false);
                     }
 
@@ -780,9 +769,10 @@ Welcome to your onboarding server! Please read the following:
                     let codesplit = code.split('@').collect::<Vec<&str>>();
 
                     if codesplit.len() != 2 {
-                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
-                            d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
-                        })).await?;
+                        qm.interaction.create_response(&discord, CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::default()
+                            .content("SVSession has expired [internal codesplit error], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
+                        )).await?;
                         return Ok(false);
                     }
 
@@ -790,9 +780,10 @@ Welcome to your onboarding server! Please read the following:
                     let time_nonce = time_nonce.parse::<i64>();
 
                     if time_nonce.is_err() {
-                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
-                            d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
-                        })).await?;
+                        qm.interaction.create_response(&discord, CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::default()
+                            .content("SVSession has expired [internal error], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
+                        )).await?;
                         return Ok(false);
                     }
 
@@ -802,9 +793,10 @@ Welcome to your onboarding server! Please read the following:
                     let now = chrono::Utc::now().timestamp();
 
                     if now - time_nonce > 3600 {
-                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
-                            d.content("SVSession has expired [invalid], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
-                        })).await?;
+                        qm.interaction.create_response(&discord, CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::default()
+                            .content("SVSession has expired [time nonce expiry], rerun ``/staffguide`` (or ``ibb!staffguide``) to get a new verification code")
+                        )).await?;
                         return Ok(false);
                     }
 
@@ -831,29 +823,36 @@ Welcome to your onboarding server! Please read the following:
                         .skip(code_upper.len() - 6)
                         .collect::<String>();
 
-                    info!("Wanted {} and user inputted {}", code_upper, i_code);
+                    info!("Wanted {} and user inputted {}", code_upper, code);
 
                     if code_upper != i_code {
-                        response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
-                            d.content("Whoa there! You inputted the wrong verification code (hint: ``/staffguide`` or ``ibb!staffguide``)")
-                        })).await?;
+                        qm.interaction.create_response(&discord, CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::default()
+                            .content("Whoa there! You inputted the wrong verification code (hint: ``/staffguide`` or ``ibb!staffguide``)")
+                        )).await?;
                         return Ok(false);
                     }
 
-                    response.create_interaction_response(&discord, |ir| ir.interaction_response_data(|d| {
-                        d.content("And the magic continues... Thank you for completing the staff onboarding process! You will be notified when you are approved. Please wait while I send your application to the staff team...")
-                    })).await?;
+                    qm.interaction.create_response(&discord, CreateInteractionResponse::Message(
+                        CreateInteractionResponseMessage::default()
+                        .content("And the magic continues... Thank you for completing the staff onboarding process! You will be notified when you are approved. Please wait while I send your application to the staff team...")
+                    )).await?;
 
                     // Create permanent invite to this server
-                    let channel = ctx.guild_id().unwrap().create_channel(discord, |c| {
-                        c.kind(serenity::ChannelType::Text)
-                        .name("do-not-delete")
+                    let channel = ctx.guild_id().unwrap().create_channel(
+                        discord, 
+                        CreateChannel::new("do-not-delete")
                         .topic("This is a temporary channel used to create a permanent invite to the server. DO NOT DELETE.")
-                    }).await?;
+                    ).await?;
 
-                    let inv = channel
-                        .create_invite(discord, |i| i.max_age(0).max_uses(0).unique(true))
-                        .await?;
+                    let invite = channel.create_invite(
+                        discord, 
+                        CreateInvite::default()
+                        .max_age(0)
+                        .max_uses(0)
+                        .temporary(false)
+                        .unique(true)
+                    ).await?;
 
                     channel.say(
                         discord,
@@ -866,24 +865,6 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         )
                     ).await?;
 
-                    let mut analysis =
-                        crate::_utils::modal_get(&response.data, "analysis").extract_single();
-
-                    if analysis.is_none() {
-                        analysis = Some("None".to_string());
-                    }
-
-                    let analysis = analysis.unwrap();
-
-                    let mut thoughts =
-                        crate::_utils::modal_get(&response.data, "thoughts").extract_single();
-
-                    if thoughts.is_none() {
-                        thoughts = Some("None".to_string());
-                    }
-
-                    let thoughts = thoughts.unwrap();
-
                     let s_onboard = sqlx::query!(
                         "SELECT staff_onboarded, staff_onboard_macro_time FROM users WHERE user_id = $1",
                         user_id
@@ -894,7 +875,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     let survey_modal = json!({
                         "analysis": analysis,
                         "thoughts": thoughts,
-                        "invite": inv.url(),
+                        "invite": invite.url(),
                         "submit_ts": chrono::Utc::now().timestamp(),
                         "start_ts": s_onboard.staff_onboard_macro_time.unwrap_or_default().timestamp(),
                         "staff_onboarded_before": s_onboard.staff_onboarded,
@@ -911,13 +892,14 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     .await?;
 
                     // Now transfer ownership to author
+                    let edit = EditGuild::default().owner(ctx.author().id);
                     ctx.guild_id()
                         .unwrap()
-                        .edit(discord, |e| e.owner(ctx.author().id))
+                        .edit(discord, edit)
                         .await?;
 
                     let onboard_channel_id =
-                        ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<u64>()?);
+                        ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<NonZeroU64>()?);
 
                     onboard_channel_id.say(
                         &discord,
@@ -941,9 +923,9 @@ This bot *will* now leave this server however you should not! Be prepared to sen
 
                     return Ok(false);
                 } else {
-                    m.create_interaction_response(&discord, |ir| {
-                        ir.interaction_response_data(|d| d.content("Cancelled"))
-                    })
+                    m.create_response(&discord, CreateInteractionResponse::Message(
+                        CreateInteractionResponseMessage::default().content("Cancelled")
+                    ))
                     .await?;
                     return Ok(false);
                 }
@@ -962,17 +944,16 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     ap_note = "Please test me :heart:"
                 );
                 if embed {
-                    ctx.send(|m| {
-                        m.embed(|e| {
-                            e.title("Bot Queue (Sandbox Mode)")
-                                .description(desc)
-                                .footer(|f| {
-                                    f.text("Use ibb!invite or /invite to get the bots invite")
-                                })
-                                .color(0xA020F0)
-                        })
-                    })
-                    .await?;
+                    ctx.send(
+                        CreateReply::default()
+                        .embed(
+                            CreateEmbed::default()
+                            .title("Bot Queue (Sandbox Mode)")
+                            .description(desc)
+                            .footer(CreateEmbedFooter::new("Use ibb!invite or /invite to get the bots invite"))
+                            .color(0xA020F0)
+                        )
+                    ).await?;
                 } else {
                     ctx.say(desc.clone() + "\n\nUse ibb!invite or /invite to get the bots invite")
                         .await?;
@@ -1012,17 +993,16 @@ be approved or denied.
                     ap_note = "Please test me :heart:"
                 );
                 if embed {
-                    ctx.send(|m| {
-                        m.embed(|e| {
-                            e.title("Bot Queue (Sandbox Mode)")
-                                .description(desc)
-                                .footer(|f| {
-                                    f.text("Use ibb!invite or /invite to get the bots invite")
-                                })
-                                .color(0xA020F0)
-                        })
-                    })
-                    .await?;
+                    ctx.send(
+                        CreateReply::default()
+                        .embed(
+                            CreateEmbed::default()
+                            .title("Bot Queue (Sandbox Mode)")
+                            .description(desc)
+                            .footer(CreateEmbedFooter::new("Use ibb!invite or /invite to get the bots invite"))
+                            .color(0xA020F0)
+                        )
+                    ).await?;
                 } else {
                     ctx.say(desc).await?;
                 }
@@ -1042,47 +1022,49 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
         "staff-guide" => Ok(true),
         "staff-guide-viewed" | "staff-guide-viewed-reminded" => {
             if cmd_name == "claim" {
-                let mut msg = ctx
-                    .send(|m| {
-                        m.embed(|e| {
-                            e.title("Bot Already Claimed")
-                                .description(format!(
-                                    "This bot is already claimed by <@{}>",
-                                    current_user.id
-                                ))
-                                .color(0xFF0000)
-                        })
-                        .components(|c| {
-                            c.create_action_row(|r| {
-                                r.create_button(|b| {
-                                    b.custom_id("fclaim")
-                                        .style(serenity::ButtonStyle::Primary)
-                                        .label("Force Claim")
-                                        .disabled(onboard_state != "staff-guide-viewed-reminded")
-                                });
-                                r.create_button(|b| {
-                                    b.custom_id("remind")
-                                        .style(serenity::ButtonStyle::Secondary)
-                                        .label("Remind Reviewer")
-                                        .disabled(onboard_state != "staff-guide-viewed")
-                                })
-                            })
-                        })
-                    })
-                    .await?
-                    .into_message()
-                    .await?;
+                let builder = CreateReply::default()
+                .embed(
+                    CreateEmbed::default()
+                    .title("Bot Already Claimed")
+                    .description(format!(
+                        "This bot is already claimed by <@{}>",
+                        current_user_id
+                    ))
+                    .color(0xFF0000)
+                )
+                .components(
+                    vec![
+                        CreateActionRow::Buttons(
+                            vec![
+                                CreateButton::new("fclaim")
+                                .label("Force Claim")
+                                .style(serenity::ButtonStyle::Danger),
+                                CreateButton::new("remind")
+                                .label("Remind Reviewer")
+                                .style(serenity::ButtonStyle::Secondary)
+                            ]
+                        )
+                    ]
+                );
+
+                let mut msg = ctx.send(
+                    builder.clone()
+                )
+                .await?
+                .into_message()
+                .await?;
 
                 if onboard_state != "staff-guide-viewed-reminded" {
                     ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
                 }
 
                 let interaction = msg
-                    .await_component_interaction(ctx.serenity_context())
-                    .author_id(ctx.author().id)
-                    .await;
+                .component_interaction_collector(ctx.discord())
+                .author_id(ctx.author().id)
+                .collect_single()
+                .await;
 
-                msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
+                msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![])).await?; // remove buttons after button press
 
                 if let Some(m) = &interaction {
                     let id = &m.data.custom_id;
@@ -1091,7 +1073,7 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                         ctx.say(
                             format!(
                                 "<@{claimed_by}>, did you forgot to finish testing <@{bot_id}>? This reminder has been recorded internally for staff activity tracking purposes!", 
-                                claimed_by = current_user.id,
+                                claimed_by = current_user_id,
                                 bot_id = test_bot
                             )
                         ).await?;
@@ -1099,18 +1081,21 @@ But before we get to reviewing it, lets have a look at the staff guide. You can 
                         // Create a discord webhook
                         let wh = ctx
                             .channel_id()
-                            .create_webhook_with_avatar(
+                            .create_webhook(
                                 discord,
-                                "Frostpaw",
-                                "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png",
+                                CreateWebhook::new("Frostpaw").avatar(
+                                    &CreateAttachment::url(discord, "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png").await?
+                                )
                             )
                             .await?;
 
                         tokio::time::sleep(Duration::from_secs(3)).await;
-
-                        wh.execute(discord, true, |m| {
-                            m.content("Ack! sorry about that. I completely forgot about Ninja Bot due to personal issues")
-                        }).await?;
+                        
+                        wh.execute(
+                            discord, 
+                            true, 
+                            ExecuteWebhook::default().content("Ack! sorry about that. I completely forgot about Ninja Bot due to personal issues, yknow?")
+                        ).await?;
 
                         ctx.say("Great! With a real bot, things won't go this smoothly, but you can always remind people to test their bot! Now try claiming again, but this time use ``Force Claim``").await?;
 

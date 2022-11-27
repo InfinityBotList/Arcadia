@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use libavacado::public::AvacadoPublic;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use serenity::CacheAndHttp;
-use rand::{thread_rng, Rng, distributions::Alphanumeric};
 
 pub struct AppState {
     pub pool: sqlx::PgPool,
@@ -36,7 +36,6 @@ pub struct OauthUser {
     pub avatar: Option<String>,
     pub discriminator: String,
 }
-
 
 pub fn create_token(length: usize) -> String {
     thread_rng()

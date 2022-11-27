@@ -1,8 +1,10 @@
-use std::{sync::Arc, time::Duration};
+use std::{num::NonZeroU64, time::Duration};
 
 use dotenv::dotenv;
 use log::{error, info};
-use poise::serenity_prelude::{self as serenity, GuildId};
+use poise::serenity_prelude::{
+    self as serenity, CreateEmbed, CreateEmbedFooter, CreateMessage, FullEvent, GuildId,
+};
 use sqlx::postgres::PgPoolOptions;
 
 use poise::serenity_prelude::{ChannelId, UserId};
@@ -29,6 +31,25 @@ pub struct Data {
     avacado_public: libavacado::public::AvacadoPublic,
 }
 
+struct CollectedGuild {
+    guild_id: NonZeroU64,
+    guild_name: String,
+    owner_id: NonZeroU64,
+}
+
+enum StaffPosition {
+    Staff,
+    Manager,
+    HeadManager,
+    Developer,
+    HeadDeveloper,
+}
+
+struct StaffResync {
+    user_id: NonZeroU64,
+    col: StaffPosition,
+}
+
 /// Displays your or another user's account creation date
 #[poise::command(slash_command, prefix_command)]
 async fn age(
@@ -46,42 +67,6 @@ async fn age(
 async fn actf(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("initial response").await?;
     ctx.say("followup").await?;
-
-    Ok(())
-}
-
-/// Test await_component_interaction
-#[poise::command(slash_command, prefix_command)]
-async fn act(ctx: Context<'_>) -> Result<(), Error> {
-    let msg = ctx
-        .send(|m| {
-            m.content("Test").components(|c| {
-                c.create_action_row(|f| {
-                    f.create_button(|b| {
-                        b.label("A")
-                            .custom_id("abc")
-                            .style(serenity::ButtonStyle::Danger)
-                    })
-                })
-            })
-        })
-        .await?
-        .into_message()
-        .await?;
-
-    let interaction = msg
-        .await_component_interaction(ctx.serenity_context())
-        .author_id(ctx.author().id)
-        .await;
-
-    if let Some(m) = &interaction {
-        let id = &m.data.custom_id;
-        info!("Received interaction: {}", id);
-        ctx.say(format!("Received interaction: {}", id)).await?;
-    } else {
-        info!("No interaction");
-        ctx.say("No interaction received").await?;
-    }
 
     Ok(())
 }
@@ -154,25 +139,27 @@ async fn simplehelp(
     Ok(())
 }
 
-async fn event_listener(
-    ctx: &serenity::Context,
-    event: &poise::Event<'_>,
-    user_data: &Data,
-) -> Result<(), Error> {
+async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error> {
     let main_server = std::env::var("MAIN_SERVER")
         .unwrap()
-        .parse::<u64>()
+        .parse::<NonZeroU64>()
         .unwrap();
     let testing_server = std::env::var("TESTING_SERVER")
         .unwrap()
-        .parse::<u64>()
+        .parse::<NonZeroU64>()
         .unwrap();
 
     match event {
-        poise::Event::InteractionCreate { interaction } => {
+        FullEvent::InteractionCreate { interaction, ctx: _ } => {
             info!("Interaction received: {:?}", interaction.id());
         }
-        poise::Event::Ready { data_about_bot } => {
+        FullEvent::Ready {
+            data_about_bot,
+            ctx,
+        } => {
+            // Always wait a bit here for cache to finish up
+            tokio::time::sleep(Duration::from_secs(2)).await;
+
             info!(
                 "{} is ready! Doing some minor DB fixes",
                 data_about_bot.user.name
@@ -183,22 +170,421 @@ async fn event_listener(
             .execute(&user_data.pool)
             .await?;
 
-            let _ctx = ctx.to_owned();
+            let ctx = ctx.to_owned();
             let pool = user_data.pool.clone();
 
-            let autounclaim_events =
-                std::env::var("AUTOUNCLAIM_EVENTS").unwrap_or_else(|_| "true".to_string());
+            let mut interval = tokio::time::interval(Duration::from_millis(30000));
 
-            if autounclaim_events == "true" {
-                tokio::task::spawn(async move {
-                    autounclaim(pool, _ctx.http, _ctx.cache).await;
-                });
+            let lounge_channel_id = ChannelId(
+                std::env::var("LOUNGE_CHANNEL")
+                    .unwrap()
+                    .parse::<NonZeroU64>()
+                    .unwrap(),
+            );
+
+            let main_server = std::env::var("MAIN_SERVER")
+                .unwrap()
+                .parse::<NonZeroU64>()
+                .unwrap();
+            let staff_server = std::env::var("STAFF_SERVER")
+                .unwrap()
+                .parse::<NonZeroU64>()
+                .unwrap();
+            let testing_server = std::env::var("TESTING_SERVER")
+                .unwrap()
+                .parse::<NonZeroU64>()
+                .unwrap();
+
+            loop {
+                info!("Performing staff recalc");
+
+                let dev_role =
+                    poise::serenity_prelude::RoleId(std::env::var("DEV_ROLE")?.parse::<NonZeroU64>()?);
+                let head_dev_role =
+                    poise::serenity_prelude::RoleId(std::env::var("HEAD_DEV_ROLE")?.parse::<NonZeroU64>()?);
+                let staff_man_role = poise::serenity_prelude::RoleId(
+                    std::env::var("STAFF_MAN_ROLE")?.parse::<NonZeroU64>()?,
+                );
+                let head_man_role =
+                    poise::serenity_prelude::RoleId(std::env::var("HEAD_MAN_ROLE")?.parse::<NonZeroU64>()?);
+                let web_mod_role =
+                    poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<NonZeroU64>()?);
+
+                let mut staff_resync = Vec::new();
+
+                // Get all members on staff server
+                for (_, member) in ctx.cache.guild(staff_server).unwrap().members.iter() {
+                    if member.roles.contains(&dev_role) {
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::Developer
+                        });
+                    }
+                    if member.roles.contains(&head_dev_role) {
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::HeadDeveloper
+                        });
+                    }
+                    if member.roles.contains(&staff_man_role) {
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::Manager
+                        });
+                    }
+                    if member.roles.contains(&head_man_role) {
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::HeadManager
+                        });
+                    }
+                    if member.roles.contains(&web_mod_role) {
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::Staff
+                        });
+                    }
+                }
+
+                // Create a transaction
+                let mut tx = pool.begin().await?;
+
+                // First unset all staff
+                sqlx::query!("UPDATE users SET staff = false, ibldev = false, iblhdev = false, admin = false, hadmin = false")
+                .execute(&mut tx)
+                .await?;
+
+                // Now set all staff as per the staff_resync vector
+                for staff in staff_resync {
+                    match staff.col {
+                        StaffPosition::Staff => {
+                            sqlx::query!("UPDATE users SET staff = true WHERE user_id = $1", staff.user_id.to_string())
+                                .execute(&mut tx)
+                                .await?;
+                        },
+                        StaffPosition::Manager => {
+                            sqlx::query!("UPDATE users SET staff = true, admin = true WHERE user_id = $1", staff.user_id.to_string())
+                                .execute(&mut tx)
+                                .await?;
+                        },
+                        StaffPosition::Developer => {
+                            sqlx::query!("UPDATE users SET staff = true, ibldev = true WHERE user_id = $1", staff.user_id.to_string())
+                                .execute(&mut tx)
+                                .await?;
+                        },
+                        StaffPosition::HeadDeveloper => {
+                            sqlx::query!("UPDATE users SET staff = true, ibldev = true, iblhdev = true WHERE user_id = $1", staff.user_id.to_string())
+                                .execute(&mut tx)
+                                .await?;
+                        },
+                        StaffPosition::HeadManager => {
+                            sqlx::query!("UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1", staff.user_id.to_string())
+                                .execute(&mut tx)
+                                .await?;
+                        }
+                    } 
+                }
+
+                // Commit the transaction
+                tx.commit().await?;
+
+                interval.tick().await;
+
+                info!("Checking for claimed bots greater than 1 hour claim interval");
+
+                let res = sqlx::query!(
+                    "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
+                )
+                .fetch_all(&pool)
+                .await;
+
+                if res.is_err() {
+                    error!(
+                        "Error while checking for claimed bots: {:?}",
+                        res.unwrap_err()
+                    );
+                    continue;
+                }
+
+                let bots = res.unwrap();
+
+                for bot in bots {
+                    if bot.claimed_by.is_none() {
+                        info!(
+                            "Unclaiming bot {} because it has no staff who has claimed it",
+                            bot.bot_id
+                        );
+                        let res = sqlx::query!(
+                            "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
+                            bot.bot_id
+                        )
+                        .execute(&pool)
+                        .await;
+
+                        if res.is_err() {
+                            error!(
+                                "Error while unclaiming bot {}: {:?}",
+                                bot.bot_id,
+                                res.unwrap_err()
+                            );
+                            continue;
+                        }
+
+                        continue;
+                    }
+
+                    if bot.last_claimed.is_none() {
+                        info!(
+                            "Unclaiming bot {} because it has no last_claimed time",
+                            bot.bot_id
+                        );
+                        let res = sqlx::query!(
+                            "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
+                            bot.bot_id
+                        )
+                        .execute(&pool)
+                        .await;
+
+                        if res.is_err() {
+                            error!(
+                                "Error while unclaiming bot {}: {:?}",
+                                bot.bot_id,
+                                res.unwrap_err()
+                            );
+                            continue;
+                        }
+
+                        continue;
+                    }
+
+                    let claimed_by = bot.claimed_by.unwrap();
+                    let last_claimed = bot.last_claimed.unwrap();
+
+                    info!(
+                        "Unclaiming bot {} because it was claimed by {} and never unclaimed",
+                        bot.bot_id, claimed_by
+                    );
+                    let res = sqlx::query!(
+                        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
+                        bot.bot_id
+                    )
+                    .execute(&pool)
+                    .await;
+
+                    if res.is_err() {
+                        error!(
+                            "Error while unclaiming bot {}: {:?}",
+                            bot.bot_id,
+                            res.unwrap_err()
+                        );
+                        continue;
+                    }
+
+                    let start_time = chrono::offset::Utc::now();
+
+                    // Now send message in #lounge
+                    let msg = CreateMessage::default()
+                        .content(format!("<@{}>", claimed_by))
+                        .embed(
+                            CreateEmbed::default()
+                                .title("Auto-Unclaimed Bot")
+                                .description(
+                                    format!(
+                                        "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed at {} ({}).", 
+                                        bot.bot_id,
+                                        claimed_by,
+                                        last_claimed.format("%Y-%m-%d %H:%M:%S"),
+                                        (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
+                                    ))
+                                .color(0xFF0000)
+                        );
+
+                    let err = lounge_channel_id.send_message(&ctx, msg).await;
+
+                    if err.is_err() {
+                        error!(
+                            "Error while sending message to lounge: {:?}",
+                            err.unwrap_err()
+                        );
+                        continue;
+                    }
+
+                    let owner = bot.owner.parse::<NonZeroU64>();
+
+                    if let Ok(owner) = owner {
+                        let private_channel = UserId(owner).create_dm_channel(&ctx).await;
+
+                        if private_channel.is_err() {
+                            error!(
+                                "Error while sending message to owner: {:?}",
+                                private_channel.unwrap_err()
+                            );
+                            continue;
+                        }
+
+                        let private_channel = private_channel.unwrap();
+
+                        let msg = CreateMessage::default()
+                            .embed(
+                                CreateEmbed::default()
+                                    .title("Bot Unclaimed!")
+                                    .description(
+                                        format!(
+                                            r#"
+<@{}> has been unclaimed as it was not being actively reviewed. 
+
+Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
+
+For more information, you can contact the current reviewer <@{}>
+
+*This bot was claimed at {} ({}). This is a automated message letting you know about whats going on...*
+                                            "#, 
+                                            bot.bot_id,
+                                            claimed_by,
+                                            last_claimed.format("%Y-%m-%d %H:%M:%S"),
+                                            (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
+                                        ))
+                                    .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
+                            );
+
+                        let err = private_channel.send_message(&ctx, msg).await;
+
+                        if err.is_err() {
+                            error!(
+                                "Error while sending message to owner: {:?}",
+                                err.unwrap_err()
+                            );
+                            continue;
+                        }
+                    }
+                }
+
+                info!("Checking for dead guilds made by staff");
+
+                // Loop through all guilds
+                let guilds = ctx.cache.guilds();
+
+                let http = ctx.http.clone();
+
+                let mut collected_guilds = Vec::new();
+
+                // We do this to avoid the async cache guard introduced in serenity next
+                for guild_id in guilds {
+                    // Check if guild is official (main/testing/staff)
+                    if guild_id.0 == main_server
+                        || guild_id.0 == testing_server
+                        || guild_id.0 == staff_server
+                    {
+                        continue;
+                    }
+
+                    let guild = guild_id.to_guild_cached(&ctx);
+
+                    if guild.is_none() {
+                        continue;
+                    }
+
+                    let guild = guild.unwrap();
+
+                    // Collect the guild
+                    collected_guilds.push(CollectedGuild {
+                        guild_id: guild_id.0,
+                        owner_id: guild.owner_id.0,
+                        guild_name: guild.name.clone(),
+                    });
+                }
+
+                // Get the current bot ID (for checking ownership here)
+                let bowner = ctx.cache.current_user().id.0;
+
+                for collected in collected_guilds {
+                    // Try parsing guild name to u64
+                    let guild_u64 = collected.guild_name.parse::<NonZeroU64>();
+
+                    if guild_u64.is_err() {
+                        // We have a bad guild name, delete or leave if we are not owner
+                        info!(
+                            "Deleting guild {} because it is not a valid guild name: {}",
+                            collected.guild_id, collected.guild_name
+                        );
+
+                        if bowner == collected.owner_id {
+                            let err = http.delete_guild(GuildId(collected.guild_id)).await;
+
+                            if err.is_err() {
+                                error!(
+                                    "Error while deleting guild {}: {:?}",
+                                    collected.guild_id,
+                                    err.unwrap_err()
+                                );
+                                continue;
+                            }
+                        } else {
+                            let err = http.leave_guild(GuildId(collected.guild_id)).await;
+
+                            if err.is_err() {
+                                error!(
+                                    "Error while leaving guild {}: {:?}",
+                                    collected.guild_id,
+                                    err.unwrap_err()
+                                );
+                                continue;
+                            }
+                        }
+                    } else {
+                        // Check that this guild_u64 is in database under users AND that it is not dead
+                        let res = sqlx::query!(
+                            "SELECT user_id FROM users WHERE user_id = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = 'complete' OR staff_onboard_state = 'pending-manager-review')",
+                            guild_u64.unwrap().to_string()
+                        )
+                        .fetch_one(&pool)
+                        .await;
+
+                        if res.is_err() {
+                            match res.as_ref().unwrap_err() {
+                                sqlx::Error::RowNotFound => {
+                                    if collected.owner_id == bowner {
+                                        let err =
+                                            http.delete_guild(GuildId(collected.guild_id)).await;
+
+                                        if err.is_err() {
+                                            error!(
+                                                "Error while deleting guild with ID: {:?} (error: {:?})",
+                                                collected.guild_id,
+                                                err.unwrap_err()
+                                            );
+                                        }
+                                    } else {
+                                        let err =
+                                            http.leave_guild(GuildId(collected.guild_id)).await;
+
+                                        if err.is_err() {
+                                            error!(
+                                                "Error while leaving guild with ID: {:?} (error: {:?})",
+                                                collected.guild_id,
+                                                err.unwrap_err()
+                                            );
+                                        }
+                                    }
+                                    continue;
+                                }
+                                _ => {
+                                    error!(
+                                        "Error while checking if guild is in database: {:?}",
+                                        res.unwrap_err()
+                                    );
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-        poise::Event::CacheReady { guilds } => {
+        FullEvent::CacheReady { guilds, ctx: _ } => {
             info!("Cache ready with {} guilds", guilds.len());
         }
-        poise::Event::GuildMemberAddition { new_member } => {
+        FullEvent::GuildMemberAddition { new_member, ctx } => {
             if new_member.guild_id.0 == main_server && new_member.user.bot {
                 // Check if new member is in testing server
                 let member =
@@ -219,344 +605,41 @@ async fn event_listener(
     Ok(())
 }
 
-async fn autounclaim(
-    pool: sqlx::PgPool,
-    http: Arc<serenity::http::Http>,
-    cache: Arc<serenity::Cache>,
-) {
-    let mut interval = tokio::time::interval(Duration::from_millis(30000));
-
-    let lounge_channel_id = ChannelId(
-        std::env::var("LOUNGE_CHANNEL")
-            .unwrap()
-            .parse::<u64>()
-            .unwrap(),
-    );
-
-    let main_server = std::env::var("MAIN_SERVER")
-        .unwrap()
-        .parse::<u64>()
-        .unwrap();
-    let staff_server = std::env::var("STAFF_SERVER")
-        .unwrap()
-        .parse::<u64>()
-        .unwrap();
-    let testing_server = std::env::var("TESTING_SERVER")
-        .unwrap()
-        .parse::<u64>()
-        .unwrap();
-
-    loop {
-        interval.tick().await;
-        info!("Checking for claimed bots greater than 1 hour claim interval");
-
-        let res = sqlx::query!(
-            "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
-        )
-        .fetch_all(&pool)
-        .await;
-
-        if res.is_err() {
-            error!(
-                "Error while checking for claimed bots: {:?}",
-                res.unwrap_err()
-            );
-            continue;
-        }
-
-        let bots = res.unwrap();
-
-        for bot in bots {
-            if bot.claimed_by.is_none() {
-                info!(
-                    "Unclaiming bot {} because it has no staff who has claimed it",
-                    bot.bot_id
-                );
-                let res = sqlx::query!(
-                    "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-                    bot.bot_id
-                )
-                .execute(&pool)
-                .await;
-
-                if res.is_err() {
-                    error!(
-                        "Error while unclaiming bot {}: {:?}",
-                        bot.bot_id,
-                        res.unwrap_err()
-                    );
-                    continue;
-                }
-
-                continue;
-            }
-
-            if bot.last_claimed.is_none() {
-                info!(
-                    "Unclaiming bot {} because it has no last_claimed time",
-                    bot.bot_id
-                );
-                let res = sqlx::query!(
-                    "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-                    bot.bot_id
-                )
-                .execute(&pool)
-                .await;
-
-                if res.is_err() {
-                    error!(
-                        "Error while unclaiming bot {}: {:?}",
-                        bot.bot_id,
-                        res.unwrap_err()
-                    );
-                    continue;
-                }
-
-                continue;
-            }
-
-            let claimed_by = bot.claimed_by.unwrap();
-            let last_claimed = bot.last_claimed.unwrap();
-
-            info!(
-                "Unclaiming bot {} because it was claimed by {} and never unclaimed",
-                bot.bot_id, claimed_by
-            );
-            let res = sqlx::query!(
-                "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-                bot.bot_id
-            )
-            .execute(&pool)
-            .await;
-
-            if res.is_err() {
-                error!(
-                    "Error while unclaiming bot {}: {:?}",
-                    bot.bot_id,
-                    res.unwrap_err()
-                );
-                continue;
-            }
-
-            let start_time = chrono::offset::Utc::now();
-
-            // Now send message in #lounge
-            let err = lounge_channel_id.send_message(&http, |m| {
-                m.content(format!("<@{}>", claimed_by))
-                .embed(|e| {
-                    e.title("Auto-Unclaimed Bot")
-                        .description(
-                            format!(
-                                "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed at {} ({}).", 
-                                bot.bot_id,
-                                claimed_by,
-                                last_claimed.format("%Y-%m-%d %H:%M:%S"),
-                                (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
-                            ))
-                        .color(0xFF0000)
-                    })
-            })
-            .await;
-
-            if err.is_err() {
-                error!(
-                    "Error while sending message to lounge: {:?}",
-                    err.unwrap_err()
-                );
-                continue;
-            }
-
-            let owner = bot.owner.parse::<u64>();
-
-            if let Ok(owner) = owner {
-                let private_channel = UserId(owner).create_dm_channel(&http).await;
-
-                if private_channel.is_err() {
-                    error!(
-                        "Error while sending message to owner: {:?}",
-                        private_channel.unwrap_err()
-                    );
-                    continue;
-                }
-
-                let private_channel = private_channel.unwrap();
-
-                let err = private_channel.send_message(&http, |m| {
-                    m.embed(|e| {
-                        e.title("Bot Unclaimed!");
-                        e.description(
-                            format!(
-                                r#"
-<@{}> has been unclaimed as it was not being actively reviewed. 
-
-Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
-
-For more information, you can contact the current reviewer <@{}>
-
-*This bot was claimed at {} ({}). This is a automated message letting you know about whats going on...*
-                                "#, 
-                                bot.bot_id,
-                                claimed_by,
-                                last_claimed.format("%Y-%m-%d %H:%M:%S"),
-                                (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
-                            ));
-                        e.footer(|f| {
-                            f.text("This is completely normal, don't worry!");
-                            f
-                        });
-                        e
-                    });
-                    m
-                })
-                .await;
-
-                if err.is_err() {
-                    error!(
-                        "Error while sending message to owner: {:?}",
-                        err.unwrap_err()
-                    );
-                    continue;
-                }
-            }
-        }
-
-        info!("Checking for dead guilds made by staff");
-
-        // Loop through all guilds (more optimized that a normal postgres check)
-        let guilds = cache.guilds();
-
-        for guild_id in guilds {
-            // Check if guild is official (main/testing/staff)
-            if guild_id.0 == main_server
-                || guild_id.0 == testing_server
-                || guild_id.0 == staff_server
-            {
-                continue;
-            }
-            // Get guild name from cache
-            let guild = guild_id.name(&cache);
-
-            if guild.is_none() {
-                error!("Error while getting guild name with ID: {:?}", guild_id);
-                continue;
-            }
-
-            // Try parsing guild name to u64
-            let guild_u64 = guild.as_ref().unwrap().parse::<u64>();
-
-            if guild_u64.is_err() {
-                // We have a bad guild name, delete or leave if we are not owner
-                info!(
-                    "Deleting guild {} because it is not a valid guild name: {}",
-                    guild_id,
-                    guild.unwrap()
-                );
-                _utils::delete_leave_guild(&http, &cache, guild_id).await;
-            } else {
-                // Check that this guild_u64 is in database under users AND that it is not dead
-                let res = sqlx::query!(
-                    "SELECT user_id FROM users WHERE user_id = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = 'complete' OR staff_onboard_state = 'pending-manager-review')",
-                    guild_u64.unwrap().to_string()
-                )
-                .fetch_one(&pool)
-                .await;
-
-                if res.is_err() {
-                    match res.as_ref().unwrap_err() {
-                        sqlx::Error::RowNotFound => {
-                            _utils::delete_leave_guild(&http, &cache, guild_id).await;
-                        }
-                        _ => {
-                            error!(
-                                "Error while checking if guild is in database: {:?}",
-                                res.unwrap_err()
-                            );
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[tokio::main]
 async fn main() {
     const MAX_CONNECTIONS: u32 = 3; // max connections to the database, we don't need too many here
 
-    let logger = libteapot::logger::setup_logging("/var/log/arcadia-bot.log");
-
-    let _scope_guard = slog_scope::set_global_logger(logger.clone());
-    let _log_guard = slog_stdlog::init_with_level(log::Level::Info).unwrap();
-
-    info!("Starting Arcadia (bot)...");
-
     dotenv().ok();
 
+    env_logger::init();
+
     // proxy url is always http://localhost:3219
-    let mut proxy_url = "http://localhost:3219".to_string();
+    let mut proxy_url = "http://127.0.0.1:3219/".to_string();
     if let Ok(v) = std::env::var("PROXY_URL") {
-        info!("Setting proxy url to {}", v);
         proxy_url = v;
     }
 
     info!("Proxy URL: {}", proxy_url);
 
-    // http_pre is for getting app_info etc., http is for poise framework
-    let http_pre =
-        serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
-            .proxy(&proxy_url)
-            .expect("proxy error")
-            .ratelimiter_disabled(true)
-            .build();
     let http =
         serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
             .proxy(proxy_url)
-            .expect("proxy error")
             .ratelimiter_disabled(true)
             .build();
 
     let client_builder =
         serenity::ClientBuilder::new_with_http(http, serenity::GatewayIntents::all());
 
-    // Get the bot's owners and id and convert it to hashset
-    let app_inf = http_pre.get_current_application_info().await.unwrap();
-    let owners = app_inf
-        .team
-        .as_ref()
-        .map(|team| team.members.iter().map(|m| m.user.id).collect())
-        .unwrap_or_else(|| vec![app_inf.owner.id]);
-    let owners = owners.into_iter().collect::<std::collections::HashSet<_>>();
-
     let framework = poise::Framework::new(
-        client_builder,
-        move |_ctx, _ready, _framework| {
-            Box::pin(async move {
-                Ok(Data {
-                    pool: PgPoolOptions::new()
-                        .max_connections(MAX_CONNECTIONS)
-                        .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
-                        .await
-                        .expect("Could not initialize connection"),
-                    avacado_public: libavacado::public::AvacadoPublic::new(
-                        _ctx.cache.clone(),
-                        _ctx.http.clone(),
-                    ),
-                })
-            })
-        },
         poise::FrameworkOptions {
-            owners,
+            initialize_owners: true,
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("ibb!".into()),
                 ..poise::PrefixFrameworkOptions::default()
             },
-            event_handler: |ctx, event, _framework, user_data| {
-                Box::pin(event_listener(ctx, event, user_data))
-            },
+            listener: |event, _ctx, user_data| Box::pin(event_listener(event, user_data)),
             commands: vec![
                 age(),
-                act(),
                 actf(),
                 register(),
                 simplehelp(),
@@ -576,8 +659,6 @@ async fn main() {
                 tests::test_staffcheck(),
                 tests::test_admin_dev(),
                 tests::test_admin(),
-                tests::test_poll(),
-                admin::update_field(),
                 admin::votereset(),
                 admin::voteresetall(),
                 admin::onboardman(),
@@ -609,9 +690,29 @@ async fn main() {
             on_error: |error| Box::pin(on_error(error)),
             ..Default::default()
         },
-    )
-    .await
-    .expect("Error");
+        move |_ctx, _ready, _framework| {
+            Box::pin(async move {
+                Ok(Data {
+                    pool: PgPoolOptions::new()
+                        .max_connections(MAX_CONNECTIONS)
+                        .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
+                        .await
+                        .expect("Could not initialize connection"),
+                    avacado_public: libavacado::public::AvacadoPublic::new(
+                        _ctx.cache.clone(),
+                        _ctx.http.clone(),
+                    ),
+                })
+            })
+        },
+    );
 
-    framework.start().await.expect("Error");
+    let mut client = client_builder
+        .framework(framework)
+        .await
+        .expect("Error creating client");
+
+    if let Err(why) = client.start().await {
+        error!("Client error: {:?}", why);
+    }
 }

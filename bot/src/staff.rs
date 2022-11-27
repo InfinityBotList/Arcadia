@@ -1,7 +1,7 @@
 use log::info;
-use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::{self as serenity, GuildId};
 
-use std::fmt::Write as _;
+use std::{fmt::Write as _, num::NonZeroU64};
 // import without risk of name clashing
 use serenity::id::UserId;
 
@@ -17,8 +17,6 @@ type Context<'a> = crate::Context<'a>;
     slash_command,
     guild_cooldown = 10,
     subcommands(
-        "staff_list",
-        "staff_recalc",
         "staff_add",
         "staff_del",
         "staff_guildlist",
@@ -41,10 +39,20 @@ pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
 pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     // Get list of users with staff flag set to true
     let data = ctx.data();
+    let discord = &ctx.discord();
 
     sqlx::query!("UPDATE users SET user_id = TRIM(user_id)")
         .execute(&data.pool)
         .await?;
+
+    // Remove user and warn
+    let v = sqlx::query!("DELETE FROM users WHERE user_id = ''")
+        .execute(&data.pool)
+        .await?;
+
+    if v.rows_affected() > 0 {
+        info!("Removed {} users with empty user_id", v.rows_affected());
+    }
 
     let staffs = sqlx::query!(
         "SELECT user_id, username, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE (staff = true OR admin = true OR ibldev = true OR iblhdev = true OR hadmin = true) ORDER BY user_id ASC"
@@ -56,43 +64,19 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     let mut not_in_staff_server =
         "**Not in staff server (based on cache, may be inaccurate)**\n".to_string();
 
-    let guild = ctx.guild().unwrap();
+    let guild = ctx.guild().unwrap().id;
 
-    for staff in staffs.iter() {
+    for staff in staffs {
         // Convert ID to u64
+        let user_id = staff.user_id.parse::<NonZeroU64>()?;
 
-        if staff.user_id.is_empty() {
-            // Remove user and warn
-            sqlx::query!("DELETE FROM users WHERE user_id = $1", staff.user_id)
-                .execute(&data.pool)
-                .await?;
-
-            ctx.say("Removed user with empty ID from database").await?;
-            continue;
-        }
-
-        let user_id = staff.user_id.parse::<u64>();
-
-        if user_id.is_err() {
-            // Remove user and warn
-            sqlx::query!("DELETE FROM users WHERE user_id = $1", staff.user_id)
-                .execute(&data.pool)
-                .await?;
-
-            ctx.say("Removed user with invalid ID from database: ".to_owned() + &staff.user_id)
-                .await?;
-            continue;
-        }
-
-        let user_id = user_id?;
-
-        let cache_user = ctx.serenity_context().cache.member(guild.id, UserId(user_id));
+        let cache_user = discord.cache.member(guild, UserId(user_id));
 
         let user = match cache_user {
             Some(user) => user.user,
             None => {
                 // User not found in cache, fetch from API
-                let user = UserId(user_id).to_user(&ctx.serenity_context().http).await?;
+                let user = UserId(user_id).to_user(&ctx).await?;
 
                 write!(not_in_staff_server, "{} ({})", user.id.0, user.name)?;
                 user
@@ -117,135 +101,6 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-/// Recalculates the list of staff and developers based on their roles
-#[poise::command(
-    rename = "recalc",
-    track_edits,
-    prefix_command,
-    slash_command,
-    check = "checks::is_admin_hdev",
-    check = "checks::staff_server"
-)]
-pub async fn staff_recalc(ctx: Context<'_>) -> Result<(), Error> {
-    // Ask if the user truly wishes to continue
-    let mut msg = ctx.send(|m| {
-        m.content(r#"
-Continuing will change the PostgreSQL database and recalculate the list of staff/admins/developers based on their roles. This is dangerous but sometimes needed for the manager bot to work correctly!
-
-**Current recalculation system**
-
-``Staff Manager`` = admin flag
-``Head Developer`` = iblhdev flag
-``Developer`` | ``Head Developer`` = ibldev flag
-``Website Moderator`` = staff flag
-``Head Staff Manager`` = hadmin flag
-
-**This only affects v4 and later**
-
-During beta testing, this is available to admins and devs, but once second final migration happens, it will only be available for Toxic Dev
-"#)
-        .components(|c| {
-            c.create_action_row(|r| {
-                r.create_button(|b| {
-                    b.custom_id("continue")
-                    .label("Continue")
-                })
-                .create_button(|b| {
-                    b.custom_id("cancel")
-                        .label("Cancel")
-                        .style(serenity::ButtonStyle::Danger)
-                })
-            })
-        })
-    })
-    .await?
-    .into_message()
-    .await?;
-
-    let interaction = msg
-        .await_component_interaction(ctx.serenity_context())
-        .author_id(ctx.author().id)
-        .await;
-    msg.edit(ctx.serenity_context(), |b| b.components(|b| b)).await?; // remove buttons after button press
-
-    let pressed_button_id = match &interaction {
-        Some(m) => &m.data.custom_id,
-        None => {
-            ctx.say("You didn't interact in time").await?;
-            return Ok(());
-        }
-    };
-
-    if pressed_button_id == "cancel" {
-        ctx.say("Cancelled").await?;
-        return Ok(());
-    } else {
-        ctx.say("Recalculating staff list").await?;
-
-        // Get all members on staff server
-        let guild = ctx.guild().unwrap();
-
-        let dev_role = poise::serenity_prelude::RoleId(std::env::var("DEV_ROLE")?.parse::<u64>()?);
-        let head_dev_role =
-            poise::serenity_prelude::RoleId(std::env::var("HEAD_DEV_ROLE")?.parse::<u64>()?);
-        let staff_man_role =
-            poise::serenity_prelude::RoleId(std::env::var("STAFF_MAN_ROLE")?.parse::<u64>()?);
-        let head_man_role =
-            poise::serenity_prelude::RoleId(std::env::var("HEAD_MAN_ROLE")?.parse::<u64>()?);
-        let web_mod_role =
-            poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
-
-        // First unset all staff
-        sqlx::query!("UPDATE users SET staff = false, ibldev = false, iblhdev = false, admin = false, hadmin = false")
-            .execute(&ctx.data().pool)
-            .await?;
-
-        for member in guild.members.values() {
-            if member.roles.contains(&dev_role) {
-                sqlx::query!(
-                    "UPDATE users SET staff = true, ibldev = true WHERE user_id = $1",
-                    member.user.id.0.to_string()
-                )
-                .execute(&ctx.data().pool)
-                .await?;
-            }
-            if member.roles.contains(&head_dev_role) {
-                sqlx::query!("UPDATE users SET staff = true, ibldev = true, iblhdev = true WHERE user_id = $1", member.user.id.0.to_string())
-                    .execute(&ctx.data().pool)
-                    .await?;
-            }
-            if member.roles.contains(&staff_man_role) {
-                sqlx::query!(
-                    "UPDATE users SET staff = true, admin = true WHERE user_id = $1",
-                    member.user.id.0.to_string()
-                )
-                .execute(&ctx.data().pool)
-                .await?;
-            }
-            if member.roles.contains(&head_man_role) {
-                sqlx::query!(
-                    "UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1",
-                    member.user.id.0.to_string()
-                )
-                .execute(&ctx.data().pool)
-                .await?;
-            }
-            if member.roles.contains(&web_mod_role) {
-                sqlx::query!(
-                    "UPDATE users SET staff = true WHERE user_id = $1",
-                    member.user.id.0.to_string()
-                )
-                .execute(&ctx.data().pool)
-                .await?;
-            }
-        }
-
-        ctx.say("Recalculated staff list").await?;
-    }
-
-    Ok(())
-}
-
 /// Adds a new staff member
 #[poise::command(
     rename = "add",
@@ -262,10 +117,10 @@ pub async fn staff_add(
     // Check if awaiting staff role in main server
     let main_server = std::env::var("MAIN_SERVER")
         .unwrap()
-        .parse::<u64>()
+        .parse::<NonZeroU64>()
         .unwrap();
 
-    let member = ctx.serenity_context().cache.member(main_server, member.user.id);
+    let member = ctx.discord().cache.member(main_server, member.user.id);
 
     if member.is_none() {
         info!("Member not found in main server");
@@ -276,11 +131,11 @@ pub async fn staff_add(
 
     if give_roles.is_none() || give_roles.unwrap().to_bool() {
         let web_mod_role =
-            poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
+            poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<NonZeroU64>()?);
 
         if !member.roles.contains(&web_mod_role) {
             // Give user web mod role
-            member.add_role(ctx.serenity_context(), web_mod_role).await?;
+            member.add_role(ctx.discord(), web_mod_role).await?;
         }
     }
 
@@ -314,8 +169,9 @@ pub async fn staff_del(
     #[description = "The user ID of the user to remove staff from"] mut member: serenity::Member,
 ) -> Result<(), Error> {
     let staff_man_role =
-        poise::serenity_prelude::RoleId(std::env::var("STAFF_MAN_ROLE")?.parse::<u64>()?);
-    let owner_role = poise::serenity_prelude::RoleId(std::env::var("OWNER_ROLE")?.parse::<u64>()?);
+        poise::serenity_prelude::RoleId(std::env::var("STAFF_MAN_ROLE")?.parse::<NonZeroU64>()?);
+    let owner_role =
+        poise::serenity_prelude::RoleId(std::env::var("OWNER_ROLE")?.parse::<NonZeroU64>()?);
 
     if member.user.id == ctx.author().id {
         // Don't error, just let them know how stupid they are
@@ -341,19 +197,19 @@ pub async fn staff_del(
     .await?;
 
     let web_mod_role =
-        poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<u64>()?);
+        poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<NonZeroU64>()?);
 
     if member.roles.contains(&web_mod_role) {
         // Remove users web mod role
-        member.remove_role(ctx.serenity_context(), web_mod_role).await?;
+        member.remove_role(ctx.discord(), web_mod_role).await?;
     }
 
     let staff_server =
-        poise::serenity_prelude::GuildId(std::env::var("MAIN_SERVER")?.parse::<u64>()?);
+        poise::serenity_prelude::GuildId(std::env::var("MAIN_SERVER")?.parse::<NonZeroU64>()?);
 
     staff_server
         .kick_with_reason(
-            &ctx.serenity_context().http,
+            &ctx.discord().http,
             member.user.id,
             "Removed from staff list",
         )
@@ -374,13 +230,13 @@ pub async fn staff_del(
     check = "checks::staff_server"
 )]
 pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
-    let guilds = ctx.serenity_context().cache.guilds();
+    let guilds = ctx.discord().cache.guilds();
 
     let mut guild_list = String::new();
 
     for guild in guilds.iter() {
         let name = guild
-            .name(ctx.serenity_context())
+            .name(ctx.discord())
             .unwrap_or_else(|| "Unknown".to_string())
             + " ("
             + &guild.to_string()
@@ -406,9 +262,9 @@ pub async fn staff_guilddel(
     ctx: Context<'_>,
     #[description = "The guild ID to remove"] guild: String,
 ) -> Result<(), Error> {
-    let gid = guild.parse::<u64>()?;
+    let gid = guild.parse::<NonZeroU64>()?;
 
-    ctx.serenity_context().http.delete_guild(gid).await?;
+    ctx.discord().http.delete_guild(GuildId(gid)).await?;
 
     ctx.say("Removed guild").await?;
 
@@ -428,9 +284,9 @@ pub async fn staff_guildleave(
     ctx: Context<'_>,
     #[description = "The guild ID to leave"] guild: String,
 ) -> Result<(), Error> {
-    let gid = guild.parse::<u64>()?;
+    let gid = guild.parse::<NonZeroU64>()?;
 
-    ctx.serenity_context().http.leave_guild(gid).await?;
+    ctx.discord().http.leave_guild(GuildId(gid)).await?;
 
     ctx.say("Removed guild").await?;
 

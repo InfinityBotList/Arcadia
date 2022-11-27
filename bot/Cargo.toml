@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-poise = "0.5"
+poise = { git = "https://github.com/serenity-rs/poise", branch = "serenity-next" }
 serde = "1.0"
 docser = { git = "https://github.com/RustLibs/docser.git", branch = "main" }
 log = "0.4.14"
@@ -22,10 +22,6 @@ libavacado = { path = "../libavacado" }
 leone = { path = "./leone" }
 ring = "0.16"
 data-encoding = "2.3"
-slog = "2.7.0"
-slog-scope = "4.4.0"
-slog-stdlog = "4.1.1"
-libteapot = { path = "../libteapot" }
 
 [dependencies.tokio]
 version = "1"

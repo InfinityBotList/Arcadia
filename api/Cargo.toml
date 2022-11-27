@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = { version = "4.0.1", features = ["rustls"] }
-actix-cors = "0.6.2"
+actix-cors = "0.6.4"
 tokio = "1.20.0"
 actix-rt = "2.6.0"
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls" , "postgres", "chrono", "uuid", "bigdecimal", "json"] }
@@ -16,7 +16,7 @@ futures-util = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0.61", features = ["preserve_order"] }
 dotenv = "0.15.0"
-serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
+serenity = { git = "https://github.com/serenity-rs/serenity", branch = "next", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
 libavacado = { path = "../libavacado" }
 moka = { version = "0.9", features = ["future"] }
 chrono = { version = "0.4.19", features = ["serde"]}

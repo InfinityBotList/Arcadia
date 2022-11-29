@@ -573,7 +573,7 @@ Welcome to your onboarding server! Please read the following:
             );
 
             let mut msg = ctx.send(
-                builder.clone()
+                builder.clone().components(vec![])
             ).await?
             .into_message()
             .await?;

@@ -216,8 +216,12 @@ pub async fn handle_onboarding(
         .await?;
 
         // Check for old onboarding server
-        let id = if let Some(guild) = discord.cache.guild(onboard_guild.parse::<NonZeroU64>()?) {
-            Some(guild.id)
+        let id = if onboard_guild != "" {
+            if let Some(guild) = discord.cache.guild(onboard_guild.parse::<NonZeroU64>()?) {
+                Some(guild.id)
+            } else {
+                None
+            }
         } else {
             None
         };

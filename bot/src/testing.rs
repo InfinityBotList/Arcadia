@@ -237,6 +237,10 @@ pub async fn claim_impl(
         return Ok(());
     }
 
+    if !checks::is_staff(ctx).await? {
+        return Err("Only staff members can claim bots!".into());
+    }
+
     let test_bot_id = std::env::var("TEST_BOT")?;
 
     if !checks::is_staff(ctx).await? {
@@ -440,7 +444,6 @@ pub async fn claim_impl(
     slash_command,
     user_cooldown = 3,
     category = "Testing",
-    check = "checks::is_staff"
 )]
 pub async fn claim(
     ctx: Context<'_>,
@@ -456,7 +459,6 @@ pub async fn claim(
     context_menu_command = "Claim Bot",
     user_cooldown = 3,
     category = "Testing",
-    check = "checks::is_staff"
 )]
 pub async fn claim_context(
     ctx: Context<'_>,
@@ -468,6 +470,10 @@ pub async fn claim_context(
 pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
+    }
+
+    if !checks::is_staff(ctx).await? {
+        return Err("Only staff members can unclaim bots!".into());
     }
 
     let data = ctx.data();
@@ -549,7 +555,6 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
     slash_command,
     user_cooldown = 3,
     category = "Testing",
-    check = "checks::is_staff"
 )]
 pub async fn unclaim(
     ctx: Context<'_>,
@@ -562,7 +567,6 @@ pub async fn unclaim(
     context_menu_command = "Unclaim Bot",
     user_cooldown = 3,
     category = "Testing",
-    check = "checks::is_staff"
 )]
 pub async fn unclaim_context(
     ctx: Context<'_>,
@@ -577,7 +581,6 @@ pub async fn unclaim_context(
     slash_command,
     user_cooldown = 3,
     category = "Testing",
-    check = "checks::is_staff"
 )]
 pub async fn approve(
     ctx: Context<'_>,
@@ -587,6 +590,11 @@ pub async fn approve(
     if !crate::_onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
         return Ok(());
     }
+
+    if !checks::is_staff(ctx).await? {
+        return Err("Only staff members can approve bots!".into());
+    }
+
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }
@@ -611,7 +619,6 @@ pub async fn approve(
     slash_command,
     user_cooldown = 10,
     category = "Testing",
-    check = "checks::is_staff"
 )]
 pub async fn deny(
     ctx: Context<'_>,
@@ -624,6 +631,10 @@ pub async fn deny(
 
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
+    }
+
+    if !checks::is_staff(ctx).await? {
+        return Err("Only staff members can deny bots!".into());
     }
 
     libavacado::staff::deny_bot(

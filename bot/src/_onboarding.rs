@@ -259,7 +259,7 @@ Welcome to your onboarding server! Please read the following:
             // Create DM invite
             let invite = CreateInvite::new()
                 .max_age(0)
-                .max_uses(1)
+                .max_uses(0)
                 .temporary(false)
                 .unique(true);
             let dm_invite = channel.create_invite(&discord, invite).await?;
@@ -323,7 +323,7 @@ Welcome to your onboarding server! Please read the following:
             // Create invite
             let invite = CreateInvite::new()
                 .max_age(0)
-                .max_uses(1)
+                .max_uses(0)
                 .temporary(false)
                 .unique(true);
             let invite = readme.create_invite(&discord, invite).await?;
@@ -573,7 +573,7 @@ Welcome to your onboarding server! Please read the following:
             );
 
             let mut msg = ctx.send(
-                builder.clone().components(vec![])
+                builder.clone()
             ).await?
             .into_message()
             .await?;
@@ -588,7 +588,7 @@ Welcome to your onboarding server! Please read the following:
             if let Some(m) = &interaction {
                 let id = &m.data.custom_id;
 
-                msg.edit(ctx.discord(), builder.to_prefix_edit()).await?; // remove buttons after button press
+                msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![])).await?; // remove buttons after button press
 
                 if id == "survey" {
                     // Create a new message with the survey modal in it (via the button click)

@@ -184,7 +184,7 @@ pub async fn resetonboard(
 
     // Update onboard state of user
     sqlx::query!(
-        "UPDATE users SET staff_onboard_state = 'pending', staff_onboard_last_start_time = NOW() WHERE user_id = $1",
+        "UPDATE users SET staff_onboard_guild = NULL, staff_onboard_state = 'pending', staff_onboard_last_start_time = NOW() WHERE user_id = $1",
         user.id.to_string()
     )
     .execute(&data.pool)

@@ -130,19 +130,39 @@ Experience in PostgreSQL and at least one of the below languages is required:
             info: r#"
 Certify your discord bot for extra perks and more!
 
-Requirements:
-
-- Insert requirements here
-
-Note that this is a dummy postition, it is still unclear as to how certification will work.
+Fill out this form and it will be added on our certification app queue.
 "#.to_string(),
             questions: vec![
                 StaffAppQuestion {
-                    id: "blah".to_string(),
-                    question: "Blah".to_string(),
-                    para: "Blah".to_string(),
-                    placeholder: "Blah".to_string(),
-                }
+                    id: "unique".to_string(),
+                    question: "What do you feel is unique about your bot?".to_string(),
+                    para: "What do you feel is unique about your bot? This could be anything!".to_string(),
+                    placeholder: "My bot does...".to_string(),
+                },
+                StaffAppQuestion {
+                    id: "gc".to_string(),
+                    question: "How many servers is your bot in?".to_string(),
+                    para: "Answer truthfully, we check!".to_string(),
+                    placeholder: "EX: 513 servers".to_string(),
+                },
+                StaffAppQuestion {
+                    id: "gain".to_string(),
+                    question: "What do you hope to gain through certification".to_string(),
+                    para: "What special feature/perk do you want to gain through certification! What do you believe your bot can bring for our services?".to_string(),
+                    placeholder: "I hope to gain...".to_string(),
+                },
+                StaffAppQuestion {
+                    id: "votes".to_string(),
+                    question: "How many votes does your bot have?".to_string(),
+                    para: "You usually need at least 30 votes but exceptions can be made depending on circumstance!".to_string(),
+                    placeholder: "EX: 35 votes".to_string(),
+                },
+                StaffAppQuestion {
+                    id: "features".to_string(),
+                    question: "What features of Infinity Bot List does your bot use (posting stats/banners on bot page etc.)?".to_string(),
+                    para: "This doesn't account for much weightage but we want to know how much functionality and perks you already use".to_string(),
+                    placeholder: "I use...".to_string(),
+                },
             ],
         },
         partners: StaffPosition {

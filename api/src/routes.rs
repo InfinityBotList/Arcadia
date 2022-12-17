@@ -848,7 +848,7 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
     if err.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
-            reason: "Failed to send interview".to_string() + &err.unwrap_err().to_string(),
+            reason: err.unwrap_err().to_string(),
             context: None,
         });
     }

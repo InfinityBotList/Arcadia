@@ -124,9 +124,23 @@ Experience in PostgreSQL and at least one of the below languages is required:
 "#.to_string(),
             questions: vec![
                 StaffAppQuestion {
+                    id: "sql".to_string(),
+                    question: "Write a SQL expression to select from a table named fruits the columns price and quantity limited to 6 rows and ordered by the price in descending order".to_string(),
+                    para: "Answer the question above".to_string(),
+                    placeholder: "I am...".to_string(),
+                    short: false,
+                },       
+                StaffAppQuestion {
+                    id: "foobar".to_string(),
+                    question: "Write a program that loops over all numbers from 1 to 7847 (inclusive). For every multiple of 7 and not 19, print 'foo', for every multiple of 19 and not 7, print 'bar', for every multiple of both 7 and 19 print 'foobar'.".to_string(),
+                    para: "Answer the question above with the least amount of code. Use Go 1.18 for all solutions. Your solution must NOT link to an external resource or library".to_string(),
+                    placeholder: "I am...".to_string(),
+                    short: false,
+                },                         
+                StaffAppQuestion {
                     id: "experience".to_string(),
-                    question: "Do you have experience in Typescript, Rust and/or Golang. Give examples of projects/code you have written".to_string(),
-                    para: "Do you have experience in Typescript, Rust and/or Golang. Give examples of projects/code you have written.".to_string(),
+                    question: "Do you have experience in Typescript, Rust and/or Go. Give examples of projects/code you have written".to_string(),
+                    para: "Do you have experience in Typescript, Rust and/or Go. Give examples of projects/code you have written.".to_string(),
                     placeholder: "I have worked on...".to_string(),
                     short: false,
                 },
@@ -144,13 +158,6 @@ Experience in PostgreSQL and at least one of the below languages is required:
                     placeholder: "I have used PostgreSQL for... and know...".to_string(),
                     short: false,
                 },
-                StaffAppQuestion {
-                    id: "sql".to_string(),
-                    question: "Write a SQL expression to select apples, bananas and kiwis from a table named fruits".to_string(),
-                    para: "Tell us a little about yourself. Its that simple!".to_string(),
-                    placeholder: "I am...".to_string(),
-                    short: false,
-                },                
                 StaffAppQuestion {
                     id: "reason".to_string(),
                     question: "Why do you want to join the dev team?".to_string(),

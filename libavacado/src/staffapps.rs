@@ -30,13 +30,6 @@ pub fn get_apps() -> StaffAppData {
                     short: false,
                 },
                 StaffAppQuestion {
-                    id: "some-work".to_string(),
-                    question: "What is some of the work you have done? Can you share some links with us?".to_string(),
-                    para: "What is some of the work you have done? Can you share some links with us? We want to see your finest works".to_string(),
-                    placeholder: "Some work I did...".to_string(),
-                    short: false,
-                },
-                StaffAppQuestion {
                     id: "about-you".to_string(),
                     question: "Tell us a little about yourself".to_string(),
                     para: "Tell us a little about yourself. Its that simple!".to_string(),
@@ -92,7 +85,7 @@ We are a welcoming and laid back team who is always willing to give new people a
             interview: Some(vec![
                 StaffAppQuestion {
                     id: "motive".to_string(),
-                    question: "Why did you apply for the staff team position?".to_string(),
+                    question: "Why did you apply for the dev team position?".to_string(),
                     para: "Why did you apply for this role? Be specific. We want to know how you can help Infinity Bot List and why you wish to".to_string(),
                     placeholder: "I applied because...".to_string(),
                     short: false,
@@ -106,8 +99,8 @@ We are a welcoming and laid back team who is always willing to give new people a
                 },
                 StaffAppQuestion {
                     id: "some-work".to_string(),
-                    question: "What is some of the work you have done? Can you share some links with us?".to_string(),
-                    para: "What is some of the work you have done? Can you share some links with us? We want to see your finest works".to_string(),
+                    question: "What is some of the projects you have done? Can you share some links with us?".to_string(),
+                    para: "What is some of the projects you have done? Can you share some links with us? We want to see your finest works".to_string(),
                     placeholder: "Some work I did...".to_string(),
                     short: false,
                 },
@@ -117,7 +110,7 @@ We are a welcoming and laid back team who is always willing to give new people a
                     para: "Tell us a little about yourself. Its that simple!".to_string(),
                     placeholder: "I am...".to_string(),
                     short: false,
-                }        
+                },
             ]),
             app_site_rendered: true,
             name: "Dev Team".to_string(),
@@ -151,6 +144,13 @@ Experience in PostgreSQL and at least one of the below languages is required:
                     placeholder: "I have used PostgreSQL for... and know...".to_string(),
                     short: false,
                 },
+                StaffAppQuestion {
+                    id: "sql".to_string(),
+                    question: "Write a SQL expression to select apples, bananas and kiwis from a table named fruits".to_string(),
+                    para: "Tell us a little about yourself. Its that simple!".to_string(),
+                    placeholder: "I am...".to_string(),
+                    short: false,
+                },                
                 StaffAppQuestion {
                     id: "reason".to_string(),
                     question: "Why do you want to join the dev team?".to_string(),

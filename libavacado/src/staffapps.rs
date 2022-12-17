@@ -271,7 +271,7 @@ pub async fn get_app_interview(
 
     let position = app_questions.staff_questions(&row.position);
 
-    if !position.interview.is_none() {
+    if position.interview.is_none() {
         return Err("This position does not need an interview".into())
     }
 
@@ -316,7 +316,7 @@ pub async fn create_app(
         }
 
         // Check if answer is too short.
-        if answer.len() < 50 {
+        if answer.len() < 50 && !question.short {
             return Err("An answer you have sent is too short".into());
         }
 
@@ -387,7 +387,7 @@ pub async fn send_interview(
 
     let position = app_questions.staff_questions(&row.position);
 
-    if !position.interview.is_none() {
+    if position.interview.is_none() {
         return Err("This position does not need an interview".into());
     }
 

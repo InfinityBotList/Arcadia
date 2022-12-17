@@ -124,12 +124,19 @@ Experience in PostgreSQL and at least one of the below languages is required:
 "#.to_string(),
             questions: vec![
                 StaffAppQuestion {
-                    id: "sql".to_string(),
-                    question: "Write a SQL expression to select from a table named fruits the columns price and quantity limited to 6 rows and ordered by the price in descending order".to_string(),
-                    para: "Answer the question above".to_string(),
-                    placeholder: "I am...".to_string(),
+                    id: "sql-basic".to_string(),
+                    question: "Write a SQL expression to select from a table named 'shop' the columns price (float) and quantity (integer) limited to 6 rows, ordered by the price in descending order".to_string(),
+                    para: "Answer the questions above using the most readable and (where possible) the most optimized SQL. Assume PostgreSQL 15 is being used and the 'pgxpool' (go) driver is being used.".to_string(),
+                    placeholder: "SQL Here".to_string(),
                     short: false,
-                },       
+                },      
+                StaffAppQuestion {
+                    id: "sql-basic".to_string(),
+                    question: "You now need to select all rows of the 'shop' table where rating (float) is above 5, the name (text) is similar (and case-insensitive) to $1 and categories (text[]) contains at least one element from $2 and all elements of $3 where $1, $2 and $3 are parameters of a parameterized query".to_string(),
+                    para: "Answer the questions above using the most readable and (where possible) the most optimized SQL. Assume PostgreSQL 15 is being used and the 'pgxpool' (go) driver is being used.".to_string(),
+                    placeholder: "SQL Here".to_string(),
+                    short: false,
+                },        
                 StaffAppQuestion {
                     id: "foobar".to_string(),
                     question: "Write a program that loops over all numbers from 1 to 7847 (inclusive). For every multiple of 7 and not 19, print 7 times the number and a uppercase A (on the same line), for every multiple of 19 and not 7, print a lowercase B and 5 more than the number divided by 4 and rounded (on the same line), for every multiple of both 7 and 19 print 'foobar'. Otherwise print 24 times the number".to_string(),

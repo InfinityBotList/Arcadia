@@ -240,22 +240,6 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -
     HttpResponse::Ok().body("")
 }
 
-/// Get all current maintenances
-#[get("/maints")]
-pub async fn get_current_maints(_req: HttpRequest) -> HttpResponse {
-    let maints = libavacado::public::maint_status();
-
-    if let Ok(maints) = maints {
-        return HttpResponse::Ok().json(maints);
-    }
-
-    HttpResponse::BadRequest().json(crate::models::APIResponse {
-        done: false,
-        reason: maints.err().unwrap().to_string(),
-        context: None,
-    })
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct SVQuery {
     uid: String,
@@ -438,8 +422,53 @@ pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {
 
 /// Returns the interview questions form
 #[get("/herpes/zoster")]
-pub async fn get_interview_api(_req: HttpRequest) -> HttpResponse {
-    HttpResponse::Ok().json(libavacado::staffapps::get_interview_questions())
+pub async fn get_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> HttpResponse {
+    let data: &crate::models::AppState = req
+        .app_data::<web::Data<crate::models::AppState>>()
+        .unwrap();
+
+    let auth_default = &HeaderValue::from_str("").unwrap();
+    let auth = req
+        .headers()
+        .get("Authorization")
+        .unwrap_or(auth_default)
+        .to_str()
+        .unwrap();
+
+    let info = info.into_inner();
+
+    let check = sqlx::query!(
+        "SELECT api_token FROM users WHERE user_id = $1",
+        &info.user_id.to_string()
+    )
+    .fetch_one(&data.pool)
+    .await;
+
+    if check.is_err() {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let check = check.unwrap();
+
+    if check.api_token != auth {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let interview = libavacado::staffapps::get_app_interview(
+        &data.pool,
+        &info.user_id,
+        &info.app_id,
+    ).await;
+
+    if interview.is_err() {
+        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+            done: false,
+            reason: interview.unwrap_err().to_string(),
+            context: None,
+        });
+    }
+
+    HttpResponse::Ok().json(interview.unwrap())
 }
 
 /// Finalizes the application
@@ -483,6 +512,7 @@ pub async fn finalize_app_api(
     let app = libavacado::staffapps::finalize_app(
         &data.avacado_public,
         &data.pool,
+        &info.user_id,
         &info.app_id,
         body.into_inner(),
     )

@@ -9,41 +9,41 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 
-pub fn get_interview_questions() -> Vec<StaffAppQuestion> {
-    vec![
-		StaffAppQuestion {
-			id: "motive".to_string(),
-			question: "Why did you apply for this role?".to_string(),
-			para: "Why did you apply for this role? Be specific. We want to know how you can help Infinity Bot List and why you wish to".to_string(),
-			placeholder: "I applied because...".to_string(),
-		},
-		StaffAppQuestion {
-			id: "team-player".to_string(),
-			question: "What is a scenario in which you had to be a team player?".to_string(),
-			para: "What is a scenario in which you had to be a team player? We want to know that you can collaborate effectively with us.".to_string(),
-			placeholder: "I had to...".to_string(),
-		},
-		StaffAppQuestion {
-			id: "some-work".to_string(),
-			question: "What is some of the work you have done? Can you share some links with us?".to_string(),
-			para: "What is some of the work you have done? Can you share some links with us? We want to see your finest works".to_string(),
-			placeholder: "Some work I did...".to_string()
-		},
-		StaffAppQuestion {
-			id: "about-you".to_string(),
-			question: "Tell us a little about yourself".to_string(),
-			para: "Tell us a little about yourself. Its that simple!".to_string(),
-			placeholder: "I am...".to_string()
-		}
-	]
-}
-
 pub fn get_apps() -> StaffAppData {
     StaffAppData {
         positions: vec!["staff".to_string(), "dev".to_string(), "certification".to_string(), "partners".to_string()],
         staff: StaffPosition {
             open: true,
-            needs_interview: true,
+            interview: Some(vec![
+                StaffAppQuestion {
+                    id: "motive".to_string(),
+                    question: "Why did you apply for the staff team position?".to_string(),
+                    para: "Why did you apply for this role? Be specific. We want to know how you can help Infinity Bot List and why you wish to".to_string(),
+                    placeholder: "I applied because...".to_string(),
+                    short: false,
+                },
+                StaffAppQuestion {
+                    id: "team-player".to_string(),
+                    question: "What is a scenario in which you had to be a team player?".to_string(),
+                    para: "What is a scenario in which you had to be a team player? We want to know that you can collaborate effectively with us.".to_string(),
+                    placeholder: "I had to...".to_string(),
+                    short: false,
+                },
+                StaffAppQuestion {
+                    id: "some-work".to_string(),
+                    question: "What is some of the work you have done? Can you share some links with us?".to_string(),
+                    para: "What is some of the work you have done? Can you share some links with us? We want to see your finest works".to_string(),
+                    placeholder: "Some work I did...".to_string(),
+                    short: false,
+                },
+                StaffAppQuestion {
+                    id: "about-you".to_string(),
+                    question: "Tell us a little about yourself".to_string(),
+                    para: "Tell us a little about yourself. Its that simple!".to_string(),
+                    placeholder: "I am...".to_string(),
+                    short: false,
+                }        
+            ]),
             app_site_rendered: true,
             name: "Staff Team".to_string(),
             info: r#"Join the Infinity Staff Team and help us Approve, Deny and Certify Discord Bots. 
@@ -55,36 +55,70 @@ We are a welcoming and laid back team who is always willing to give new people a
                     question: "Past server experience".to_string(),
                     para: "Tell us any experience you have working for other servers or bot lists.".to_string(),
                     placeholder: "I have worked at...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "strengths".to_string(),
                     question: "List some of your strengths".to_string(),
                     para: "Tell us a little bit about yourself.".to_string(),
                     placeholder: "I am always online and active...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "situations".to_string(),
                     question: "Situation Examples".to_string(),
                     para: "How would you handle: Mass Pings, Nukes and Raids etc.".to_string(),
                     placeholder: "I would handle it by...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "reason".to_string(),
                     question: "Why do you want to join the staff team?".to_string(),
                     para: "Why do you want to join the staff team? Be specific".to_string(),
                     placeholder: "I want to join the staff team because...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "other".to_string(),
                     question: "Anything else you want to add?".to_string(),
                     para: "Anything else you want to add?".to_string(),
                     placeholder: "Just state anything that doesn't hit anywhere else".to_string(),
+                    short: true,
                 },
             ],
         },
         dev: StaffPosition {
             open: true,
-            needs_interview: true,
+            interview: Some(vec![
+                StaffAppQuestion {
+                    id: "motive".to_string(),
+                    question: "Why did you apply for the staff team position?".to_string(),
+                    para: "Why did you apply for this role? Be specific. We want to know how you can help Infinity Bot List and why you wish to".to_string(),
+                    placeholder: "I applied because...".to_string(),
+                    short: false,
+                },
+                StaffAppQuestion {
+                    id: "team-player".to_string(),
+                    question: "What is a scenario in which you had to be a team player?".to_string(),
+                    para: "What is a scenario in which you had to be a team player? We want to know that you can collaborate effectively with us.".to_string(),
+                    placeholder: "I had to...".to_string(),
+                    short: false,
+                },
+                StaffAppQuestion {
+                    id: "some-work".to_string(),
+                    question: "What is some of the work you have done? Can you share some links with us?".to_string(),
+                    para: "What is some of the work you have done? Can you share some links with us? We want to see your finest works".to_string(),
+                    placeholder: "Some work I did...".to_string(),
+                    short: false,
+                },
+                StaffAppQuestion {
+                    id: "about-you".to_string(),
+                    question: "Tell us a little about yourself".to_string(),
+                    para: "Tell us a little about yourself. Its that simple!".to_string(),
+                    placeholder: "I am...".to_string(),
+                    short: false,
+                }        
+            ]),
             app_site_rendered: true,
             name: "Dev Team".to_string(),
             info: r#"Join our Dev Team and help us update, manage and maintain all of the Infinity Services!
@@ -101,30 +135,34 @@ Experience in PostgreSQL and at least one of the below languages is required:
                     question: "Do you have experience in Typescript, Rust and/or Golang. Give examples of projects/code you have written".to_string(),
                     para: "Do you have experience in Typescript, Rust and/or Golang. Give examples of projects/code you have written.".to_string(),
                     placeholder: "I have worked on...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "strengths".to_string(),
                     question: "What are your strengths in coding".to_string(),
                     para: "What are your strengths in coding".to_string(),
                     placeholder: "I am good at...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "db".to_string(),
-                    question: "Do you have Exprience with PostgreSQL".to_string(),
+                    question: "Do you have Exprience with PostgreSQL. How much experience do you have?".to_string(),
                     para: "Do you have Exprience with PostgreSQL".to_string(),
-                    placeholder: "I have used PostgreSQL for...".to_string(),
+                    placeholder: "I have used PostgreSQL for... and know...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "reason".to_string(),
                     question: "Why do you want to join the dev team?".to_string(),
                     para: "Why do you want to join the dev team? Be specific".to_string(),
                     placeholder: "I want to join the dev team because...".to_string(),
+                    short: false,
                 },
             ]
         },
         certification: StaffPosition {
             open: true,
-            needs_interview: false,
+            interview: None,
             app_site_rendered: true, // For now, until this is decided
             name: "Bot Certification".to_string(),
             info: r#"
@@ -134,40 +172,38 @@ Fill out this form and it will be added on our certification app queue.
 "#.to_string(),
             questions: vec![
                 StaffAppQuestion {
+                    id: "id".to_string(),
+                    question: "What is your bots ID?".to_string(),
+                    para: "What do you feel is unique about your bot? This could be anything!".to_string(),
+                    placeholder: "My bot does...".to_string(),
+                    short: true,
+                },
+                StaffAppQuestion {
                     id: "unique".to_string(),
                     question: "What do you feel is unique about your bot?".to_string(),
                     para: "What do you feel is unique about your bot? This could be anything!".to_string(),
                     placeholder: "My bot does...".to_string(),
-                },
-                StaffAppQuestion {
-                    id: "gc".to_string(),
-                    question: "How many servers is your bot in?".to_string(),
-                    para: "Answer truthfully, we check!".to_string(),
-                    placeholder: "EX: 513 servers".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "gain".to_string(),
                     question: "What do you hope to gain through certification".to_string(),
                     para: "What special feature/perk do you want to gain through certification! What do you believe your bot can bring for our services?".to_string(),
                     placeholder: "I hope to gain...".to_string(),
-                },
-                StaffAppQuestion {
-                    id: "votes".to_string(),
-                    question: "How many votes does your bot have?".to_string(),
-                    para: "You usually need at least 30 votes but exceptions can be made depending on circumstance!".to_string(),
-                    placeholder: "EX: 35 votes".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "features".to_string(),
                     question: "What features of Infinity Bot List does your bot use (posting stats/banners on bot page etc.)?".to_string(),
                     para: "This doesn't account for much weightage but we want to know how much functionality and perks you already use".to_string(),
                     placeholder: "I use...".to_string(),
+                    short: false,
                 },
             ],
         },
         partners: StaffPosition {
             open: true,
-            needs_interview: false,
+            interview: None,
             app_site_rendered: true,
             name: "Partners".to_string(),
             info: r#"Partner your Discord Bot, Discord Server or Business today! It's easier than ever before!"#.to_string(),
@@ -177,34 +213,69 @@ Fill out this form and it will be added on our certification app queue.
                     question: "What are you looking to partner with us for?".to_string(),
                     para: "What are you looking to partner with us for? Be descriptive here".to_string(),
                     placeholder: "I wish to partner a bot/website called Foobar because...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "why".to_string(),
                     question: "Why do you want to partner with us?".to_string(),
                     para: "Why do you want to partner with us? Be specific".to_string(),
                     placeholder: "I want to partner with Infinity Bot List because...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "how".to_string(),
                     question: "How will you promote us?".to_string(),
                     para: "How will you promote Infinity Bot List? This could be a partner command or a link on your website!".to_string(),
                     placeholder: "I will promote Infinity Bot List using...".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "demo".to_string(),
                     question: "Do you have anything to showcase what you wish to partner with us?".to_string(),
                     para: "Links to show us demos of what you're partnering or how many members your server or bot has.".to_string(),
                     placeholder: "LINK 1 etc.".to_string(),
+                    short: false,
                 },
                 StaffAppQuestion {
                     id: "other".to_string(),
                     question: "Anything else you want to add?".to_string(),
                     para: "Anything else you want to add?".to_string(),
                     placeholder: "Just state anything that doesn't hit anywhere else".to_string(),
+                    short: true,
                 },
             ],
         },
     }
+}
+
+pub async fn get_app_interview(
+    pool: &PgPool,
+    user_id: &str,
+    app_id: &str,
+) -> Result<Vec<StaffAppQuestion>, Error> {
+    let row = sqlx::query!("SELECT state, position FROM apps WHERE app_id = $1 AND user_id = $2", app_id, user_id)
+        .fetch_one(pool)
+        .await;
+    
+    if row.is_err() {
+        return Err("Error fetching application".into());
+    }
+
+    let row = row.unwrap();
+
+    if row.state != "pending-interview" {
+        return Err("This application is not pending an interview".into())
+    }
+
+    let app_questions = get_apps();
+
+    let position = app_questions.staff_questions(&row.position);
+
+    if !position.interview.is_none() {
+        return Err("This position does not need an interview".into())
+    }
+
+    Ok(position.interview.as_ref().unwrap().to_vec())
 }
 
 pub async fn create_app(
@@ -304,26 +375,19 @@ pub async fn send_interview(
     pool: &PgPool,
     app_id: &str,
 ) -> Result<(), Error> {
-    let res = sqlx::query!("SELECT state FROM apps WHERE app_id = $1", app_id,)
+    let row = sqlx::query!("SELECT user_id, state, position FROM apps WHERE app_id = $1", app_id,)
         .fetch_one(pool)
         .await?;
 
-    if res.state != "pending" {
+    if row.state != "pending" {
         return Err("This application is not in the 'pending' state".into());
     }
-
-    let row = sqlx::query!(
-        "SELECT user_id, position FROM apps WHERE app_id = $1",
-        app_id
-    )
-    .fetch_one(pool)
-    .await?;
 
     let app_questions = get_apps();
 
     let position = app_questions.staff_questions(&row.position);
 
-    if !position.needs_interview {
+    if !position.interview.is_none() {
         return Err("This position does not need an interview".into());
     }
 
@@ -395,12 +459,14 @@ pub async fn send_interview(
 pub async fn finalize_app(
     public: &AvacadoPublic,
     pool: &PgPool,
+    user_id: &str,
     app_id: &str,
     interview: HashMap<String, String>,
 ) -> Result<(), Error> {
     let row = sqlx::query!(
-        "SELECT user_id, state, position FROM apps WHERE app_id = $1",
+        "SELECT state, position FROM apps WHERE app_id = $1 AND user_id = $2",
         app_id,
+        user_id,
     )
     .fetch_one(pool)
     .await?;
@@ -409,7 +475,7 @@ pub async fn finalize_app(
 
     let position = app_questions.staff_questions(&row.position);
 
-    if !position.needs_interview {
+    if !position.interview.is_none() {
         if row.state != "pending" {
             return Err("This application is not in the 'pending' state".into());
         }
@@ -425,10 +491,10 @@ pub async fn finalize_app(
             return Err("This application is not in the 'pending-interview' state".into());
         }
 
-        let questions = get_interview_questions();
+        let questions = position.interview.as_ref().unwrap();
 
         let mut app_map = HashMap::new();
-        for question in &questions {
+        for question in questions {
             // Get question from app.
             let answer = interview.get(&question.id).ok_or("Missing question")?;
 
@@ -459,7 +525,7 @@ pub async fn finalize_app(
     }
 
     // Send a message to the APPS channel
-    let user_id = UserId(row.user_id.parse::<NonZeroU64>()?);
+    let user_id = UserId(user_id.parse::<NonZeroU64>()?);
 
     let app_channel = std::env::var("APP_CHANNEL_ID")?;
 
@@ -472,7 +538,7 @@ pub async fn finalize_app(
                 "{} has been finalized their application with an interview.",
                 user_id.mention()
             ))
-            .field("User ID", &row.user_id, false)
+            .field("User ID", user_id.mention().to_string(), false)
             .field("Position", &row.position, false)
             .field(
                 "Answers",

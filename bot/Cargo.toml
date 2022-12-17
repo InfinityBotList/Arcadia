@@ -20,6 +20,7 @@ futures-util = "0.3"
 libavacado = { path = "../libavacado" }
 ring = "0.16"
 data-encoding = "2.3"
+indexmap = { version = "1.9.1", features = ["serde"] }
 
 [dependencies.tokio]
 version = "1"

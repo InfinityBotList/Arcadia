@@ -27,19 +27,21 @@ impl DiscordUser {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StaffAppQuestion {
     pub id: String,
     pub question: String,
     pub para: String,
     pub placeholder: String,
+    pub short: bool
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StaffPosition {
     pub info: String,
     pub open: bool,
-    pub needs_interview: bool,
+    #[serde(skip)]
+    pub interview: Option<Vec<StaffAppQuestion>>,
     pub name: String,
     pub questions: Vec<StaffAppQuestion>,
     pub app_site_rendered: bool,
@@ -78,10 +80,4 @@ impl StaffAppData {
             _ => panic!("Invalid position"),
         }
     }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Link {
-    pub name: String,
-    pub value: String,
 }

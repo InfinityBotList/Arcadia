@@ -2,7 +2,6 @@
 
 pub mod checks;
 pub mod manage;
-pub mod maps;
 pub mod public;
 pub mod staff;
 pub mod staffapps;

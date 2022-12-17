@@ -1,7 +1,0 @@
-[
-        {
-                "name": "ArcadiaBot",
-                "script": "unbuffer make run",
-                "cwd": "/root/arcadia/bot"
-        }
-]

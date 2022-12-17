@@ -24,11 +24,19 @@ async fn _embed_help(
     ctx: poise::FrameworkContext<'_, Data, Error>,
 ) -> Result<Vec<EmbedHelp>, Error> {
     let mut categories =
-        libavacado::maps::OrderedMap::<Option<&str>, Vec<&Command<Data, Error>>>::new();
+        indexmap::IndexMap::<Option<&str>, Vec<&Command<Data, Error>>>::new();
     for cmd in &ctx.options().commands {
-        categories
-            .get_or_insert_with(cmd.category, Vec::new)
-            .push(cmd);
+
+        // Check if category exists
+        if categories.contains_key(&cmd.category) {
+            categories.get_mut(&cmd.category).unwrap().push(cmd);
+        }
+
+        // If category doesn't exist, create it
+        else {
+            categories.insert(cmd.category, vec![cmd]);
+        }
+
     }
 
     let mut help_arr = Vec::new();

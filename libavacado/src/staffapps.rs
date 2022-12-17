@@ -132,7 +132,7 @@ Experience in PostgreSQL and at least one of the below languages is required:
                 },       
                 StaffAppQuestion {
                     id: "foobar".to_string(),
-                    question: "Write a program that loops over all numbers from 1 to 7847 (inclusive). For every multiple of 7 and not 19, print 'foo', for every multiple of 19 and not 7, print 'bar', for every multiple of both 7 and 19 print 'foobar'.".to_string(),
+                    question: "Write a program that loops over all numbers from 1 to 7847 (inclusive). For every multiple of 7 and not 19, print 'foo', for every multiple of 19 and not 7, print 'bar', for every multiple of both 7 and 19 print 'foobar'. Otherwise print 24 times the number".to_string(),
                     para: "Answer the question above with the least amount of code. Use Go 1.18 for all solutions. Your solution must NOT link to an external resource or library".to_string(),
                     placeholder: "I am...".to_string(),
                     short: false,

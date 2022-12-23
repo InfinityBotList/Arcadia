@@ -262,6 +262,48 @@ Fill out this form and it will be added on our certification app queue.
     }
 }
 
+pub async fn get_app(
+    pool: &PgPool,
+    app_id: &str
+) -> Result<StaffAppResponse, Error> {
+    let row = sqlx::query!(
+        "SELECT app_id, user_id, position, answers, interview_answers, state, created_at, likes, dislikes FROM apps WHERE app_id = $1",
+        app_id
+    )
+    .fetch_one(pool)
+    .await;
+
+    if row.is_err() {
+        return Err("Could not find/fetch this app from our database".into());
+    }
+
+    let row = row.unwrap();
+
+    let mut likes = Vec::new();
+
+    for like in row.likes {
+        likes.push(like.to_string());
+    }
+
+    let mut dislikes = Vec::new();
+
+    for dislike in row.dislikes {
+        dislikes.push(dislike.to_string());
+    }
+
+    Ok(StaffAppResponse {
+        user_id: row.user_id,
+        app_id: row.app_id,
+        created_at: row.created_at,
+        answers: row.answers,
+        interview: row.interview_answers,
+        position: row.position,
+        state: row.state,
+        likes,
+        dislikes,
+    })
+}
+
 pub async fn get_app_interview(
     pool: &PgPool,
     user_id: &str,

@@ -1,42 +1,8 @@
 use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
-use libavacado::types::StaffAppResponse;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Deserialize)]
-pub struct Request {
-    staff_id: String,
-    bot_id: String,
-    reason: String,
-}
-
-#[derive(Deserialize)]
-pub struct GenericRequest {
-    staff_id: String,
-    reason: String,
-}
-
-#[derive(Deserialize)]
-pub struct UserRequest {
-    user_id: String,
-}
-
-#[derive(Deserialize)]
-pub struct CreateAppQuery {
-    user_id: String,
-    position: String,
-}
-
-#[derive(Deserialize)]
-pub struct GetAppQuery {
-    app_id: String,
-    user_id: String,
-}
-
-#[post(
-    "/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/approve"
-)]
-pub async fn approve(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
+#[post("/panel/approve")]
+pub async fn approve(req: HttpRequest, info: web::Json<crate::models::Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -86,10 +52,8 @@ pub async fn approve(req: HttpRequest, info: web::Json<Request>) -> HttpResponse
     HttpResponse::Ok().body("")
 }
 
-#[post(
-    "/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/deny"
-)]
-pub async fn deny(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
+#[post("/panel/deny")]
+pub async fn deny(req: HttpRequest, info: web::Json<crate::models::Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -139,8 +103,8 @@ pub async fn deny(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
     HttpResponse::Ok().body("")
 }
 
-#[post("/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/votes-reset")]
-pub async fn vote_reset(req: HttpRequest, info: web::Json<Request>) -> HttpResponse {
+#[post("/panel/votes-reset")]
+pub async fn vote_reset(req: HttpRequest, info: web::Json<crate::models::Request>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -190,8 +154,8 @@ pub async fn vote_reset(req: HttpRequest, info: web::Json<Request>) -> HttpRespo
     HttpResponse::Ok().body("")
 }
 
-#[post("/rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetherpacyphygohnalaids/votes-reset/all")]
-pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -> HttpResponse {
+#[post("/panel/votes-reset/all")]
+pub async fn vote_reset_all(req: HttpRequest, info: web::Json<crate::models::GenericRequest>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -237,25 +201,14 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<GenericRequest>) -
         });
     }
 
-    HttpResponse::Ok().body("")
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SVQuery {
-    uid: String,
-    frag: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SVODQuery {
-    code: String,
+    HttpResponse::NoContent().body("")
 }
 
 /// Get onboarding response data
 #[get("/svapi-onboarddata")]
 pub async fn staff_verify_onboard_data_api(
     req: HttpRequest,
-    q: web::Query<SVODQuery>,
+    q: web::Query<crate::models::SVODQuery>,
 ) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
@@ -308,7 +261,7 @@ pub async fn staff_verify_onboard_data_api(
 
 /// Staff Verify Code Fetch API
 #[get("/svapi")]
-pub async fn staff_verify_fetch_api(req: HttpRequest, q: web::Query<SVQuery>) -> HttpResponse {
+pub async fn staff_verify_fetch_api(req: HttpRequest, q: web::Query<crate::models::SVQuery>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -422,7 +375,7 @@ pub async fn get_apps_api(_req: HttpRequest) -> HttpResponse {
 
 /// Returns the interview questions form
 #[get("/herpes/zoster")]
-pub async fn get_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> HttpResponse {
+pub async fn get_interview_api(req: HttpRequest, info: web::Query<crate::models::GetAppQuery>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -475,7 +428,7 @@ pub async fn get_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>) 
 #[post("/herpes/zoster")]
 pub async fn finalize_app_api(
     req: HttpRequest,
-    info: web::Query<GetAppQuery>,
+    info: web::Query<crate::models::GetAppQuery>,
     body: web::Json<HashMap<String, String>>,
 ) -> HttpResponse {
     let data: &crate::models::AppState = req
@@ -532,7 +485,7 @@ pub async fn finalize_app_api(
 #[post("/herpes")]
 pub async fn create_app_api(
     req: HttpRequest,
-    info: web::Query<CreateAppQuery>,
+    info: web::Query<crate::models::CreateAppQuery>,
     body: web::Json<HashMap<String, String>>,
 ) -> HttpResponse {
     let data: &crate::models::AppState = req
@@ -716,7 +669,7 @@ pub async fn perform_apps_auth_api(
 }
 
 #[get("/herpes/app")]
-pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> HttpResponse {
+pub async fn get_app_api(req: HttpRequest, info: web::Query<crate::models::GetAppQuery>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -746,51 +699,22 @@ pub async fn get_app_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> Htt
         return HttpResponse::Unauthorized().finish();
     }
 
-    let row = sqlx::query!(
-        "SELECT app_id, user_id, position, answers, interview_answers, state, created_at, likes, dislikes FROM apps WHERE app_id = $1",
-        info.app_id
-    )
-    .fetch_one(&data.pool)
-    .await;
+    let app = libavacado::staffapps::get_app(&data.pool, &info.app_id).await;
 
-    if row.is_err() {
-        return HttpResponse::BadRequest().json(crate::models::APIResponse {
+    if let Ok(app) = app {
+        HttpResponse::Ok().json(app)
+    } else {
+        HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
-            reason: "Failed to get app".to_string(),
+            reason: app.unwrap_err().to_string(),
             context: None,
-        });
+        })
     }
-
-    let row = row.unwrap();
-
-    let mut likes = Vec::new();
-
-    for like in row.likes {
-        likes.push(like.to_string());
-    }
-
-    let mut dislikes = Vec::new();
-
-    for dislike in row.dislikes {
-        dislikes.push(dislike.to_string());
-    }
-
-    HttpResponse::Ok().json(StaffAppResponse {
-        user_id: row.user_id,
-        app_id: row.app_id,
-        created_at: row.created_at,
-        answers: row.answers,
-        interview: row.interview_answers,
-        position: row.position,
-        state: row.state,
-        likes,
-        dislikes,
-    })
 }
 
 /// Selects a candidate for a interview
 #[post("/herpes/app/interview")]
-pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>) -> HttpResponse {
+pub async fn send_interview_api(req: HttpRequest, info: web::Query<crate::models::GetAppQuery>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -862,7 +786,7 @@ pub async fn send_interview_api(req: HttpRequest, info: web::Query<GetAppQuery>)
 
 /// Returns a list of staff applications that have been made
 #[get("/herpes/list")]
-pub async fn get_app_list(req: HttpRequest, info: web::Query<UserRequest>) -> HttpResponse {
+pub async fn get_app_list(req: HttpRequest, info: web::Query<crate::models::UserRequest>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();

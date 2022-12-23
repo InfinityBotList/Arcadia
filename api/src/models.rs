@@ -35,3 +35,44 @@ pub struct OauthUser {
     pub avatar: Option<String>,
     pub discriminator: String,
 }
+
+#[derive(Deserialize)]
+pub struct SVQuery {
+    pub uid: String,
+    pub frag: String,
+}
+
+#[derive(Deserialize)]
+pub struct SVODQuery {
+    pub code: String,
+}
+
+#[derive(Deserialize)]
+pub struct Request {
+    pub staff_id: String,
+    pub bot_id: String,
+    pub reason: String,
+}
+
+#[derive(Deserialize)]
+pub struct GenericRequest {
+    pub staff_id: String,
+    pub reason: String,
+}
+
+#[derive(Deserialize)]
+pub struct UserRequest {
+    pub user_id: String,
+}
+
+#[derive(Deserialize)]
+pub struct CreateAppQuery {
+    pub user_id: String,
+    pub position: String,
+}
+
+#[derive(Deserialize)]
+pub struct GetAppQuery {
+    pub app_id: String,
+    pub user_id: String,
+}

@@ -19,5 +19,5 @@ itertools = "0.10.5"
 indexmap = { version = "1.9.1", features = ["serde"] }
 
 [build-dependencies]
-vergen = "7.3.2"
+vergen = "7.4.4"
 anyhow = "1.0"

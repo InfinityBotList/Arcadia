@@ -64,15 +64,3 @@ pub struct GenericRequest {
 pub struct UserRequest {
     pub user_id: String,
 }
-
-#[derive(Deserialize)]
-pub struct CreateAppQuery {
-    pub user_id: String,
-    pub position: String,
-}
-
-#[derive(Deserialize)]
-pub struct GetAppQuery {
-    pub app_id: String,
-    pub user_id: String,
-}

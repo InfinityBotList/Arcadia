@@ -4,7 +4,6 @@ pub mod checks;
 pub mod manage;
 pub mod public;
 pub mod staff;
-pub mod staffapps;
 pub mod types;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

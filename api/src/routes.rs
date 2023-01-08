@@ -48,7 +48,7 @@ pub async fn approve(req: HttpRequest, info: web::Json<crate::models::Request>) 
         });
     }
 
-    HttpResponse::Ok().body("")
+    HttpResponse::Ok().body("panel-api: approved bot")
 }
 
 #[post("/panel/deny")]
@@ -99,7 +99,7 @@ pub async fn deny(req: HttpRequest, info: web::Json<crate::models::Request>) -> 
         });
     }
 
-    HttpResponse::Ok().body("")
+    HttpResponse::Ok().body("panel-api: denied bot")
 }
 
 #[post("/panel/votes-reset")]
@@ -150,7 +150,7 @@ pub async fn vote_reset(req: HttpRequest, info: web::Json<crate::models::Request
         });
     }
 
-    HttpResponse::Ok().body("")
+    HttpResponse::Ok().body("panel-api: reset votes successfully")
 }
 
 #[post("/panel/votes-reset/all")]
@@ -200,7 +200,7 @@ pub async fn vote_reset_all(req: HttpRequest, info: web::Json<crate::models::Gen
         });
     }
 
-    HttpResponse::NoContent().body("")
+    HttpResponse::Ok().body("panel-api: reset all votes successfully")
 }
 
 /// Get onboarding response data
@@ -478,7 +478,7 @@ pub async fn perform_apps_auth_api(
     if row.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
-            reason: "Failed to get api token, try logging in on the main site?".to_string(),
+            reason: "Failed to get api token, try logging in on the main site at least once?".to_string(),
             context: None,
         });
     }

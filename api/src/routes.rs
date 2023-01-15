@@ -154,7 +154,10 @@ pub async fn vote_reset(req: HttpRequest, info: web::Json<crate::models::Request
 }
 
 #[post("/panel/votes-reset/all")]
-pub async fn vote_reset_all(req: HttpRequest, info: web::Json<crate::models::GenericRequest>) -> HttpResponse {
+pub async fn vote_reset_all(
+    req: HttpRequest,
+    info: web::Json<crate::models::GenericRequest>,
+) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -260,7 +263,10 @@ pub async fn staff_verify_onboard_data_api(
 
 /// Staff Verify Code Fetch API
 #[get("/svapi")]
-pub async fn staff_verify_fetch_api(req: HttpRequest, q: web::Query<crate::models::SVQuery>) -> HttpResponse {
+pub async fn staff_verify_fetch_api(
+    req: HttpRequest,
+    q: web::Query<crate::models::SVQuery>,
+) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -478,7 +484,8 @@ pub async fn perform_apps_auth_api(
     if row.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
-            reason: "Failed to get api token, try logging in on the main site at least once?".to_string(),
+            reason: "Failed to get api token, try logging in on the main site at least once?"
+                .to_string(),
             context: None,
         });
     }

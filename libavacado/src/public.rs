@@ -1,9 +1,9 @@
-use std::{fs::File, sync::Arc};
 use std::io::Read;
+use std::{fs::File, sync::Arc};
 
 use crate::types::Error;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serenity::http::CacheHttp;
 
 use rand::{distributions::Alphanumeric, Rng};

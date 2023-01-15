@@ -23,20 +23,16 @@ async fn _embed_help(
     pctx: Context<'_>,
     ctx: poise::FrameworkContext<'_, Data, Error>,
 ) -> Result<Vec<EmbedHelp>, Error> {
-    let mut categories =
-        indexmap::IndexMap::<Option<&str>, Vec<&Command<Data, Error>>>::new();
+    let mut categories = indexmap::IndexMap::<Option<&str>, Vec<&Command<Data, Error>>>::new();
     for cmd in &ctx.options().commands {
-
         // Check if category exists
         if categories.contains_key(&cmd.category) {
             categories.get_mut(&cmd.category).unwrap().push(cmd);
         }
-
         // If category doesn't exist, create it
         else {
             categories.insert(cmd.category, vec![cmd]);
         }
-
     }
 
     let mut help_arr = Vec::new();
@@ -141,7 +137,10 @@ fn _create_select_menu<'a>(
                 i.to_string(),
             ))
         } else {
-            options.push(CreateSelectMenuOption::new(pane.category.clone(), i.to_string()));
+            options.push(CreateSelectMenuOption::new(
+                pane.category.clone(),
+                i.to_string(),
+            ));
         }
     }
 

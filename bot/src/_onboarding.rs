@@ -2,7 +2,12 @@ use std::num::NonZeroU64;
 use std::time::Duration;
 
 use log::info;
-use poise::serenity_prelude::{ChannelId, CreateInvite, Mentionable, Permissions, RoleId, UserId, CreateChannel, CreateWebhook, CreateAttachment, CreateMessage, CreateEmbed, CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditRole, CreateEmbedFooter, CreateQuickModal, CreateInputText, EditGuild, ExecuteWebhook};
+use poise::serenity_prelude::{
+    ChannelId, CreateActionRow, CreateAttachment, CreateButton, CreateChannel, CreateEmbed,
+    CreateEmbedFooter, CreateInputText, CreateInteractionResponse,
+    CreateInteractionResponseMessage, CreateInvite, CreateMessage, CreateQuickModal, CreateWebhook,
+    EditGuild, EditRole, ExecuteWebhook, Mentionable, Permissions, RoleId, UserId,
+};
 
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde_json::json;
@@ -117,30 +122,33 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Verify staff first
-    let is_staff = crate::_checks::is_any_staff(ctx).await.unwrap_or_else(|_| false) || {
-        // Check if awaiting staff role in main server
-        let main_server = std::env::var("MAIN_SERVER")
-            .unwrap()
-            .parse::<NonZeroU64>()
-            .unwrap();
+    let is_staff = crate::_checks::is_any_staff(ctx)
+        .await
+        .unwrap_or_else(|_| false)
+        || {
+            // Check if awaiting staff role in main server
+            let main_server = std::env::var("MAIN_SERVER")
+                .unwrap()
+                .parse::<NonZeroU64>()
+                .unwrap();
 
-        let member = discord.cache.member(main_server, ctx.author().id);
+            let member = discord.cache.member(main_server, ctx.author().id);
 
-        if let Some(member) = member {
-            let awaiting_role = std::env::var("AWAITING_STAFF_ROLE")
-            .unwrap()
-            .parse::<NonZeroU64>()
-            .unwrap();
+            if let Some(member) = member {
+                let awaiting_role = std::env::var("AWAITING_STAFF_ROLE")
+                    .unwrap()
+                    .parse::<NonZeroU64>()
+                    .unwrap();
 
-            if !member.roles.contains(&RoleId(awaiting_role)) {
-                false
+                if !member.roles.contains(&RoleId(awaiting_role)) {
+                    false
+                } else {
+                    true
+                }
             } else {
-                true
+                false
             }
-        } else {
-            false
-        }
-    };
+        };
 
     if !is_staff {
         return Ok(true);
@@ -164,14 +172,15 @@ pub async fn handle_onboarding(
         .await?;
 
         res.staff_onboard_state
-    }).unwrap_or(OnboardState::Pending);
+    })
+    .unwrap_or(OnboardState::Pending);
 
     let test_bot = std::env::var("TEST_BOT")?;
     let bot_page = std::env::var("BOT_PAGE")?;
 
     if cmd_name == "queue" {
         if onboard_state.queue_passthrough() {
-            return Ok(true)
+            return Ok(true);
         }
 
         if onboard_state.queue_unclaim() {
@@ -186,15 +195,17 @@ pub async fn handle_onboarding(
             );
             if embed {
                 ctx.send(
-                    CreateReply::default()
-                    .embed(
+                    CreateReply::default().embed(
                         CreateEmbed::default()
-                        .title("Bot Queue (Sandbox Mode)")
-                        .description(desc)
-                        .footer(CreateEmbedFooter::new("Use ibb!invite or /invite to get the bots invite"))
-                        .color(0xA020F0)
-                    )
-                ).await?;
+                            .title("Bot Queue (Sandbox Mode)")
+                            .description(desc)
+                            .footer(CreateEmbedFooter::new(
+                                "Use ibb!invite or /invite to get the bots invite",
+                            ))
+                            .color(0xA020F0),
+                    ),
+                )
+                .await?;
             } else {
                 ctx.say(desc).await?;
             }
@@ -216,15 +227,17 @@ pub async fn handle_onboarding(
             );
             if embed {
                 ctx.send(
-                    CreateReply::default()
-                    .embed(
+                    CreateReply::default().embed(
                         CreateEmbed::default()
-                        .title("Bot Queue (Sandbox Mode)")
-                        .description(desc)
-                        .footer(CreateEmbedFooter::new("Use ibb!invite or /invite to get the bots invite"))
-                        .color(0xA020F0)
-                    )
-                ).await?;
+                            .title("Bot Queue (Sandbox Mode)")
+                            .description(desc)
+                            .footer(CreateEmbedFooter::new(
+                                "Use ibb!invite or /invite to get the bots invite",
+                            ))
+                            .color(0xA020F0),
+                    ),
+                )
+                .await?;
             } else {
                 ctx.say(desc.clone() + "\n\nUse ibb!invite or /invite to get the bots invite")
                     .await?;
@@ -240,7 +253,7 @@ pub async fn handle_onboarding(
     "#).await?;
         }
 
-        return Ok(false)
+        return Ok(false);
     }
 
     if onboard_state == OnboardState::Completed {
@@ -296,7 +309,7 @@ pub async fn handle_onboarding(
         )
         .await?;
 
-        return Ok(false)
+        return Ok(false);
     }
 
     if onboard_state == OnboardState::Pending {
@@ -312,7 +325,8 @@ pub async fn handle_onboarding(
     let cur_guild = ctx.guild().unwrap().id;
 
     if cur_guild.to_string() != onboard_guild {
-        ctx.say("Creating/finding an onboarding server for you!").await?;
+        ctx.say("Creating/finding an onboarding server for you!")
+            .await?;
 
         sqlx::query!(
             "UPDATE users SET staff_onboard_last_start_time = NOW() WHERE user_id = $1",
@@ -344,11 +358,8 @@ pub async fn handle_onboarding(
             if channel.is_none() {
                 // Create a new readme channel
                 let readme = guild
-                .create_channel(
-                    &discord, 
-                    CreateChannel::new("readme")
-                )
-                .await?;
+                    .create_channel(&discord, CreateChannel::new("readme"))
+                    .await?;
 
                 readme.say(&discord, r#"
 Welcome to your onboarding server! Please read the following:
@@ -402,22 +413,20 @@ Welcome to your onboarding server! Please read the following:
                 "name": user_id,
             });
 
-            let guild = discord
-            .http
-            .create_guild(&map)
-            .await?;
+            let guild = discord.http.create_guild(&map).await?;
 
-            sqlx::query!("UPDATE users SET staff_onboard_guild = $1 WHERE user_id = $2", guild.id.to_string(), user_id)
+            sqlx::query!(
+                "UPDATE users SET staff_onboard_guild = $1 WHERE user_id = $2",
+                guild.id.to_string(),
+                user_id
+            )
             .execute(&data.pool)
             .await?;
 
             // Create a new readme channel
             let readme = guild
-            .create_channel(
-                &discord, 
-                CreateChannel::new("readme")
-            )
-            .await?;
+                .create_channel(&discord, CreateChannel::new("readme"))
+                .await?;
 
             readme.say(&discord, r#"
 Welcome to your onboarding server! Please read the following:
@@ -482,7 +491,7 @@ Welcome to your onboarding server! Please read the following:
             );
             channel.send_message(discord, sm_invite_msg).await?;
 
-            return Ok(false)
+            return Ok(false);
         }
     } else {
         // Check if user is admin
@@ -490,7 +499,7 @@ Welcome to your onboarding server! Please read the following:
 
         for member in ctx.guild().unwrap().members.iter() {
             // Resolve the users permissions
-            if member.0.0 == ctx.author().id.0 {
+            if member.0 .0 == ctx.author().id.0 {
                 let permissions = member.1.permissions(discord)?;
                 if permissions.administrator() {
                     found = true;
@@ -523,15 +532,16 @@ Welcome to your onboarding server! Please read the following:
 
                 // Create role
                 let guild_id = ctx.guild().unwrap().id;
-                let role = guild_id.create_role(
-                    &discord,
-                    EditRole::new()
-                    .name("Head Administrator")
-                    .colour(0x00ff00)
-                    .permissions(Permissions::ADMINISTRATOR)
-                    .mentionable(true)
-                )
-                .await?;
+                let role = guild_id
+                    .create_role(
+                        &discord,
+                        EditRole::new()
+                            .name("Head Administrator")
+                            .colour(0x00ff00)
+                            .permissions(Permissions::ADMINISTRATOR)
+                            .mentionable(true),
+                    )
+                    .await?;
 
                 role_id = Some(role.id);
             }
@@ -558,7 +568,7 @@ Welcome to your onboarding server! Please read the following:
 
     // We don't implement unclaim
     if cmd_name == "unclaim" {
-        return Ok(false)
+        return Ok(false);
     }
 
     if cmd_name == "claim" && reason != Some(&test_bot) {
@@ -642,41 +652,36 @@ Welcome to your onboarding server! Please read the following:
                 return Ok(false);
             }
             let builder = CreateReply::default()
-            .embed(
-                CreateEmbed::default()
-                .title("Bot Already Claimed")
-                .description(format!(
-                    "This bot is already claimed by <@{}>",
-                    current_user_id
-                ))
-                .color(0xFF0000)
-            )
-            .components(
-                vec![
-                    CreateActionRow::Buttons(
-                        vec![
-                            CreateButton::new("fclaim")
-                            .label("Force Claim")
-                            .style(serenity::ButtonStyle::Danger),
-                            CreateButton::new("remind")
-                            .label("Remind Reviewer")
-                            .style(serenity::ButtonStyle::Secondary)
-                        ]
-                    )
-                ]
-            );
+                .embed(
+                    CreateEmbed::default()
+                        .title("Bot Already Claimed")
+                        .description(format!(
+                            "This bot is already claimed by <@{}>",
+                            current_user_id
+                        ))
+                        .color(0xFF0000),
+                )
+                .components(vec![CreateActionRow::Buttons(vec![
+                    CreateButton::new("fclaim")
+                        .label("Force Claim")
+                        .style(serenity::ButtonStyle::Danger),
+                    CreateButton::new("remind")
+                        .label("Remind Reviewer")
+                        .style(serenity::ButtonStyle::Secondary),
+                ])]);
 
             let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
             ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
 
             let interaction = msg
-            .component_interaction_collector(ctx.discord())
-            .author_id(ctx.author().id)
-            .collect_single()
-            .await;
+                .component_interaction_collector(ctx.discord())
+                .author_id(ctx.author().id)
+                .collect_single()
+                .await;
 
-            msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![])).await?; // remove buttons after button press
+            msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
+                .await?; // remove buttons after button press
 
             if let Some(interaction) = interaction {
                 if interaction.data.custom_id != "remind" {
@@ -699,13 +704,17 @@ Welcome to your onboarding server! Please read the following:
                 .create_webhook(
                     discord,
                     CreateWebhook::new("Frostpaw").avatar(
-                        &CreateAttachment::url(discord, "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png").await?
-                    )
+                        &CreateAttachment::url(
+                            discord,
+                            "https://cdn.infinitybots.xyz/images/png/onboarding-v4.png",
+                        )
+                        .await?,
+                    ),
                 )
                 .await?;
 
             tokio::time::sleep(Duration::from_secs(3)).await;
-            
+
             wh.execute(
                 discord, 
                 true, 
@@ -723,7 +732,7 @@ Welcome to your onboarding server! Please read the following:
             .await?;
 
             Ok(false)
-        },
+        }
         OnboardState::QueueForceClaim => {
             if cmd_name != "claim" {
                 ctx.say(
@@ -733,43 +742,39 @@ Welcome to your onboarding server! Please read the following:
                 return Ok(false);
             }
             let builder = CreateReply::default()
-            .embed(
-                CreateEmbed::default()
-                .title("Bot Already Claimed")
-                .description(format!(
-                    "This bot is already claimed by <@{}>",
-                    current_user_id
-                ))
-                .color(0xFF0000)
-            )
-            .components(
-                vec![
-                    CreateActionRow::Buttons(
-                        vec![
-                            CreateButton::new("fclaim")
-                            .label("Force Claim")
-                            .style(serenity::ButtonStyle::Danger),
-                            CreateButton::new("remind")
-                            .label("Remind Reviewer")
-                            .style(serenity::ButtonStyle::Secondary)
-                        ]
-                    )
-                ]
-            );
+                .embed(
+                    CreateEmbed::default()
+                        .title("Bot Already Claimed")
+                        .description(format!(
+                            "This bot is already claimed by <@{}>",
+                            current_user_id
+                        ))
+                        .color(0xFF0000),
+                )
+                .components(vec![CreateActionRow::Buttons(vec![
+                    CreateButton::new("fclaim")
+                        .label("Force Claim")
+                        .style(serenity::ButtonStyle::Danger),
+                    CreateButton::new("remind")
+                        .label("Remind Reviewer")
+                        .style(serenity::ButtonStyle::Secondary),
+                ])]);
 
             let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
             let interaction = msg
-            .component_interaction_collector(ctx.discord())
-            .author_id(ctx.author().id)
-            .collect_single()
-            .await;
+                .component_interaction_collector(ctx.discord())
+                .author_id(ctx.author().id)
+                .collect_single()
+                .await;
 
-            msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![])).await?; // remove buttons after button press
+            msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
+                .await?; // remove buttons after button press
 
             if let Some(interaction) = interaction {
                 if interaction.data.custom_id == "remind" {
-                    ctx.say("You already reminded, now force claim it since no one is responding").await?;
+                    ctx.say("You already reminded, now force claim it since no one is responding")
+                        .await?;
                     return Ok(false);
                 }
             }
@@ -788,10 +793,13 @@ Welcome to your onboarding server! Please read the following:
             ))
             .await?;
 
-            ctx.say("Now try using ``/queue`` (or ``ibb!queue``) to see what the queue looks like now!").await?;
+            ctx.say(
+                "Now try using ``/queue`` (or ``ibb!queue``) to see what the queue looks like now!",
+            )
+            .await?;
 
             Ok(false)
-        },
+        }
         OnboardState::Claimed => {
             if cmd_name != "approve" && cmd_name != "deny" {
                 ctx.say(
@@ -819,23 +827,20 @@ Welcome to your onboarding server! Please read the following:
                 ]
             );
 
-            let mut msg = ctx.send(
-                builder.clone()
-            ).await?
-            .into_message()
-            .await?;
+            let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
             let interaction = msg
-            .component_interaction_collector(ctx.discord())
-            .author_id(ctx.author().id)
-            .timeout(Duration::from_secs(120))
-            .collect_single()
-            .await;
+                .component_interaction_collector(ctx.discord())
+                .author_id(ctx.author().id)
+                .timeout(Duration::from_secs(120))
+                .collect_single()
+                .await;
 
             if let Some(m) = &interaction {
                 let id = &m.data.custom_id;
 
-                msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![])).await?; // remove buttons after button press
+                msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
+                    .await?; // remove buttons after button press
 
                 if id == "survey" {
                     // Create a new message with the survey modal in it (via the button click)
@@ -873,7 +878,8 @@ Welcome to your onboarding server! Please read the following:
                     ).await?;
 
                     if qm.is_none() {
-                        ctx.say("You took too long to respond. Please try again").await?;
+                        ctx.say("You took too long to respond. Please try again")
+                            .await?;
                         return Ok(false);
                     }
 
@@ -984,14 +990,16 @@ Welcome to your onboarding server! Please read the following:
                         .topic("This is a temporary channel used to create a permanent invite to the server. DO NOT DELETE.")
                     ).await?;
 
-                    let invite = channel.create_invite(
-                        discord, 
-                        CreateInvite::default()
-                        .max_age(0)
-                        .max_uses(0)
-                        .temporary(false)
-                        .unique(true)
-                    ).await?;
+                    let invite = channel
+                        .create_invite(
+                            discord,
+                            CreateInvite::default()
+                                .max_age(0)
+                                .max_uses(0)
+                                .temporary(false)
+                                .unique(true),
+                        )
+                        .await?;
 
                     channel.say(
                         discord,
@@ -1032,10 +1040,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
 
                     // Now transfer ownership to author
                     let edit = EditGuild::default().owner(ctx.author().id);
-                    ctx.guild_id()
-                        .unwrap()
-                        .edit(discord, edit)
-                        .await?;
+                    ctx.guild_id().unwrap().edit(discord, edit).await?;
 
                     let onboard_channel_id =
                         ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<NonZeroU64>()?);
@@ -1063,9 +1068,12 @@ This bot *will* now leave this server however you should not! Be prepared to sen
 
                     return Ok(false);
                 } else {
-                    m.create_response(&discord, CreateInteractionResponse::Message(
-                        CreateInteractionResponseMessage::default().content("Cancelled")
-                    ))
+                    m.create_response(
+                        &discord,
+                        CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::default().content("Cancelled"),
+                        ),
+                    )
                     .await?;
                     return Ok(false);
                 }

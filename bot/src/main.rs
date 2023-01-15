@@ -115,7 +115,10 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
         .unwrap();
 
     match event {
-        FullEvent::InteractionCreate { interaction, ctx: _ } => {
+        FullEvent::InteractionCreate {
+            interaction,
+            ctx: _,
+        } => {
             info!("Interaction received: {:?}", interaction.id());
         }
         FullEvent::Ready {
@@ -164,17 +167,21 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
                 info!("Performing staff recalc");
 
-                let dev_role =
-                    poise::serenity_prelude::RoleId(std::env::var("DEV_ROLE")?.parse::<NonZeroU64>()?);
-                let head_dev_role =
-                    poise::serenity_prelude::RoleId(std::env::var("HEAD_DEV_ROLE")?.parse::<NonZeroU64>()?);
+                let dev_role = poise::serenity_prelude::RoleId(
+                    std::env::var("DEV_ROLE")?.parse::<NonZeroU64>()?,
+                );
+                let head_dev_role = poise::serenity_prelude::RoleId(
+                    std::env::var("HEAD_DEV_ROLE")?.parse::<NonZeroU64>()?,
+                );
                 let staff_man_role = poise::serenity_prelude::RoleId(
                     std::env::var("STAFF_MAN_ROLE")?.parse::<NonZeroU64>()?,
                 );
-                let head_man_role =
-                    poise::serenity_prelude::RoleId(std::env::var("HEAD_MAN_ROLE")?.parse::<NonZeroU64>()?);
-                let web_mod_role =
-                    poise::serenity_prelude::RoleId(std::env::var("WEB_MOD_ROLE")?.parse::<NonZeroU64>()?);
+                let head_man_role = poise::serenity_prelude::RoleId(
+                    std::env::var("HEAD_MAN_ROLE")?.parse::<NonZeroU64>()?,
+                );
+                let web_mod_role = poise::serenity_prelude::RoleId(
+                    std::env::var("WEB_MOD_ROLE")?.parse::<NonZeroU64>()?,
+                );
 
                 let mut staff_resync = Vec::new();
 
@@ -183,31 +190,31 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                     if member.roles.contains(&dev_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
-                            col: StaffPosition::Developer
+                            col: StaffPosition::Developer,
                         });
                     }
                     if member.roles.contains(&head_dev_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
-                            col: StaffPosition::HeadDeveloper
+                            col: StaffPosition::HeadDeveloper,
                         });
                     }
                     if member.roles.contains(&staff_man_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
-                            col: StaffPosition::Manager
+                            col: StaffPosition::Manager,
                         });
                     }
                     if member.roles.contains(&head_man_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
-                            col: StaffPosition::HeadManager
+                            col: StaffPosition::HeadManager,
                         });
                     }
                     if member.roles.contains(&web_mod_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
-                            col: StaffPosition::Staff
+                            col: StaffPosition::Staff,
                         });
                     }
                 }
@@ -224,31 +231,40 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 for staff in staff_resync {
                     match staff.col {
                         StaffPosition::Staff => {
-                            sqlx::query!("UPDATE users SET staff = true WHERE user_id = $1", staff.user_id.to_string())
-                                .execute(&mut tx)
-                                .await?;
-                        },
+                            sqlx::query!(
+                                "UPDATE users SET staff = true WHERE user_id = $1",
+                                staff.user_id.to_string()
+                            )
+                            .execute(&mut tx)
+                            .await?;
+                        }
                         StaffPosition::Manager => {
-                            sqlx::query!("UPDATE users SET staff = true, admin = true WHERE user_id = $1", staff.user_id.to_string())
-                                .execute(&mut tx)
-                                .await?;
-                        },
+                            sqlx::query!(
+                                "UPDATE users SET staff = true, admin = true WHERE user_id = $1",
+                                staff.user_id.to_string()
+                            )
+                            .execute(&mut tx)
+                            .await?;
+                        }
                         StaffPosition::Developer => {
-                            sqlx::query!("UPDATE users SET staff = true, ibldev = true WHERE user_id = $1", staff.user_id.to_string())
-                                .execute(&mut tx)
-                                .await?;
-                        },
+                            sqlx::query!(
+                                "UPDATE users SET staff = true, ibldev = true WHERE user_id = $1",
+                                staff.user_id.to_string()
+                            )
+                            .execute(&mut tx)
+                            .await?;
+                        }
                         StaffPosition::HeadDeveloper => {
                             sqlx::query!("UPDATE users SET staff = true, ibldev = true, iblhdev = true WHERE user_id = $1", staff.user_id.to_string())
                                 .execute(&mut tx)
                                 .await?;
-                        },
+                        }
                         StaffPosition::HeadManager => {
                             sqlx::query!("UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1", staff.user_id.to_string())
                                 .execute(&mut tx)
                                 .await?;
                         }
-                    } 
+                    }
                 }
 
                 // Commit the transaction

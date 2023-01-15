@@ -2,11 +2,11 @@ use crate::Context;
 use crate::Error;
 use crate::_checks as checks;
 
-use poise::CreateReply;
 use poise::serenity_prelude::CreateActionRow;
 use poise::serenity_prelude::CreateButton;
 use poise::serenity_prelude::CreateMessage;
 use poise::serenity_prelude::User;
+use poise::CreateReply;
 
 use poise::serenity_prelude as serenity;
 
@@ -155,11 +155,7 @@ pub async fn resetonboard(
             ]
         );
 
-    let mut msg = ctx
-        .send(builder.clone())
-        .await?
-        .into_message()
-        .await?;
+    let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
     let interaction = msg
         .component_interaction_collector(ctx.discord())
@@ -167,7 +163,8 @@ pub async fn resetonboard(
         .collect_single()
         .await;
 
-    msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![])).await?; // remove buttons after button press
+    msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
+        .await?; // remove buttons after button press
 
     let pressed_button_id = match &interaction {
         Some(m) => &m.data.custom_id,
@@ -197,7 +194,6 @@ pub async fn resetonboard(
 
     Ok(())
 }
-
 
 #[poise::command(
     category = "Admin",

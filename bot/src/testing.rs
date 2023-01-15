@@ -1,9 +1,11 @@
+use crate::_checks as checks;
 use crate::_utils::Bool;
-use crate::{_checks as checks};
 use futures_util::StreamExt;
 use log::info;
+use poise::serenity_prelude::{
+    CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter, CreateMessage, User, UserId,
+};
 use poise::{serenity_prelude as serenity, CreateReply};
-use poise::serenity_prelude::{UserId, CreateActionRow, CreateMessage, CreateButton, CreateEmbed, CreateEmbedFooter, User};
 use serde::Serialize;
 use std::num::NonZeroU64;
 use std::time::Duration;
@@ -74,9 +76,7 @@ struct InternalQueueBot {
     owner: String,
 }
 
-fn _queue_bot(
-    qb: InternalQueueBot,
-) -> CreateReply {
+fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
     let reply = if qb.text_msg {
         let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}\n**Owner:** {owner}", 
             name = qb.queue_name,
@@ -92,35 +92,40 @@ fn _queue_bot(
         CreateReply::default().content(text_msg)
     } else {
         let embed = serenity::CreateEmbed::default()
-        .title(format!("{name} {c_bot}/{bot_len}", name = qb.queue_name, c_bot = qb.index + 1, bot_len = qb.total_bots))
-        .field("ID", qb.bot_id, false)
-        .field("Short", qb.short, false)
-        .field("Claimed by", qb.claimed_by.unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), false)
-        .field("Approval note", qb.approval_note, true)
-        .field("Queue name", qb.queue_name, true);
+            .title(format!(
+                "{name} {c_bot}/{bot_len}",
+                name = qb.queue_name,
+                c_bot = qb.index + 1,
+                bot_len = qb.total_bots
+            ))
+            .field("ID", qb.bot_id, false)
+            .field("Short", qb.short, false)
+            .field(
+                "Claimed by",
+                qb.claimed_by.unwrap_or_else(|| {
+                    "*You are free to test this bot. It is not claimed*".to_string()
+                }),
+                false,
+            )
+            .field("Approval note", qb.approval_note, true)
+            .field("Queue name", qb.queue_name, true);
 
         CreateReply::default().embed(embed)
     };
 
-    reply.components(
-        vec![
-            CreateActionRow::Buttons(
-                vec![
-                    CreateButton::new("q:prev")
-                    .label("Previous")
-                    .style(serenity::ButtonStyle::Primary)
-                    .disabled(qb.index <= 0),
-                    CreateButton::new("q:cancel")
-                    .label("Cancel")
-                    .style(serenity::ButtonStyle::Danger),
-                    CreateButton::new("q:next")
-                    .label("Next")
-                    .style(serenity::ButtonStyle::Primary)
-                    .disabled(qb.index >= qb.total_bots - 1)
-                ]
-            )
-        ]
-    )
+    reply.components(vec![CreateActionRow::Buttons(vec![
+        CreateButton::new("q:prev")
+            .label("Previous")
+            .style(serenity::ButtonStyle::Primary)
+            .disabled(qb.index <= 0),
+        CreateButton::new("q:cancel")
+            .label("Cancel")
+            .style(serenity::ButtonStyle::Danger),
+        CreateButton::new("q:next")
+            .label("Next")
+            .style(serenity::ButtonStyle::Primary)
+            .disabled(qb.index >= qb.total_bots - 1),
+    ])])
 }
 
 /// Checks the bot queue
@@ -159,8 +164,8 @@ pub async fn queue(
 
     // Send message with buttons
     let bot = &bots[current_bot];
-    let mut msg = ctx.send(
-        _queue_bot(InternalQueueBot {
+    let mut msg = ctx
+        .send(_queue_bot(InternalQueueBot {
             index: current_bot,
             total_bots: bot_len,
             bot_id: bot.bot_id.clone(),
@@ -170,10 +175,10 @@ pub async fn queue(
             approval_note: bot.approval_note.clone(),
             short: bot.short.clone(),
             owner: bot.owner.clone(),
-        })
-    ).await?
-    .into_message()
-    .await?;
+        }))
+        .await?
+        .into_message()
+        .await?;
 
     let mut interaction = msg
         .component_interaction_collector(ctx.discord())
@@ -190,7 +195,7 @@ pub async fn queue(
 
         if id == "q:cancel" {
             item.delete_response(ctx.discord()).await?;
-            return Ok(())
+            return Ok(());
         }
 
         if id == "q:prev" {
@@ -221,18 +226,16 @@ pub async fn queue(
                 short: bot.short.clone(),
                 owner: bot.owner.clone(),
             })
-            .to_prefix_edit()
-        ).await?;
+            .to_prefix_edit(),
+        )
+        .await?;
     }
 
     Ok(())
 }
 
 /// Implementation of the claim command
-pub async fn claim_impl(
-    ctx: Context<'_>,
-    bot: &User,
-) -> Result<(), Error> {
+pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
     if !crate::_onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
         return Ok(());
     }
@@ -298,72 +301,62 @@ pub async fn claim_impl(
         )
         .await?;
 
-        let msg = CreateReply::default()
-        .embed(
+        let msg = CreateReply::default().embed(
             CreateEmbed::default()
-            .title("Bot Claimed")
-            .description(format!("You have claimed <@{}>", bot.name))
-            .footer(CreateEmbedFooter::new("Use ibb!invite or /invite to get the bots invite"))
+                .title("Bot Claimed")
+                .description(format!("You have claimed <@{}>", bot.name))
+                .footer(CreateEmbedFooter::new(
+                    "Use ibb!invite or /invite to get the bots invite",
+                )),
         );
 
         ctx.send(msg).await?;
 
         let private_channel = owner.create_dm_channel(discord).await?;
 
-        let priv_msg = CreateMessage::default()
-        .embed(
+        let priv_msg = CreateMessage::default().embed(
             CreateEmbed::default()
-            .title("Bot Claimed!")
-            .description(format!(
-                "<@{}> has claimed <@{}>",
-                ctx.author().id.0,
-                bot.id
-            ))
-            .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
+                .title("Bot Claimed!")
+                .description(format!(
+                    "<@{}> has claimed <@{}>",
+                    ctx.author().id.0,
+                    bot.id
+                ))
+                .footer(CreateEmbedFooter::new(
+                    "This is completely normal, don't worry!",
+                )),
         );
 
-        private_channel
-            .send_message(discord, priv_msg)
-            .await?;
+        private_channel.send_message(discord, priv_msg).await?;
     } else {
         let builder = CreateReply::default()
-        .embed(
-            CreateEmbed::default()
-            .title("Bot Already Claimed")
-            .description(format!(
-                "This bot is already claimed by <@{}>",
-                claimed.claimed_by.as_ref().unwrap()
-            ))
-            .color(0xFF0000)
-        )
-        .components(
-            vec![
-                CreateActionRow::Buttons(
-                    vec![
-                        CreateButton::new("fclaim")
-                        .label("Force Claim")
-                        .style(serenity::ButtonStyle::Danger),
-                        CreateButton::new("remind")
-                        .label("Remind Reviewer")
-                        .style(serenity::ButtonStyle::Secondary)
-                    ]
-                )
-            ]
-        );
+            .embed(
+                CreateEmbed::default()
+                    .title("Bot Already Claimed")
+                    .description(format!(
+                        "This bot is already claimed by <@{}>",
+                        claimed.claimed_by.as_ref().unwrap()
+                    ))
+                    .color(0xFF0000),
+            )
+            .components(vec![CreateActionRow::Buttons(vec![
+                CreateButton::new("fclaim")
+                    .label("Force Claim")
+                    .style(serenity::ButtonStyle::Danger),
+                CreateButton::new("remind")
+                    .label("Remind Reviewer")
+                    .style(serenity::ButtonStyle::Secondary),
+            ])]);
 
-
-        let mut msg = ctx
-        .send(builder.clone())
-        .await?
-        .into_message()
-        .await?;
+        let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
         let interaction = msg
             .component_interaction_collector(ctx.discord())
             .author_id(ctx.author().id)
             .collect_single()
             .await;
-        msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![])).await?; // remove buttons after button press
+        msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
+            .await?; // remove buttons after button press
 
         if let Some(m) = &interaction {
             let id = &m.data.custom_id;
@@ -407,17 +400,18 @@ pub async fn claim_impl(
 
                 let private_channel = owner.create_dm_channel(discord).await?;
 
-                let priv_msg = CreateMessage::default()
-                .embed(
+                let priv_msg = CreateMessage::default().embed(
                     CreateEmbed::default()
-                    .title("Bot Reclaimed!")
-                    .description(format!(
-                        "<@{}> has reclaimed <@{}> from <{}>",
-                        ctx.author().id.0,
-                        bot.id,
-                        claimed_by
-                    ))
-                    .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
+                        .title("Bot Reclaimed!")
+                        .description(format!(
+                            "<@{}> has reclaimed <@{}> from <{}>",
+                            ctx.author().id.0,
+                            bot.id,
+                            claimed_by
+                        ))
+                        .footer(CreateEmbedFooter::new(
+                            "This is completely normal, don't worry!",
+                        )),
                 );
 
                 private_channel.send_message(discord, priv_msg).await?;
@@ -439,16 +433,10 @@ pub async fn claim_impl(
 }
 
 /// Claims a bot
-#[poise::command(
-    prefix_command,
-    slash_command,
-    user_cooldown = 3,
-    category = "Testing",
-)]
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
 pub async fn claim(
     ctx: Context<'_>,
-    #[description = "The bot you wish to claim"]
-    bot: User,
+    #[description = "The bot you wish to claim"] bot: User,
 ) -> Result<(), Error> {
     claim_impl(ctx, &bot).await?;
 
@@ -458,7 +446,7 @@ pub async fn claim(
 #[poise::command(
     context_menu_command = "Claim Bot",
     user_cooldown = 3,
-    category = "Testing",
+    category = "Testing"
 )]
 pub async fn claim_context(
     ctx: Context<'_>,
@@ -526,21 +514,20 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
 
         let private_channel = owner.create_dm_channel(discord).await?;
 
-        let priv_msg = CreateMessage::new()
-        .embed(
+        let priv_msg = CreateMessage::new().embed(
             CreateEmbed::new()
-            .title("Bot Unclaimed!")
-            .description(format!(
-                "<@{}> has unclaimed <@{}>",
-                ctx.author().id.0,
-                bot.id.0
-            ))
-            .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
+                .title("Bot Unclaimed!")
+                .description(format!(
+                    "<@{}> has unclaimed <@{}>",
+                    ctx.author().id.0,
+                    bot.id.0
+                ))
+                .footer(CreateEmbedFooter::new(
+                    "This is completely normal, don't worry!",
+                )),
         );
 
-        private_channel
-            .send_message(discord, priv_msg)
-            .await?;
+        private_channel.send_message(discord, priv_msg).await?;
 
         ctx.say(format!("You have unclaimed <@{}>", bot.id.0))
             .await?;
@@ -550,12 +537,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
 }
 
 /// Unclaims a bot
-#[poise::command(
-    prefix_command,
-    slash_command,
-    user_cooldown = 3,
-    category = "Testing",
-)]
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
 pub async fn unclaim(
     ctx: Context<'_>,
     #[description = "The bot you wish to unclaim"] bot: serenity::Member,
@@ -566,7 +548,7 @@ pub async fn unclaim(
 #[poise::command(
     context_menu_command = "Unclaim Bot",
     user_cooldown = 3,
-    category = "Testing",
+    category = "Testing"
 )]
 pub async fn unclaim_context(
     ctx: Context<'_>,
@@ -576,12 +558,7 @@ pub async fn unclaim_context(
 }
 
 /// Approves a bot
-#[poise::command(
-    prefix_command,
-    slash_command,
-    user_cooldown = 3,
-    category = "Testing",
-)]
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
 pub async fn approve(
     ctx: Context<'_>,
     #[description = "The bot you wish to approve"] bot: serenity::Member,
@@ -618,7 +595,7 @@ pub async fn approve(
     prefix_command,
     slash_command,
     user_cooldown = 10,
-    category = "Testing",
+    category = "Testing"
 )]
 pub async fn deny(
     ctx: Context<'_>,

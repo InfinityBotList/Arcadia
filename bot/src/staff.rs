@@ -5,7 +5,7 @@ use std::{fmt::Write as _, num::NonZeroU64};
 // import without risk of name clashing
 use serenity::id::UserId;
 
-use crate::{_checks as checks};
+use crate::_checks as checks;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -16,12 +16,7 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands(
-        "staff_list",
-        "staff_guildlist",
-        "staff_guilddel",
-        "staff_guildleave"
-    )
+    subcommands("staff_list", "staff_guildlist", "staff_guilddel", "staff_guildleave")
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("Some available options are ``staff list``, ``staff guildlist`` (dev/admin only), ``staff_guilddel`` (dev/admin only), ``staff_guildleave`` (dev/admin only), ``staff recalc`` (dev/admin only), ``staff add`` (dev/admin only) etc.").await?;

@@ -26,7 +26,9 @@ pub async fn page_content(
 
     // Empty buffer
     if !text_chunk.is_empty() {
-        let msg = CreateReply::default().content(text_chunk).ephemeral(ephemeral);
+        let msg = CreateReply::default()
+            .content(text_chunk)
+            .ephemeral(ephemeral);
         chunks.push(ctx.send(msg).await?);
     }
 

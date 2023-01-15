@@ -140,7 +140,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
             let pool = user_data.pool.clone();
 
-            let mut interval = tokio::time::interval(Duration::from_secs(45));
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
 
             let lounge_channel_id = ChannelId(
                 std::env::var("LOUNGE_CHANNEL")

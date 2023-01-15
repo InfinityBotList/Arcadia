@@ -140,7 +140,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
             let pool = user_data.pool.clone();
 
-            let mut interval = tokio::time::interval(Duration::from_secs(30));
+            let mut interval = tokio::time::interval(Duration::from_secs(45));
 
             let lounge_channel_id = ChannelId(
                 std::env::var("LOUNGE_CHANNEL")
@@ -269,6 +269,30 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
                 // Commit the transaction
                 tx.commit().await?;
+
+                // Check bans
+                info!("Syncing bans");
+
+                let bans = GuildId(main_server).bans(&ctx.http).await?;
+
+                for ban in bans {
+                    let user_id = ban.user.id.0.to_string();
+                    let res = sqlx::query!(
+                        "UPDATE users SET banned = true WHERE user_id = $1",
+                        user_id
+                    )
+                    .execute(&pool)
+                    .await;
+
+                    if res.is_err() {
+                        error!(
+                            "Error while updating user {} in database: {:?}",
+                            user_id,
+                            res.unwrap_err()
+                        );
+                        continue;
+                    }
+                }
 
                 info!("Checking for claimed bots greater than 1 hour claim interval");
 

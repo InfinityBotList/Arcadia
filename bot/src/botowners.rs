@@ -103,18 +103,18 @@ pub async fn getbotroles(
         return Err("You are not the owner/additional owner of any approved or certified bots".into());
     }
 
-    if approved {
-        ctx.say("You are the owner/additional owner of an approved bot! Giving you approved role").await?;
-        let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;
-        
-        member.add_role(&ctx, bot_role).await?;
-    } else if certified {
+    if certified {
         ctx.say("You are the owner/additional owner of a certified bot! Giving you certified role").await?;
-        let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;
+        let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;        
         let certified_role = std::env::var("CERTIFIED_DEV_ROLE").unwrap().parse::<RoleId>()?;
         
         member.add_roles(&ctx, &vec![bot_role, certified_role]).await?;
-    }
+    } else if approved {
+        ctx.say("You are the owner/additional owner of an approved bot! Giving you approved role").await?;
+        let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;
+        
+        member.add_roles(&ctx, &vec![bot_role]).await?;
+    } 
 
     Ok(())
 }

@@ -110,11 +110,11 @@ pub async fn getbotroles(
         
         // Check that they have bot_role, if not, add
         if !member.roles.contains(&bot_role) {
-            member.add_roles(&ctx, &vec![bot_role]).await?;
+            member.add_role(&ctx, bot_role).await?;
         }
 
         if !member.roles.contains(&certified_role) {
-            member.add_roles(&ctx, &vec![certified_role]).await?;
+            member.add_role(&ctx, certified_role).await?;
         }
     } else if approved {
         ctx.say("You are the owner/additional owner of an approved bot! Giving you approved role").await?;
@@ -122,7 +122,7 @@ pub async fn getbotroles(
         
         // Check that they have bot_role, if not, add
         if !member.roles.contains(&bot_role) {
-            member.add_roles(&ctx, &vec![bot_role]).await?;
+            member.add_role(&ctx, bot_role).await?;
         }
     } 
 

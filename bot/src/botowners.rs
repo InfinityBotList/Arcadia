@@ -103,28 +103,45 @@ pub async fn getbotroles(
         return Err("You are not the owner/additional owner of any approved or certified bots".into());
     }
 
+    let mut roles_to_add = Vec::new();
+    let mut roles_to_remove = Vec::new();
+
+    let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;        
+    let certified_role = std::env::var("CERTIFIED_DEV_ROLE").unwrap().parse::<RoleId>()?;
+
     if certified {
         ctx.say("You are the owner/additional owner of a certified bot! Giving you certified role").await?;
-        let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;        
-        let certified_role = std::env::var("CERTIFIED_DEV_ROLE").unwrap().parse::<RoleId>()?;
         
         // Check that they have bot_role, if not, add
         if !member.roles.contains(&bot_role) {
-            member.add_role(&ctx, bot_role).await?;
+            roles_to_add.push(bot_role);
         }
 
         if !member.roles.contains(&certified_role) {
-            member.add_role(&ctx, certified_role).await?;
+            roles_to_add.push(certified_role);
         }
     } else if approved {
         ctx.say("You are the owner/additional owner of an approved bot! Giving you approved role").await?;
-        let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;
         
         // Check that they have bot_role, if not, add
         if !member.roles.contains(&bot_role) {
-            member.add_role(&ctx, bot_role).await?;
+            roles_to_add.push(bot_role);
+        }
+
+        if member.roles.contains(&certified_role) {
+            roles_to_remove.push(certified_role);
         }
     } 
+
+    if roles_to_add.len() > 0 {
+        member.add_roles(&ctx, &roles_to_add).await?;
+    } else {
+        ctx.say("You already have the roles!").await?;
+    }
+
+    if roles_to_remove.len() > 0 {
+        member.remove_roles(&ctx, &roles_to_remove).await?;
+    }
 
     ctx.say("Done!").await?;
 

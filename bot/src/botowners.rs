@@ -133,10 +133,9 @@ pub async fn getbotroles(
         }
     } 
 
+    // Apply the required changes
     if roles_to_add.len() > 0 {
         member.add_roles(&ctx, &roles_to_add).await?;
-    } else {
-        ctx.say("You already have the roles!").await?;
     }
 
     if roles_to_remove.len() > 0 {

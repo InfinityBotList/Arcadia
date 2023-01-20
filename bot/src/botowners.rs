@@ -113,8 +113,7 @@ pub async fn getbotroles(
         let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;
         let certified_role = std::env::var("CERTIFIED_DEV_ROLE").unwrap().parse::<RoleId>()?;
         
-        member.add_role(&ctx, bot_role).await?;
-        member.add_role(&ctx, certified_role).await?;
+        member.add_roles(&ctx, &vec![bot_role, certified_role]).await?;
     }
 
     Ok(())

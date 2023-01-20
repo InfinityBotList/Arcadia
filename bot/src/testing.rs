@@ -59,7 +59,11 @@ pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
         return Ok(());
     }
 
-    ctx.say("The staff guide can be found at https://ptb.botlist.app/staff/guide. Please **do not** bookmark this page as the URL may change in the future").await?;
+    ctx.say(
+        format!(
+            "The staff guide can be found at {}/staff/guide. Please **do not** bookmark this page as the URL may change in the future",
+            std::env::var("BOT_PAGE").unwrap()
+    )).await?;
 
     Ok(())
 }

@@ -94,12 +94,13 @@ async fn _handle_staff_guide(ctx: crate::Context<'_>, user_id: String) -> Result
 
     ctx.say(
         format!(
-            r#"The staff guide can be found at https://ptb.botlist.app/staff/guide?svu={uid}@{ocf}. Please **do not** bookmark this page as the URL may change in the future
+            r#"The staff guide can be found at {url}/staff/guide?svu={uid}@{ocf}. Please **do not** bookmark this page as the URL may change in the future
             
 Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To get started, **invite ``Ninja Bot`` using ``ibb!invite [ID]`` where [ID] is the ID from the ``queue`` command**, then claim ``Ninja Bot``!
 
 **Note that during onboarding, the *5 digit staff verify code present somewhere in the guide* will be reset every time you run the ``staffguide`` command! Always use the latest command invocation for getting the code**
             "#,
+            url = std::env::var("BOT_PAGE").unwrap(),
             uid = user_id,
             ocf = onboard_fragment,
     )).await?;
@@ -477,7 +478,11 @@ Welcome to your onboarding server! Please read the following:
             .embed(
                 CreateEmbed::default()
                 .title("Onboarding Server")
-                .description("Click the link below to join the onboarding server if you want to as a staff manager do so.")
+                .description(
+                    format!(
+                        "Click the link below to join the onboarding server if you want to as a staff manager do so.\n**User ID:** ``{}``",
+                        user_id.mention()
+                    ))
                 .color(0x00ff00)
             )
             .components(

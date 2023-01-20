@@ -601,6 +601,7 @@ async fn main() {
                 admin::onboardman(),
                 stats::stats(),
                 botowners::setstats(),
+                botowners::getbotroles(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {

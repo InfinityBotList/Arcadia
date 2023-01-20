@@ -108,13 +108,25 @@ pub async fn getbotroles(
         let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;        
         let certified_role = std::env::var("CERTIFIED_DEV_ROLE").unwrap().parse::<RoleId>()?;
         
-        member.add_roles(&ctx, &vec![bot_role, certified_role]).await?;
+        // Check that they have bot_role, if not, add
+        if !member.roles.contains(&bot_role) {
+            member.add_roles(&ctx, &vec![bot_role]).await?;
+        }
+
+        if !member.roles.contains(&certified_role) {
+            member.add_roles(&ctx, &vec![certified_role]).await?;
+        }
     } else if approved {
         ctx.say("You are the owner/additional owner of an approved bot! Giving you approved role").await?;
         let bot_role = std::env::var("BOT_DEV_ROLE").unwrap().parse::<RoleId>()?;
         
-        member.add_roles(&ctx, &vec![bot_role]).await?;
+        // Check that they have bot_role, if not, add
+        if !member.roles.contains(&bot_role) {
+            member.add_roles(&ctx, &vec![bot_role]).await?;
+        }
     } 
+
+    ctx.say("Done!").await?;
 
     Ok(())
 }

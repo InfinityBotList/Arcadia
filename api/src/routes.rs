@@ -1,4 +1,4 @@
-use actix_web::{get, http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
+use actix_web::{http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 
 #[post("/panel/approve")]
 pub async fn approve(req: HttpRequest, info: web::Json<crate::models::Request>) -> HttpResponse {
@@ -204,38 +204,4 @@ pub async fn vote_reset_all(
     }
 
     HttpResponse::NoContent().body("")
-}
-
-/// Get onboarding response data
-#[get("/svapi-data")]
-pub async fn staff_verify_onboard_data_api(
-    req: HttpRequest,
-    q: web::Query<crate::models::SVODQuery>,
-) -> HttpResponse {
-    let data: &crate::models::AppState = req
-        .app_data::<web::Data<crate::models::AppState>>()
-        .unwrap();
-
-    let data = sqlx::query!(
-        "SELECT user_id, data FROM onboard_data WHERE onboard_code = $1",
-        &q.code
-    )
-    .fetch_one(&data.pool)
-    .await;
-
-    if data.is_err() {
-        return HttpResponse::BadRequest().json(crate::models::APIResponse {
-            done: false,
-            reason: "SVSession expired".to_string(),
-            context: None,
-        });
-    }
-
-    let rec = data.unwrap();
-
-    let mut data = rec.data;
-
-    data["user_id"] = sqlx::types::JsonValue::String(rec.user_id);
-
-    HttpResponse::Ok().json(data)
 }

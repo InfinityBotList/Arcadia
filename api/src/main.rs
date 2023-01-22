@@ -123,7 +123,6 @@ async fn main() -> std::io::Result<()> {
             .service(routes::deny)
             .service(routes::vote_reset)
             .service(routes::vote_reset_all)
-            .service(routes::staff_verify_onboard_data_api)
     })
     .workers(8)
     .bind("localhost:3010")?

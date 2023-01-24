@@ -16,7 +16,7 @@ use serenity::{
 };
 use sqlx::PgPool;
 
-use serenity::model::id::{ChannelId, GuildId, UserId};
+use serenity::model::id::{ChannelId, UserId};
 
 #[derive(Serialize)]
 struct Reason {
@@ -41,56 +41,6 @@ pub async fn add_action_log(
     .execute(pool)
     .await?;
     Ok(())
-}
-
-pub async fn bot_owner_in_server(
-    pool: &PgPool,
-    discord: impl CacheHttp,
-    bot_id: &str,
-) -> Result<bool, Error> {
-    // Get owners and additional owners
-    let owners = sqlx::query!(
-        "SELECT owner, additional_owners FROM bots WHERE bot_id = $1",
-        bot_id
-    )
-    .fetch_one(pool)
-    .await?;
-
-    // Check if owner is in server ``MAIN_SERVER``
-    let main_server = GuildId(std::env::var("MAIN_SERVER")?.parse::<NonZeroU64>()?);
-
-    let main_owner = owners.owner.parse::<u64>()?;
-
-    let owner_in_server = discord
-        .cache()
-        .unwrap()
-        .member_field(main_server, main_owner, |f| f.user.id);
-
-    if owner_in_server.is_some() {
-        return Ok(true);
-    }
-
-    // Check additional owners
-    for owner in owners.additional_owners {
-        let owner = owner.parse::<u64>();
-
-        if owner.is_err() {
-            continue;
-        }
-
-        let owner = owner.unwrap();
-
-        let owner_in_server = discord
-            .cache()
-            .unwrap()
-            .member_field(main_server, owner, |f| f.user.id);
-
-        if owner_in_server.is_some() {
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
 }
 
 /// Approve bot implementation
@@ -133,11 +83,6 @@ pub async fn approve_bot(
 
     if claimed.r#type != "pending" {
         return Err("Bot is not pending review?".into());
-    }
-
-    // Make sure a owner is in the server
-    if !bot_owner_in_server(pool, &discord, bot_id).await? {
-        return Err("The bot owner is not in the server".into());
     }
 
     if claimed.claimed_by.is_none()

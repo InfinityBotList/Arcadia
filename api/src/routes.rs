@@ -31,7 +31,7 @@ pub async fn approve(req: HttpRequest, info: web::Json<crate::models::Request>) 
         return HttpResponse::Unauthorized().finish();
     }
 
-    let err = libavacado::staff::approve_bot(
+    let res = libavacado::staff::approve_bot(
         &data.cache_http,
         &data.pool,
         &info.bot_id,
@@ -40,15 +40,15 @@ pub async fn approve(req: HttpRequest, info: web::Json<crate::models::Request>) 
     )
     .await;
 
-    if err.is_err() {
+    if res.is_err() {
         return HttpResponse::BadRequest().json(crate::models::APIResponse {
             done: false,
-            reason: err.unwrap_err().to_string(),
+            reason: res.unwrap_err().to_string(),
             context: None,
         });
     }
 
-    HttpResponse::NoContent().body("")
+    HttpResponse::NoContent().json(res.unwrap())
 }
 
 #[post("/panel/deny")]

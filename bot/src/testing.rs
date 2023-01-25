@@ -580,7 +580,7 @@ pub async fn approve(
         return Err("You are not in the testing server".into());
     }
 
-    libavacado::staff::approve_bot(
+    let resp = libavacado::staff::approve_bot(
         &ctx.discord(),
         &ctx.data().pool,
         &bot.user.id.to_string(),
@@ -589,7 +589,9 @@ pub async fn approve(
     )
     .await?;
 
-    ctx.say("Approved bot").await?;
+    ctx.say(
+        format!("Approved bot\nNext invite it to the main server and it should be removed from this server: {}", resp.invite)
+    ).await?;
 
     Ok(())
 }

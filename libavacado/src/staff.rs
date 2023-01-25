@@ -7,7 +7,7 @@ Currently main actions are: approve, deny, vote reset (coming soon)
 
 Smaller utilities specific to staff like add_action_log are also here
 */
-use crate::types::Error;
+use crate::types::{Error, ApproveResponse};
 use log::info;
 use serde::Serialize;
 use serenity::{
@@ -50,7 +50,7 @@ pub async fn approve_bot(
     bot_id: &str,
     staff_id: &str,
     reason: &str,
-) -> Result<(), Error> {
+) -> Result<ApproveResponse, Error> {
     // The bot has way better onboarding, but this is a generic impl function so we need it
     let onboard_state = sqlx::query!(
         "SELECT staff_onboard_state FROM users WHERE user_id = $1",
@@ -99,8 +99,8 @@ pub async fn approve_bot(
     let start_time = chrono::offset::Utc::now();
     let last_claimed = claimed.last_claimed.unwrap();
 
-    if (start_time - last_claimed).num_minutes() < 15 {
-        return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve/deny it!".into());
+    if (start_time - last_claimed).num_minutes() < 5 {
+        return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
     }
 
     add_action_log(pool, bot_id, staff_id, reason, "approve").await?;
@@ -152,10 +152,20 @@ pub async fn approve_bot(
         .await?;
 
     if request.status().is_success() {
-        info!("Successfully denied bot {} on metro", bot_id);
-        Ok(())
+        info!("Successfully approved bot {} on metro", bot_id);
+
+        let invite_data = sqlx::query!(
+            "SELECT invite FROM bots WHERE bot_id = $1",
+            bot_id
+        )
+        .fetch_one(pool)
+        .await?;    
+
+        Ok(ApproveResponse {
+            invite: invite_data.invite,
+        })
     } else {
-        Err("Failed to deny bot on metro (but successful denial on IBL".into())
+        Err("Failed to approve bot on metro (but successful apperov on IBL".into())
     }
 }
 
@@ -215,8 +225,8 @@ pub async fn deny_bot(
     let start_time = chrono::offset::Utc::now();
     let last_claimed = claimed.last_claimed.unwrap();
 
-    if (start_time - last_claimed).num_minutes() < 15 {
-        return Err("Whoa there! You need to test this bot for at least 15 minutes (recommended: 20 minutes) before being able to approve/deny it!".into());
+    if (start_time - last_claimed).num_minutes() < 5 {
+        return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
     }
 
     // Get main owner and modlogs

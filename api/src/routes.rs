@@ -48,7 +48,7 @@ pub async fn approve(req: HttpRequest, info: web::Json<crate::models::Request>) 
         });
     }
 
-    HttpResponse::NoContent().json(res.unwrap())
+    HttpResponse::Ok().json(res.unwrap())
 }
 
 #[post("/panel/deny")]

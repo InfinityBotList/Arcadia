@@ -60,6 +60,7 @@ impl OnboardState {
 
     pub fn queue_passthrough(&self) -> bool {
         match self {
+            OnboardState::Pending => true,
             OnboardState::PendingManagerReview => true,
             OnboardState::Denied => true,
             OnboardState::Completed => true,

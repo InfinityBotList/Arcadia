@@ -176,6 +176,10 @@ pub async fn handle_onboarding(
     })
     .unwrap_or(OnboardState::Pending);
 
+    if onboard_state == OnboardState::Completed {
+        return Ok(true);
+    }
+
     let test_bot = std::env::var("TEST_BOT")?;
     let bot_page = std::env::var("BOT_PAGE")?;
 
@@ -255,10 +259,6 @@ pub async fn handle_onboarding(
         }
 
         return Ok(false);
-    }
-
-    if onboard_state == OnboardState::Completed {
-        return Ok(true);
     }
 
     if onboard_state == OnboardState::PendingManagerReview {

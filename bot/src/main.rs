@@ -599,6 +599,7 @@ async fn main() {
                 admin::voteresetbot(),
                 admin::voteresetallbots(),
                 admin::onboardman(),
+                admin::unverifybot(),
                 stats::stats(),
                 botowners::setstats(),
                 botowners::getbotroles(),

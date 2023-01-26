@@ -195,6 +195,7 @@ pub async fn resetonboard(
     Ok(())
 }
 
+/// Resets the votes of a bot
 #[poise::command(
     category = "Admin",
     track_edits,
@@ -202,12 +203,12 @@ pub async fn resetonboard(
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn votereset(
+pub async fn voteresetbot(
     ctx: crate::Context<'_>,
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
-    libavacado::manage::vote_reset(
+    libavacado::manage::vote_reset_bot(
         &ctx.discord(),
         &ctx.data().pool,
         &bot.id.to_string(),
@@ -217,6 +218,7 @@ pub async fn votereset(
     .await
 }
 
+/// Resets the votes of all bots
 #[poise::command(
     category = "Admin",
     track_edits,
@@ -224,13 +226,36 @@ pub async fn votereset(
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn voteresetall(
+pub async fn voteresetallbots(
     ctx: crate::Context<'_>,
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
-    libavacado::manage::vote_reset_all(
+    libavacado::manage::vote_reset_all_bot(
         &ctx.discord(),
         &ctx.data().pool,
+        &ctx.author().id.to_string(),
+        &reason,
+    )
+    .await
+}
+
+/// Unverifies a bot for further review
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn unverifybot(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+) -> Result<(), crate::Error> {
+    libavacado::manage::unverify_bot(
+        &ctx.discord(),
+        &ctx.data().pool,
+        &bot.id.to_string(),
         &ctx.author().id.to_string(),
         &reason,
     )

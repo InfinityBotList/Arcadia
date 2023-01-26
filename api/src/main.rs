@@ -119,10 +119,11 @@ async fn main() -> std::io::Result<()> {
                 middleware::TrailingSlash::MergeOnly,
             ))
             .default_service(web::route().to(not_found))
-            .service(routes::approve)
-            .service(routes::deny)
-            .service(routes::vote_reset)
-            .service(routes::vote_reset_all)
+            .service(routes::approve_bot)
+            .service(routes::deny_bot)
+            .service(routes::vote_reset_bot)
+            .service(routes::vote_reset_all_bot)
+            .service(routes::unverify_bot)
     })
     .workers(8)
     .bind("localhost:3010")?

@@ -275,13 +275,23 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
                 let bans = GuildId(main_server).bans(&ctx.http).await?;
 
+                // Create a transaction
+                let mut tx = pool.begin().await?;
+
+                // First unset all bans
+                sqlx::query!(
+                    "UPDATE users SET banned = false"
+                )
+                .execute(&mut tx)
+                .await?;
+
                 for ban in bans {
                     let user_id = ban.user.id.0.to_string();
                     let res = sqlx::query!(
                         "UPDATE users SET banned = true WHERE user_id = $1",
                         user_id
                     )
-                    .execute(&pool)
+                    .execute(&mut tx)
                     .await;
 
                     if res.is_err() {
@@ -293,6 +303,9 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                         continue;
                     }
                 }
+
+                // Commit the transaction
+                tx.commit().await?;
 
                 info!("Checking for claimed bots greater than 1 hour claim interval");
 

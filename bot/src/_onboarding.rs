@@ -152,7 +152,7 @@ pub async fn handle_onboarding(
 
     // Reset old onboards
     sqlx::query!(
-        "UPDATE users SET staff_onboard_state = $1, staff_onboard_last_start_time = NOW() WHERE staff_onboard_state = 'complete' AND staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'",
+        "UPDATE users SET staff_onboard_state = $1 WHERE staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'",
         OnboardState::Pending.as_str()
     )
     .execute(&data.pool)

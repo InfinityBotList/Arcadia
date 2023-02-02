@@ -81,7 +81,7 @@ pub async fn approve_bot(
     .fetch_one(pool)
     .await?;
 
-    if claimed.r#type != "pending" {
+    if claimed.r#type != "claimed" {
         return Err("Bot is not pending review?".into());
     }
 
@@ -204,7 +204,7 @@ pub async fn deny_bot(
     .fetch_one(pool)
     .await?;
 
-    if claimed.r#type != "pending" {
+    if claimed.r#type != "claimed" {
         return Err("Bot is not pending review?".into());
     }
 

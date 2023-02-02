@@ -610,8 +610,8 @@ Welcome to your onboarding server! Please read the following:
                     .title("Bot Resubmitted")
                     .description(
                         format!(
-                            "**Bot:** {bot_id} ({bot_name})\n\n**Owner:** {owner_id} ({owner_name})\n\n**Bot Page:** {frontend_url}/bots/{bot_id}",
-                            bot_id = UserId(libavacado::CONFIG.test_bot).mention(),
+                            "**Bot:** <@{bot_id}> ({bot_name})\n\n**Owner:** {owner_id} ({owner_name})\n\n**Bot Page:** {frontend_url}/bots/{bot_id}",
+                            bot_id = libavacado::CONFIG.test_bot,
                             bot_name = "Ninja Bot",
                             owner_id = current_user_id.mention(),
                             owner_name = current_user_name,

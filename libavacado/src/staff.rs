@@ -60,7 +60,7 @@ pub async fn approve_bot(
     .await?;
 
     // We should never get this on bot, but maybe on website
-    if onboard_state.staff_onboard_state != "complete" {
+    if onboard_state.staff_onboard_state != "completed" {
         return Err("onboarding_required".into());
     }
 
@@ -183,7 +183,7 @@ pub async fn deny_bot(
     .await?;
 
     // We should never get this on bot, but maybe on website
-    if onboard_state.staff_onboard_state != "complete" {
+    if onboard_state.staff_onboard_state != "completed" {
         return Err("onboarding_required".into());
     }
 

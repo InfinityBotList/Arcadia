@@ -241,12 +241,12 @@ pub async fn handle_onboarding(
             }
 
             ctx.say(r#"
-    Great! As you can see, you have now claimed ``Ninja Bot``. 
-            
-    Now test the bot as per the staff guide. Then run either ``/approve`` or ``/deny`` with your overall feeling of whether or not this bot should 
-    be approved or denied.
+Great! As you can see, you have now claimed ``Ninja Bot``. 
+        
+Now test the bot as per the staff guide. Then run either ``/approve`` or ``/deny`` with your overall feeling of whether or not this bot should 
+be approved or denied.
 
-    **Note that you will need to verify that you have read the staff guide when using ``/approve`` or ``/deny``.**
+**Note that you will need to verify that you have read the staff guide when using ``/approve`` or ``/deny``.**
     "#).await?;
         }
 

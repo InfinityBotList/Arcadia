@@ -60,7 +60,7 @@ pub async fn approveonboard(
 
     // Update onboard state of user
     sqlx::query!(
-        "UPDATE users SET staff_onboard_state = 'complete' WHERE user_id = $1",
+        "UPDATE users SET staff_onboard_state = 'completed' WHERE user_id = $1",
         member.id.to_string()
     )
     .execute(&data.pool)

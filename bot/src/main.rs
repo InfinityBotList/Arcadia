@@ -470,7 +470,7 @@ For more information, you can contact the current reviewer <@{}>
                     }
 
                     let res = sqlx::query!(
-                        "SELECT COUNT(*) FROM users WHERE staff_onboard_guild = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = 'complete' OR staff_onboard_state = 'pending-manager-review')",
+                        "SELECT COUNT(*) FROM users WHERE staff_onboard_guild = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = 'completed' OR staff_onboard_state = 'pending-manager-review')",
                         guild_id.0.to_string()
                     )
                     .fetch_one(&pool)

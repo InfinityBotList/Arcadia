@@ -7,7 +7,7 @@ Currently main actions are: approve, deny, vote reset (coming soon)
 
 Smaller utilities specific to staff like add_action_log are also here
 */
-use crate::types::{Error, ApproveResponse};
+use crate::types::{ApproveResponse, Error};
 use log::info;
 use serde::Serialize;
 use serenity::{
@@ -115,8 +115,6 @@ pub async fn approve_bot(
     // Get main owner and modlogs
     let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<NonZeroU64>()?);
-
     let private_channel = owner.create_dm_channel(&discord).await?;
 
     let msg = CreateMessage::default().embed(
@@ -135,16 +133,18 @@ pub async fn approve_bot(
         .send_message(&discord.http(), msg.clone())
         .await?;
 
-    modlogs.send_message(&discord.http(), msg).await?;
+    ChannelId(crate::CONFIG.channels.mod_logs)
+        .send_message(&discord.http(), msg)
+        .await?;
 
     let request = reqwest::Client::new()
         .post(format!(
             "https://catnip.metrobots.xyz/bots/{}/approve",
             bot_id
         ))
-        .query(&[("list_id", std::env::var("LIST_ID")?)])
+        .query(&[("list_id", crate::CONFIG.metro.list_id.clone())])
         .query(&[("reviewer", bot_id)])
-        .header("Authorization", std::env::var("SECRET_KEY")?)
+        .header("Authorization", crate::CONFIG.metro.secret.clone())
         .json(&Reason {
             reason: reason.to_string(),
         })
@@ -154,12 +154,9 @@ pub async fn approve_bot(
     if request.status().is_success() {
         info!("Successfully approved bot {} on metro", bot_id);
 
-        let invite_data = sqlx::query!(
-            "SELECT invite FROM bots WHERE bot_id = $1",
-            bot_id
-        )
-        .fetch_one(pool)
-        .await?;    
+        let invite_data = sqlx::query!("SELECT invite FROM bots WHERE bot_id = $1", bot_id)
+            .fetch_one(pool)
+            .await?;
 
         Ok(ApproveResponse {
             invite: invite_data.invite,
@@ -232,8 +229,6 @@ pub async fn deny_bot(
     // Get main owner and modlogs
     let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<NonZeroU64>()?);
-
     // Add action logs
     add_action_log(pool, bot_id, staff_id, reason, "deny").await?;
 
@@ -261,13 +256,15 @@ pub async fn deny_bot(
         .send_message(&discord.http(), msg.clone())
         .await?;
 
-    modlogs.send_message(&discord.http(), msg).await?;
+    ChannelId(crate::CONFIG.channels.mod_logs)
+        .send_message(&discord.http(), msg)
+        .await?;
 
     let request = reqwest::Client::new()
         .post(format!("https://catnip.metrobots.xyz/bots/{}/deny", bot_id))
-        .query(&[("list_id", std::env::var("LIST_ID")?)])
+        .query(&[("list_id", crate::CONFIG.metro.list_id.clone())])
         .query(&[("reviewer", bot_id)])
-        .header("Authorization", std::env::var("SECRET_KEY")?)
+        .header("Authorization", crate::CONFIG.metro.secret.clone())
         .json(&Reason {
             reason: reason.to_string(),
         })

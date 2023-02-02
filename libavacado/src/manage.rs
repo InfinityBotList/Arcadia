@@ -1,5 +1,3 @@
-use std::num::NonZeroU64;
-
 use serenity::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
     http::CacheHttp,
@@ -35,8 +33,6 @@ pub async fn vote_reset_bot(
         .execute(pool)
         .await?;
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<NonZeroU64>()?);
-
     let msg = CreateMessage::default().embed(
         CreateEmbed::default()
             .title("__Bot Vote Reset!__")
@@ -47,7 +43,9 @@ pub async fn vote_reset_bot(
             .color(0xFF0000),
     );
 
-    modlogs.send_message(&discord.http(), msg).await?;
+    ChannelId(crate::CONFIG.channels.mod_logs)
+        .send_message(&discord.http(), msg)
+        .await?;
 
     Ok(())
 }
@@ -65,8 +63,6 @@ pub async fn vote_reset_all_bot(
         .execute(pool)
         .await?;
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<NonZeroU64>()?);
-
     let msg = CreateMessage::default().embed(
         CreateEmbed::default()
             .title("__All Votes Reset!__")
@@ -76,7 +72,9 @@ pub async fn vote_reset_all_bot(
             .color(0xFF0000),
     );
 
-    modlogs.send_message(&discord.http(), msg).await?;
+    ChannelId(crate::CONFIG.channels.mod_logs)
+        .send_message(&discord.http(), msg)
+        .await?;
 
     Ok(())
 }
@@ -107,8 +105,6 @@ pub async fn unverify_bot(
         .execute(pool)
         .await?;
 
-    let modlogs = ChannelId(std::env::var("MODLOGS_CHANNEL")?.parse::<NonZeroU64>()?);
-
     let msg = CreateMessage::default().embed(
         CreateEmbed::default()
             .title("__Bot Unverified For Futher Review!__")
@@ -119,7 +115,9 @@ pub async fn unverify_bot(
             .color(0xFF0000),
     );
 
-    modlogs.send_message(&discord.http(), msg).await?;
+    ChannelId(crate::CONFIG.channels.mod_logs)
+        .send_message(&discord.http(), msg)
+        .await?;
 
     Ok(())
 }

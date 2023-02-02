@@ -5,3 +5,5 @@ bot/bot
 bot/bot.new
 api/api
 api/api.new
+**/config.yaml
+**/config.yaml.sample

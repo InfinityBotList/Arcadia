@@ -1,6 +1,5 @@
 use std::{num::NonZeroU64, time::Duration};
 
-use dotenv::dotenv;
 use log::{error, info};
 use poise::serenity_prelude::{
     self as serenity, CreateEmbed, CreateEmbedFooter, CreateMessage, FullEvent, GuildId,
@@ -105,15 +104,6 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
 }
 
 async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error> {
-    let main_server = std::env::var("MAIN_SERVER")
-        .unwrap()
-        .parse::<NonZeroU64>()
-        .unwrap();
-    let testing_server = std::env::var("TESTING_SERVER")
-        .unwrap()
-        .parse::<NonZeroU64>()
-        .unwrap();
-
     match event {
         FullEvent::InteractionCreate {
             interaction,
@@ -142,51 +132,34 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
             let mut interval = tokio::time::interval(Duration::from_secs(60));
 
-            let lounge_channel_id = ChannelId(
-                std::env::var("LOUNGE_CHANNEL")
-                    .unwrap()
-                    .parse::<NonZeroU64>()
-                    .unwrap(),
-            );
+            let lounge_channel_id = ChannelId(libavacado::CONFIG.channels.testing_lounge);
 
-            let main_server = std::env::var("MAIN_SERVER")
-                .unwrap()
-                .parse::<NonZeroU64>()
-                .unwrap();
-            let staff_server = std::env::var("STAFF_SERVER")
-                .unwrap()
-                .parse::<NonZeroU64>()
-                .unwrap();
-            let testing_server = std::env::var("TESTING_SERVER")
-                .unwrap()
-                .parse::<NonZeroU64>()
-                .unwrap();
+            let dev_role = poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.developer);
+            let head_dev_role =
+                poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.head_developer);
+            let staff_man_role =
+                poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.staff_manager);
+
+            let head_man_role =
+                poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.head_manager);
+            let web_mod_role =
+                poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.web_moderator);
 
             loop {
                 interval.tick().await;
 
                 info!("Performing staff recalc");
 
-                let dev_role = poise::serenity_prelude::RoleId(
-                    std::env::var("DEV_ROLE")?.parse::<NonZeroU64>()?,
-                );
-                let head_dev_role = poise::serenity_prelude::RoleId(
-                    std::env::var("HEAD_DEV_ROLE")?.parse::<NonZeroU64>()?,
-                );
-                let staff_man_role = poise::serenity_prelude::RoleId(
-                    std::env::var("STAFF_MAN_ROLE")?.parse::<NonZeroU64>()?,
-                );
-                let head_man_role = poise::serenity_prelude::RoleId(
-                    std::env::var("HEAD_MAN_ROLE")?.parse::<NonZeroU64>()?,
-                );
-                let web_mod_role = poise::serenity_prelude::RoleId(
-                    std::env::var("WEB_MOD_ROLE")?.parse::<NonZeroU64>()?,
-                );
-
                 let mut staff_resync = Vec::new();
 
                 // Get all members on staff server
-                for (_, member) in ctx.cache.guild(staff_server).unwrap().members.iter() {
+                for (_, member) in ctx
+                    .cache
+                    .guild(libavacado::CONFIG.servers.staff)
+                    .unwrap()
+                    .members
+                    .iter()
+                {
                     if member.roles.contains(&dev_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
@@ -273,26 +246,24 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 // Check bans
                 info!("Syncing bans");
 
-                let bans = GuildId(main_server).bans(&ctx.http).await?;
+                let bans = GuildId(libavacado::CONFIG.servers.main)
+                    .bans(&ctx.http)
+                    .await?;
 
                 // Create a transaction
                 let mut tx = pool.begin().await?;
 
                 // First unset all bans
-                sqlx::query!(
-                    "UPDATE users SET banned = false"
-                )
-                .execute(&mut tx)
-                .await?;
+                sqlx::query!("UPDATE users SET banned = false")
+                    .execute(&mut tx)
+                    .await?;
 
                 for ban in bans {
                     let user_id = ban.user.id.0.to_string();
-                    let res = sqlx::query!(
-                        "UPDATE users SET banned = true WHERE user_id = $1",
-                        user_id
-                    )
-                    .execute(&mut tx)
-                    .await;
+                    let res =
+                        sqlx::query!("UPDATE users SET banned = true WHERE user_id = $1", user_id)
+                            .execute(&mut tx)
+                            .await;
 
                     if res.is_err() {
                         error!(
@@ -491,9 +462,9 @@ For more information, you can contact the current reviewer <@{}>
                 for guild_id in guilds {
                     let guild_owner = ctx.cache.guild(guild_id).unwrap().owner_id;
                     // Check if guild is official (main/testing/staff)
-                    if guild_id.0 == main_server
-                        || guild_id.0 == testing_server
-                        || guild_id.0 == staff_server
+                    if guild_id.0 == libavacado::CONFIG.servers.main
+                        || guild_id.0 == libavacado::CONFIG.servers.staff
+                        || guild_id.0 == libavacado::CONFIG.servers.testing
                     {
                         continue;
                     }
@@ -536,15 +507,17 @@ For more information, you can contact the current reviewer <@{}>
             info!("Cache ready with {} guilds", guilds.len());
         }
         FullEvent::GuildMemberAddition { new_member, ctx } => {
-            if new_member.guild_id.0 == main_server && new_member.user.bot {
+            if new_member.guild_id.0 == libavacado::CONFIG.servers.main && new_member.user.bot {
                 // Check if new member is in testing server
-                let member =
-                    ctx.cache
-                        .member_field(GuildId(testing_server), new_member.user.id, |m| m.user.id);
+                let member = ctx.cache.member_field(
+                    GuildId(libavacado::CONFIG.servers.testing),
+                    new_member.user.id,
+                    |m| m.user.id,
+                );
 
                 if member.is_some() {
                     // If so, move them to main server
-                    GuildId(testing_server)
+                    GuildId(libavacado::CONFIG.servers.testing)
                         .kick_with_reason(&ctx, new_member.user.id, "Added to main server")
                         .await?;
                 }
@@ -560,23 +533,16 @@ For more information, you can contact the current reviewer <@{}>
 async fn main() {
     const MAX_CONNECTIONS: u32 = 3; // max connections to the database, we don't need too many here
 
-    dotenv().ok();
+    std::env::set_var("RUST_LOG", "bot=info");
 
     env_logger::init();
 
-    // proxy url is always http://localhost:3219
-    let mut proxy_url = "http://127.0.0.1:3219/".to_string();
-    if let Ok(v) = std::env::var("PROXY_URL") {
-        proxy_url = v;
-    }
+    info!("Proxy URL: {}", libavacado::CONFIG.proxy_url);
 
-    info!("Proxy URL: {}", proxy_url);
-
-    let http =
-        serenity::HttpBuilder::new(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
-            .proxy(proxy_url)
-            .ratelimiter_disabled(true)
-            .build();
+    let http = serenity::HttpBuilder::new(&libavacado::CONFIG.token)
+        .proxy(libavacado::CONFIG.proxy_url.clone())
+        .ratelimiter_disabled(true)
+        .build();
 
     let client_builder =
         serenity::ClientBuilder::new_with_http(http, serenity::GatewayIntents::all());
@@ -647,7 +613,7 @@ async fn main() {
                 Ok(Data {
                     pool: PgPoolOptions::new()
                         .max_connections(MAX_CONNECTIONS)
-                        .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
+                        .connect(&libavacado::CONFIG.database_url)
                         .await
                         .expect("Could not initialize connection"),
                 })

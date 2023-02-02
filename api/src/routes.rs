@@ -1,7 +1,10 @@
 use actix_web::{http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
 
 #[post("/panel/bots/approve")]
-pub async fn approve_bot(req: HttpRequest, info: web::Json<crate::models::Request>) -> HttpResponse {
+pub async fn approve_bot(
+    req: HttpRequest,
+    info: web::Json<crate::models::Request>,
+) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -103,7 +106,10 @@ pub async fn deny_bot(req: HttpRequest, info: web::Json<crate::models::Request>)
 }
 
 #[post("/panel/bots/votes-reset")]
-pub async fn vote_reset_bot(req: HttpRequest, info: web::Json<crate::models::Request>) -> HttpResponse {
+pub async fn vote_reset_bot(
+    req: HttpRequest,
+    info: web::Json<crate::models::Request>,
+) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();

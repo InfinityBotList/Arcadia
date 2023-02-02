@@ -62,7 +62,7 @@ pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say(
         format!(
             "The staff guide can be found at {}/staff/guide. Please **do not** bookmark this page as the URL may change in the future",
-            std::env::var("BOT_PAGE").unwrap()
+            libavacado::CONFIG.frontend_url
     )).await?;
 
     Ok(())
@@ -248,13 +248,11 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
         return Err("Only staff members can claim bots!".into());
     }
 
-    let test_bot_id = std::env::var("TEST_BOT")?;
-
     if !checks::is_staff(ctx).await? {
         return Err("You must be staff to use this command!".into());
     }
 
-    if bot.id.to_string() == test_bot_id {
+    if bot.id.0 == libavacado::CONFIG.test_bot {
         return Err("You cannot claim the test bot!".into());
     }
 
@@ -471,9 +469,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
     let data = ctx.data();
     let discord = ctx.discord();
 
-    let test_bot_id = std::env::var("TEST_BOT")?;
-
-    if bot.id.to_string() == test_bot_id {
+    if bot.id.0 == libavacado::CONFIG.test_bot {
         return Err("You cannot claim the test bot!".into());
     }
 

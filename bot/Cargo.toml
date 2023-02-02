@@ -15,7 +15,6 @@ serde_repr = "0.1"
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls", "postgres", "chrono", "uuid", "bigdecimal", "json", "offline"] }
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
 chrono = { version = "0.4", features = ["serde"]}
-dotenv = "0.15"
 futures-util = "0.3"
 libavacado = { path = "../libavacado" }
 ring = "0.16"

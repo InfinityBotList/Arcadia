@@ -101,7 +101,7 @@ Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To 
 
 **Note that during onboarding, the *5 digit staff verify code present somewhere in the guide* will be reset every time you run the ``staffguide`` command! Always use the latest command invocation for getting the code**
             "#,
-            url = std::env::var("BOT_PAGE").unwrap(),
+            url = &libavacado::CONFIG.frontend_url,
             uid = user_id,
             ocf = onboard_fragment,
     )).await?;
@@ -128,21 +128,15 @@ pub async fn handle_onboarding(
         .await
         .unwrap_or_else(|_| false)
         || {
-            // Check if awaiting staff role in main server
-            let main_server = std::env::var("MAIN_SERVER")
-                .unwrap()
-                .parse::<NonZeroU64>()
-                .unwrap();
-
-            let member = discord.cache.member(main_server, ctx.author().id);
+            let member = discord
+                .cache
+                .member(libavacado::CONFIG.servers.main, ctx.author().id);
 
             if let Some(member) = member {
-                let awaiting_role = std::env::var("AWAITING_STAFF_ROLE")
-                    .unwrap()
-                    .parse::<NonZeroU64>()
-                    .unwrap();
-
-                if !member.roles.contains(&RoleId(awaiting_role)) {
+                if !member
+                    .roles
+                    .contains(&RoleId(libavacado::CONFIG.roles.awaiting_staff))
+                {
                     false
                 } else {
                     true
@@ -181,9 +175,6 @@ pub async fn handle_onboarding(
         return Ok(true);
     }
 
-    let test_bot = std::env::var("TEST_BOT")?;
-    let bot_page = std::env::var("BOT_PAGE")?;
-
     if cmd_name == "queue" {
         if onboard_state.queue_passthrough() {
             return Ok(true);
@@ -192,11 +183,11 @@ pub async fn handle_onboarding(
         if onboard_state.queue_unclaim() {
             // Send queue unclaim message here and abort
             let desc = format!(
-                "**{i}.** {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}\n**Bot Page**: {bp}",
+                "**{i}.** {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}\n**Bot Page**: {bp}/bots/{bot_id}",
                 i = 1,
                 name = "Ninja Bot",
-                bot_id = test_bot,
-                bp = bot_page,
+                bot_id = libavacado::CONFIG.test_bot,
+                bp = libavacado::CONFIG.frontend_url,
                 ap_note = "Please test me :heart:"
             );
             if embed {
@@ -227,7 +218,7 @@ pub async fn handle_onboarding(
                 "**{i}.** {name} ({bot_id}) [Claimed by: {claimed_by} (<@{claimed_by}>)]\n**Note:** {ap_note}",
                 i = 1,
                 name = "Ninja Bot",
-                bot_id = test_bot,
+                bot_id = libavacado::CONFIG.test_bot,
                 claimed_by = ctx.author().id.0,
                 ap_note = "Please test me :heart:"
             );
@@ -470,9 +461,7 @@ Welcome to your onboarding server! Please read the following:
 
             dm_channel.send_message(discord, msg).await?;
 
-            let onboard_channel = std::env::var("ONBOARDING_CHANNEL").unwrap();
-
-            let channel = ChannelId(onboard_channel.parse::<NonZeroU64>().unwrap());
+            let channel = ChannelId(libavacado::CONFIG.channels.onboarding_channel);
 
             // Send invite
             let sm_invite_msg = CreateMessage::default()
@@ -577,7 +566,7 @@ Welcome to your onboarding server! Please read the following:
         return Ok(false);
     }
 
-    if cmd_name == "claim" && reason != Some(&test_bot) {
+    if cmd_name == "claim" && reason != Some(&libavacado::CONFIG.test_bot.to_string()) {
         ctx.say("You can only claim the test bot at this time!")
             .await?;
         return Ok(false);
@@ -586,7 +575,7 @@ Welcome to your onboarding server! Please read the following:
     // Before matching, make sure 'Ninja Bot' is always pending
     sqlx::query!(
         "UPDATE bots SET type = 'testbot' WHERE bot_id = $1",
-        test_bot
+        libavacado::CONFIG.test_bot.to_string()
     )
     .execute(&data.pool)
     .await?;
@@ -621,12 +610,12 @@ Welcome to your onboarding server! Please read the following:
                     .title("Bot Resubmitted")
                     .description(
                         format!(
-                            "**Bot:** {bot_id} ({bot_name})\n\n**Owner:** {owner_id} ({owner_name})\n\n**Bot Page:** {bot_page}",
-                            bot_id = "<@".to_string() + &test_bot + ">",
+                            "**Bot:** {bot_id} ({bot_name})\n\n**Owner:** {owner_id} ({owner_name})\n\n**Bot Page:** {frontend_url}/bots/{bot_id}",
+                            bot_id = UserId(libavacado::CONFIG.test_bot).mention(),
                             bot_name = "Ninja Bot",
                             owner_id = current_user_id.mention(),
                             owner_name = current_user_name,
-                            bot_page = bot_page + "/bot/" + &test_bot
+                            frontend_url = libavacado::CONFIG.frontend_url,
                         )
                     )
                     .footer(CreateEmbedFooter::new("Are you ready to take on your first challenge, young padawan?"))
@@ -700,7 +689,7 @@ Welcome to your onboarding server! Please read the following:
                 format!(
                     "<@{claimed_by}>, did you forgot to finish testing <@{bot_id}>? This reminder has been recorded internally for staff activity tracking purposes!", 
                     claimed_by = current_user_id,
-                    bot_id = test_bot
+                    bot_id = libavacado::CONFIG.test_bot
                 )
             ).await?;
 
@@ -795,7 +784,7 @@ Welcome to your onboarding server! Please read the following:
 
             ctx.say(format!(
                 "You have claimed <@{bot_id}> and the bot owner has been notified!",
-                bot_id = test_bot
+                bot_id = libavacado::CONFIG.test_bot
             ))
             .await?;
 
@@ -1049,7 +1038,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     ctx.guild_id().unwrap().edit(discord, edit).await?;
 
                     let onboard_channel_id =
-                        ChannelId(std::env::var("ONBOARDING_CHANNEL")?.parse::<NonZeroU64>()?);
+                        ChannelId(libavacado::CONFIG.channels.onboarding_channel);
 
                     onboard_channel_id.say(
                         &discord,

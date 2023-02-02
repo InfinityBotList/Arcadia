@@ -9,8 +9,6 @@ use serenity::client::{Context, EventHandler};
 use serenity::model::gateway::{GatewayIntents, Ready};
 use sqlx::postgres::PgPoolOptions;
 
-use dotenv::dotenv;
-
 mod models;
 mod routes;
 
@@ -50,22 +48,20 @@ async fn main() -> std::io::Result<()> {
 
     info!("Starting up now!");
 
-    dotenv().ok();
-
     std::env::set_var("RUST_LOG", "api=info");
 
     env_logger::init();
 
     let pool = PgPoolOptions::new()
         .max_connections(MAX_CONNECTIONS)
-        .connect(&std::env::var("DATABASE_URL").expect("missing DATABASE_URL"))
+        .connect(&libavacado::CONFIG.database_url)
         .await
         .expect("Could not initialize connection");
 
     info!("Connected to postgres with pool size: {}", pool.size());
 
     let mut main_cli = serenity::Client::builder(
-        std::env::var("DISCORD_TOKEN").expect("No DISCORD_TOKEN specified"),
+        &libavacado::CONFIG.token,
         GatewayIntents::GUILDS
             | GatewayIntents::GUILD_MESSAGES
             | GatewayIntents::GUILD_MEMBERS

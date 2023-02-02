@@ -29,4 +29,9 @@ remote:
 	ssh root@$(HOST)
 up:
 	git submodule foreach git pull
-
+runapi:
+	-mv -vf api/api.new api/api # If it exists
+	./api
+runbot:
+	-mv -vf bot/bot.new bot/bot # If it exists
+	./bot

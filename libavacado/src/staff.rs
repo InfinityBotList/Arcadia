@@ -8,7 +8,7 @@ Currently main actions are: approve, deny, vote reset (coming soon)
 Smaller utilities specific to staff like add_action_log are also here
 */
 use crate::types::{ApproveResponse, Error};
-use log::info;
+use log::{info, error};
 use serde::Serialize;
 use serenity::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
@@ -151,18 +151,22 @@ pub async fn approve_bot(
         .send()
         .await?;
 
+    let invite_data = sqlx::query!("SELECT invite FROM bots WHERE bot_id = $1", bot_id)
+    .fetch_one(pool)
+    .await?;
+
+
     if request.status().is_success() {
         info!("Successfully approved bot {} on metro", bot_id);
-
-        let invite_data = sqlx::query!("SELECT invite FROM bots WHERE bot_id = $1", bot_id)
-            .fetch_one(pool)
-            .await?;
 
         Ok(ApproveResponse {
             invite: invite_data.invite,
         })
     } else {
-        Err("Failed to approve bot on metro (but successful apperov on IBL".into())
+        error!("Failed to approve bot {} on metro, but success on IBL", bot_id);
+        Ok(ApproveResponse {
+            invite: invite_data.invite,
+        })
     }
 }
 
@@ -275,6 +279,7 @@ pub async fn deny_bot(
         info!("Successfully denied bot {} on metro", bot_id);
         Ok(())
     } else {
-        Err("Failed to deny bot on metro (but successful denial on IBL".into())
+        error!("Failed to deny bot {} on metro, but success on IBL", bot_id);
+        Ok(())
     }
 }

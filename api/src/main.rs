@@ -69,13 +69,14 @@ async fn main() -> std::io::Result<()> {
         let cors = Cors::default()
             .allowed_origin_fn(|origin, _req_head| {
                 origin.as_bytes().ends_with(libavacado::CONFIG.frontend_url.as_bytes())
-                || origin.as_bytes().ends_with("http://localhost:3000".as_bytes())
+                || origin.as_bytes().ends_with("localhost:3000".as_bytes())
             })
             .allowed_methods(vec!["POST", "OPTIONS"])
             .allowed_headers(vec![
                 http::header::AUTHORIZATION,
                 http::header::ACCEPT,
                 http::header::CONTENT_TYPE,
+                http::header::HeaderName::from_bytes(b"X-Client").unwrap(),
             ])
             .supports_credentials()
             .max_age(1);

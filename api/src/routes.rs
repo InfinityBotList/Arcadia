@@ -1,4 +1,6 @@
-use actix_web::{http::header::HeaderValue, post, web, HttpRequest, HttpResponse};
+use std::ops::Add;
+
+use actix_web::{post, web, HttpRequest, HttpResponse};
 
 use crate::models::{RPCMethod, RPCRequest};
 
@@ -7,14 +9,6 @@ use crate::models::{RPCMethod, RPCRequest};
 pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpResponse {
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
-        .unwrap();
-
-    let auth_default = &HeaderValue::from_str("").unwrap();
-    let auth = req
-        .headers()
-        .get("Authorization")
-        .unwrap_or(auth_default)
-        .to_str()
         .unwrap();
 
     let check = sqlx::query!(
@@ -30,13 +24,22 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
 
     let check = check.unwrap();
 
-    if check.api_token != auth {
+    if check.api_token != info.token {
         return HttpResponse::Unauthorized().body("Invalid token");
     }
 
     if !check.staff {
         return HttpResponse::Unauthorized().body("Staff-only endpoint");
     }
+
+    // Add request to moka cache
+    let new_req = data.ratelimits.get(&info.user_id).unwrap_or_default().add(1);
+
+    if new_req > 3 {
+        return HttpResponse::TooManyRequests().body("Rate limit exceeded");
+    }
+
+    data.ratelimits.insert(info.user_id.clone(), new_req).await;
 
     match &info.method {
         RPCMethod::BotApprove { bot_id } => {

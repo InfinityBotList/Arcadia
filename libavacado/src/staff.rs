@@ -60,7 +60,7 @@ pub async fn approve_bot(
     .await?;
 
     // We should never get this on bot, but maybe on website
-    if onboard_state.staff_onboard_state != "completed" {
+    if onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Completed.as_str() {
         return Err("onboarding_required".into());
     }
 
@@ -183,8 +183,8 @@ pub async fn deny_bot(
     .await?;
 
     // We should never get this on bot, but maybe on website
-    if onboard_state.staff_onboard_state != "completed" {
-        return Err("onboarding_required".into());
+    if onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Completed.as_str() {
+        return Err("You need to complete onboarding to continue!".into());
     }
 
     if reason.len() < 5 || reason.len() > 1998 {

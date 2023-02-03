@@ -5,6 +5,7 @@ use once_cell::sync::Lazy;
 pub mod checks;
 pub mod env;
 pub mod manage;
+pub mod onboarding;
 pub mod public;
 pub mod staff;
 pub mod types;

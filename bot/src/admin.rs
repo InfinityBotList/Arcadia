@@ -48,8 +48,10 @@ pub async fn approveonboard(
     .fetch_one(&data.pool)
     .await?;
 
-    if onboard_state.staff_onboard_state != "pending-manager-review"
-        && onboard_state.staff_onboard_state != "denied"
+    if onboard_state.staff_onboard_state
+        != libavacado::onboarding::OnboardState::PendingManagerReview.as_str()
+        && onboard_state.staff_onboard_state
+            != libavacado::onboarding::OnboardState::Denied.as_str()
     {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",
@@ -60,7 +62,8 @@ pub async fn approveonboard(
 
     // Update onboard state of user
     sqlx::query!(
-        "UPDATE users SET staff_onboard_state = 'completed' WHERE user_id = $1",
+        "UPDATE users SET staff_onboard_state = $1 WHERE user_id = $2",
+        libavacado::onboarding::OnboardState::Completed.as_str(),
         member.id.to_string()
     )
     .execute(&data.pool)
@@ -102,7 +105,9 @@ pub async fn denyonboard(
     .fetch_one(&data.pool)
     .await?;
 
-    if onboard_state.staff_onboard_state != "pending-manager-review" {
+    if onboard_state.staff_onboard_state
+        != libavacado::onboarding::OnboardState::PendingManagerReview.as_str()
+    {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",
             onboard_state.staff_onboard_state
@@ -112,7 +117,8 @@ pub async fn denyonboard(
 
     // Update onboard state of user
     sqlx::query!(
-        "UPDATE users SET staff_onboard_state = 'denied' WHERE user_id = $1",
+        "UPDATE users SET staff_onboard_state = $1 WHERE user_id = $2",
+        libavacado::onboarding::OnboardState::Denied.as_str(),
         user.id.to_string()
     )
     .execute(&data.pool)
@@ -181,7 +187,8 @@ pub async fn resetonboard(
 
     // Update onboard state of user
     sqlx::query!(
-        "UPDATE users SET staff_onboard_guild = NULL, staff_onboard_state = 'pending', staff_onboard_last_start_time = NOW() WHERE user_id = $1",
+        "UPDATE users SET staff_onboard_guild = NULL, staff_onboard_state = $1, staff_onboard_last_start_time = NOW() WHERE user_id = $2",
+        libavacado::onboarding::OnboardState::Pending.as_str(),
         user.id.to_string()
     )
     .execute(&data.pool)

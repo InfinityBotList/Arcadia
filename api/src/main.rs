@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use actix_cors::Cors;
-use actix_web::{http, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{http, middleware, web, App, HttpServer};
 use libavacado::public::AvacadoPublic;
 use log::info;
 use serenity::async_trait;
@@ -12,26 +12,7 @@ use sqlx::postgres::PgPoolOptions;
 mod models;
 mod routes;
 
-use crate::models::APIResponse;
-
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-async fn not_found(_req: HttpRequest) -> HttpResponse {
-    HttpResponse::build(http::StatusCode::NOT_FOUND).json(models::APIResponse {
-        done: false,
-        reason: "Not Found".to_string(),
-        context: None,
-    })
-}
-
-fn actix_handle_err<T: std::error::Error + 'static>(err: T) -> actix_web::error::Error {
-    let response = HttpResponse::BadRequest().json(APIResponse {
-        done: false,
-        reason: err.to_string(),
-        context: None,
-    });
-    actix_web::error::InternalError::from_response(err, response).into()
-}
 
 struct MainHandler {}
 
@@ -86,40 +67,25 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allowed_origin_fn(|origin, _req_head| !origin.as_bytes().ends_with(b"bad domain 1"))
-            .allowed_methods(vec![
-                "GET", "HEAD", "PUT", "POST", "PATCH", "DELETE", "OPTIONS",
-            ])
+            .allowed_origin_fn(|origin, _req_head| {
+                origin.as_bytes().ends_with(libavacado::CONFIG.frontend_url.as_bytes())
+                || origin.as_bytes().ends_with("http://localhost:3000".as_bytes())
+            })
+            .allowed_methods(vec!["POST", "OPTIONS"])
             .allowed_headers(vec![
                 http::header::AUTHORIZATION,
                 http::header::ACCEPT,
                 http::header::CONTENT_TYPE,
-                http::header::HeaderName::from_bytes(b"SV-Version").unwrap(),
             ])
             .supports_credentials()
             .max_age(1);
 
         App::new()
             .app_data(app_state.clone())
-            .app_data(
-                web::JsonConfig::default()
-                    .limit(1024 * 1024 * 10)
-                    .error_handler(|err, _req| actix_handle_err(err)),
-            )
-            .app_data(web::QueryConfig::default().error_handler(|err, _req| actix_handle_err(err)))
-            .app_data(web::PathConfig::default().error_handler(|err, _req| actix_handle_err(err)))
             .wrap(cors)
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
-            .wrap(middleware::NormalizePath::new(
-                middleware::TrailingSlash::MergeOnly,
-            ))
-            .default_service(web::route().to(not_found))
-            .service(routes::approve_bot)
-            .service(routes::deny_bot)
-            .service(routes::vote_reset_bot)
-            .service(routes::vote_reset_all_bot)
-            .service(routes::unverify_bot)
+            .service(routes::web_rpc_api)
     })
     .workers(8)
     .bind("localhost:3010")?

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use libavacado::public::AvacadoPublic;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 use serenity::CacheAndHttp;
 
 pub struct AppState {
@@ -10,57 +10,18 @@ pub struct AppState {
     pub avacado_public: Arc<AvacadoPublic>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct APIResponse {
-    pub done: bool,
-    pub reason: String,
-    pub context: Option<String>,
-}
-
 #[derive(Deserialize)]
-pub struct OauthReq {
-    pub code: String,
-    pub state: String,
-}
-
-#[derive(Deserialize)]
-pub struct OauthRes {
-    pub access_token: String,
-}
-
-#[derive(Deserialize)]
-pub struct OauthUser {
-    pub id: String,
-    pub username: String,
-    pub avatar: Option<String>,
-    pub discriminator: String,
-}
-
-#[derive(Deserialize)]
-pub struct SVQuery {
-    pub uid: String,
-    pub frag: String,
-}
-
-#[derive(Deserialize)]
-pub struct SVODQuery {
-    pub code: String,
-}
-
-#[derive(Deserialize)]
-pub struct Request {
-    pub staff_id: String,
-    pub bot_id: String,
-    pub reason: String,
-}
-
-#[derive(Deserialize)]
-pub struct GenericRequest {
-    pub staff_id: String,
-    pub reason: String,
-}
-
-#[derive(Deserialize)]
-pub struct UserRequest {
+pub struct RPCRequest {
     pub user_id: String,
+    pub reason: String,
+    pub method: RPCMethod,
+}
+
+#[derive(Deserialize)]
+pub enum RPCMethod {
+    BotApprove { bot_id: String },
+    BotDeny { bot_id: String },
+    BotVoteReset { bot_id: String },
+    BotVoteResetAll {},
+    BotUnverify { bot_id: String },
 }

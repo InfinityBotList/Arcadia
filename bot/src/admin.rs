@@ -222,7 +222,11 @@ pub async fn voteresetbot(
         &ctx.author().id.to_string(),
         &reason,
     )
-    .await
+    .await?;
+
+    ctx.say("This bots votes have been reset!").await?;
+
+    Ok(())
 }
 
 /// Resets the votes of all bots
@@ -243,7 +247,11 @@ pub async fn voteresetallbots(
         &ctx.author().id.to_string(),
         &reason,
     )
-    .await
+    .await?;
+
+    ctx.say("All bot votes have been reset!").await?;
+
+    Ok(())
 }
 
 /// Unverifies a bot for further review
@@ -266,5 +274,9 @@ pub async fn unverifybot(
         &ctx.author().id.to_string(),
         &reason,
     )
-    .await
+    .await?;
+
+    ctx.say("This bot has been unverified!").await?;
+
+    Ok(())
 }

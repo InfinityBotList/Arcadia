@@ -35,7 +35,9 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
     // Add request to moka cache
     let new_req = data.ratelimits.get(&info.user_id).unwrap_or_default().add(1);
 
-    if new_req > 4 {
+    data.ratelimits.insert(info.user_id.clone(), new_req).await;
+
+    if new_req > 6 {
         let res =  sqlx::query!(
             "UPDATE users SET api_token = $2 WHERE user_id = $1",
             &info.user_id,
@@ -50,8 +52,6 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
 
         return HttpResponse::TooManyRequests().body("Rate limit exceeded. Wait 5-10 minutes, You will need to login/logout as well.");
     }
-
-    data.ratelimits.insert(info.user_id.clone(), new_req).await;
 
     match &info.method {
         RPCMethod::BotApprove { bot_id } => {

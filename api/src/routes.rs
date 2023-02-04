@@ -41,7 +41,7 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
         let res =  sqlx::query!(
             "UPDATE users SET api_token = $2 WHERE user_id = $1",
             &info.user_id,
-            libavacado::public::gen_random(32)
+            libavacado::public::gen_random(136)
         )
         .execute(&data.pool)
         .await;

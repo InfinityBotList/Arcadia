@@ -30,6 +30,9 @@ copybindings:
 		echo "Copying $$file to $(HOST):/iblseeds/apiBindings/$$(basename $$file)"; \
 		scp -C .generated/$$file root@$(HOST):/iblseeds/apiBindings/$$(basename $$file); \
 	done
+
+	@# Remove the .generated folder
+	rm -rf .generated
 push:
 	@for bin in $(BINS) ; do \
 		echo "Pushing $$bin to $(HOST):${PROJ_NAME}/$$bin/$$bin.new"; \

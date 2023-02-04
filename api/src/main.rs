@@ -91,7 +91,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .service(routes::web_rpc_api)
     })
-    .workers(8)
+    .workers(2)
     .bind("localhost:3010")?
     .run()
     .await

@@ -11,8 +11,6 @@ actix-cors = "0.6.4"
 tokio = "1.20.0"
 actix-rt = "2.6.0"
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls" , "postgres", "chrono", "uuid", "bigdecimal", "json"] }
-futures = "0.3.21"
-futures-util = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0.61", features = ["preserve_order"] }
 serenity = { git = "https://github.com/serenity-rs/serenity", branch = "next", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
@@ -22,3 +20,4 @@ reqwest = { version = "0.11", default-features = false, features = ["json", "rus
 log = "0.4"
 env_logger = "0.9"
 moka = { version = "0.9", features = ["future"] }
+ts-rs = "6.2"

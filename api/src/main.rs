@@ -79,10 +79,8 @@ async fn main() -> std::io::Result<()> {
             })
             .allowed_methods(vec!["POST", "OPTIONS"])
             .allowed_headers(vec![
-                http::header::AUTHORIZATION,
                 http::header::ACCEPT,
                 http::header::CONTENT_TYPE,
-                http::header::HeaderName::from_bytes(b"X-Client").unwrap(),
             ])
             .max_age(1);
 

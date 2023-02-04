@@ -92,6 +92,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::web_rpc_api)
     })
     .workers(2)
+    .backlog(32)
     .bind("localhost:3010")?
     .run()
     .await

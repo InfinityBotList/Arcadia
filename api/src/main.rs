@@ -65,8 +65,8 @@ async fn main() -> std::io::Result<()> {
             cache_http.http.clone(),
         )),
         ratelimits: moka::future::Cache::builder()
-        // Time to live (TTL): 15 minutes
-        .time_to_live(Duration::from_secs(60 * 15))
+        // Time to live (TTL): 7 minutes
+        .time_to_live(Duration::from_secs(60 * 7))
         // Create the cache.
         .build(),        
     });

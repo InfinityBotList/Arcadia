@@ -1,8 +1,6 @@
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
 
-use libavacado::checks;
-
 /// Check for main_server
 pub async fn main_server(ctx: Context<'_>) -> Result<bool, Error> {
     let in_main_server = match ctx.guild_id() {
@@ -34,26 +32,49 @@ pub async fn testing_server(ctx: Context<'_>) -> Result<bool, Error> {
 }
 
 pub async fn is_staff(ctx: Context<'_>) -> Result<bool, Error> {
-    checks::is_staff(&ctx.author().id.to_string(), &ctx.data().pool).await
+    let staff = sqlx::query!("SELECT staff FROM users WHERE user_id = $1", ctx.author().id.to_string())
+    .fetch_one(&ctx.data().pool)
+    .await?;
+
+    if !staff.staff {
+        return Err("You are not staff".into());
+    }
+
+    Ok(true)
 }
 
 pub async fn is_admin_hdev(ctx: Context<'_>) -> Result<bool, Error> {
-    checks::is_admin_hdev(&ctx.author().id.to_string(), &ctx.data().pool).await
-}
+    let staff = sqlx::query!("SELECT admin, iblhdev FROM users WHERE user_id = $1", ctx.author().id.to_string())
+        .fetch_one(&ctx.data().pool)
+        .await?;
 
-pub async fn is_any_staff(ctx: Context<'_>) -> Result<bool, Error> {
-    checks::is_any_staff(&ctx.author().id.to_string(), &ctx.data().pool).await
+    if !(staff.admin || staff.iblhdev) {
+        return Err("You are not admin (manager) or a head developer".into());
+    }
+
+    Ok(true)
 }
 
 pub async fn is_admin(ctx: Context<'_>) -> Result<bool, Error> {
-    checks::is_admin(&ctx.author().id.to_string(), &ctx.data().pool).await
-}
+    let staff = sqlx::query!("SELECT admin FROM users WHERE user_id = $1", ctx.author().id.to_string())
+        .fetch_one(&ctx.data().pool)
+        .await?;
 
-#[allow(dead_code)]
-pub async fn is_hdev(ctx: Context<'_>) -> Result<bool, Error> {
-    checks::is_hdev(&ctx.author().id.to_string(), &ctx.data().pool).await
+    if !(staff.admin) {
+        return Err("You are not admin (manager)".into());
+    }
+
+    Ok(true)
 }
 
 pub async fn is_hdev_hadmin(ctx: Context<'_>) -> Result<bool, Error> {
-    checks::is_hdev_hadmin(&ctx.author().id.to_string(), &ctx.data().pool).await
+    let staff = sqlx::query!("SELECT hadmin, iblhdev FROM users WHERE user_id = $1", ctx.author().id.to_string())
+    .fetch_one(&ctx.data().pool)
+    .await?;
+
+    if !(staff.hadmin || staff.iblhdev) {
+        return Err("You are not hadmin (head manager) or a iblhdev (head developer)".into());
+    }
+
+    Ok(true)
 }

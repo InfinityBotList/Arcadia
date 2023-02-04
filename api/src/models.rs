@@ -1,14 +1,11 @@
-use std::sync::Arc;
-
-use libavacado::public::AvacadoPublic;
+use libavacado::types::CacheHttpImpl;
 use serde::{Deserialize};
-use serenity::CacheAndHttp;
 use moka::future::Cache;
+use sqlx::PgPool;
 
 pub struct AppState {
-    pub pool: sqlx::PgPool,
-    pub cache_http: Arc<CacheAndHttp>,
-    pub avacado_public: Arc<AvacadoPublic>,
+    pub cache_http: CacheHttpImpl,
+    pub pool: PgPool,
     pub ratelimits: Cache<String, u64>,
 }
 

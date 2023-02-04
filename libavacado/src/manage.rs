@@ -1,14 +1,13 @@
 use serenity::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
-    http::CacheHttp,
     model::id::ChannelId,
 };
 use sqlx::PgPool;
 
-use crate::types::Error;
+use crate::{types::Error, types::CacheHttpImpl};
 
 pub async fn vote_reset_bot(
-    discord: impl CacheHttp,
+    discord: &CacheHttpImpl,
     pool: &PgPool,
     bot_id: &str,
     staff_id: &str,
@@ -44,14 +43,14 @@ pub async fn vote_reset_bot(
     );
 
     ChannelId(crate::CONFIG.channels.mod_logs)
-        .send_message(&discord.http(), msg)
+        .send_message(&discord, msg)
         .await?;
 
     Ok(())
 }
 
 pub async fn vote_reset_all_bot(
-    discord: impl CacheHttp,
+    discord: &CacheHttpImpl,
     pool: &PgPool,
     staff_id: &str,
     reason: &str,
@@ -73,14 +72,14 @@ pub async fn vote_reset_all_bot(
     );
 
     ChannelId(crate::CONFIG.channels.mod_logs)
-        .send_message(&discord.http(), msg)
+        .send_message(&discord, msg)
         .await?;
 
     Ok(())
 }
 
 pub async fn unverify_bot(
-    discord: impl CacheHttp,
+    discord: &CacheHttpImpl,
     pool: &PgPool,
     bot_id: &str,
     staff_id: &str,
@@ -116,7 +115,7 @@ pub async fn unverify_bot(
     );
 
     ChannelId(crate::CONFIG.channels.mod_logs)
-        .send_message(&discord.http(), msg)
+        .send_message(&discord, msg)
         .await?;
 
     Ok(())

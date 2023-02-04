@@ -330,35 +330,6 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
 }
 
 #[poise::command(track_edits, prefix_command, slash_command)]
-pub async fn maint(ctx: Context<'_>) -> Result<(), Error> {
-    let maints = libavacado::public::maint_status()?;
-
-    if maints.is_empty() {
-        ctx.say("No maintenances are currently happening :)")
-            .await?;
-        return Ok(());
-    }
-
-    let mut create_message = CreateReply::new();
-
-    let mut embeds = Vec::new();
-
-    for maint in maints {
-        embeds.push(
-            CreateEmbed::default()
-                .title(maint.title)
-                .description(maint.description)
-                .color(0xFF0000),
-        );
-    }
-
-    create_message.embeds = embeds;
-
-    ctx.send(create_message).await?;
-    Ok(())
-}
-
-#[poise::command(track_edits, prefix_command, slash_command)]
 pub async fn simplehelp(
     ctx: Context<'_>,
     #[description = "Specific command to show help about"]

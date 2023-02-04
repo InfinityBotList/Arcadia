@@ -7,6 +7,7 @@ use poise::serenity_prelude::{
 use sqlx::postgres::PgPoolOptions;
 
 use poise::serenity_prelude::{ChannelId, UserId};
+use libavacado::types::CacheHttpImpl;
 
 mod _checks;
 mod _onboarding;
@@ -27,6 +28,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pool: sqlx::PgPool,
+    cache_http: CacheHttpImpl
 }
 
 enum StaffPosition {
@@ -165,11 +167,19 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                             user_id: member.user.id.0,
                             col: StaffPosition::Developer,
                         });
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::Staff,
+                        });
                     }
                     if member.roles.contains(&head_dev_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
                             col: StaffPosition::HeadDeveloper,
+                        });
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::Staff,
                         });
                     }
                     if member.roles.contains(&staff_man_role) {
@@ -177,11 +187,19 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                             user_id: member.user.id.0,
                             col: StaffPosition::Manager,
                         });
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::Staff,
+                        });
                     }
                     if member.roles.contains(&head_man_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
                             col: StaffPosition::HeadManager,
+                        });
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id.0,
+                            col: StaffPosition::Staff,
                         });
                     }
                     if member.roles.contains(&web_mod_role) {
@@ -610,9 +628,13 @@ async fn main() {
             on_error: |error| Box::pin(on_error(error)),
             ..Default::default()
         },
-        move |_ctx, _ready, _framework| {
+        move |ctx, _ready, _framework| {
             Box::pin(async move {
                 Ok(Data {
+                    cache_http: CacheHttpImpl {
+                        cache: ctx.cache.clone(),
+                        http: ctx.http.clone(),
+                    },
                     pool: PgPoolOptions::new()
                         .max_connections(MAX_CONNECTIONS)
                         .connect(&libavacado::CONFIG.database_url)

@@ -215,9 +215,11 @@ pub async fn voteresetbot(
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
     libavacado::manage::vote_reset_bot(
-        &ctx.discord(),
-        &ctx.data().pool,
+        &data.cache_http,
+        &data.pool,
         &bot.id.to_string(),
         &ctx.author().id.to_string(),
         &reason,
@@ -241,9 +243,11 @@ pub async fn voteresetallbots(
     ctx: crate::Context<'_>,
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
     libavacado::manage::vote_reset_all_bot(
-        &ctx.discord(),
-        &ctx.data().pool,
+        &data.cache_http,
+        &data.pool,
         &ctx.author().id.to_string(),
         &reason,
     )
@@ -267,9 +271,11 @@ pub async fn unverifybot(
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
     libavacado::manage::unverify_bot(
-        &ctx.discord(),
-        &ctx.data().pool,
+        &data.cache_http,
+        &data.pool,
         &bot.id.to_string(),
         &ctx.author().id.to_string(),
         &reason,

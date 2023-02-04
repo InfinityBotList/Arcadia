@@ -576,9 +576,10 @@ pub async fn approve(
         return Err("You are not in the testing server".into());
     }
 
+    let data = ctx.data();
     let resp = libavacado::staff::approve_bot(
-        &ctx.discord(),
-        &ctx.data().pool,
+        &data.cache_http,
+        &data.pool,
         &bot.user.id.to_string(),
         &ctx.author().id.to_string(),
         &reason,
@@ -616,9 +617,10 @@ pub async fn deny(
         return Err("Only staff members can deny bots!".into());
     }
 
+    let data = ctx.data();
     libavacado::staff::deny_bot(
-        &ctx.discord(),
-        &ctx.data().pool,
+        &data.cache_http,
+        &data.pool,
         &bot.id.to_string(),
         &ctx.author().id.to_string(),
         &reason,

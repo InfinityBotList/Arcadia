@@ -7,12 +7,11 @@ Currently main actions are: approve, deny, vote reset (coming soon)
 
 Smaller utilities specific to staff like add_action_log are also here
 */
-use crate::types::{ApproveResponse, Error};
+use crate::{types::{ApproveResponse, Error}, types::CacheHttpImpl};
 use log::{info, error};
 use serde::Serialize;
 use serenity::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
-    http::CacheHttp,
 };
 use sqlx::PgPool;
 
@@ -45,7 +44,7 @@ pub async fn add_action_log(
 
 /// Approve bot implementation
 pub async fn approve_bot(
-    discord: impl CacheHttp,
+    discord: &CacheHttpImpl,
     pool: &PgPool,
     bot_id: &str,
     staff_id: &str,
@@ -130,11 +129,11 @@ pub async fn approve_bot(
 
     // Clone here is OK, we want to copy the message
     private_channel
-        .send_message(&discord.http(), msg.clone())
+        .send_message(&discord, msg.clone())
         .await?;
 
     ChannelId(crate::CONFIG.channels.mod_logs)
-        .send_message(&discord.http(), msg)
+        .send_message(&discord, msg)
         .await?;
 
     let request = reqwest::Client::new()
@@ -172,7 +171,7 @@ pub async fn approve_bot(
 
 /// Deny bot implementation
 pub async fn deny_bot(
-    discord: impl CacheHttp,
+    discord: &CacheHttpImpl,
     pool: &PgPool,
     bot_id: &str,
     staff_id: &str,
@@ -257,11 +256,11 @@ pub async fn deny_bot(
     );
 
     private_channel
-        .send_message(&discord.http(), msg.clone())
+        .send_message(&discord, msg.clone())
         .await?;
 
     ChannelId(crate::CONFIG.channels.mod_logs)
-        .send_message(&discord.http(), msg)
+        .send_message(&discord, msg)
         .await?;
 
     let request = reqwest::Client::new()

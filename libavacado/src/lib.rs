@@ -2,13 +2,12 @@
 
 use once_cell::sync::Lazy;
 
-pub mod checks;
 pub mod env;
 pub mod manage;
 pub mod onboarding;
-pub mod public;
 pub mod staff;
 pub mod types;
+pub mod crypto;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const GIT_SHA: &str = env!("VERGEN_GIT_SHA");

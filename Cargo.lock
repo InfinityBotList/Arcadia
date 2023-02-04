@@ -275,7 +275,7 @@ checksum = "216261ddc8289130e551ddcd5ce8a064710c0d064a4d2895c67151c92b5443f6"
 
 [[package]]
 name = "api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "actix-cors",
  "actix-rt",
@@ -396,7 +396,7 @@ dependencies = [
 
 [[package]]
 name = "bot"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -1373,7 +1373,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libavacado"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",

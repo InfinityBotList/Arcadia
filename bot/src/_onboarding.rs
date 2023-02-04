@@ -21,7 +21,7 @@ use serde_json::json;
 async fn _handle_staff_guide(ctx: crate::Context<'_>, user_id: String) -> Result<(), crate::Error> {
     // This is the onboard code user needs to input (random_string@CURRENT_TIME)
     let onboard_code =
-        libavacado::public::gen_random(64) + "@" + &chrono::Utc::now().timestamp().to_string();
+        libavacado::crypto::gen_random(64) + "@" + &chrono::Utc::now().timestamp().to_string();
 
     // Get first 20 characters of the onboard code as onboard_fragment
     let onboard_fragment = onboard_code.chars().take(20).collect::<String>();
@@ -68,7 +68,7 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Verify staff first
-    let is_staff = crate::_checks::is_any_staff(ctx)
+    let is_staff = crate::_checks::is_staff(ctx)
         .await
         .unwrap_or_else(|_| false)
         || {
@@ -967,7 +967,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         "staff_onboarded_before": s_onboard.staff_onboarded,
                     });
 
-                    let tok = libavacado::public::gen_random(32);
+                    let tok = libavacado::crypto::gen_random(32);
 
                     sqlx::query!("INSERT INTO onboard_data (user_id, onboard_code, data) VALUES ($1, $2, $3)", 
                         user_id,

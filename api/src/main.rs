@@ -3,11 +3,12 @@ use std::time::Duration;
 
 use actix_cors::Cors;
 use actix_web::{http, middleware, web, App, HttpServer};
-use libavacado::public::AvacadoPublic;
+use libavacado::types::CacheHttpImpl;
 use log::info;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::gateway::{GatewayIntents, Ready};
+use serenity::prelude::CacheHttp;
 use sqlx::postgres::PgPoolOptions;
 
 mod models;
@@ -59,11 +60,10 @@ async fn main() -> std::io::Result<()> {
 
     let app_state = web::Data::new(models::AppState {
         pool,
-        cache_http: cache_http.clone(),
-        avacado_public: Arc::new(AvacadoPublic::new(
-            cache_http.cache.clone(),
-            cache_http.http.clone(),
-        )),
+        cache_http: CacheHttpImpl {
+            cache: cache_http.cache().unwrap().clone(),
+            http: cache_http.http.clone(),
+        },
         ratelimits: moka::future::Cache::builder()
         // Time to live (TTL): 7 minutes
         .time_to_live(Duration::from_secs(60 * 7))

@@ -84,7 +84,6 @@ async fn main() -> std::io::Result<()> {
                 http::header::CONTENT_TYPE,
                 http::header::HeaderName::from_bytes(b"X-Client").unwrap(),
             ])
-            .supports_credentials()
             .max_age(1);
 
         App::new()

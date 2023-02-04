@@ -91,8 +91,12 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .service(routes::web_rpc_api)
     })
+    // The below can be increased if needed
     .workers(2)
     .backlog(32)
+    .max_connection_rate(32)
+    // Some requests can take a while
+    .client_disconnect_timeout(Duration::from_secs(0))
     .bind("localhost:3010")?
     .run()
     .await

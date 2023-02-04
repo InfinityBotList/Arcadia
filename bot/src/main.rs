@@ -141,7 +141,6 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.head_developer);
             let staff_man_role =
                 poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.staff_manager);
-
             let head_man_role =
                 poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.head_manager);
             let web_mod_role =
@@ -167,19 +166,11 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                             user_id: member.user.id.0,
                             col: StaffPosition::Developer,
                         });
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::Staff,
-                        });
                     }
                     if member.roles.contains(&head_dev_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
                             col: StaffPosition::HeadDeveloper,
-                        });
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::Staff,
                         });
                     }
                     if member.roles.contains(&staff_man_role) {
@@ -187,19 +178,11 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                             user_id: member.user.id.0,
                             col: StaffPosition::Manager,
                         });
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::Staff,
-                        });
                     }
                     if member.roles.contains(&head_man_role) {
                         staff_resync.push(StaffResync {
                             user_id: member.user.id.0,
                             col: StaffPosition::HeadManager,
-                        });
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::Staff,
                         });
                     }
                     if member.roles.contains(&web_mod_role) {

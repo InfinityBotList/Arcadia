@@ -16,15 +16,15 @@ pub struct AppState {
 pub struct RPCRequest {
     pub user_id: String,
     pub token: String,
-    pub reason: String,
     pub method: RPCMethod,
+    pub protocol: u8,
 }
 
 #[derive(Deserialize)]
 pub enum RPCMethod {
-    BotApprove { bot_id: String },
-    BotDeny { bot_id: String },
-    BotVoteReset { bot_id: String },
-    BotVoteResetAll {},
-    BotUnverify { bot_id: String },
+    BotApprove { bot_id: String, reason: String },
+    BotDeny { bot_id: String, reason: String },
+    BotVoteReset { bot_id: String, reason: String },
+    BotVoteResetAll { reason: String },
+    BotUnverify { bot_id: String, reason: String },
 }

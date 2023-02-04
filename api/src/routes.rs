@@ -7,6 +7,10 @@ use crate::models::{RPCMethod, RPCRequest};
 /// Web RPC API for the Staff/Admin Panel
 #[post("/")]
 pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpResponse {
+    if info.protocol != 2 {
+        return HttpResponse::BadRequest().body("Invalid protocol version");
+    }
+
     let data: &crate::models::AppState = req
         .app_data::<web::Data<crate::models::AppState>>()
         .unwrap();
@@ -54,13 +58,13 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
     }
 
     match &info.method {
-        RPCMethod::BotApprove { bot_id } => {
+        RPCMethod::BotApprove { bot_id, reason } => {
             let res = libavacado::staff::approve_bot(
                 &data.cache_http,
                 &data.pool,
                 &bot_id,
                 &info.user_id,
-                &info.reason,
+                &reason,
             )
             .await;
 
@@ -70,13 +74,13 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
                 HttpResponse::Ok().body(res.unwrap().invite)
             }
         }
-        RPCMethod::BotDeny { bot_id } => {
+        RPCMethod::BotDeny { bot_id, reason } => {
             let err = libavacado::staff::deny_bot(
                 &data.cache_http,
                 &data.pool,
                 &bot_id,
                 &info.user_id,
-                &info.reason,
+                &reason,
             )
             .await;
 
@@ -86,7 +90,7 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
                 HttpResponse::NoContent().finish()
             }
         }
-        RPCMethod::BotVoteReset { bot_id } => {
+        RPCMethod::BotVoteReset { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 HttpResponse::Unauthorized().body("Permission denied")
             } else {
@@ -95,7 +99,7 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
                     &data.pool,
                     &bot_id,
                     &info.user_id,
-                    &info.reason,
+                    &reason,
                 )
                 .await;
 
@@ -106,7 +110,7 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
                 }
             }
         }
-        RPCMethod::BotVoteResetAll {} => {
+        RPCMethod::BotVoteResetAll { reason } => {
             if !(check.hadmin || check.iblhdev) {
                 HttpResponse::Unauthorized().body("Permission denied")
             } else {
@@ -114,7 +118,7 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
                     &data.cache_http,
                     &data.pool,
                     &info.user_id,
-                    &info.reason,
+                    &reason,
                 )
                 .await;
 
@@ -125,7 +129,7 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
                 }
             }
         },
-        RPCMethod::BotUnverify { bot_id } => {
+        RPCMethod::BotUnverify { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 HttpResponse::Unauthorized().body("Permission denied")
             } else {
@@ -134,7 +138,7 @@ pub async fn web_rpc_api(req: HttpRequest, info: web::Json<RPCRequest>) -> HttpR
                     &data.pool,
                     &bot_id,
                     &info.user_id,
-                    &info.reason,
+                    &reason,
                 )
                 .await;
             

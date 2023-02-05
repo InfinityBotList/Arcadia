@@ -253,11 +253,11 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
     if let Some(msg) = msg {
         // Create a collector
         let interaction = msg
-            .component_interaction_collector(ctx.discord())
+            .await_component_interactions(ctx.discord())
             .author_id(ctx.author().id)
             .timeout(Duration::from_secs(120));
 
-        let mut collect_stream = interaction.collect_stream();
+        let mut collect_stream = interaction.stream();
 
         while let Some(item) = collect_stream.next().await {
             item.defer(&ctx.discord()).await?;

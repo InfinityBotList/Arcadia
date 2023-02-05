@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use actix_cors::Cors;
@@ -8,7 +7,6 @@ use log::info;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::gateway::{GatewayIntents, Ready};
-use serenity::prelude::CacheHttp;
 use sqlx::postgres::PgPoolOptions;
 
 mod models;
@@ -54,16 +52,16 @@ async fn main() -> std::io::Result<()> {
     .await
     .unwrap();
 
-    let cache_http = Arc::new(main_cli.cache_and_http.clone());
+    let cache_http = CacheHttpImpl {
+        cache: main_cli.cache.clone(),
+        http: main_cli.http.clone(),
+    };
 
     tokio::task::spawn(async move { main_cli.start().await });
 
     let app_state = web::Data::new(models::AppState {
         pool,
-        cache_http: CacheHttpImpl {
-            cache: cache_http.cache().unwrap().clone(),
-            http: cache_http.http.clone(),
-        },
+        cache_http: cache_http,
         ratelimits: moka::future::Cache::builder()
         // Time to live (TTL): 7 minutes
         .time_to_live(Duration::from_secs(60 * 7))

@@ -185,10 +185,10 @@ pub async fn queue(
         .await?;
 
     let mut interaction = msg
-        .component_interaction_collector(ctx.discord())
+        .await_component_interactions(ctx.discord())
         .author_id(ctx.author().id)
         .timeout(Duration::from_secs(120))
-        .collect_stream();
+        .stream();
 
     while let Some(item) = interaction.next().await {
         item.defer(&ctx.discord()).await?;
@@ -353,10 +353,10 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
         let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
         let interaction = msg
-            .component_interaction_collector(ctx.discord())
+            .await_component_interaction(ctx.discord())
             .author_id(ctx.author().id)
-            .collect_single()
             .await;
+            
         msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
             .await?; // remove buttons after button press
 

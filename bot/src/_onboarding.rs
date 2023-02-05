@@ -614,9 +614,8 @@ Welcome to your onboarding server! Please read the following:
             ctx.say("Woah! This bot is already claimed by someone else. Its always best practice to first remind the bot so do that!").await?;
 
             let interaction = msg
-                .component_interaction_collector(ctx.discord())
+                .await_component_interaction(ctx.discord())
                 .author_id(ctx.author().id)
-                .collect_single()
                 .await;
 
             msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
@@ -702,9 +701,8 @@ Welcome to your onboarding server! Please read the following:
             let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
             let interaction = msg
-                .component_interaction_collector(ctx.discord())
+                .await_component_interaction(ctx.discord())
                 .author_id(ctx.author().id)
-                .collect_single()
                 .await;
 
             msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
@@ -769,10 +767,9 @@ Welcome to your onboarding server! Please read the following:
             let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
             let interaction = msg
-                .component_interaction_collector(ctx.discord())
+                .await_component_interaction(ctx.discord())
                 .author_id(ctx.author().id)
                 .timeout(Duration::from_secs(120))
-                .collect_single()
                 .await;
 
             if let Some(m) = &interaction {

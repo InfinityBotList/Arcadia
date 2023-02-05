@@ -164,9 +164,8 @@ pub async fn resetonboard(
     let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
     let interaction = msg
-        .component_interaction_collector(ctx.discord())
+        .await_component_interaction(ctx.discord())
         .author_id(ctx.author().id)
-        .collect_single()
         .await;
 
     msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))

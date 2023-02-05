@@ -15,7 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0.61", features = ["preserve_order"] }
 serenity = { git = "https://github.com/serenity-rs/serenity", branch = "next", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
 libavacado = { path = "../libavacado" }
-chrono = { version = "0.4.19", features = ["serde"]}
+chrono = { version = "0.4.23", features = ["serde"]}
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
 log = "0.4"
 env_logger = "0.9"

@@ -12,7 +12,7 @@ tokio = "1.20.0"
 actix-rt = "2.6.0"
 sqlx = { version = "0.6", features = [ "runtime-actix-rustls" , "postgres", "chrono", "uuid", "bigdecimal", "json"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0.61", features = ["preserve_order"] }
+serde_json = { version = "1.0.92", features = ["preserve_order"] }
 serenity = { git = "https://github.com/serenity-rs/serenity", branch = "next", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "http", "cache"] }
 libavacado = { path = "../libavacado" }
 chrono = { version = "0.4.19", features = ["serde"]}

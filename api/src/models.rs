@@ -24,9 +24,9 @@ pub struct RPCRequest {
 #[derive(Deserialize, TS)]
 #[ts(export, export_to="../.generated/RPCMethod.ts")]
 pub enum RPCMethod {
-    BotApprove { bot_id: String, reason: String },
-    BotDeny { bot_id: String, reason: String },
-    BotVoteReset { bot_id: String, reason: String },
+    BotApprove { bot_id: String, reason: String }, // Added
+    BotDeny { bot_id: String, reason: String }, // Added
+    BotVoteReset { bot_id: String, reason: String }, // Added
     BotVoteResetAll { reason: String },
-    BotUnverify { bot_id: String, reason: String },
+    BotUnverify { bot_id: String, reason: String }, // Added
 }

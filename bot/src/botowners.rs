@@ -19,11 +19,11 @@ pub async fn setstats(
 ) -> Result<(), Error> {
     let data = ctx.data();
 
-    let owner = sqlx::query!("SELECT owner FROM bots WHERE bot_id = $1", bot_id)
+    let owner = sqlx::query!("SELECT owner, additional_owners FROM bots WHERE bot_id = $1", bot_id)
         .fetch_one(&data.pool)
         .await?;
 
-    if owner.owner != ctx.author().id.to_string() {
+    if owner.owner != ctx.author().id.to_string() && !owner.additional_owners.contains(&ctx.author().id.to_string()) {
         return Err("You are not the owner of this bot".into());
     }
 

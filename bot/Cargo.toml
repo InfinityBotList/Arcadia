@@ -12,7 +12,7 @@ log = "0.4"
 env_logger = "0.9"
 serde_json = "1.0"
 serde_repr = "0.1"
-sqlx = { version = "0.6", features = [ "runtime-actix-rustls", "postgres", "chrono", "uuid", "bigdecimal", "json", "offline"] }
+sqlx = { version = "0.6", features = [ "runtime-tokio-rustls", "postgres", "chrono", "uuid", "bigdecimal", "json", "offline"] }
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
 chrono = { version = "0.4", features = ["serde"]}
 futures-util = "0.3"

@@ -20,6 +20,10 @@ libavacado = { path = "../libavacado" }
 ring = "0.16"
 data-encoding = "2.3"
 indexmap = { version = "1.9.1", features = ["serde"] }
+moka = { version = "0.9", features = ["future"] }
+ts-rs = "6.2"
+axum = "0.6"
+tower-http = { version = "0.3", features = ["cors"] }
 
 [dependencies.tokio]
 version = "1"

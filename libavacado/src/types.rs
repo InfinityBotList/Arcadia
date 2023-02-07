@@ -10,6 +10,7 @@ pub struct ApproveResponse {
 }
 
 // Private struct to handle rust trait errors
+#[derive(Debug, Clone)]
 pub struct CacheHttpImpl {
     pub cache: Arc<serenity::cache::Cache>,
     pub http: Arc<serenity::http::Http>,

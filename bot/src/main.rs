@@ -20,6 +20,7 @@ mod staff;
 mod stats;
 mod testing;
 mod tests;
+mod rpcserver;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -112,6 +113,19 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
             ctx: _,
         } => {
             info!("Interaction received: {:?}", interaction.id());
+        }
+        FullEvent::CacheReady { ctx: _, guilds } => {
+            info!("Cache ready with {} guilds", guilds.len());
+
+            let pool = user_data.pool.clone();
+            let cache_http = user_data.cache_http.clone();
+                        
+            tokio::task::spawn(
+                rpcserver::rpc_init(
+                    pool,
+                    cache_http,
+                )
+            );
         }
         FullEvent::Ready {
             data_about_bot,
@@ -505,9 +519,6 @@ For more information, you can contact the current reviewer <@{}>
                     }
                 }
             }
-        }
-        FullEvent::CacheReady { guilds, ctx: _ } => {
-            info!("Cache ready with {} guilds", guilds.len());
         }
         FullEvent::GuildMemberAddition { new_member, ctx } => {
             if new_member.guild_id.0 == libavacado::CONFIG.servers.main && new_member.user.bot {

@@ -16,27 +16,23 @@ devrun:
 	DATABASE_URL=$(DATABASE_URL) RUSTFLAGS=$(RUSTFLAGS_LOCAL) cargo run
 cross:
 	DATABASE_URL=$(DATABASE_URL) CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=$(CARGO_TARGET_GNU_LINKER) cargo build --target=x86_64-unknown-linux-gnu --release ${ARGS}
-copybindings:
-	DATABASE_URL=$(DATABASE_URL) cargo test ${ARGS}
-	@# For every binding in the .generated folder created, copy via SCP to /iblseed/apiBindings
-
-	sleep 3
-
-	ssh root@$(HOST) "mkdir -p /iblseeds/apiBindings"
-
-	@for file in $(shell ls .generated) ; do \
-		echo "Copying $$file to $(HOST):/iblseeds/apiBindings/$$(basename $$file)"; \
-		scp -C .generated/$$file root@$(HOST):/iblseeds/apiBindings/$$(basename $$file); \
-	done
-
-	@# Remove the .generated folder
-	rm -rf .generated
 push:
 	@for bin in $(BINS) ; do \
 		echo "Pushing $$bin to $(HOST):${PROJ_NAME}/$$bin/$$bin.new"; \
 		scp -C target/x86_64-unknown-linux-gnu/release/$$bin root@$(HOST):${PROJ_NAME}/$$bin/$$bin.new; \
 	done
-	@make copybindings
+
+	DATABASE_URL=$(DATABASE_URL) cargo test ${ARGS}
+
+	ssh root@$(HOST) "mkdir -p /iblseeds/apiBindings"
+
+	scp -r .generated root@${HOST}:/iblseeds/apiBindings/
+
+	ssh root@$(HOST) "rm /iblseeds/apiBindings/*.ts && cp /iblseeds/apiBindings/.generated/*.ts /iblseeds/apiBindings/"
+
+	@# Remove the .generated folder
+	rm -rf .generated
+
 remote:
 	ssh root@$(HOST)
 up:

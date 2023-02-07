@@ -28,7 +28,7 @@ push:
 
 	scp -r .generated root@${HOST}:/iblseeds/apiBindings/
 
-	ssh root@$(HOST) "rm /iblseeds/apiBindings/*.ts && cp /iblseeds/apiBindings/.generated/*.ts /iblseeds/apiBindings/"
+	ssh root@$(HOST) "rm /iblseeds/apiBindings/*.ts && cp /iblseeds/apiBindings/.generated/*.ts /iblseeds/apiBindings/ && rm -rf /iblseeds/apiBindings/.generated"
 
 	@# Remove the .generated folder
 	rm -rf .generated

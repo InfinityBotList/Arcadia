@@ -61,6 +61,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "base64"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
+
+[[package]]
 name = "bigdecimal"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -419,6 +425,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbf4d2a7a308fd4578637c0b17c7e1c7ba127b8f6ba00b29f717e9655d85eb68"
 
 [[package]]
+name = "futures-macro"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42cd15d1c7456c04dbdf7e88bcd69760d74f3a798d6444e16974b505b0e62f17"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "futures-sink"
 version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -439,6 +456,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-io",
+ "futures-macro",
  "futures-sink",
  "futures-task",
  "memchr",
@@ -753,17 +771,19 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libavacado"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
  "indexmap",
  "itertools",
  "log",
+ "once_cell",
  "rand",
  "reqwest",
  "serde",
  "serde_json",
+ "serde_yaml",
  "serenity",
  "sqlx",
  "vergen",
@@ -946,9 +966,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.15.0"
+version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e82dad04139b71a90c080c8463fe0dc7902db5192d939bd0950f074d014339e1"
+checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
 
 [[package]]
 name = "openssl-probe"
@@ -1134,11 +1154,11 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.12"
+version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "431949c384f4e2ae07605ccaa56d1d9d2ecdb5cadd4f9577ccfab29f2e5149fc"
+checksum = "21eed90ec8570952d53b772ecf8f206aa1ec9a3d76b2521c56c42973f2d91ee9"
 dependencies = [
- "base64",
+ "base64 0.21.0",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -1169,6 +1189,7 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "webpki-roots",
  "winreg",
@@ -1228,7 +1249,7 @@ version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0864aeff53f8c05aa08d86e5ef839d3dfcf07aeba2db32f12db0ef716e87bd55"
 dependencies = [
- "base64",
+ "base64 0.13.0",
 ]
 
 [[package]]
@@ -1348,12 +1369,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fb06d4b6cdaef0e0c51fa881acb721bed3c924cfaa71d9c94a3b771dfdf6567"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "serenity"
 version = "0.11.5"
 source = "git+https://github.com/serenity-rs/serenity?branch=next#72c76467dab136f50c2b1739e1945736e4a7ff39"
 dependencies = [
  "async-trait",
- "base64",
+ "base64 0.13.0",
  "bitflags",
  "bytes",
  "dashmap",
@@ -1465,7 +1499,7 @@ checksum = "dcbc16ddba161afc99e14d1713a453747a2b07fc097d2009f4c300ec99286105"
 dependencies = [
  "ahash",
  "atoi",
- "base64",
+ "base64 0.13.0",
  "bigdecimal",
  "bitflags",
  "byteorder",
@@ -1787,7 +1821,7 @@ version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e27992fd6a8c29ee7eef28fc78349aa244134e10ad447ce3b9f0ac0ed0fa4ce0"
 dependencies = [
- "base64",
+ "base64 0.13.0",
  "byteorder",
  "bytes",
  "http",
@@ -1855,6 +1889,12 @@ name = "unicode_categories"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc7ed8ba44ca06be78ea1ad2c3682a43349126c8818054231ee6f4748012aed2"
 
 [[package]]
 name = "untrusted"
@@ -2003,6 +2043,19 @@ name = "wasm-bindgen-shared"
 version = "0.2.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c38c045535d93ec4f0b4defec448e4291638ee608530863b1e2ba115d4fff7f"
+
+[[package]]
+name = "wasm-streams"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bbae3363c08332cadccd13b67db371814cd214c2524020932f0804b8cf7c078"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
 
 [[package]]
 name = "web-sys"

@@ -18,8 +18,8 @@ cross:
 	DATABASE_URL=$(DATABASE_URL) CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=$(CARGO_TARGET_GNU_LINKER) cargo build --target=x86_64-unknown-linux-gnu --release ${ARGS}
 push:
 	@for bin in $(BINS) ; do \
-		echo "Pushing $$bin to $(HOST):${PROJ_NAME}/$$bin/$$bin.new"; \
-		scp -C target/x86_64-unknown-linux-gnu/release/$$bin root@$(HOST):${PROJ_NAME}/$$bin/$$bin.new; \
+		echo "Pushing $$bin to $(HOST):${PROJ_NAME}/$$bin"; \
+		scp -C target/x86_64-unknown-linux-gnu/release/$$bin root@$(HOST):${PROJ_NAME}/$$bin; \
 	done
 
 	DATABASE_URL=$(DATABASE_URL) cargo test ${ARGS}

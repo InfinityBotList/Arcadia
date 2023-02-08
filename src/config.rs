@@ -1,7 +1,7 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::{fs::File, io::Write, num::NonZeroU64};
-use once_cell::sync::Lazy;
 
 /// Global config object
 pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load());
@@ -112,7 +112,7 @@ impl Default for Config {
             test_bot: NonZeroU64::new(990885577979224104).unwrap(),
             frontend_url: String::from("https://reedwhisker.infinitybots.gg"),
             proxy_url: String::from("http://127.0.0.1:3219"),
-            rpc_allowed_urls: vec![]
+            rpc_allowed_urls: vec![],
         }
     }
 }

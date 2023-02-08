@@ -1,7 +1,7 @@
-use crate::Context;
-use crate::Error;
 use crate::checks;
 use crate::impls;
+use crate::Context;
+use crate::Error;
 
 use poise::serenity_prelude::CreateActionRow;
 use poise::serenity_prelude::CreateButton;
@@ -51,8 +51,7 @@ pub async fn approveonboard(
 
     if onboard_state.staff_onboard_state
         != crate::onboarding::OnboardState::PendingManagerReview.as_str()
-        && onboard_state.staff_onboard_state
-            != crate::onboarding::OnboardState::Denied.as_str()
+        && onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Denied.as_str()
     {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",

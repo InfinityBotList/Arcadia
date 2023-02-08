@@ -12,7 +12,7 @@ use poise::serenity_prelude::{
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde_json::json;
 
-use crate::{impls, config};
+use crate::{config, impls};
 
 #[derive(PartialEq)]
 pub enum OnboardState {
@@ -126,27 +126,24 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Verify staff first
-    let is_staff = crate::checks::is_staff(ctx)
-        .await
-        .unwrap_or_else(|_| false)
-        || {
-            let member = discord
-                .cache
-                .member(config::CONFIG.servers.main, ctx.author().id);
+    let is_staff = crate::checks::is_staff(ctx).await.unwrap_or_else(|_| false) || {
+        let member = discord
+            .cache
+            .member(config::CONFIG.servers.main, ctx.author().id);
 
-            if let Some(member) = member {
-                if !member
-                    .roles
-                    .contains(&RoleId(config::CONFIG.roles.awaiting_staff))
-                {
-                    false
-                } else {
-                    true
-                }
-            } else {
+        if let Some(member) = member {
+            if !member
+                .roles
+                .contains(&RoleId(config::CONFIG.roles.awaiting_staff))
+            {
                 false
+            } else {
+                true
             }
-        };
+        } else {
+            false
+        }
+    };
 
     if !is_staff {
         return Ok(true);
@@ -1036,8 +1033,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     let edit = EditGuild::default().owner(ctx.author().id);
                     ctx.guild_id().unwrap().edit(discord, edit).await?;
 
-                    let onboard_channel_id =
-                        ChannelId(config::CONFIG.channels.onboarding_channel);
+                    let onboard_channel_id = ChannelId(config::CONFIG.channels.onboarding_channel);
 
                     onboard_channel_id.say(
                         &discord,

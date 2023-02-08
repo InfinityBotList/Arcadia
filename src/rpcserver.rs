@@ -1,27 +1,27 @@
-use std::{net::SocketAddr, time::Duration, ops::Add};
+use std::{net::SocketAddr, ops::Add, time::Duration};
 
+use crate::impls::cache::CacheHttpImpl;
+use crate::{config, impls};
 use axum::{
-    routing::{post},
-    http::{StatusCode, self},
+    extract::State,
+    http::{self, StatusCode},
     response::{IntoResponse, Response},
+    routing::post,
     Json, Router,
-    extract::State
 };
 use log::info;
-use reqwest::Method;
-use serde::{Deserialize};
 use moka::future::Cache;
+use reqwest::Method;
+use serde::Deserialize;
 use sqlx::PgPool;
-use crate::impls::cache::CacheHttpImpl;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use crate::{impls, config};
 
 // For frontend API interface generation
 use ts_rs::TS;
 
 #[derive(Deserialize, TS)]
-#[ts(export, export_to=".generated/RPCRequest.ts")]
+#[ts(export, export_to = ".generated/RPCRequest.ts")]
 pub struct RPCRequest {
     pub user_id: String,
     pub token: String,
@@ -30,10 +30,10 @@ pub struct RPCRequest {
 }
 
 #[derive(Deserialize, TS)]
-#[ts(export, export_to=".generated/RPCMethod.ts")]
+#[ts(export, export_to = ".generated/RPCMethod.ts")]
 pub enum RPCMethod {
     BotApprove { bot_id: String, reason: String }, // Added
-    BotDeny { bot_id: String, reason: String }, // Added
+    BotDeny { bot_id: String, reason: String },    // Added
     BotVoteReset { bot_id: String, reason: String }, // Added
     BotVoteResetAll { reason: String },
     BotUnverify { bot_id: String, reason: String }, // Added
@@ -48,7 +48,7 @@ pub enum RPCResponse {
     UserNotFound,
     InvalidAuth,
     StaffOnly,
-    PermissionDenied(Vec<&'static str>)
+    PermissionDenied(Vec<&'static str>),
 }
 
 impl IntoResponse for RPCResponse {
@@ -57,12 +57,28 @@ impl IntoResponse for RPCResponse {
             Self::NoContent => (StatusCode::NO_CONTENT, "").into_response(),
             Self::Content(content) => (StatusCode::OK, content).into_response(),
             Self::Err(err) => (StatusCode::BAD_REQUEST, err).into_response(),
-            Self::InvalidProtocol => (StatusCode::PRECONDITION_FAILED, "Invalid protocol").into_response(),
-            Self::Ratelimited => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded. Wait 5-10 minutes, You will need to login/logout as well.").into_response(),
-            Self::UserNotFound => (StatusCode::NOT_FOUND, "This user could not be found").into_response(),
-            Self::InvalidAuth => (StatusCode::UNAUTHORIZED, "Invalid auth. Logout and login again to get a new token.").into_response(),
+            Self::InvalidProtocol => {
+                (StatusCode::PRECONDITION_FAILED, "Invalid protocol").into_response()
+            }
+            Self::Ratelimited => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "Rate limit exceeded. Wait 5-10 minutes, You will need to login/logout as well.",
+            )
+                .into_response(),
+            Self::UserNotFound => {
+                (StatusCode::NOT_FOUND, "This user could not be found").into_response()
+            }
+            Self::InvalidAuth => (
+                StatusCode::UNAUTHORIZED,
+                "Invalid auth. Logout and login again to get a new token.",
+            )
+                .into_response(),
             Self::StaffOnly => (StatusCode::FORBIDDEN, "Staff-only endpoint").into_response(),
-            Self::PermissionDenied(perms) => (StatusCode::FORBIDDEN, "Permission denied: ".to_string() + &perms.join(" ").to_string()).into_response(),
+            Self::PermissionDenied(perms) => (
+                StatusCode::FORBIDDEN,
+                "Permission denied: ".to_string() + &perms.join(" ").to_string(),
+            )
+                .into_response(),
         }
     }
 }
@@ -73,18 +89,15 @@ pub struct AppState {
     pub ratelimits: Cache<String, u64>,
 }
 
-pub async fn rpc_init(
-    pool: PgPool,
-    cache_http: CacheHttpImpl,
-) {
+pub async fn rpc_init(pool: PgPool, cache_http: CacheHttpImpl) {
     let shared_state = Arc::new(AppState {
         pool,
         cache_http,
         ratelimits: moka::future::Cache::builder()
-        // Time to live (TTL): 7 minutes
-        .time_to_live(Duration::from_secs(60 * 7))
-        // Create the cache.
-        .build(),        
+            // Time to live (TTL): 7 minutes
+            .time_to_live(Duration::from_secs(60 * 7))
+            // Create the cache.
+            .build(),
     });
 
     let mut origins = vec![];
@@ -94,23 +107,23 @@ pub async fn rpc_init(
     }
 
     let app = Router::new()
-    .route("/", post(web_rpc_api))
-    .with_state(shared_state)
-    .layer(
-        CorsLayer::new()
-        .allow_origin(origins)
-        .allow_methods([Method::GET])
-        .allow_headers([http::header::CONTENT_TYPE])
-    );
+        .route("/", post(web_rpc_api))
+        .with_state(shared_state)
+        .layer(
+            CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods([Method::GET])
+                .allow_headers([http::header::CONTENT_TYPE]),
+        );
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3010));
 
     info!("Starting RPC server on {}", addr);
 
     axum::Server::bind(&addr)
-    .serve(app.into_make_service())
-    .await
-    .unwrap();
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
 
 async fn web_rpc_api(
@@ -143,12 +156,16 @@ async fn web_rpc_api(
     }
 
     // Add request to moka cache
-    let new_req = state.ratelimits.get(&req.user_id).unwrap_or_default().add(1);
+    let new_req = state
+        .ratelimits
+        .get(&req.user_id)
+        .unwrap_or_default()
+        .add(1);
 
     state.ratelimits.insert(req.user_id.clone(), new_req).await;
 
     if new_req > 6 {
-        let res =  sqlx::query!(
+        let res = sqlx::query!(
             "UPDATE users SET api_token = $2 WHERE user_id = $1",
             &req.user_id,
             impls::crypto::gen_random(136)
@@ -157,7 +174,9 @@ async fn web_rpc_api(
         .await;
 
         if res.is_err() {
-            return RPCResponse::Err("Failed to reset user token (caused by ratelimit)".to_string());
+            return RPCResponse::Err(
+                "Failed to reset user token (caused by ratelimit)".to_string(),
+            );
         }
 
         return RPCResponse::Ratelimited;
@@ -234,7 +253,7 @@ async fn web_rpc_api(
                     RPCResponse::NoContent
                 }
             }
-        },
+        }
         RPCMethod::BotUnverify { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
@@ -247,13 +266,13 @@ async fn web_rpc_api(
                     &reason,
                 )
                 .await;
-            
+
                 if err.is_err() {
                     RPCResponse::Err(err.unwrap_err().to_string())
                 } else {
                     RPCResponse::NoContent
-                }    
+                }
             }
-        },
+        }
     }
 }

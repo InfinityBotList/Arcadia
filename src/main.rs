@@ -10,19 +10,19 @@ use poise::serenity_prelude::{ChannelId, UserId};
 
 use crate::impls::cache::CacheHttpImpl;
 
-mod checks;
-mod onboarding;
-mod impls;
 mod admin;
 mod botowners;
+mod checks;
+mod config;
 mod explain;
 mod help;
+mod impls;
+mod onboarding;
+mod rpcserver;
 mod staff;
 mod stats;
 mod testing;
 mod tests;
-mod config;
-mod rpcserver;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -31,7 +31,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pool: sqlx::PgPool,
-    cache_http: CacheHttpImpl
+    cache_http: CacheHttpImpl,
 }
 
 enum StaffPosition {
@@ -121,13 +121,8 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
             let pool = user_data.pool.clone();
             let cache_http = user_data.cache_http.clone();
-                        
-            tokio::task::spawn(
-                rpcserver::rpc_init(
-                    pool,
-                    cache_http,
-                )
-            );
+
+            tokio::task::spawn(rpcserver::rpc_init(pool, cache_http));
         }
         FullEvent::Ready {
             data_about_bot,
@@ -157,10 +152,8 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 poise::serenity_prelude::RoleId(config::CONFIG.roles.head_developer);
             let staff_man_role =
                 poise::serenity_prelude::RoleId(config::CONFIG.roles.staff_manager);
-            let head_man_role =
-                poise::serenity_prelude::RoleId(config::CONFIG.roles.head_manager);
-            let web_mod_role =
-                poise::serenity_prelude::RoleId(config::CONFIG.roles.web_moderator);
+            let head_man_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.head_manager);
+            let web_mod_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.web_moderator);
 
             loop {
                 interval.tick().await;
@@ -263,9 +256,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 // Check bans
                 info!("Syncing bans");
 
-                let bans = GuildId(config::CONFIG.servers.main)
-                    .bans(&ctx.http)
-                    .await?;
+                let bans = GuildId(config::CONFIG.servers.main).bans(&ctx.http).await?;
 
                 // Create a transaction
                 let mut tx = pool.begin().await?;

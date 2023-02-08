@@ -1,9 +1,10 @@
 use std::num::NonZeroU64;
 
-use log::{info, error};
+use log::{error, info};
 use poise::serenity_prelude::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
-    model::id::ChannelId, UserId,
+    model::id::ChannelId,
+    UserId,
 };
 use serde::Serialize;
 use sqlx::PgPool;
@@ -13,8 +14,8 @@ struct MetroReason {
     reason: String,
 }
 
-use crate::Error;
 use crate::impls::cache::CacheHttpImpl;
+use crate::Error;
 
 /// Records a action log
 pub async fn add_action_log(
@@ -237,9 +238,7 @@ pub async fn approve_bot(
     );
 
     // Clone here is OK, we want to copy the message
-    private_channel
-        .send_message(&discord, msg.clone())
-        .await?;
+    private_channel.send_message(&discord, msg.clone()).await?;
 
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)
@@ -260,16 +259,18 @@ pub async fn approve_bot(
         .await?;
 
     let invite_data = sqlx::query!("SELECT invite FROM bots WHERE bot_id = $1", bot_id)
-    .fetch_one(pool)
-    .await?;
-
+        .fetch_one(pool)
+        .await?;
 
     if request.status().is_success() {
         info!("Successfully approved bot {} on metro", bot_id);
 
         Ok(invite_data.invite)
     } else {
-        error!("Failed to approve bot {} on metro, but success on IBL", bot_id);
+        error!(
+            "Failed to approve bot {} on metro, but success on IBL",
+            bot_id
+        );
         Ok(invite_data.invite)
     }
 }
@@ -360,9 +361,7 @@ pub async fn deny_bot(
             .color(0x00ff00),
     );
 
-    private_channel
-        .send_message(&discord, msg.clone())
-        .await?;
+    private_channel.send_message(&discord, msg.clone()).await?;
 
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)

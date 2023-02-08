@@ -1,6 +1,6 @@
 extern crate vergen;
-use vergen::*;
 use anyhow::Result;
+use vergen::*;
 
 fn main() -> Result<()> {
     let mut config = Config::default();

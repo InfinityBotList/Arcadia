@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use poise::serenity_prelude::{Cache, Http, CacheHttp};
+use poise::serenity_prelude::{Cache, CacheHttp, Http};
 
 /// A Simple struct that implements the CacheHttp trait because serenity can't seem to keep this stable
 #[derive(Debug, Clone)]

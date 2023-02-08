@@ -1,5 +1,5 @@
-use crate::{checks, config, impls};
 use crate::impls::bool::Bool;
+use crate::{checks, config, impls};
 use futures_util::StreamExt;
 use log::info;
 use poise::serenity_prelude::{
@@ -356,7 +356,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
             .await_component_interaction(ctx.discord())
             .author_id(ctx.author().id)
             .await;
-            
+
         msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
             .await?; // remove buttons after button press
 

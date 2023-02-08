@@ -15,10 +15,7 @@ struct StaffResync {
     col: StaffPosition,
 }
 
-pub async fn staff_resync_task(
-    pool: sqlx::PgPool,
-    cache_http: crate::impls::cache::CacheHttpImpl,
-) -> ! {
+pub async fn staff_resync_task(pool: sqlx::PgPool, cache_http: crate::impls::cache::CacheHttpImpl) -> ! {
     let mut interval = tokio::time::interval(Duration::from_secs(45));
 
     loop {
@@ -29,48 +26,56 @@ pub async fn staff_resync_task(
         let mut staff_resync = Vec::new();
 
         let dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.developer);
-        let head_dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.head_developer);
-        let staff_man_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.staff_manager);
+        let head_dev_role =
+            poise::serenity_prelude::RoleId(config::CONFIG.roles.head_developer);
+        let staff_man_role =
+            poise::serenity_prelude::RoleId(config::CONFIG.roles.staff_manager);
         let head_man_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.head_manager);
         let web_mod_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.web_moderator);
 
-        // Get all members on staff server
-        for (_, member) in cache_http
-            .cache
-            .guild(config::CONFIG.servers.staff)
-            .unwrap()
-            .members
-            .iter()
+        // Get all members on staff server, this is done in a seperate block due to CacheRef
         {
-            if member.roles.contains(&dev_role) {
-                staff_resync.push(StaffResync {
-                    user_id: member.user.id.0,
-                    col: StaffPosition::Developer,
-                });
+            let guild = cache_http.cache.guild(config::CONFIG.servers.staff);
+
+            if guild.is_none() {
+                log::warn!("Guild not yet cached");
+                continue;
             }
-            if member.roles.contains(&head_dev_role) {
-                staff_resync.push(StaffResync {
-                    user_id: member.user.id.0,
-                    col: StaffPosition::HeadDeveloper,
-                });
-            }
-            if member.roles.contains(&staff_man_role) {
-                staff_resync.push(StaffResync {
-                    user_id: member.user.id.0,
-                    col: StaffPosition::Manager,
-                });
-            }
-            if member.roles.contains(&head_man_role) {
-                staff_resync.push(StaffResync {
-                    user_id: member.user.id.0,
-                    col: StaffPosition::HeadManager,
-                });
-            }
-            if member.roles.contains(&web_mod_role) {
-                staff_resync.push(StaffResync {
-                    user_id: member.user.id.0,
-                    col: StaffPosition::Staff,
-                });
+
+            let guild = guild.unwrap();
+
+            for (_, member) in guild.members.iter()
+            {
+                if member.roles.contains(&dev_role) {
+                    staff_resync.push(StaffResync {
+                        user_id: member.user.id.0,
+                        col: StaffPosition::Developer,
+                    });
+                }
+                if member.roles.contains(&head_dev_role) {
+                    staff_resync.push(StaffResync {
+                        user_id: member.user.id.0,
+                        col: StaffPosition::HeadDeveloper,
+                    });
+                }
+                if member.roles.contains(&staff_man_role) {
+                    staff_resync.push(StaffResync {
+                        user_id: member.user.id.0,
+                        col: StaffPosition::Manager,
+                    });
+                }
+                if member.roles.contains(&head_man_role) {
+                    staff_resync.push(StaffResync {
+                        user_id: member.user.id.0,
+                        col: StaffPosition::HeadManager,
+                    });
+                }
+                if member.roles.contains(&web_mod_role) {
+                    staff_resync.push(StaffResync {
+                        user_id: member.user.id.0,
+                        col: StaffPosition::Staff,
+                    });
+                }
             }
         }
 

@@ -25,6 +25,9 @@ push:
 		scp -C target/x86_64-unknown-linux-gnu/release/$$bin root@$(HOST):${PROJ_NAME}/$$bin; \
 	done
 
+	# Start arcadia
+	ssh root@$(HOST) "systemctl start arcadia"
+
 	DATABASE_URL=$(DATABASE_URL) cargo test ${ARGS}
 
 	ssh root@$(HOST) "mkdir -p /iblseeds/apiBindings"
@@ -35,9 +38,6 @@ push:
 
 	@# Remove the .generated folder
 	rm -rf .generated
-
-	# Start arcadia
-	ssh root@$(HOST) "systemctl start arcadia"
 
 remote:
 	ssh root@$(HOST)

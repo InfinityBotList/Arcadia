@@ -8,6 +8,7 @@ use poise::serenity_prelude::{
 };
 use serde::Serialize;
 use sqlx::PgPool;
+use crate::config;
 
 #[derive(Serialize)]
 struct MetroReason {
@@ -44,6 +45,12 @@ pub async fn vote_reset_bot(
     staff_id: &str,
     reason: &str,
 ) -> Result<(), Error> {
+    let staff_id_snow = UserId(staff_id.parse::<NonZeroU64>()?);
+
+    if !config::CONFIG.owners.contains(&staff_id_snow.0) {
+        return Err("You cannot reset votes unless you are owner".into());
+    }
+
     if bot_id == "all" {
         return Err("You cannot reset all votes with this command".into());
     }
@@ -86,6 +93,12 @@ pub async fn vote_reset_all_bot(
     staff_id: &str,
     reason: &str,
 ) -> Result<(), Error> {
+    let staff_id_snow = UserId(staff_id.parse::<NonZeroU64>()?);
+
+    if !config::CONFIG.owners.contains(&staff_id_snow.0) {
+        return Err("You cannot reset votes unless you are owner".into());
+    }
+
     // If bot_id is "all", reset all votes
     add_action_log(pool, "all", staff_id, reason, "vote_reset").await?;
 

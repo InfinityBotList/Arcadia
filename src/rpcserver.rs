@@ -1,3 +1,4 @@
+use std::num::NonZeroU64;
 use std::{net::SocketAddr, ops::Add, time::Duration};
 
 use crate::impls::cache::CacheHttpImpl;
@@ -155,6 +156,14 @@ async fn web_rpc_api(
         return RPCResponse::StaffOnly;
     }
 
+    let user_id_snowflake = req.user_id.parse::<NonZeroU64>();
+
+    if user_id_snowflake.is_err() {
+        return RPCResponse::UserNotFound;
+    }
+
+    let user_id_snowflake = user_id_snowflake.unwrap();
+
     // Add request to moka cache
     let new_req = state
         .ratelimits
@@ -216,8 +225,8 @@ async fn web_rpc_api(
             }
         }
         RPCMethod::BotVoteReset { bot_id, reason } => {
-            if !(check.hadmin || check.iblhdev) {
-                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+            if !config::CONFIG.owners.contains(&user_id_snowflake) {
+                RPCResponse::PermissionDenied(vec!["owner"])
             } else {
                 let err = impls::actions::vote_reset_bot(
                     &state.cache_http,
@@ -236,8 +245,8 @@ async fn web_rpc_api(
             }
         }
         RPCMethod::BotVoteResetAll { reason } => {
-            if !(check.hadmin || check.iblhdev) {
-                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+            if !config::CONFIG.owners.contains(&user_id_snowflake) {
+                RPCResponse::PermissionDenied(vec!["owner"])
             } else {
                 let err = impls::actions::vote_reset_all_bot(
                     &state.cache_http,

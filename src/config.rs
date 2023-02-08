@@ -98,6 +98,7 @@ pub struct Config {
     pub proxy_url: String,
     pub metro: Metro,
     pub rpc_allowed_urls: Vec<String>,
+    pub owners: Vec<NonZeroU64>,
 }
 
 impl Default for Config {
@@ -113,6 +114,7 @@ impl Default for Config {
             frontend_url: String::from("https://reedwhisker.infinitybots.gg"),
             proxy_url: String::from("http://127.0.0.1:3219"),
             rpc_allowed_urls: vec![],
+            owners: vec![NonZeroU64::new(510065483693817867).unwrap()],
         }
     }
 }

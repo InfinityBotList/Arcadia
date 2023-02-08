@@ -70,7 +70,7 @@ These are the steps *in order*
         "#,
     }.to_string();
 
-    crate::_utils::page_content(ctx, text, true).await?;
+    ctx.say(text).await?;
 
     Ok(())
 }

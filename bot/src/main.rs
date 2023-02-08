@@ -7,11 +7,12 @@ use poise::serenity_prelude::{
 use sqlx::postgres::PgPoolOptions;
 
 use poise::serenity_prelude::{ChannelId, UserId};
-use libavacado::types::CacheHttpImpl;
 
-mod _checks;
-mod _onboarding;
-mod _utils;
+use crate::impls::cache::CacheHttpImpl;
+
+mod checks;
+mod onboarding;
+mod impls;
 mod admin;
 mod botowners;
 mod explain;
@@ -20,6 +21,7 @@ mod staff;
 mod stats;
 mod testing;
 mod tests;
+mod config;
 mod rpcserver;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -148,17 +150,17 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
             let mut interval = tokio::time::interval(Duration::from_secs(60));
 
-            let lounge_channel_id = ChannelId(libavacado::CONFIG.channels.testing_lounge);
+            let lounge_channel_id = ChannelId(config::CONFIG.channels.testing_lounge);
 
-            let dev_role = poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.developer);
+            let dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.developer);
             let head_dev_role =
-                poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.head_developer);
+                poise::serenity_prelude::RoleId(config::CONFIG.roles.head_developer);
             let staff_man_role =
-                poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.staff_manager);
+                poise::serenity_prelude::RoleId(config::CONFIG.roles.staff_manager);
             let head_man_role =
-                poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.head_manager);
+                poise::serenity_prelude::RoleId(config::CONFIG.roles.head_manager);
             let web_mod_role =
-                poise::serenity_prelude::RoleId(libavacado::CONFIG.roles.web_moderator);
+                poise::serenity_prelude::RoleId(config::CONFIG.roles.web_moderator);
 
             loop {
                 interval.tick().await;
@@ -170,7 +172,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 // Get all members on staff server
                 for (_, member) in ctx
                     .cache
-                    .guild(libavacado::CONFIG.servers.staff)
+                    .guild(config::CONFIG.servers.staff)
                     .unwrap()
                     .members
                     .iter()
@@ -261,7 +263,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 // Check bans
                 info!("Syncing bans");
 
-                let bans = GuildId(libavacado::CONFIG.servers.main)
+                let bans = GuildId(config::CONFIG.servers.main)
                     .bans(&ctx.http)
                     .await?;
 
@@ -477,9 +479,9 @@ For more information, you can contact the current reviewer <@{}>
                 for guild_id in guilds {
                     let guild_owner = ctx.cache.guild(guild_id).unwrap().owner_id;
                     // Check if guild is official (main/testing/staff)
-                    if guild_id.0 == libavacado::CONFIG.servers.main
-                        || guild_id.0 == libavacado::CONFIG.servers.staff
-                        || guild_id.0 == libavacado::CONFIG.servers.testing
+                    if guild_id.0 == config::CONFIG.servers.main
+                        || guild_id.0 == config::CONFIG.servers.staff
+                        || guild_id.0 == config::CONFIG.servers.testing
                     {
                         continue;
                     }
@@ -487,8 +489,8 @@ For more information, you can contact the current reviewer <@{}>
                     let res = sqlx::query!(
                         "SELECT COUNT(*) FROM users WHERE staff_onboard_guild = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = $2 OR staff_onboard_state = $3)",
                         guild_id.0.to_string(),
-                        libavacado::onboarding::OnboardState::Completed.as_str(),
-                        libavacado::onboarding::OnboardState::PendingManagerReview.as_str()
+                        crate::onboarding::OnboardState::Completed.as_str(),
+                        crate::onboarding::OnboardState::PendingManagerReview.as_str()
                     )
                     .fetch_one(&pool)
                     .await?;
@@ -521,17 +523,17 @@ For more information, you can contact the current reviewer <@{}>
             }
         }
         FullEvent::GuildMemberAddition { new_member, ctx } => {
-            if new_member.guild_id.0 == libavacado::CONFIG.servers.main && new_member.user.bot {
+            if new_member.guild_id.0 == config::CONFIG.servers.main && new_member.user.bot {
                 // Check if new member is in testing server
                 let member = ctx.cache.member_field(
-                    GuildId(libavacado::CONFIG.servers.testing),
+                    GuildId(config::CONFIG.servers.testing),
                     new_member.user.id,
                     |m| m.user.id,
                 );
 
                 if member.is_some() {
                     // If so, move them to main server
-                    GuildId(libavacado::CONFIG.servers.testing)
+                    GuildId(config::CONFIG.servers.testing)
                         .kick_with_reason(&ctx, new_member.user.id, "Added to main server")
                         .await?;
                 }
@@ -551,10 +553,10 @@ async fn main() {
 
     env_logger::init();
 
-    info!("Proxy URL: {}", libavacado::CONFIG.proxy_url);
+    info!("Proxy URL: {}", config::CONFIG.proxy_url);
 
-    let http = serenity::HttpBuilder::new(&libavacado::CONFIG.token)
-        .proxy(libavacado::CONFIG.proxy_url.clone())
+    let http = serenity::HttpBuilder::new(&config::CONFIG.token)
+        .proxy(config::CONFIG.proxy_url.clone())
         .ratelimiter_disabled(true)
         .build();
 
@@ -631,7 +633,7 @@ async fn main() {
                     },
                     pool: PgPoolOptions::new()
                         .max_connections(MAX_CONNECTIONS)
-                        .connect(&libavacado::CONFIG.database_url)
+                        .connect(&config::CONFIG.database_url)
                         .await
                         .expect("Could not initialize connection"),
                 })

@@ -208,25 +208,29 @@ dependencies = [
 name = "bot"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "axum",
  "chrono",
  "data-encoding",
  "env_logger",
  "futures-util",
  "indexmap",
- "libavacado",
  "log",
  "moka",
+ "once_cell",
  "poise",
+ "rand",
  "reqwest",
  "ring",
  "serde",
  "serde_json",
  "serde_repr",
+ "serde_yaml",
  "sqlx",
  "tokio",
  "tower-http",
  "ts-rs",
+ "vergen",
 ]
 
 [[package]]
@@ -1114,26 +1118,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "445dde2150c55e483f3d8416706b97ec8e8237c307e5b7b4b8dd15e6af2a0730"
 dependencies = [
  "wasm-bindgen",
-]
-
-[[package]]
-name = "libavacado"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "chrono",
- "indexmap",
- "itertools",
- "log",
- "once_cell",
- "rand",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml",
- "serenity",
- "sqlx",
- "vergen",
 ]
 
 [[package]]

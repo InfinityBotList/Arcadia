@@ -5,7 +5,7 @@ use std::{fmt::Write as _, num::NonZeroU64};
 // import without risk of name clashing
 use serenity::id::UserId;
 
-use crate::_checks as checks;
+use crate::checks;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;

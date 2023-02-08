@@ -1,6 +1,7 @@
 use crate::Context;
 use crate::Error;
-use crate::_checks as checks;
+use crate::checks;
+use crate::impls;
 
 use poise::serenity_prelude::CreateActionRow;
 use poise::serenity_prelude::CreateButton;
@@ -49,9 +50,9 @@ pub async fn approveonboard(
     .await?;
 
     if onboard_state.staff_onboard_state
-        != libavacado::onboarding::OnboardState::PendingManagerReview.as_str()
+        != crate::onboarding::OnboardState::PendingManagerReview.as_str()
         && onboard_state.staff_onboard_state
-            != libavacado::onboarding::OnboardState::Denied.as_str()
+            != crate::onboarding::OnboardState::Denied.as_str()
     {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",
@@ -63,7 +64,7 @@ pub async fn approveonboard(
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_state = $1 WHERE user_id = $2",
-        libavacado::onboarding::OnboardState::Completed.as_str(),
+        crate::onboarding::OnboardState::Completed.as_str(),
         member.id.to_string()
     )
     .execute(&data.pool)
@@ -106,7 +107,7 @@ pub async fn denyonboard(
     .await?;
 
     if onboard_state.staff_onboard_state
-        != libavacado::onboarding::OnboardState::PendingManagerReview.as_str()
+        != crate::onboarding::OnboardState::PendingManagerReview.as_str()
     {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",
@@ -118,7 +119,7 @@ pub async fn denyonboard(
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_state = $1 WHERE user_id = $2",
-        libavacado::onboarding::OnboardState::Denied.as_str(),
+        crate::onboarding::OnboardState::Denied.as_str(),
         user.id.to_string()
     )
     .execute(&data.pool)
@@ -187,7 +188,7 @@ pub async fn resetonboard(
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_guild = NULL, staff_onboard_state = $1, staff_onboard_last_start_time = NOW() WHERE user_id = $2",
-        libavacado::onboarding::OnboardState::Pending.as_str(),
+        crate::onboarding::OnboardState::Pending.as_str(),
         user.id.to_string()
     )
     .execute(&data.pool)
@@ -216,7 +217,7 @@ pub async fn voteresetbot(
 ) -> Result<(), crate::Error> {
     let data = ctx.data();
 
-    libavacado::manage::vote_reset_bot(
+    impls::actions::vote_reset_bot(
         &data.cache_http,
         &data.pool,
         &bot.id.to_string(),
@@ -244,7 +245,7 @@ pub async fn voteresetallbots(
 ) -> Result<(), crate::Error> {
     let data = ctx.data();
 
-    libavacado::manage::vote_reset_all_bot(
+    impls::actions::vote_reset_all_bot(
         &data.cache_http,
         &data.pool,
         &ctx.author().id.to_string(),
@@ -272,7 +273,7 @@ pub async fn unverifybot(
 ) -> Result<(), crate::Error> {
     let data = ctx.data();
 
-    libavacado::manage::unverify_bot(
+    impls::actions::unverify_bot(
         &data.cache_http,
         &data.pool,
         &bot.id.to_string(),

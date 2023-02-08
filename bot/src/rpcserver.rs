@@ -3,7 +3,7 @@ use std::{net::SocketAddr, time::Duration, ops::Add};
 use axum::{
     routing::{post},
     http::{StatusCode, self},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     Json, Router,
     extract::State
 };
@@ -12,9 +12,10 @@ use reqwest::Method;
 use serde::{Deserialize};
 use moka::future::Cache;
 use sqlx::PgPool;
-use libavacado::types::CacheHttpImpl;
+use crate::impls::cache::CacheHttpImpl;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
+use crate::{impls, config};
 
 // For frontend API interface generation
 use ts_rs::TS;
@@ -36,6 +37,34 @@ pub enum RPCMethod {
     BotVoteReset { bot_id: String, reason: String }, // Added
     BotVoteResetAll { reason: String },
     BotUnverify { bot_id: String, reason: String }, // Added
+}
+
+pub enum RPCResponse {
+    NoContent,
+    Content(String),
+    Err(String),
+    InvalidProtocol,
+    Ratelimited,
+    UserNotFound,
+    InvalidAuth,
+    StaffOnly,
+    PermissionDenied(Vec<&'static str>)
+}
+
+impl IntoResponse for RPCResponse {
+    fn into_response(self) -> Response {
+        match self {
+            Self::NoContent => (StatusCode::NO_CONTENT, "").into_response(),
+            Self::Content(content) => (StatusCode::OK, content).into_response(),
+            Self::Err(err) => (StatusCode::BAD_REQUEST, err).into_response(),
+            Self::InvalidProtocol => (StatusCode::PRECONDITION_FAILED, "Invalid protocol").into_response(),
+            Self::Ratelimited => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded. Wait 5-10 minutes, You will need to login/logout as well.").into_response(),
+            Self::UserNotFound => (StatusCode::NOT_FOUND, "This user could not be found").into_response(),
+            Self::InvalidAuth => (StatusCode::UNAUTHORIZED, "Invalid auth. Logout and login again to get a new token.").into_response(),
+            Self::StaffOnly => (StatusCode::FORBIDDEN, "Staff-only endpoint").into_response(),
+            Self::PermissionDenied(perms) => (StatusCode::FORBIDDEN, "Permission denied: ".to_string() + &perms.join(" ").to_string()).into_response(),
+        }
+    }
 }
 
 pub struct AppState {
@@ -60,7 +89,7 @@ pub async fn rpc_init(
 
     let mut origins = vec![];
 
-    for origin in libavacado::CONFIG.rpc_allowed_urls.iter() {
+    for origin in config::CONFIG.rpc_allowed_urls.iter() {
         origins.push(origin.parse().unwrap());
     }
 
@@ -89,7 +118,7 @@ async fn web_rpc_api(
     Json(req): Json<RPCRequest>,
 ) -> impl IntoResponse {
     if req.protocol != 2 {
-        return (StatusCode::BAD_REQUEST, "Invalid protocol version".to_string());
+        return RPCResponse::InvalidProtocol;
     }
 
     let check = sqlx::query!(
@@ -100,17 +129,17 @@ async fn web_rpc_api(
     .await;
 
     if check.is_err() {
-        return (StatusCode::UNAUTHORIZED, "User not found".to_string());
+        return RPCResponse::UserNotFound;
     }
 
     let check = check.unwrap();
 
     if check.api_token != req.token {
-        return (StatusCode::UNAUTHORIZED, "Invalid token. Logout and login again to get a new token.".to_string());
+        return RPCResponse::InvalidAuth;
     }
 
     if !check.staff {
-        return (StatusCode::UNAUTHORIZED, "Staff-only endpoint".to_string());
+        return RPCResponse::StaffOnly;
     }
 
     // Add request to moka cache
@@ -122,21 +151,21 @@ async fn web_rpc_api(
         let res =  sqlx::query!(
             "UPDATE users SET api_token = $2 WHERE user_id = $1",
             &req.user_id,
-            libavacado::crypto::gen_random(136)
+            impls::crypto::gen_random(136)
         )
         .execute(&state.pool)
         .await;
 
         if res.is_err() {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to reset user token (caused by ratelimit)".to_string());
+            return RPCResponse::Err("Failed to reset user token (caused by ratelimit)".to_string());
         }
 
-        return (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded. Wait 5-10 minutes, You will need to login/logout as well.".to_string());
+        return RPCResponse::Ratelimited;
     }
 
     match &req.method {
         RPCMethod::BotApprove { bot_id, reason } => {
-            let res = libavacado::staff::approve_bot(
+            let res = impls::actions::approve_bot(
                 &state.cache_http,
                 &state.pool,
                 &bot_id,
@@ -146,13 +175,13 @@ async fn web_rpc_api(
             .await;
 
             if res.is_err() {
-                (StatusCode::BAD_REQUEST, res.unwrap_err().to_string())
+                RPCResponse::Err(res.unwrap_err().to_string())
             } else {
-                (StatusCode::OK, res.unwrap().invite)
+                RPCResponse::Content(res.unwrap())
             }
         }
         RPCMethod::BotDeny { bot_id, reason } => {
-            let err = libavacado::staff::deny_bot(
+            let err = impls::actions::deny_bot(
                 &state.cache_http,
                 &state.pool,
                 &bot_id,
@@ -162,16 +191,16 @@ async fn web_rpc_api(
             .await;
 
             if err.is_err() {
-                (StatusCode::BAD_REQUEST, err.unwrap_err().to_string())
+                RPCResponse::Err(err.unwrap_err().to_string())
             } else {
-                (StatusCode::NO_CONTENT, "".to_string())
+                RPCResponse::NoContent
             }
         }
         RPCMethod::BotVoteReset { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
-                (StatusCode::UNAUTHORIZED, "Permission denied".to_string())
+                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {
-                let err = libavacado::manage::vote_reset_bot(
+                let err = impls::actions::vote_reset_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
@@ -181,17 +210,17 @@ async fn web_rpc_api(
                 .await;
 
                 if err.is_err() {
-                    (StatusCode::BAD_REQUEST, err.unwrap_err().to_string())
+                    RPCResponse::Err(err.unwrap_err().to_string())
                 } else {
-                    (StatusCode::NO_CONTENT, "".to_string())
+                    RPCResponse::NoContent
                 }
             }
         }
         RPCMethod::BotVoteResetAll { reason } => {
             if !(check.hadmin || check.iblhdev) {
-                (StatusCode::UNAUTHORIZED, "Permission denied".to_string())
+                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {
-                let err = libavacado::manage::vote_reset_all_bot(
+                let err = impls::actions::vote_reset_all_bot(
                     &state.cache_http,
                     &state.pool,
                     &req.user_id,
@@ -200,17 +229,17 @@ async fn web_rpc_api(
                 .await;
 
                 if err.is_err() {
-                    (StatusCode::BAD_REQUEST, err.unwrap_err().to_string())
+                    RPCResponse::Err(err.unwrap_err().to_string())
                 } else {
-                    (StatusCode::NO_CONTENT, "".to_string())
-                }    
+                    RPCResponse::NoContent
+                }
             }
         },
         RPCMethod::BotUnverify { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
-                (StatusCode::UNAUTHORIZED, "Permission denied".to_string())
+                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {
-                let err = libavacado::manage::unverify_bot(
+                let err = impls::actions::unverify_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
@@ -220,9 +249,9 @@ async fn web_rpc_api(
                 .await;
             
                 if err.is_err() {
-                    (StatusCode::BAD_REQUEST, err.unwrap_err().to_string())
+                    RPCResponse::Err(err.unwrap_err().to_string())
                 } else {
-                    (StatusCode::NO_CONTENT, "".to_string())
+                    RPCResponse::NoContent
                 }    
             }
         },

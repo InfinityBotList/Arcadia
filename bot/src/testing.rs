@@ -1,5 +1,5 @@
-use crate::_checks as checks;
-use crate::_utils::Bool;
+use crate::{checks, config, impls};
+use crate::impls::bool::Bool;
 use futures_util::StreamExt;
 use log::info;
 use poise::serenity_prelude::{
@@ -40,7 +40,7 @@ pub async fn invite(
 /// Starts the onboarding process in the newly created server
 #[poise::command(prefix_command, user_cooldown = 10, category = "Testing")]
 pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
+    if !crate::onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
     }
 
@@ -55,14 +55,14 @@ pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
     category = "Testing"
 )]
 pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
+    if !crate::onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
     }
 
     ctx.say(
         format!(
             "The staff guide can be found at {}/staff/guide. Please **do not** bookmark this page as the URL may change in the future",
-            libavacado::CONFIG.frontend_url
+            config::CONFIG.frontend_url
     )).await?;
 
     Ok(())
@@ -140,7 +140,7 @@ pub async fn queue(
 ) -> Result<(), Error> {
     let embed = embed.unwrap_or(Bool::True).to_bool();
 
-    if !crate::_onboarding::handle_onboarding(ctx, embed, None).await? {
+    if !crate::onboarding::handle_onboarding(ctx, embed, None).await? {
         return Ok(());
     }
 
@@ -240,7 +240,7 @@ pub async fn queue(
 
 /// Implementation of the claim command
 pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
+    if !crate::onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
         return Ok(());
     }
 
@@ -252,7 +252,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
         return Err("You must be staff to use this command!".into());
     }
 
-    if bot.id.0 == libavacado::CONFIG.test_bot {
+    if bot.id.0 == config::CONFIG.test_bot {
         return Err("You cannot claim the test bot!".into());
     }
 
@@ -294,7 +294,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
         .execute(&data.pool)
         .await?;
 
-        libavacado::staff::add_action_log(
+        impls::actions::add_action_log(
             &data.pool,
             &bot.id.to_string(),
             &ctx.author().id.0.to_string(),
@@ -366,7 +366,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
             let claimed_by = claimed.claimed_by.unwrap();
 
             if id == "remind" {
-                libavacado::staff::add_action_log(
+                impls::actions::add_action_log(
                     &data.pool,
                     &bot.id.to_string(),
                     &claimed_by,
@@ -391,7 +391,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
                 .execute(&data.pool)
                 .await?;
 
-                libavacado::staff::add_action_log(
+                impls::actions::add_action_log(
                     &data.pool,
                     &bot.id.to_string(),
                     &ctx.author().id.0.to_string(),
@@ -458,7 +458,7 @@ pub async fn claim_context(
 }
 
 pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, false, None).await? {
+    if !crate::onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
     }
 
@@ -469,7 +469,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
     let data = ctx.data();
     let discord = ctx.discord();
 
-    if bot.id.0 == libavacado::CONFIG.test_bot {
+    if bot.id.0 == config::CONFIG.test_bot {
         return Err("You cannot claim the test bot!".into());
     }
 
@@ -503,7 +503,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
         .execute(&data.pool)
         .await?;
 
-        libavacado::staff::add_action_log(
+        impls::actions::add_action_log(
             &data.pool,
             &bot.id.0.to_string(),
             &ctx.author().id.0.to_string(),
@@ -564,7 +564,7 @@ pub async fn approve(
     #[description = "The bot you wish to approve"] bot: serenity::Member,
     #[description = "The reason for approval"] reason: String,
 ) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
+    if !crate::onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
         return Ok(());
     }
 
@@ -577,7 +577,7 @@ pub async fn approve(
     }
 
     let data = ctx.data();
-    let resp = libavacado::staff::approve_bot(
+    let resp = impls::actions::approve_bot(
         &data.cache_http,
         &data.pool,
         &bot.user.id.to_string(),
@@ -587,7 +587,7 @@ pub async fn approve(
     .await?;
 
     ctx.say(
-        format!("Approved bot\nNext invite it to the main server and it should be removed from this server: {}", resp.invite)
+        format!("Approved bot\nNext invite it to the main server and it should be removed from this server: {}", resp)
     ).await?;
 
     Ok(())
@@ -605,7 +605,7 @@ pub async fn deny(
     #[description = "The bot you wish to deny"] bot: serenity::User,
     #[description = "The reason for denial"] reason: String,
 ) -> Result<(), Error> {
-    if !crate::_onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
+    if !crate::onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
         return Ok(());
     }
 
@@ -618,7 +618,7 @@ pub async fn deny(
     }
 
     let data = ctx.data();
-    libavacado::staff::deny_bot(
+    impls::actions::deny_bot(
         &data.cache_http,
         &data.pool,
         &bot.id.to_string(),

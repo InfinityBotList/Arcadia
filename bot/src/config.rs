@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::{fs::File, io::Write, num::NonZeroU64};
+use once_cell::sync::Lazy;
+
+/// Global config object
+pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load());
 
 #[derive(Serialize, Deserialize)]
 pub struct Servers {
@@ -138,10 +142,10 @@ impl Config {
         match file {
             Ok(file) => {
                 // Parse config.yaml
-                let config: Config = serde_yaml::from_reader(file).unwrap();
+                let cfg: Config = serde_yaml::from_reader(file).unwrap();
 
                 // Return config
-                config
+                cfg
             }
             Err(e) => {
                 // Print error

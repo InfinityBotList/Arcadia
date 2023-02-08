@@ -1,4 +1,4 @@
-use crate::_checks as checks;
+use crate::checks;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;

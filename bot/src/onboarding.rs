@@ -9,9 +9,67 @@ use poise::serenity_prelude::{
     EditGuild, EditRole, ExecuteWebhook, Mentionable, Permissions, RoleId, UserId,
 };
 
-use libavacado::onboarding::OnboardState;
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde_json::json;
+
+use crate::{impls, config};
+
+#[derive(PartialEq)]
+pub enum OnboardState {
+    Pending,
+    QueueRemind,
+    QueueForceClaim,
+    Claimed,
+    PendingManagerReview,
+    Denied,
+    Completed,
+}
+
+impl OnboardState {
+    pub fn as_str(&self) -> &str {
+        match self {
+            OnboardState::Pending => "pending",
+            OnboardState::QueueRemind => "queue-remind",
+            OnboardState::QueueForceClaim => "queue-force-claim",
+            OnboardState::Claimed => "claimed",
+            OnboardState::PendingManagerReview => "pending-manager-review",
+            OnboardState::Denied => "denied",
+            OnboardState::Completed => "completed",
+        }
+    }
+
+    pub fn from_str(str: &str) -> Option<Self> {
+        match str {
+            "pending" => Some(OnboardState::Pending),
+            "queue-remind" => Some(OnboardState::QueueRemind),
+            "queue-force-claim" => Some(OnboardState::QueueForceClaim),
+            "claimed" => Some(OnboardState::Claimed),
+            "pending-manager-review" => Some(OnboardState::PendingManagerReview),
+            "denied" => Some(OnboardState::Denied),
+            "completed" => Some(OnboardState::Completed),
+            _ => None,
+        }
+    }
+
+    pub fn queue_unclaim(&self) -> bool {
+        match self {
+            OnboardState::Pending => true,
+            OnboardState::QueueRemind => true,
+            OnboardState::QueueForceClaim => true,
+            _ => false,
+        }
+    }
+
+    pub fn queue_passthrough(&self) -> bool {
+        match self {
+            OnboardState::Pending => true,
+            OnboardState::PendingManagerReview => true,
+            OnboardState::Denied => true,
+            OnboardState::Completed => true,
+            _ => false,
+        }
+    }
+}
 
 /// Internal function to handle the special-cased staff_guide command
 ///
@@ -21,7 +79,7 @@ use serde_json::json;
 async fn _handle_staff_guide(ctx: crate::Context<'_>, user_id: String) -> Result<(), crate::Error> {
     // This is the onboard code user needs to input (random_string@CURRENT_TIME)
     let onboard_code =
-        libavacado::crypto::gen_random(64) + "@" + &chrono::Utc::now().timestamp().to_string();
+        impls::crypto::gen_random(64) + "@" + &chrono::Utc::now().timestamp().to_string();
 
     // Get first 20 characters of the onboard code as onboard_fragment
     let onboard_fragment = onboard_code.chars().take(20).collect::<String>();
@@ -45,7 +103,7 @@ Thats a lot isn't it? I'm glad you're ready to take on your first challenge. To 
 
 **Note that during onboarding, the *5 digit staff verify code present somewhere in the guide* will be reset every time you run the ``staffguide`` command! Always use the latest command invocation for getting the code**
             "#,
-            url = &libavacado::CONFIG.frontend_url,
+            url = &config::CONFIG.frontend_url,
             uid = user_id,
             ocf = onboard_fragment,
     )).await?;
@@ -68,18 +126,18 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Verify staff first
-    let is_staff = crate::_checks::is_staff(ctx)
+    let is_staff = crate::checks::is_staff(ctx)
         .await
         .unwrap_or_else(|_| false)
         || {
             let member = discord
                 .cache
-                .member(libavacado::CONFIG.servers.main, ctx.author().id);
+                .member(config::CONFIG.servers.main, ctx.author().id);
 
             if let Some(member) = member {
                 if !member
                     .roles
-                    .contains(&RoleId(libavacado::CONFIG.roles.awaiting_staff))
+                    .contains(&RoleId(config::CONFIG.roles.awaiting_staff))
                 {
                     false
                 } else {
@@ -130,8 +188,8 @@ pub async fn handle_onboarding(
                 "**{i}.** {name} ({bot_id}) [Unclaimed]\n**Note**: {ap_note}\n**Bot Page**: {bp}/bots/{bot_id}",
                 i = 1,
                 name = "Ninja Bot",
-                bot_id = libavacado::CONFIG.test_bot,
-                bp = libavacado::CONFIG.frontend_url,
+                bot_id = config::CONFIG.test_bot,
+                bp = config::CONFIG.frontend_url,
                 ap_note = "Please test me :heart:"
             );
             if embed {
@@ -162,7 +220,7 @@ pub async fn handle_onboarding(
                 "**{i}.** {name} ({bot_id}) [Claimed by: {claimed_by} (<@{claimed_by}>)]\n**Note:** {ap_note}",
                 i = 1,
                 name = "Ninja Bot",
-                bot_id = libavacado::CONFIG.test_bot,
+                bot_id = config::CONFIG.test_bot,
                 claimed_by = ctx.author().id.0,
                 ap_note = "Please test me :heart:"
             );
@@ -405,7 +463,7 @@ Welcome to your onboarding server! Please read the following:
 
             dm_channel.send_message(discord, msg).await?;
 
-            let channel = ChannelId(libavacado::CONFIG.channels.onboarding_channel);
+            let channel = ChannelId(config::CONFIG.channels.onboarding_channel);
 
             // Send invite
             let sm_invite_msg = CreateMessage::default()
@@ -510,7 +568,7 @@ Welcome to your onboarding server! Please read the following:
         return Ok(false);
     }
 
-    if cmd_name == "claim" && reason != Some(&libavacado::CONFIG.test_bot.to_string()) {
+    if cmd_name == "claim" && reason != Some(&config::CONFIG.test_bot.to_string()) {
         ctx.say("You can only claim the test bot at this time!")
             .await?;
         return Ok(false);
@@ -519,7 +577,7 @@ Welcome to your onboarding server! Please read the following:
     // Before matching, make sure 'Ninja Bot' is always pending
     sqlx::query!(
         "UPDATE bots SET type = 'testbot' WHERE bot_id = $1",
-        libavacado::CONFIG.test_bot.to_string()
+        config::CONFIG.test_bot.to_string()
     )
     .execute(&data.pool)
     .await?;
@@ -555,11 +613,11 @@ Welcome to your onboarding server! Please read the following:
                     .description(
                         format!(
                             "**Bot:** <@{bot_id}> ({bot_name})\n\n**Owner:** {owner_id} ({owner_name})\n\n**Bot Page:** {frontend_url}/bots/{bot_id}",
-                            bot_id = libavacado::CONFIG.test_bot,
+                            bot_id = config::CONFIG.test_bot,
                             bot_name = "Ninja Bot",
                             owner_id = current_user_id.mention(),
                             owner_name = current_user_name,
-                            frontend_url = libavacado::CONFIG.frontend_url,
+                            frontend_url = config::CONFIG.frontend_url,
                         )
                     )
                     .footer(CreateEmbedFooter::new("Are you ready to take on your first challenge, young padawan?"))
@@ -632,7 +690,7 @@ Welcome to your onboarding server! Please read the following:
                 format!(
                     "<@{claimed_by}>, did you forgot to finish testing <@{bot_id}>? This reminder has been recorded internally for staff activity tracking purposes!", 
                     claimed_by = current_user_id,
-                    bot_id = libavacado::CONFIG.test_bot
+                    bot_id = config::CONFIG.test_bot
                 )
             ).await?;
 
@@ -726,7 +784,7 @@ Welcome to your onboarding server! Please read the following:
 
             ctx.say(format!(
                 "You have claimed <@{bot_id}> and the bot owner has been notified!",
-                bot_id = libavacado::CONFIG.test_bot
+                bot_id = config::CONFIG.test_bot
             ))
             .await?;
 
@@ -964,7 +1022,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                         "staff_onboarded_before": s_onboard.staff_onboarded,
                     });
 
-                    let tok = libavacado::crypto::gen_random(32);
+                    let tok = impls::crypto::gen_random(32);
 
                     sqlx::query!("INSERT INTO onboard_data (user_id, onboard_code, data) VALUES ($1, $2, $3)", 
                         user_id,
@@ -979,7 +1037,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     ctx.guild_id().unwrap().edit(discord, edit).await?;
 
                     let onboard_channel_id =
-                        ChannelId(libavacado::CONFIG.channels.onboarding_channel);
+                        ChannelId(config::CONFIG.channels.onboarding_channel);
 
                     onboard_channel_id.say(
                         &discord,

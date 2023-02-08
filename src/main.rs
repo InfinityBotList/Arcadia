@@ -57,12 +57,15 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
         poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
         poise::FrameworkError::Command { error, ctx } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
-            ctx.say(format!(
+            let err = ctx.say(format!(
                 "There was an error running this command: {}",
                 error
             ))
-            .await
-            .unwrap();
+            .await;
+
+            if let Err(e) = err {
+                error!("SQLX Error: {}", e);
+            }
         }
         poise::FrameworkError::CommandCheckFailed { error, ctx } => {
             error!(
@@ -72,16 +75,21 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             );
             if let Some(error) = error {
                 error!("Error in command `{}`: {:?}", ctx.command().name, error,);
-                ctx.say(format!(
+                let err = ctx.say(format!(
                     "Whoa there, do you have permission to do this?: {}",
                     error
                 ))
-                .await
-                .unwrap();
+                .await;
+
+                if let Err(e) = err {
+                    error!("Error while sending error message: {}", e);
+                }
             } else {
-                ctx.say("You don't have permission to do this but we couldn't figure out why...")
-                    .await
-                    .unwrap();
+                let err = ctx.say("You don't have permission to do this but we couldn't figure out why...").await;
+
+                if let Err(e) = err {
+                    error!("Error while sending error message: {}", e);
+                }
             }
         }
         error => {

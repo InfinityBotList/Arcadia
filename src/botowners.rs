@@ -72,88 +72,87 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
     let id_vec = vec![id.clone()];
     let member = ctx.author_member().await;
 
-    if member.is_none() {
+    if let Some(member) = member {
+        let mut member = member.into_owned();
+        let owner = sqlx::query!(
+            "SELECT bot_id, type FROM bots WHERE owner = $1 OR additional_owners && $2",
+            id,
+            &id_vec
+        )
+        .fetch_all(&data.pool)
+        .await?;
+
+        if owner.len() == 0 {
+            return Err("You are not the owner/additional owner of any bots".into());
+        }
+
+        let mut approved = false;
+        let mut certified = false;
+
+        for bot in owner {
+            if bot.r#type == "approved" {
+                approved = true; // We need to check for certified as well
+                continue;
+            }
+
+            if bot.r#type == "certified" {
+                approved = true;
+                certified = true;
+                break; // No need to check for more
+            }
+        }
+
+        if !approved {
+            return Err(
+                "You are not the owner/additional owner of any approved or certified bots".into(),
+            );
+        }
+
+        let mut roles_to_add = Vec::new();
+        let mut roles_to_remove = Vec::new();
+
+        let bot_role = RoleId(config::CONFIG.roles.bot_developer);
+        let certified_role = RoleId(config::CONFIG.roles.certified_developer);
+
+        if certified {
+            ctx.say("You are the owner/additional owner of a certified bot! Giving you certified role")
+                .await?;
+
+            // Check that they have botdev_role, if not, add
+            if !member.roles.contains(&bot_role) {
+                roles_to_add.push(bot_role);
+            }
+
+            if !member.roles.contains(&certified_role) {
+                roles_to_add.push(certified_role);
+            }
+        } else if approved {
+            ctx.say("You are the owner/additional owner of an approved bot! Giving you approved role")
+                .await?;
+
+            // Check that they have botdev_role, if not, add
+            if !member.roles.contains(&bot_role) {
+                roles_to_add.push(bot_role);
+            }
+
+            if member.roles.contains(&certified_role) {
+                roles_to_remove.push(certified_role);
+            }
+        }
+
+        // Apply the required changes
+        if roles_to_add.len() > 0 {
+            member.add_roles(&ctx, &roles_to_add).await?;
+        }
+
+        if roles_to_remove.len() > 0 {
+            member.remove_roles(&ctx, &roles_to_remove).await?;
+        }
+
+        ctx.say("Done!").await?;
+    } else {
         return Err("You are not in the server".into());
     }
-
-    let mut member = member.unwrap().into_owned();
-
-    let owner = sqlx::query!(
-        "SELECT bot_id, type FROM bots WHERE owner = $1 OR additional_owners && $2",
-        id,
-        &id_vec
-    )
-    .fetch_all(&data.pool)
-    .await?;
-
-    if owner.len() == 0 {
-        return Err("You are not the owner/additional owner of any bots".into());
-    }
-
-    let mut approved = false;
-    let mut certified = false;
-
-    for bot in owner {
-        if bot.r#type == "approved" {
-            approved = true; // We need to check for certified as well
-            continue;
-        }
-
-        if bot.r#type == "certified" {
-            approved = true;
-            certified = true;
-            break; // No need to check for more
-        }
-    }
-
-    if !approved {
-        return Err(
-            "You are not the owner/additional owner of any approved or certified bots".into(),
-        );
-    }
-
-    let mut roles_to_add = Vec::new();
-    let mut roles_to_remove = Vec::new();
-
-    let bot_role = RoleId(config::CONFIG.roles.bot_developer);
-    let certified_role = RoleId(config::CONFIG.roles.certified_developer);
-
-    if certified {
-        ctx.say("You are the owner/additional owner of a certified bot! Giving you certified role")
-            .await?;
-
-        // Check that they have botdev_role, if not, add
-        if !member.roles.contains(&bot_role) {
-            roles_to_add.push(bot_role);
-        }
-
-        if !member.roles.contains(&certified_role) {
-            roles_to_add.push(certified_role);
-        }
-    } else if approved {
-        ctx.say("You are the owner/additional owner of an approved bot! Giving you approved role")
-            .await?;
-
-        // Check that they have botdev_role, if not, add
-        if !member.roles.contains(&bot_role) {
-            roles_to_add.push(bot_role);
-        }
-
-        if member.roles.contains(&certified_role) {
-            roles_to_remove.push(certified_role);
-        }
-    }
-
-    // Apply the required changes
-    if roles_to_add.len() > 0 {
-        member.add_roles(&ctx, &roles_to_add).await?;
-    }
-
-    if roles_to_remove.len() > 0 {
-        member.remove_roles(&ctx, &roles_to_remove).await?;
-    }
-
-    ctx.say("Done!").await?;
 
     Ok(())
 }

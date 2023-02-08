@@ -24,14 +24,27 @@ pub async fn deadguilds_task(
 
         // We do this to avoid the async cache guard introduced in serenity next
         for guild_id in guilds {
-            let guild_owner = cache_http.cache.guild(guild_id).unwrap().owner_id;
-            // Check if guild is official (main/testing/staff)
-            if guild_id.0 == config::CONFIG.servers.main
-                || guild_id.0 == config::CONFIG.servers.staff
-                || guild_id.0 == config::CONFIG.servers.testing
-            {
-                continue;
-            }
+            
+            let guild_owner = {
+                let guild = cache_http.cache.guild(guild_id);
+
+                if guild.is_none() {
+                    continue;
+                }
+
+                let guild = guild.unwrap();
+
+                let guild_owner = guild.owner_id;
+                // Check if guild is official (main/testing/staff)
+                if guild_id.0 == config::CONFIG.servers.main
+                    || guild_id.0 == config::CONFIG.servers.staff
+                    || guild_id.0 == config::CONFIG.servers.testing
+                {
+                    continue;
+                }
+
+                guild_owner
+            };
 
             let res = sqlx::query!(
                 "SELECT COUNT(*) FROM users WHERE staff_onboard_guild = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = $2 OR staff_onboard_state = $3)",

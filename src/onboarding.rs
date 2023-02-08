@@ -314,6 +314,14 @@ be approved or denied.
         .await?;
     }
 
+    if ctx.guild().is_none() {
+        ctx.say(
+            "You must run this command in a server. Please run this command in a server.",
+        )
+        .await?;
+        return Ok(false);
+    }
+
     let cur_guild = ctx.guild().unwrap().id;
 
     if cur_guild.to_string() != onboard_guild {
@@ -374,7 +382,15 @@ Welcome to your onboarding server! Please read the following:
             let dm_invite = channel.create_invite(&discord, invite).await?;
 
             // Create DM channel
-            let user_id = UserId(user_id.parse::<NonZeroU64>().unwrap());
+            let user_snow = user_id.parse::<NonZeroU64>();
+
+            if user_snow.is_err() {
+                return Err("Invalid user ID somehow".into());
+            }
+
+            let user_snow = user_snow.unwrap();
+
+            let user_id = UserId(user_snow);
 
             let dm_channel = user_id.create_dm_channel(discord).await?;
 
@@ -436,7 +452,15 @@ Welcome to your onboarding server! Please read the following:
             let invite = readme.create_invite(&discord, invite).await?;
 
             // Create DM channel
-            let user_id = UserId(user_id.parse::<NonZeroU64>().unwrap());
+            let user_snow = user_id.parse::<NonZeroU64>();
+
+            if user_snow.is_err() {
+                return Err("Invalid user ID somehow".into());
+            }
+
+            let user_snow = user_snow.unwrap();
+
+            let user_id = UserId(user_snow);
 
             let dm_channel = user_id.create_dm_channel(discord).await?;
 
@@ -490,6 +514,10 @@ Welcome to your onboarding server! Please read the following:
     } else {
         // Check if user is admin
         let mut found = false;
+        
+        if ctx.guild().is_none() {
+            return Err("Could not find guild somehow".into())
+        }
 
         for member in ctx.guild().unwrap().members.iter() {
             // Resolve the users permissions
@@ -974,6 +1002,10 @@ Welcome to your onboarding server! Please read the following:
                         .content("And the magic continues... Thank you for completing the staff onboarding process! You will be notified when you are approved. Please wait while I send your application to the staff team...")
                     )).await?;
 
+                    if ctx.guild_id().is_none() {
+                        return Err("Guild ID is none somehow".into());
+                    }
+
                     // Create permanent invite to this server
                     let channel = ctx.guild_id().unwrap().create_channel(
                         discord,
@@ -1030,6 +1062,10 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                     .await?;
 
                     // Now transfer ownership to author
+                    if ctx.guild_id().is_none() {
+                        return Err("Guild ID is none somehow".into());
+                    }
+
                     let edit = EditGuild::default().owner(ctx.author().id);
                     ctx.guild_id().unwrap().edit(discord, edit).await?;
 

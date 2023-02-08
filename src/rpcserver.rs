@@ -21,7 +21,7 @@ use crate::{impls, config};
 use ts_rs::TS;
 
 #[derive(Deserialize, TS)]
-#[ts(export, export_to="../.generated/RPCRequest.ts")]
+#[ts(export, export_to=".generated/RPCRequest.ts")]
 pub struct RPCRequest {
     pub user_id: String,
     pub token: String,
@@ -30,7 +30,7 @@ pub struct RPCRequest {
 }
 
 #[derive(Deserialize, TS)]
-#[ts(export, export_to="../.generated/RPCMethod.ts")]
+#[ts(export, export_to=".generated/RPCMethod.ts")]
 pub enum RPCMethod {
     BotApprove { bot_id: String, reason: String }, // Added
     BotDeny { bot_id: String, reason: String }, // Added

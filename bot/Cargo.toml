@@ -18,7 +18,7 @@ chrono = { version = "0.4", features = ["serde"]}
 futures-util = "0.3"
 ring = "0.16"
 data-encoding = "2.3"
-indexmap = { version = "1.9.1", features = ["serde"] }
+indexmap = { version = "1.9.2", features = ["serde"] }
 moka = { version = "0.9", features = ["future"] }
 ts-rs = "6.2"
 axum = "0.6"

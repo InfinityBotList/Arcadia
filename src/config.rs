@@ -111,7 +111,7 @@ impl Default for Config {
             metro: Metro::default(),
             test_bot: NonZeroU64::new(990885577979224104).unwrap(),
             frontend_url: String::from("https://reedwhisker.infinitybots.gg"),
-            proxy_url: String::from("http://localhost:3219/"),
+            proxy_url: String::from("http://127.0.0.1:3219"),
             rpc_allowed_urls: vec![]
         }
     }

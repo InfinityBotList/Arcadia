@@ -709,8 +709,8 @@ Welcome to your onboarding server! Please read the following:
             tokio::time::sleep(Duration::from_secs(3)).await;
 
             wh.execute(
-                discord, 
-                true, 
+                discord,
+                true,
                 ExecuteWebhook::default().content("Ack! sorry about that. I completely forgot about Ninja Bot due to personal issues, yknow?")
             ).await?;
 
@@ -836,7 +836,7 @@ Welcome to your onboarding server! Please read the following:
                 if id == "survey" {
                     // Create a new message with the survey modal in it (via the button click)
                     let qm = m.quick_modal(
-                        discord, 
+                        discord,
                         CreateQuickModal::new("Onboarding Survey")
                         .field(
                             CreateInputText::new(
@@ -976,7 +976,7 @@ Welcome to your onboarding server! Please read the following:
 
                     // Create permanent invite to this server
                     let channel = ctx.guild_id().unwrap().create_channel(
-                        discord, 
+                        discord,
                         CreateChannel::new("do-not-delete")
                         .topic("This is a temporary channel used to create a permanent invite to the server. DO NOT DELETE.")
                     ).await?;

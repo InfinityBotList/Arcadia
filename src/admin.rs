@@ -71,7 +71,7 @@ pub async fn approveonboard(
 
     // DM user that they have been approved
     let _ = member.dm(
-        &ctx.discord().http, 
+        &ctx.discord().http,
         CreateMessage::new()
         .content("Your onboarding request has been approved. You may now begin approving/denying bots") 
     ).await?;

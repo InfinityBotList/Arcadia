@@ -84,11 +84,11 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
     let reply = if qb.text_msg {
         let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}\n**Owner:** {owner}", 
             name = qb.queue_name,
-            c_bot = qb.index + 1, 
+            c_bot = qb.index + 1,
             bot_len = qb.total_bots,
-            id = qb.bot_id, 
+            id = qb.bot_id,
             claimed_by = qb.claimed_by.unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), 
-            approve_note = qb.approval_note, 
+            approve_note = qb.approval_note,
             short = qb.short,
             owner = qb.owner
         );

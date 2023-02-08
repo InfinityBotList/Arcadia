@@ -1,9 +1,9 @@
 use log::info;
-use poise::serenity_prelude::{self as serenity, GuildId};
+use poise::serenity_prelude::GuildId;
 
 use std::{fmt::Write as _, num::NonZeroU64};
 // import without risk of name clashing
-use serenity::id::UserId;
+use poise::serenity_prelude::id::UserId;
 
 use crate::checks;
 

@@ -9,12 +9,6 @@
 
 <hr>
 
-## Project Structure
-
-- ``bot`` => Rewrite of the Discord Bot used for Managing the Infinity Bot List Servers and the RPC API used in panel
-  - ``leone`` => a library crate containing proc-macros for the bot
-- ``libavacado`` => Common shared logic for ``bot``, ``api`` and any possible addition to Arcadia
-
 ## Database Seeds
 
 You can find a seed of the Infinity Bot List database at https://ptb.botlist.app/dev/seedguide. This seed is public and available for all contributors

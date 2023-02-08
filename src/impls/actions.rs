@@ -1,5 +1,6 @@
 use std::num::NonZeroU64;
 
+use crate::config;
 use log::{error, info};
 use poise::serenity_prelude::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
@@ -8,7 +9,6 @@ use poise::serenity_prelude::{
 };
 use serde::Serialize;
 use sqlx::PgPool;
-use crate::config;
 
 #[derive(Serialize)]
 struct MetroReason {

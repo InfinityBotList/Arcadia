@@ -1,12 +1,8 @@
-use std::{num::NonZeroU64, time::Duration};
-
 use log::{error, info};
-use poise::serenity_prelude::{
-    self as serenity, CreateEmbed, CreateEmbedFooter, CreateMessage, FullEvent, GuildId,
-};
+use poise::serenity_prelude::{self as serenity, FullEvent, GuildId};
 use sqlx::postgres::PgPoolOptions;
 
-use poise::serenity_prelude::{ChannelId, UserId};
+use tokio::task::JoinSet;
 
 use crate::impls::cache::CacheHttpImpl;
 
@@ -21,6 +17,7 @@ mod onboarding;
 mod rpcserver;
 mod staff;
 mod stats;
+mod tasks;
 mod testing;
 mod tests;
 
@@ -32,19 +29,6 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 pub struct Data {
     pool: sqlx::PgPool,
     cache_http: CacheHttpImpl,
-}
-
-enum StaffPosition {
-    Staff,
-    Manager,
-    HeadManager,
-    Developer,
-    HeadDeveloper,
-}
-
-struct StaffResync {
-    user_id: NonZeroU64,
-    col: StaffPosition,
 }
 
 /// Displays your or another user's account creation date
@@ -126,11 +110,8 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
         }
         FullEvent::Ready {
             data_about_bot,
-            ctx,
+            ctx: _,
         } => {
-            // Always wait a bit here for cache to finish up
-            tokio::time::sleep(Duration::from_secs(2)).await;
-
             info!(
                 "{} is ready! Doing some minor DB fixes",
                 data_about_bot.user.name
@@ -141,375 +122,40 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
             .execute(&user_data.pool)
             .await?;
 
+            let mut set = JoinSet::new();
+
+            // Run staff_resync_task every 60 seconds
             let pool = user_data.pool.clone();
+            let cache_http = user_data.cache_http.clone();
 
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            set.spawn(async move {
+                crate::tasks::perms::staff_resync_task(pool.clone(), cache_http.clone()).await;
+            });
 
-            let lounge_channel_id = ChannelId(config::CONFIG.channels.testing_lounge);
+            let pool = user_data.pool.clone();
+            let cache_http = user_data.cache_http.clone();
 
-            let dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.developer);
-            let head_dev_role =
-                poise::serenity_prelude::RoleId(config::CONFIG.roles.head_developer);
-            let staff_man_role =
-                poise::serenity_prelude::RoleId(config::CONFIG.roles.staff_manager);
-            let head_man_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.head_manager);
-            let web_mod_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.web_moderator);
+            set.spawn(async move {
+                crate::tasks::bans::bans_sync_task(pool.clone(), cache_http.clone()).await;
+            });
 
-            loop {
-                interval.tick().await;
+            let pool = user_data.pool.clone();
+            let cache_http = user_data.cache_http.clone();
 
-                info!("Performing staff recalc");
+            set.spawn(async move {
+                crate::tasks::autounclaim::autounclaim_task(pool.clone(), cache_http.clone()).await;
+            });
 
-                let mut staff_resync = Vec::new();
+            let pool = user_data.pool.clone();
+            let cache_http = user_data.cache_http.clone();
 
-                // Get all members on staff server
-                for (_, member) in ctx
-                    .cache
-                    .guild(config::CONFIG.servers.staff)
-                    .unwrap()
-                    .members
-                    .iter()
-                {
-                    if member.roles.contains(&dev_role) {
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::Developer,
-                        });
-                    }
-                    if member.roles.contains(&head_dev_role) {
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::HeadDeveloper,
-                        });
-                    }
-                    if member.roles.contains(&staff_man_role) {
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::Manager,
-                        });
-                    }
-                    if member.roles.contains(&head_man_role) {
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::HeadManager,
-                        });
-                    }
-                    if member.roles.contains(&web_mod_role) {
-                        staff_resync.push(StaffResync {
-                            user_id: member.user.id.0,
-                            col: StaffPosition::Staff,
-                        });
-                    }
-                }
+            set.spawn(async move {
+                crate::tasks::deadguilds::deadguilds_task(pool.clone(), cache_http.clone()).await;
+            });
 
-                // Create a transaction
-                let mut tx = pool.begin().await?;
-
-                // First unset all staff
-                sqlx::query!("UPDATE users SET staff = false, ibldev = false, iblhdev = false, admin = false, hadmin = false")
-                .execute(&mut tx)
-                .await?;
-
-                // Now set all staff as per the staff_resync vector
-                for staff in staff_resync {
-                    match staff.col {
-                        StaffPosition::Staff => {
-                            sqlx::query!(
-                                "UPDATE users SET staff = true WHERE user_id = $1",
-                                staff.user_id.to_string()
-                            )
-                            .execute(&mut tx)
-                            .await?;
-                        }
-                        StaffPosition::Manager => {
-                            sqlx::query!(
-                                "UPDATE users SET staff = true, admin = true WHERE user_id = $1",
-                                staff.user_id.to_string()
-                            )
-                            .execute(&mut tx)
-                            .await?;
-                        }
-                        StaffPosition::Developer => {
-                            sqlx::query!(
-                                "UPDATE users SET staff = true, ibldev = true WHERE user_id = $1",
-                                staff.user_id.to_string()
-                            )
-                            .execute(&mut tx)
-                            .await?;
-                        }
-                        StaffPosition::HeadDeveloper => {
-                            sqlx::query!("UPDATE users SET staff = true, ibldev = true, iblhdev = true WHERE user_id = $1", staff.user_id.to_string())
-                                .execute(&mut tx)
-                                .await?;
-                        }
-                        StaffPosition::HeadManager => {
-                            sqlx::query!("UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1", staff.user_id.to_string())
-                                .execute(&mut tx)
-                                .await?;
-                        }
-                    }
-                }
-
-                // Commit the transaction
-                tx.commit().await?;
-
-                // Check bans
-                info!("Syncing bans");
-
-                let bans = GuildId(config::CONFIG.servers.main).bans(&ctx.http).await?;
-
-                // Create a transaction
-                let mut tx = pool.begin().await?;
-
-                // First unset all bans
-                sqlx::query!("UPDATE users SET banned = false")
-                    .execute(&mut tx)
-                    .await?;
-
-                for ban in bans {
-                    let user_id = ban.user.id.0.to_string();
-                    let res =
-                        sqlx::query!("UPDATE users SET banned = true WHERE user_id = $1", user_id)
-                            .execute(&mut tx)
-                            .await;
-
-                    if res.is_err() {
-                        error!(
-                            "Error while updating user {} in database: {:?}",
-                            user_id,
-                            res.unwrap_err()
-                        );
-                        continue;
-                    }
-                }
-
-                // Commit the transaction
-                tx.commit().await?;
-
-                info!("Checking for claimed bots greater than 1 hour claim interval");
-
-                let res = sqlx::query!(
-                    "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
-                )
-                .fetch_all(&pool)
-                .await;
-
-                if res.is_err() {
-                    error!(
-                        "Error while checking for claimed bots: {:?}",
-                        res.unwrap_err()
-                    );
-                    continue;
-                }
-
-                let bots = res.unwrap();
-
-                for bot in bots {
-                    if bot.claimed_by.is_none() {
-                        info!(
-                            "Unclaiming bot {} because it has no staff who has claimed it",
-                            bot.bot_id
-                        );
-                        let res = sqlx::query!(
-                            "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-                            bot.bot_id
-                        )
-                        .execute(&pool)
-                        .await;
-
-                        if res.is_err() {
-                            error!(
-                                "Error while unclaiming bot {}: {:?}",
-                                bot.bot_id,
-                                res.unwrap_err()
-                            );
-                            continue;
-                        }
-
-                        continue;
-                    }
-
-                    if bot.last_claimed.is_none() {
-                        info!(
-                            "Unclaiming bot {} because it has no last_claimed time",
-                            bot.bot_id
-                        );
-                        let res = sqlx::query!(
-                            "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-                            bot.bot_id
-                        )
-                        .execute(&pool)
-                        .await;
-
-                        if res.is_err() {
-                            error!(
-                                "Error while unclaiming bot {}: {:?}",
-                                bot.bot_id,
-                                res.unwrap_err()
-                            );
-                            continue;
-                        }
-
-                        continue;
-                    }
-
-                    let claimed_by = bot.claimed_by.unwrap();
-                    let last_claimed = bot.last_claimed.unwrap();
-
-                    info!(
-                        "Unclaiming bot {} because it was claimed by {} and never unclaimed",
-                        bot.bot_id, claimed_by
-                    );
-                    let res = sqlx::query!(
-                        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-                        bot.bot_id
-                    )
-                    .execute(&pool)
-                    .await;
-
-                    if res.is_err() {
-                        error!(
-                            "Error while unclaiming bot {}: {:?}",
-                            bot.bot_id,
-                            res.unwrap_err()
-                        );
-                        continue;
-                    }
-
-                    let start_time = chrono::offset::Utc::now();
-
-                    // Now send message in #lounge
-                    let msg = CreateMessage::default()
-                        .content(format!("<@{}>", claimed_by))
-                        .embed(
-                            CreateEmbed::default()
-                                .title("Auto-Unclaimed Bot")
-                                .description(
-                                    format!(
-                                        "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed at {} ({}).", 
-                                        bot.bot_id,
-                                        claimed_by,
-                                        last_claimed.format("%Y-%m-%d %H:%M:%S"),
-                                        (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
-                                    ))
-                                .color(0xFF0000)
-                        );
-
-                    let err = lounge_channel_id.send_message(&ctx, msg).await;
-
-                    if err.is_err() {
-                        error!(
-                            "Error while sending message to lounge: {:?}",
-                            err.unwrap_err()
-                        );
-                        continue;
-                    }
-
-                    let owner = bot.owner.parse::<NonZeroU64>();
-
-                    if let Ok(owner) = owner {
-                        let private_channel = UserId(owner).create_dm_channel(&ctx).await;
-
-                        if private_channel.is_err() {
-                            error!(
-                                "Error while sending message to owner: {:?}",
-                                private_channel.unwrap_err()
-                            );
-                            continue;
-                        }
-
-                        let private_channel = private_channel.unwrap();
-
-                        let msg = CreateMessage::default()
-                            .embed(
-                                CreateEmbed::default()
-                                    .title("Bot Unclaimed!")
-                                    .description(
-                                        format!(
-                                            r#"
-<@{}> has been unclaimed as it was not being actively reviewed. 
-
-Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
-
-For more information, you can contact the current reviewer <@{}>
-
-*This bot was claimed at {} ({}). This is a automated message letting you know about whats going on...*
-                                            "#, 
-                                            bot.bot_id,
-                                            claimed_by,
-                                            last_claimed.format("%Y-%m-%d %H:%M:%S"),
-                                            (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
-                                        ))
-                                    .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
-                            );
-
-                        let err = private_channel.send_message(&ctx, msg).await;
-
-                        if err.is_err() {
-                            error!(
-                                "Error while sending message to owner: {:?}",
-                                err.unwrap_err()
-                            );
-                            continue;
-                        }
-                    }
-                }
-
-                info!("Checking for dead guilds made by staff");
-
-                // Loop through all guilds
-                let guilds = ctx.cache.guilds();
-
-                let http = ctx.http.clone();
-
-                let bowner = ctx.cache.current_user().id.0;
-
-                info!("Checking {} guilds", guilds.len());
-
-                // We do this to avoid the async cache guard introduced in serenity next
-                for guild_id in guilds {
-                    let guild_owner = ctx.cache.guild(guild_id).unwrap().owner_id;
-                    // Check if guild is official (main/testing/staff)
-                    if guild_id.0 == config::CONFIG.servers.main
-                        || guild_id.0 == config::CONFIG.servers.staff
-                        || guild_id.0 == config::CONFIG.servers.testing
-                    {
-                        continue;
-                    }
-
-                    let res = sqlx::query!(
-                        "SELECT COUNT(*) FROM users WHERE staff_onboard_guild = $1 AND NOW() - staff_onboard_last_start_time < interval '1 hour' AND NOT(staff_onboard_state = $2 OR staff_onboard_state = $3)",
-                        guild_id.0.to_string(),
-                        crate::onboarding::OnboardState::Completed.as_str(),
-                        crate::onboarding::OnboardState::PendingManagerReview.as_str()
-                    )
-                    .fetch_one(&pool)
-                    .await?;
-
-                    if res.count.unwrap_or_default() == 0 {
-                        // This guild can be deleted or left
-                        if guild_owner.0 == bowner {
-                            let err = guild_id.delete(&http).await;
-
-                            if err.is_err() {
-                                error!(
-                                    "Error while deleting guild {}: {:?}",
-                                    guild_id.0,
-                                    err.unwrap_err()
-                                );
-                            }
-                        } else {
-                            let err = guild_id.leave(&http).await;
-
-                            if err.is_err() {
-                                error!(
-                                    "Error while leaving guild {}: {:?}",
-                                    guild_id.0,
-                                    err.unwrap_err()
-                                );
-                            }
-                        }
-                    }
+            while let Some(res) = set.join_next().await {
+                if let Err(e) = res {
+                    error!("Error while running task: {}", e);
                 }
             }
         }

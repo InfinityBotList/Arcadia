@@ -405,7 +405,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
                     CreateEmbed::default()
                         .title("Bot Reclaimed!")
                         .description(format!(
-                            "<@{}> has reclaimed <@{}> from <{}>",
+                            "<@{}> has reclaimed <@{}> from <@{}>",
                             ctx.author().id.0,
                             bot.id,
                             claimed_by

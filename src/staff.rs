@@ -136,9 +136,8 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
         let id = &item.data.custom_id;
 
-        log::info!("Received interaction: {}", id);
-
         if id == "sl:cancel" {
+            log::info!("Received cancel interaction");
             item.delete_response(ctx.discord()).await?;
             return Ok(());
         }
@@ -161,6 +160,8 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
                 continue;
             }
         };
+
+        log::info!("Received interaction: {}", id);
 
         let user_id = match id.parse::<NonZeroU64>() {
             Ok(id) => id,

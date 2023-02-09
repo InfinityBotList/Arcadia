@@ -1,4 +1,3 @@
-use crate::impls::bool::Bool;
 use crate::{checks, config, impls};
 use futures_util::StreamExt;
 use log::info;
@@ -136,9 +135,9 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
 pub async fn queue(
     ctx: Context<'_>,
-    #[description = "Whether to embed or not"] embed: Option<Bool>,
+    #[description = "Whether to embed or not"] embed: Option<bool>,
 ) -> Result<(), Error> {
-    let embed = embed.unwrap_or(Bool::True).to_bool();
+    let embed = embed.unwrap_or(true);
 
     if !crate::onboarding::handle_onboarding(ctx, embed, None).await? {
         return Ok(());

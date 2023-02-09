@@ -1,112 +1,72 @@
 use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateEmbedFooter, CreateMessage, UserId};
-use std::{num::NonZeroU64, time::Duration};
+use std::num::NonZeroU64;
 
 use crate::config;
 
-pub async fn autounclaim_task(
-    pool: sqlx::PgPool,
-    cache_http: crate::impls::cache::CacheHttpImpl,
-) -> ! {
-    let mut interval = tokio::time::interval(Duration::from_secs(60));
+pub async fn auto_unclaim(
+    pool: &sqlx::PgPool,
+    cache_http: &crate::impls::cache::CacheHttpImpl,
+) -> Result<(), crate::Error> {
+    let bots = sqlx::query!(
+        "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("Error while checking for claimed bots: {}", e))?;
 
-    loop {
-        interval.tick().await;
-
-        log::info!("TASK: autounclaim_task (60s interval) [Checking for claimed bots greater than 1 hour claim interval]");
-
-        let res = sqlx::query!(
-            "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
-        )
-        .fetch_all(&pool)
-        .await;
-
-        if res.is_err() {
-            log::error!(
-                "Error while checking for claimed bots: {:?}",
-                res.unwrap_err()
-            );
-            continue;
-        }
-
-        let bots = res.unwrap();
-
-        for bot in bots {
-            if bot.claimed_by.is_none() {
-                log::info!(
-                    "Unclaiming bot {} because it has no staff who has claimed it",
-                    bot.bot_id
-                );
-                let res = sqlx::query!(
-                    "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-                    bot.bot_id
-                )
-                .execute(&pool)
-                .await;
-
-                if res.is_err() {
-                    log::error!(
-                        "Error while unclaiming bot {}: {:?}",
-                        bot.bot_id,
-                        res.unwrap_err()
-                    );
-                    continue;
-                }
-
-                continue;
-            }
-
-            if bot.last_claimed.is_none() {
-                log::info!(
-                    "Unclaiming bot {} because it has no last_claimed time",
-                    bot.bot_id
-                );
-                let res = sqlx::query!(
-                    "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-                    bot.bot_id
-                )
-                .execute(&pool)
-                .await;
-
-                if res.is_err() {
-                    log::error!(
-                        "Error while unclaiming bot {}: {:?}",
-                        bot.bot_id,
-                        res.unwrap_err()
-                    );
-                    continue;
-                }
-
-                continue;
-            }
-
-            let claimed_by = bot.claimed_by.unwrap();
-            let last_claimed = bot.last_claimed.unwrap();
-
+    for bot in bots {
+        if bot.claimed_by.is_none() {
             log::info!(
-                "Unclaiming bot {} because it was claimed by {} and never unclaimed",
-                bot.bot_id,
-                claimed_by
+                "Unclaiming bot {} because it has no staff who has claimed it",
+                bot.bot_id
             );
-            let res = sqlx::query!(
+            sqlx::query!(
                 "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
                 bot.bot_id
             )
-            .execute(&pool)
-            .await;
+            .execute(pool)
+            .await
+            .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;
 
-            if res.is_err() {
-                log::error!(
-                    "Error while unclaiming bot {}: {:?}",
+            continue;
+        }
+
+        if bot.last_claimed.is_none() {
+            log::info!(
+                "Unclaiming bot {} because it has no staff who has claimed it",
+                bot.bot_id
+            );
+            sqlx::query!(
+                "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
+                bot.bot_id
+            )
+            .execute(pool)
+            .await
+            .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;
+
+            continue;
+        }
+
+        if let Some(claimed_by) = bot.claimed_by {
+            if let Some(last_claimed) = bot.last_claimed {
+                log::info!(
+                    "Unclaiming bot {} because it was claimed by {} and never unclaimed",
                     bot.bot_id,
-                    res.unwrap_err()
-                );
-                continue;
-            }
+                    claimed_by
+                );   
+                
+                sqlx::query!(
+                    "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
+                    bot.bot_id
+                )
+                .execute(pool)
+                .await
+                .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;  
+                
+                let start_time = chrono::offset::Utc::now();
 
-            let start_time = chrono::offset::Utc::now();
-
-            // Now send message in #lounge
-            let msg = CreateMessage::default()
+                // Now send message in #lounge
+                let msg = CreateMessage::default()
                 .content(format!("<@{}>", claimed_by))
                 .embed(
                     CreateEmbed::default()
@@ -120,42 +80,30 @@ pub async fn autounclaim_task(
                                 (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
                             ))
                         .color(0xFF0000)
-                );
+                );    
 
-            let err = ChannelId(config::CONFIG.channels.testing_lounge)
+                ChannelId(config::CONFIG.channels.testing_lounge)
                 .send_message(&cache_http, msg)
-                .await;
+                .await
+                .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
 
-            if err.is_err() {
-                log::error!(
-                    "Error while sending message to lounge: {:?}",
-                    err.unwrap_err()
-                );
-                continue;
-            }
+                if let Ok(owner) = bot.owner.parse::<NonZeroU64>() {
+                    // Check that owner is in the server
 
-            let owner = bot.owner.parse::<NonZeroU64>();
+                    if cache_http.cache.member_field(config::CONFIG.servers.main, owner, |m| m.user.id).is_none() {
+                        log::warn!("Bot owner is not in the server. Not sending DM");
+                        continue;
+                    }
 
-            if let Ok(owner) = owner {
-                let private_channel = UserId(owner).create_dm_channel(&cache_http).await;
-
-                if private_channel.is_err() {
-                    log::error!(
-                        "Error while sending message to owner: {:?}",
-                        private_channel.unwrap_err()
-                    );
-                    continue;
-                }
-
-                let private_channel = private_channel.unwrap();
-
-                let msg = CreateMessage::default()
-                    .embed(
-                        CreateEmbed::default()
-                            .title("Bot Unclaimed!")
-                            .description(
-                                format!(
-                                    r#"
+                    match UserId(owner).create_dm_channel(&cache_http).await {
+                        Ok(dm) => {
+                            let msg = CreateMessage::default()
+                            .embed(
+                                CreateEmbed::default()
+                                    .title("Bot Unclaimed!")
+                                    .description(
+                                        format!(
+                                            r#"
 <@{}> has been unclaimed as it was not being actively reviewed. 
 
 Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
@@ -163,25 +111,27 @@ Don't worry, this is normal, could just be our staff looking more into your bots
 For more information, you can contact the current reviewer <@{}>
 
 *This bot was claimed at {} ({}). This is a automated message letting you know about whats going on...*
-                                    "#, 
-                                    bot.bot_id,
-                                    claimed_by,
-                                    last_claimed.format("%Y-%m-%d %H:%M:%S"),
-                                    (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
-                                ))
-                            .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
-                    );
-
-                let err = private_channel.send_message(&cache_http, msg).await;
-
-                if err.is_err() {
-                    log::error!(
-                        "Error while sending message to owner: {:?}",
-                        err.unwrap_err()
-                    );
-                    continue;
+                                            "#, 
+                                            bot.bot_id,
+                                            claimed_by,
+                                            last_claimed.format("%Y-%m-%d %H:%M:%S"),
+                                            (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
+                                        ))
+                                    .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
+                            );
+        
+                            dm.send_message(&cache_http, msg)
+                            .await
+                            .map_err(|e| format!("Error while sending message in DM: {}", e))?;        
+                        },
+                        Err(e) => {
+                            log::warn!("Error while creating DM channel with bot owner: {:?}", e);
+                        }
+                    }
                 }
             }
         }
     }
+
+    Ok(())
 }

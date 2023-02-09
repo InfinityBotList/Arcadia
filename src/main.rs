@@ -110,11 +110,6 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
         }
         FullEvent::CacheReady { ctx: _, guilds } => {
             info!("Cache ready with {} guilds", guilds.len());
-
-            let pool = user_data.pool.clone();
-            let cache_http = user_data.cache_http.clone();
-
-            tokio::task::spawn(rpcserver::rpc_init(pool, cache_http));
         }
         FullEvent::Ready {
             data_about_bot,
@@ -124,47 +119,53 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 "{} is ready! Doing some minor DB fixes",
                 data_about_bot.user.name
             );
+
             sqlx::query!(
                 "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
             )
             .execute(&user_data.pool)
             .await?;
 
+            // Start RPC
+            tokio::task::spawn(rpcserver::rpc_init(
+                user_data.pool.clone(), 
+                user_data.cache_http.clone())
+            );
+            
+            // Start tasks
             let mut set = JoinSet::new();
 
-            // Run staff_resync_task every 60 seconds
-            let pool = user_data.pool.clone();
-            let cache_http = user_data.cache_http.clone();
+            set.spawn(crate::tasks::taskcat::taskcat(
+                user_data.pool.clone(), 
+                user_data.cache_http.clone(),
+                tasks::taskcat::Task::AutoUnclaim
+            ));
 
-            set.spawn(async move {
-                crate::tasks::perms::staff_resync_task(pool.clone(), cache_http.clone()).await;
-            });
+            set.spawn(crate::tasks::taskcat::taskcat(
+                user_data.pool.clone(), 
+                user_data.cache_http.clone(),
+                tasks::taskcat::Task::Bans
+            ));
 
-            let pool = user_data.pool.clone();
-            let cache_http = user_data.cache_http.clone();
+            set.spawn(crate::tasks::taskcat::taskcat(
+                user_data.pool.clone(), 
+                user_data.cache_http.clone(),
+                tasks::taskcat::Task::StaffResync
+            ));
 
-            set.spawn(async move {
-                crate::tasks::bans::bans_sync_task(pool.clone(), cache_http.clone()).await;
-            });
-
-            let pool = user_data.pool.clone();
-            let cache_http = user_data.cache_http.clone();
-
-            set.spawn(async move {
-                crate::tasks::autounclaim::autounclaim_task(pool.clone(), cache_http.clone()).await;
-            });
-
-            let pool = user_data.pool.clone();
-            let cache_http = user_data.cache_http.clone();
-
-            set.spawn(async move {
-                crate::tasks::deadguilds::deadguilds_task(pool.clone(), cache_http.clone()).await;
-            });
+            set.spawn(crate::tasks::taskcat::taskcat(
+                user_data.pool.clone(), 
+                user_data.cache_http.clone(),
+                tasks::taskcat::Task::DeadGuilds
+            ));
 
             while let Some(res) = set.join_next().await {
                 if let Err(e) = res {
                     error!("Error while running task: {}", e);
                 }
+
+                info!("Task finished when it shouldn't have");
+                std::process::abort();
             }
         }
         FullEvent::GuildMemberAddition { new_member, ctx } => {

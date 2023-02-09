@@ -63,8 +63,6 @@ pub async fn auto_unclaim(
                 .await
                 .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;  
                 
-                let start_time = chrono::offset::Utc::now();
-
                 // Now send message in #lounge
                 let msg = CreateMessage::default()
                 .content(format!("<@{}>", claimed_by))
@@ -73,11 +71,10 @@ pub async fn auto_unclaim(
                         .title("Auto-Unclaimed Bot")
                         .description(
                             format!(
-                                "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed at {} ({}).", 
+                                "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed at <t:{}:R>.", 
                                 bot.bot_id,
                                 claimed_by,
-                                last_claimed.format("%Y-%m-%d %H:%M:%S"),
-                                (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
+                                last_claimed.timestamp(),
                             ))
                         .color(0xFF0000)
                 );    
@@ -110,12 +107,11 @@ Don't worry, this is normal, could just be our staff looking more into your bots
 
 For more information, you can contact the current reviewer <@{}>
 
-*This bot was claimed at {} ({}). This is a automated message letting you know about whats going on...*
+*This bot was claimed at <t:{}:R>. This is a automated message letting you know about whats going on...*
                                             "#, 
                                             bot.bot_id,
                                             claimed_by,
-                                            last_claimed.format("%Y-%m-%d %H:%M:%S"),
-                                            (start_time - last_claimed).num_minutes().to_string() + " minutes ago"
+                                            last_claimed.timestamp()
                                         ))
                                     .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
                             );

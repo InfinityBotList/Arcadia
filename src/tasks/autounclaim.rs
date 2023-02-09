@@ -71,7 +71,7 @@ pub async fn auto_unclaim(
                         .title("Auto-Unclaimed Bot")
                         .description(
                             format!(
-                                "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed at <t:{}:R>.", 
+                                "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed <t:{}:R>.", 
                                 bot.bot_id,
                                 claimed_by,
                                 last_claimed.timestamp(),
@@ -107,7 +107,7 @@ Don't worry, this is normal, could just be our staff looking more into your bots
 
 For more information, you can contact the current reviewer <@{}>
 
-*This bot was claimed at <t:{}:R>. This is a automated message letting you know about whats going on...*
+*This bot was claimed <t:{}:R>. This is a automated message letting you know about whats going on...*
                                             "#, 
                                             bot.bot_id,
                                             claimed_by,

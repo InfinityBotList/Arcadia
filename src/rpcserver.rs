@@ -1,5 +1,4 @@
 use std::num::NonZeroU64;
-use std::net::SocketAddr;
 
 use crate::impls::cache::CacheHttpImpl;
 use crate::{config, impls};
@@ -122,7 +121,7 @@ pub async fn rpc_init(pool: PgPool, cache_http: CacheHttpImpl) {
                 .allow_headers([http::header::CONTENT_TYPE]),
         );
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3010));
+    let addr = "127.0.0.1:3010".parse().expect("Invalid RPC server address");
 
     info!("Starting RPC server on {}", addr);
 

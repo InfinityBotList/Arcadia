@@ -1,5 +1,5 @@
 use std::num::NonZeroU64;
-use std::{net::SocketAddr, ops::Add, time::Duration};
+use std::net::SocketAddr;
 
 use crate::impls::cache::CacheHttpImpl;
 use crate::{config, impls};
@@ -11,7 +11,6 @@ use axum::{
     Json, Router,
 };
 use log::info;
-use moka::future::Cache;
 use reqwest::Method;
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -38,6 +37,18 @@ pub enum RPCMethod {
     BotVoteReset { bot_id: String, reason: String }, // Added
     BotVoteResetAll { reason: String },
     BotUnverify { bot_id: String, reason: String }, // Added
+}
+
+impl ToString for RPCMethod {
+    fn to_string(&self) -> String {
+        match self {
+            Self::BotApprove { .. } => "BotApprove",
+            Self::BotDeny { .. } => "BotDeny",
+            Self::BotVoteReset { .. } => "BotVoteReset",
+            Self::BotVoteResetAll { .. } => "BotVoteResetAll",
+            Self::BotUnverify { .. } => "BotUnverify",
+        }.to_string()
+    }
 }
 
 pub enum RPCResponse {
@@ -87,18 +98,12 @@ impl IntoResponse for RPCResponse {
 pub struct AppState {
     pub cache_http: CacheHttpImpl,
     pub pool: PgPool,
-    pub ratelimits: Cache<String, u64>,
 }
 
 pub async fn rpc_init(pool: PgPool, cache_http: CacheHttpImpl) {
     let shared_state = Arc::new(AppState {
         pool,
         cache_http,
-        ratelimits: moka::future::Cache::builder()
-            // Time to live (TTL): 7 minutes
-            .time_to_live(Duration::from_secs(60 * 7))
-            // Create the cache.
-            .build(),
     });
 
     let mut origins = vec![];
@@ -164,16 +169,34 @@ async fn web_rpc_api(
 
     let user_id_snowflake = user_id_snowflake.unwrap();
 
-    // Add request to moka cache
-    let new_req = state
-        .ratelimits
-        .get(&req.user_id)
-        .unwrap_or_default()
-        .add(1);
+    // Add request to rpc_requests table
+    let err = sqlx::query!(
+        "INSERT INTO rpc_requests (user_id, method) VALUES ($1, $2)",
+        &req.user_id,
+        &req.method.to_string()
+    )
+    .execute(&state.pool)
+    .await;
 
-    state.ratelimits.insert(req.user_id.clone(), new_req).await;
+    if err.is_err() {
+        return RPCResponse::Err("Failed to add request to rpc_requests table".to_string());
+    }
 
-    if new_req > 6 {
+    // Get number of requests in the last 7 minutes
+    let res = sqlx::query!(
+        "SELECT COUNT(*) FROM rpc_requests WHERE user_id = $1 AND NOW() - created_at < INTERVAL '7 minutes'",
+        &req.user_id
+    )
+    .fetch_one(&state.pool)
+    .await;
+
+    if res.is_err() {
+        return RPCResponse::Err("Failed to get number of requests in the last 7 minutes".to_string());
+    }
+
+    let count = res.unwrap().count.unwrap_or_default();
+
+    if count > 6 {
         let res = sqlx::query!(
             "UPDATE users SET api_token = $2 WHERE user_id = $1",
             &req.user_id,

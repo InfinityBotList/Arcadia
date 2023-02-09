@@ -23,6 +23,27 @@ pub async fn staff_resync_task(pool: sqlx::PgPool, cache_http: crate::impls::cac
 
         log::info!("TASK: staff_resync_task (45s interval)");
 
+        if let Err(e) = sqlx::query!("UPDATE users SET user_id = TRIM(user_id)")
+        .execute(&pool)
+        .await {
+            log::error!("Error while trimming user_id: {:?}", e);
+        }
+
+        // Then, remove bad users
+        let v = sqlx::query!("DELETE FROM users WHERE user_id = ''")
+            .execute(&pool)
+            .await;
+
+        if v.is_err() {
+            log::error!("Error while removing empty user_id: {:?}", v);
+        } else {
+            let v = v.unwrap();
+            if v.rows_affected() > 0 {
+                log::info!("Removed {} users with empty user_id", v.rows_affected());
+            }
+        }
+
+        // Now actually resync
         let mut staff_resync = Vec::new();
 
         let dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.developer);

@@ -987,7 +987,7 @@ Welcome to your onboarding server! Please read the following:
                         .skip(code_upper.len() - 6)
                         .collect::<String>();
 
-                    info!("Wanted {} and user inputted {}", code_upper, code);
+                    info!("Wanted {} and user inputted {}", code_upper, i_code);
 
                     if code_upper != i_code {
                         qm.interaction.create_response(&discord, CreateInteractionResponse::Message(

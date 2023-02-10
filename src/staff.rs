@@ -42,7 +42,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     };
 
     let staffs = sqlx::query!(
-        "SELECT user_id, username, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE staff = true ORDER BY user_id ASC"
+        "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE staff = true ORDER BY user_id ASC"
     )
     .fetch_all(&data.pool)
     .await?;
@@ -182,7 +182,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
         };
 
         let staff = sqlx::query!(
-            "SELECT user_id, username, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE user_id = $1",
+            "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE user_id = $1",
             user_id.to_string()
         )
         .fetch_one(&data.pool)
@@ -231,7 +231,6 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             )
             .description("This is the information we have on this staff member")
             .field("User ID", staff.user_id, true)
-            .field("DB Username", staff.username, true)
             .field("Permissions", perms, true)
         )
         .components(
@@ -274,14 +273,12 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
     let discord = &ctx.discord();
 
     let staffs = sqlx::query!(
-        "SELECT user_id, username, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE staff = true ORDER BY user_id ASC"
+        "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE staff = true ORDER BY user_id ASC"
     )
     .fetch_all(&data.pool)
     .await?;
 
     let mut staff_list = "**Staff List**\n".to_string();
-    let mut not_in_staff_server =
-        "**Not in staff server (based on cache, may be inaccurate)**\n".to_string();
 
     let guild = ctx.guild().unwrap().id;
 
@@ -294,11 +291,9 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
         let user = match cache_user {
             Some(user) => user.user,
             None => {
-                // User not found in cache, fetch from API
-                let user = UserId(user_id).to_user(&ctx).await?;
-
-                write!(not_in_staff_server, "{} ({})", user.id.0, user.name)?;
-                user
+                return Err(
+                    format!("User <@{}> is staff but not in the server", user_id).into()
+                );
             }
         };
 
@@ -315,7 +310,7 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
         )?;
     }
 
-    ctx.say(staff_list + "\n" + &not_in_staff_server).await?;
+    ctx.say(staff_list).await?;
 
     Ok(())
 }

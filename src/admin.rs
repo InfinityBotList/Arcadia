@@ -285,3 +285,49 @@ pub async fn unverifybot(
 
     Ok(())
 }
+
+#[derive(poise::ChoiceParameter)]
+pub enum TimePeriodUnit {
+    #[name = "Years"]
+    Years,
+    #[name = "Days"]
+    Days,
+    #[name = "Hours"]
+    Hours,
+}
+
+/// Adds premium to a bot
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn premiumadd(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+    #[description = "The time period (in days or hours)"] time_period: i32,
+    #[description = "The time period unit (days, hours etc)"] time_unit: TimePeriodUnit,
+) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
+    impls::actions::premium_add_bot(
+        &data.cache_http,
+        &data.pool,
+        &bot.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+        match time_unit {
+            TimePeriodUnit::Years => time_period * 365 * 24,
+            TimePeriodUnit::Days => time_period * 24,
+            TimePeriodUnit::Hours => time_period,
+        },
+    )
+    .await?;
+
+    ctx.say("This bot has been added to premium successfully!").await?;
+
+    Ok(())
+}

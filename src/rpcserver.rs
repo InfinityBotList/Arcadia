@@ -36,6 +36,7 @@ pub enum RPCMethod {
     BotVoteReset { bot_id: String, reason: String }, // Added
     BotVoteResetAll { reason: String },
     BotUnverify { bot_id: String, reason: String }, // Added
+    BotPremiumAdd { bot_id: String, reason: String, time_period_hours: i32 },
 }
 
 impl ToString for RPCMethod {
@@ -46,6 +47,7 @@ impl ToString for RPCMethod {
             Self::BotVoteReset { .. } => "BotVoteReset",
             Self::BotVoteResetAll { .. } => "BotVoteResetAll",
             Self::BotUnverify { .. } => "BotUnverify",
+            Self::BotPremiumAdd { .. } => "BotPremiumAdd",
         }.to_string()
     }
 }
@@ -295,6 +297,27 @@ async fn web_rpc_api(
                     &bot_id,
                     &req.user_id,
                     &reason,
+                )
+                .await;
+
+                if err.is_err() {
+                    RPCResponse::Err(err.unwrap_err().to_string())
+                } else {
+                    RPCResponse::NoContent
+                }
+            }
+        },
+        RPCMethod::BotPremiumAdd { bot_id, reason, time_period_hours} => {
+            if !(check.hadmin || check.iblhdev) {
+                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+            } else {
+                let err = impls::actions::premium_add_bot(
+                    &state.cache_http,
+                    &state.pool,
+                    &bot_id,
+                    &req.user_id,
+                    &reason,
+                    *time_period_hours,
                 )
                 .await;
 

@@ -247,10 +247,6 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
         return Err("Only staff members can claim bots!".into());
     }
 
-    if !checks::is_staff(ctx).await? {
-        return Err("You must be staff to use this command!".into());
-    }
-
     if bot.id.0 == config::CONFIG.test_bot {
         return Err("You cannot claim the test bot!".into());
     }
@@ -608,12 +604,12 @@ pub async fn deny(
         return Ok(());
     }
 
-    if !checks::testing_server(ctx).await? {
-        return Err("You are not in the testing server".into());
-    }
-
     if !checks::is_staff(ctx).await? {
         return Err("Only staff members can deny bots!".into());
+    }
+
+    if !checks::testing_server(ctx).await? {
+        return Err("You are not in the testing server".into());
     }
 
     let data = ctx.data();

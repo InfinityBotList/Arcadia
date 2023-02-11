@@ -70,6 +70,10 @@ pub async fn vote_reset_bot(
         .execute(pool)
         .await?;
 
+    sqlx::query!("DELETE FROM votes WHERE bot_id = $1", bot_id)
+        .execute(pool)
+        .await?;
+
     let msg = CreateMessage::default().embed(
         CreateEmbed::default()
             .title("__Bot Vote Reset!__")
@@ -105,6 +109,10 @@ pub async fn vote_reset_all_bot(
     sqlx::query!("UPDATE bots SET votes = 0")
         .execute(pool)
         .await?;
+    
+    sqlx::query!("DELETE FROM votes")
+        .execute(pool)
+        .await?;
 
     let msg = CreateMessage::default().embed(
         CreateEmbed::default()
@@ -131,6 +139,18 @@ pub async fn unverify_bot(
 ) -> Result<(), Error> {
     if bot_id == "all" {
         return Err("You cannot unverify all bots".into());
+    }
+
+    // Ensure user has iblhdev or hadmin
+    let check = sqlx::query!(
+        "SELECT iblhdev, hadmin FROM users WHERE user_id = $1",
+        staff_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if !(check.iblhdev || check.hadmin) {
+        return Err("You need `Head Staff Manager` or `Head Developer` to unverify bots".into());
     }
 
     // Ensure the bot actually exists
@@ -175,11 +195,15 @@ pub async fn approve_bot(
 ) -> Result<String, Error> {
     // The bot has way better onboarding, but this is a generic impl function so we need it
     let onboard_state = sqlx::query!(
-        "SELECT staff_onboard_state FROM users WHERE user_id = $1",
+        "SELECT staff, staff_onboard_state FROM users WHERE user_id = $1",
         staff_id
     )
     .fetch_one(pool)
     .await?;
+
+    if !onboard_state.staff {
+        return Err("Only staff members may approve bots".into());
+    }
 
     // We should never get this on bot, but maybe on website
     if onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Completed.as_str() {
@@ -298,11 +322,15 @@ pub async fn deny_bot(
 ) -> Result<(), Error> {
     // The bot has way better onboarding, but this is a generic impl function so we need it
     let onboard_state = sqlx::query!(
-        "SELECT staff_onboard_state FROM users WHERE user_id = $1",
+        "SELECT staff, staff_onboard_state FROM users WHERE user_id = $1",
         staff_id
     )
     .fetch_one(pool)
     .await?;
+
+    if !onboard_state.staff {
+        return Err("Only staff members may deny bots".into());
+    }
 
     // We should never get this on bot, but maybe on website
     if onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Completed.as_str() {
@@ -398,4 +426,62 @@ pub async fn deny_bot(
         error!("Failed to deny bot {} on metro, but success on IBL", bot_id);
         Ok(())
     }
+}
+
+pub async fn premium_add_bot(
+    discord: &CacheHttpImpl,
+    pool: &PgPool,
+    bot_id: &str,
+    staff_id: &str,
+    reason: &str,
+    time_period: i32 /* in hours */
+) -> Result<(), Error> {
+    // Ensure user has iblhdev or hadmin
+    let check = sqlx::query!(
+        "SELECT iblhdev, hadmin FROM users WHERE user_id = $1",
+        staff_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if !(check.iblhdev || check.hadmin) {
+        return Err("You need `Head Staff Manager` or `Head Developer` to add premium to bots".into());
+    }
+
+    // Ensure the bot actually exists
+    let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
+        .fetch_one(pool)
+        .await?;
+
+    if bot.count.unwrap_or_default() == 0 {
+        return Err("Bot does not exist".into());
+    }
+
+    add_action_log(pool, bot_id, staff_id, &(reason.to_string() + ": " + &time_period.to_string()), "premium_add").await?;
+
+    // Set premium_period_length which is a postgres interval
+    sqlx::query!(
+        "UPDATE bots SET start_premium_period = NOW(), premium_period_length = make_interval(hours => $1), premium = true WHERE bot_id = $2",
+        time_period,
+        bot_id
+    )
+    .execute(pool)
+    .await?;
+
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("Premium Added!")
+            .description(format!("<@{}> has added premium to <@{}> for {} hours", staff_id, bot_id, time_period))
+            .field("Reason", reason, true)
+            .footer(CreateEmbedFooter::new(
+                "Well done, young traveller! Use it wisely...",
+            ))
+            .color(0x00ff00),
+    );
+
+    ChannelId(crate::config::CONFIG.channels.mod_logs)
+        .send_message(&discord, msg)
+        .await?;
+
+    Ok(())
 }

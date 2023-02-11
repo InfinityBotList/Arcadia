@@ -109,10 +109,8 @@ pub async fn vote_reset_all_bot(
     sqlx::query!("UPDATE bots SET votes = 0")
         .execute(pool)
         .await?;
-    
-    sqlx::query!("DELETE FROM votes")
-        .execute(pool)
-        .await?;
+
+    sqlx::query!("DELETE FROM votes").execute(pool).await?;
 
     let msg = CreateMessage::default().embed(
         CreateEmbed::default()
@@ -434,7 +432,7 @@ pub async fn premium_add_bot(
     bot_id: &str,
     staff_id: &str,
     reason: &str,
-    time_period: i32 /* in hours */
+    time_period: i32, /* in hours */
 ) -> Result<(), Error> {
     // Ensure user has iblhdev or hadmin
     let check = sqlx::query!(
@@ -445,7 +443,9 @@ pub async fn premium_add_bot(
     .await?;
 
     if !(check.iblhdev || check.hadmin) {
-        return Err("You need `Head Staff Manager` or `Head Developer` to add premium to bots".into());
+        return Err(
+            "You need `Head Staff Manager` or `Head Developer` to add premium to bots".into(),
+        );
     }
 
     // Ensure the bot actually exists
@@ -457,7 +457,14 @@ pub async fn premium_add_bot(
         return Err("Bot does not exist".into());
     }
 
-    add_action_log(pool, bot_id, staff_id, &(reason.to_string() + ": " + &time_period.to_string()), "premium_add").await?;
+    add_action_log(
+        pool,
+        bot_id,
+        staff_id,
+        &(reason.to_string() + ": " + &time_period.to_string()),
+        "premium_add",
+    )
+    .await?;
 
     // Set premium_period_length which is a postgres interval
     sqlx::query!(
@@ -471,7 +478,10 @@ pub async fn premium_add_bot(
     let msg = CreateMessage::new().embed(
         CreateEmbed::default()
             .title("Premium Added!")
-            .description(format!("<@{}> has added premium to <@{}> for {} hours", staff_id, bot_id, time_period))
+            .description(format!(
+                "<@{}> has added premium to <@{}> for {} hours",
+                staff_id, bot_id, time_period
+            ))
             .field("Reason", reason, true)
             .footer(CreateEmbedFooter::new(
                 "Well done, young traveller! Use it wisely...",

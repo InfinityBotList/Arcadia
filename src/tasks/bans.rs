@@ -7,12 +7,15 @@ pub async fn bans_sync(
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
     let bans = GuildId(config::CONFIG.servers.main)
-    .bans(&cache_http.http)
-    .await
-    .map_err(|e| format!("Error while fetching bans: {}", e))?;
+        .bans(&cache_http.http)
+        .await
+        .map_err(|e| format!("Error while fetching bans: {}", e))?;
 
     // Create a transaction
-    let mut tx = pool.begin().await.map_err(|e| format!("Error creating transaction: {}", e))?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| format!("Error creating transaction: {}", e))?;
 
     // First unset all bans
     sqlx::query!("UPDATE users SET banned = false")
@@ -29,7 +32,9 @@ pub async fn bans_sync(
     }
 
     // Commit the transaction
-    tx.commit().await.map_err(|e| format!("Error while committing transaction: {}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Error while committing transaction: {}", e))?;
 
     Ok(())
 }

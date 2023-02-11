@@ -115,8 +115,10 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
         let certified_role = RoleId(config::CONFIG.roles.certified_developer);
 
         if certified {
-            ctx.say("You are the owner/additional owner of a certified bot! Giving you certified role")
-                .await?;
+            ctx.say(
+                "You are the owner/additional owner of a certified bot! Giving you certified role",
+            )
+            .await?;
 
             // Check that they have botdev_role, if not, add
             if !member.roles.contains(&bot_role) {
@@ -127,8 +129,10 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
                 roles_to_add.push(certified_role);
             }
         } else if approved {
-            ctx.say("You are the owner/additional owner of an approved bot! Giving you approved role")
-                .await?;
+            ctx.say(
+                "You are the owner/additional owner of an approved bot! Giving you approved role",
+            )
+            .await?;
 
             // Check that they have botdev_role, if not, add
             if !member.roles.contains(&bot_role) {

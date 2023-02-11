@@ -6,22 +6,24 @@ pub async fn dead_guilds(
 ) -> Result<(), crate::Error> {
     let current_user = cache_http.cache.current_user().id.0;
 
-    for guild_id in cache_http.cache.guilds() { 
+    for guild_id in cache_http.cache.guilds() {
         if vec![
-            config::CONFIG.servers.main, 
-            config::CONFIG.servers.staff, 
-            config::CONFIG.servers.testing
-        ].contains(&guild_id.0) {
+            config::CONFIG.servers.main,
+            config::CONFIG.servers.staff,
+            config::CONFIG.servers.testing,
+        ]
+        .contains(&guild_id.0)
+        {
             continue;
         }
 
         let guild_owner = {
             let guild = cache_http.cache.guild(guild_id);
 
-            if let Some(guild) = guild {                
+            if let Some(guild) = guild {
                 guild.owner_id
             } else {
-                continue
+                continue;
             }
         };
 
@@ -39,18 +41,10 @@ pub async fn dead_guilds(
             // This guild can be deleted or left
             if guild_owner.0 == current_user {
                 if let Err(e) = guild_id.delete(&cache_http.http).await {
-                    log::error!(
-                        "Error while deleting guild {}: {:?}",
-                        guild_id.0,
-                        e
-                    );
+                    log::error!("Error while deleting guild {}: {:?}", guild_id.0, e);
                 }
             } else if let Err(e) = guild_id.leave(&cache_http.http).await {
-                log::error!(
-                    "Error while leaving guild {}: {:?}",
-                    guild_id.0,
-                    e
-                );
+                log::error!("Error while leaving guild {}: {:?}", guild_id.0, e);
             }
         }
     }

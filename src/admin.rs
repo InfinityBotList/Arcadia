@@ -327,7 +327,8 @@ pub async fn premiumadd(
     )
     .await?;
 
-    ctx.say("This bot has been added to premium successfully!").await?;
+    ctx.say("This bot has been added to premium successfully!")
+        .await?;
 
     Ok(())
 }

@@ -1,5 +1,11 @@
 use futures_util::StreamExt;
-use poise::{serenity_prelude::{GuildId, CreateActionRow, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, CreateButton, EditInteractionResponse, CreateEmbed, ComponentInteractionDataKind}, CreateReply};
+use poise::{
+    serenity_prelude::{
+        ComponentInteractionDataKind, CreateActionRow, CreateButton, CreateEmbed, CreateSelectMenu,
+        CreateSelectMenuKind, CreateSelectMenuOption, EditInteractionResponse, GuildId,
+    },
+    CreateReply,
+};
 
 use std::{fmt::Write as _, num::NonZeroU64, time::Duration};
 // import without risk of name clashing
@@ -16,7 +22,13 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("staff_list", "staff_overview", "staff_guildlist", "staff_guilddel", "staff_guildleave")
+    subcommands(
+        "staff_list",
+        "staff_overview",
+        "staff_guildlist",
+        "staff_guilddel",
+        "staff_guildleave"
+    )
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("Some available options are ``staff list``, ``staff overview``, ``staff guildlist`` (dev/admin only), ``staff_guilddel`` (dev/admin only), ``staff_guildleave`` (dev/admin only), ``staff recalc`` (dev/admin only), ``staff add`` (dev/admin only) etc.").await?;
@@ -36,9 +48,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
     let server_id = match ctx.guild_id() {
         Some(server_id) => server_id,
-        None => {
-            return Err("This command can only be used in a server".into())
-        }
+        None => return Err("This command can only be used in a server".into()),
     };
 
     let staffs = sqlx::query!(
@@ -48,7 +58,10 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     .await?;
 
     if staffs.len() > 25 {
-        return Err("Too many staff members to display, please use the ``staff overview`` command instead.".into())
+        return Err(
+            "Too many staff members to display, please use the ``staff overview`` command instead."
+                .into(),
+        );
     }
 
     let mut select_menus = Vec::<CreateSelectMenuOption>::new();
@@ -72,7 +85,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             Ok(user_id) => user_id,
             Err(e) => {
                 log::error!("Failed to parse user_id: {}", e);
-                return Err("Failed to parse user_id".into())
+                return Err("Failed to parse user_id".into());
             }
         };
 
@@ -87,47 +100,35 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
         };
 
         select_menus.push(
-            CreateSelectMenuOption::new(
-                format!("{} ({})", user.name, highest_perm),
-                staff.user_id
-            )
-            .description("View staff member's information")
+            CreateSelectMenuOption::new(format!("{} ({})", user.name, highest_perm), staff.user_id)
+                .description("View staff member's information"),
         );
     }
 
     // Create select menu
-    let msg = ctx.send(
-        CreateReply::new()
-        .content("**Please select a staff member to view their information**")
-        .components(
-            vec![
-                CreateActionRow::SelectMenu(
-                    CreateSelectMenu::new(
+    let msg = ctx
+        .send(
+            CreateReply::new()
+                .content("**Please select a staff member to view their information**")
+                .components(vec![
+                    CreateActionRow::SelectMenu(CreateSelectMenu::new(
                         "Choose a staff member",
                         CreateSelectMenuKind::String {
-                            options: select_menus.clone()
-                        }
-                    )
-                ),
-                CreateActionRow::Buttons(
-                    vec![
-                        CreateButton::new(
-                            "sl:cancel"
-                        )
-                        .label("Cancel")
-                    ]
-                )
-            ]
+                            options: select_menus.clone(),
+                        },
+                    )),
+                    CreateActionRow::Buttons(vec![CreateButton::new("sl:cancel").label("Cancel")]),
+                ]),
         )
-    ).await?
-    .into_message()
-    .await?;
+        .await?
+        .into_message()
+        .await?;
 
     // Wait for user to select a staff member
     let interaction = msg
-    .await_component_interactions(ctx.discord())
-    .author_id(ctx.author().id)
-    .timeout(Duration::from_secs(120));
+        .await_component_interactions(ctx.discord())
+        .author_id(ctx.author().id)
+        .timeout(Duration::from_secs(120));
 
     let mut collect_stream = interaction.stream();
 
@@ -144,9 +145,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
         // Get select menu value
         let values = match &item.data.kind {
-            ComponentInteractionDataKind::StringSelect { values } => {
-                values
-            },
+            ComponentInteractionDataKind::StringSelect { values } => values,
             _ => {
                 log::info!("Received interaction of wrong type: {:?}", item.data.kind);
                 continue;
@@ -204,7 +203,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
                 }
                 if staff.admin {
                     errs.push(writeln!(perms, "- Staff Manager [admin]"));
-                } 
+                }
                 if staff.staff {
                     errs.push(writeln!(perms, "- Staff [staff]"));
                 }
@@ -215,7 +214,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             for err in errors {
                 if let Err(e) = err {
                     log::error!("Failed to write to perms: {}", e);
-                    continue
+                    continue;
                 }
             }
 
@@ -223,37 +222,28 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
         };
 
         let msg = EditInteractionResponse::new()
-        .content("")
-        .embed(
-            CreateEmbed::default()
-            .title(
-                format!("{}'s [{}] information", member.user.name, member.display_name())
+            .content("")
+            .embed(
+                CreateEmbed::default()
+                    .title(format!(
+                        "{}'s [{}] information",
+                        member.user.name,
+                        member.display_name()
+                    ))
+                    .description("This is the information we have on this staff member")
+                    .field("User ID", staff.user_id, true)
+                    .field("Permissions", perms, true),
             )
-            .description("This is the information we have on this staff member")
-            .field("User ID", staff.user_id, true)
-            .field("Permissions", perms, true)
-        )
-        .components(
-            vec![
-                CreateActionRow::SelectMenu(
-                    CreateSelectMenu::new(
-                        "Choose a staff member",
-                        CreateSelectMenuKind::String {
-                            options: select_menus.clone()
-                        }
-                    )
-                ),
-                CreateActionRow::Buttons(
-                    vec![
-                        CreateButton::new(
-                            "sl:cancel"
-                        )
-                        .label("Cancel")
-                    ]
-                )
-            ]
-        );
-        
+            .components(vec![
+                CreateActionRow::SelectMenu(CreateSelectMenu::new(
+                    "Choose a staff member",
+                    CreateSelectMenuKind::String {
+                        options: select_menus.clone(),
+                    },
+                )),
+                CreateActionRow::Buttons(vec![CreateButton::new("sl:cancel").label("Cancel")]),
+            ]);
+
         item.edit_response(ctx.discord(), msg).await?;
     }
 
@@ -291,9 +281,7 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
         let user = match cache_user {
             Some(user) => user.user,
             None => {
-                return Err(
-                    format!("User <@{}> is staff but not in the server", user_id).into()
-                );
+                return Err(format!("User <@{}> is staff but not in the server", user_id).into());
             }
         };
 

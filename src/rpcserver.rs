@@ -31,12 +31,30 @@ pub struct RPCRequest {
 #[derive(Deserialize, TS)]
 #[ts(export, export_to = ".generated/RPCMethod.ts")]
 pub enum RPCMethod {
-    BotApprove { bot_id: String, reason: String }, // Added
-    BotDeny { bot_id: String, reason: String },    // Added
-    BotVoteReset { bot_id: String, reason: String }, // Added
-    BotVoteResetAll { reason: String },
-    BotUnverify { bot_id: String, reason: String }, // Added
-    BotPremiumAdd { bot_id: String, reason: String, time_period_hours: i32 },
+    BotApprove {
+        bot_id: String,
+        reason: String,
+    }, // Added
+    BotDeny {
+        bot_id: String,
+        reason: String,
+    }, // Added
+    BotVoteReset {
+        bot_id: String,
+        reason: String,
+    }, // Added
+    BotVoteResetAll {
+        reason: String,
+    },
+    BotUnverify {
+        bot_id: String,
+        reason: String,
+    }, // Added
+    BotPremiumAdd {
+        bot_id: String,
+        reason: String,
+        time_period_hours: i32,
+    },
 }
 
 impl ToString for RPCMethod {
@@ -48,7 +66,8 @@ impl ToString for RPCMethod {
             Self::BotVoteResetAll { .. } => "BotVoteResetAll",
             Self::BotUnverify { .. } => "BotUnverify",
             Self::BotPremiumAdd { .. } => "BotPremiumAdd",
-        }.to_string()
+        }
+        .to_string()
     }
 }
 
@@ -102,10 +121,7 @@ pub struct AppState {
 }
 
 pub async fn rpc_init(pool: PgPool, cache_http: CacheHttpImpl) {
-    let shared_state = Arc::new(AppState {
-        pool,
-        cache_http,
-    });
+    let shared_state = Arc::new(AppState { pool, cache_http });
 
     let mut origins = vec![];
 
@@ -123,7 +139,9 @@ pub async fn rpc_init(pool: PgPool, cache_http: CacheHttpImpl) {
                 .allow_headers([http::header::CONTENT_TYPE]),
         );
 
-    let addr = "127.0.0.1:3010".parse().expect("Invalid RPC server address");
+    let addr = "127.0.0.1:3010"
+        .parse()
+        .expect("Invalid RPC server address");
 
     info!("Starting RPC server on {}", addr);
 
@@ -192,7 +210,9 @@ async fn web_rpc_api(
     .await;
 
     if res.is_err() {
-        return RPCResponse::Err("Failed to get number of requests in the last 7 minutes".to_string());
+        return RPCResponse::Err(
+            "Failed to get number of requests in the last 7 minutes".to_string(),
+        );
     }
 
     let count = res.unwrap().count.unwrap_or_default();
@@ -306,8 +326,12 @@ async fn web_rpc_api(
                     RPCResponse::NoContent
                 }
             }
-        },
-        RPCMethod::BotPremiumAdd { bot_id, reason, time_period_hours} => {
+        }
+        RPCMethod::BotPremiumAdd {
+            bot_id,
+            reason,
+            time_period_hours,
+        } => {
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {

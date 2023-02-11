@@ -53,16 +53,16 @@ pub async fn auto_unclaim(
                     "Unclaiming bot {} because it was claimed by {} and never unclaimed",
                     bot.bot_id,
                     claimed_by
-                );   
-                
+                );
+
                 sqlx::query!(
                     "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
                     bot.bot_id
                 )
                 .execute(pool)
                 .await
-                .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;  
-                
+                .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;
+
                 // Now send message in #lounge
                 let msg = CreateMessage::default()
                 .content(format!("<@{}>", claimed_by))
@@ -77,17 +77,21 @@ pub async fn auto_unclaim(
                                 last_claimed.timestamp(),
                             ))
                         .color(0xFF0000)
-                );    
+                );
 
                 ChannelId(config::CONFIG.channels.testing_lounge)
-                .send_message(&cache_http, msg)
-                .await
-                .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
+                    .send_message(&cache_http, msg)
+                    .await
+                    .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
 
                 if let Ok(owner) = bot.owner.parse::<NonZeroU64>() {
                     // Check that owner is in the server
 
-                    if cache_http.cache.member_field(config::CONFIG.servers.main, owner, |m| m.user.id).is_none() {
+                    if cache_http
+                        .cache
+                        .member_field(config::CONFIG.servers.main, owner, |m| m.user.id)
+                        .is_none()
+                    {
                         log::warn!("Bot owner is not in the server. Not sending DM");
                         continue;
                     }
@@ -115,11 +119,11 @@ For more information, you can contact the current reviewer <@{}>
                                         ))
                                     .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
                             );
-        
+
                             dm.send_message(&cache_http, msg)
-                            .await
-                            .map_err(|e| format!("Error while sending message in DM: {}", e))?;        
-                        },
+                                .await
+                                .map_err(|e| format!("Error while sending message in DM: {}", e))?;
+                        }
                         Err(e) => {
                             log::warn!("Error while creating DM channel with bot owner: {:?}", e);
                         }

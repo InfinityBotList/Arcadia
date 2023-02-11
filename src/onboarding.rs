@@ -315,10 +315,8 @@ be approved or denied.
     }
 
     if ctx.guild().is_none() {
-        ctx.say(
-            "You must run this command in a server. Please run this command in a server.",
-        )
-        .await?;
+        ctx.say("You must run this command in a server. Please run this command in a server.")
+            .await?;
         return Ok(false);
     }
 
@@ -514,9 +512,9 @@ Welcome to your onboarding server! Please read the following:
     } else {
         // Check if user is admin
         let mut found = false;
-        
+
         if ctx.guild().is_none() {
-            return Err("Could not find guild somehow".into())
+            return Err("Could not find guild somehow".into());
         }
 
         for member in ctx.guild().unwrap().members.iter() {

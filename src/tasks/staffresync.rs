@@ -19,7 +19,6 @@ pub async fn staff_resync(
     pool: &sqlx::PgPool,
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
-
     // Remove bad users
     sqlx::query!("UPDATE users SET user_id = TRIM(user_id)")
         .execute(pool)
@@ -35,17 +34,14 @@ pub async fn staff_resync(
     let mut staff_resync = Vec::new();
 
     let dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.developer);
-    let head_dev_role =
-        poise::serenity_prelude::RoleId(config::CONFIG.roles.head_developer);
-    let staff_man_role =
-        poise::serenity_prelude::RoleId(config::CONFIG.roles.staff_manager);
+    let head_dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.head_developer);
+    let staff_man_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.staff_manager);
     let head_man_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.head_manager);
     let web_mod_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.web_moderator);
 
     {
         if let Some(guild) = cache_http.cache.guild(config::CONFIG.servers.staff) {
-            for (_, member) in guild.members.iter()
-            {
+            for (_, member) in guild.members.iter() {
                 if member.roles.contains(&dev_role) {
                     staff_resync.push(StaffResync {
                         user_id: member.user.id.0,
@@ -83,9 +79,10 @@ pub async fn staff_resync(
     }
 
     // Create a transaction
-    let mut tx = pool.begin().await.map_err(
-        |e| format!("Error creating transaction: {:?}", e),
-    )?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
     // First unset all staff
     sqlx::query!("UPDATE users SET staff = false, ibldev = false, iblhdev = false, admin = false, hadmin = false")
@@ -120,13 +117,17 @@ pub async fn staff_resync(
                 .execute(&mut tx)
                 .await
             }
-            StaffPosition::HeadDeveloper => {
-                sqlx::query!("UPDATE users SET staff = true, ibldev = true, iblhdev = true WHERE user_id = $1", staff.user_id.to_string())
-                .execute(&mut tx)
-                .await
-            }
+            StaffPosition::HeadDeveloper => sqlx::query!(
+                "UPDATE users SET staff = true, ibldev = true, iblhdev = true WHERE user_id = $1",
+                staff.user_id.to_string()
+            )
+            .execute(&mut tx)
+            .await,
             StaffPosition::HeadManager => {
-                sqlx::query!("UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1", staff.user_id.to_string())
+                sqlx::query!(
+                    "UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1",
+                    staff.user_id.to_string()
+                )
                 .execute(&mut tx)
                 .await
             }
@@ -135,8 +136,9 @@ pub async fn staff_resync(
     }
 
     // Commit the transaction
-    tx.commit().await.map_err(|e| format!("Error while committing transaction: {:?}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Error while committing transaction: {:?}", e))?;
 
     Ok(())
 }
-

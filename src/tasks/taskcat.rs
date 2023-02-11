@@ -52,6 +52,6 @@ pub async fn taskcat(
             Task::StaffResync => crate::tasks::staffresync::staff_resync(&pool, &cache_http).await,
         } {
             log::error!("TASK {} ERROR'd: {:?}", task_name, e);
-        }   
+        }
     }
 }

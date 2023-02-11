@@ -57,11 +57,12 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
         poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
         poise::FrameworkError::Command { error, ctx } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
-            let err = ctx.say(format!(
-                "There was an error running this command: {}",
-                error
-            ))
-            .await;
+            let err = ctx
+                .say(format!(
+                    "There was an error running this command: {}",
+                    error
+                ))
+                .await;
 
             if let Err(e) = err {
                 error!("SQLX Error: {}", e);
@@ -75,17 +76,20 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             );
             if let Some(error) = error {
                 error!("Error in command `{}`: {:?}", ctx.command().name, error,);
-                let err = ctx.say(format!(
-                    "Whoa there, do you have permission to do this?: {}",
-                    error
-                ))
-                .await;
+                let err = ctx
+                    .say(format!(
+                        "Whoa there, do you have permission to do this?: {}",
+                        error
+                    ))
+                    .await;
 
                 if let Err(e) = err {
                     error!("Error while sending error message: {}", e);
                 }
             } else {
-                let err = ctx.say("You don't have permission to do this but we couldn't figure out why...").await;
+                let err = ctx
+                    .say("You don't have permission to do this but we couldn't figure out why...")
+                    .await;
 
                 if let Err(e) = err {
                     error!("Error while sending error message: {}", e);
@@ -128,35 +132,35 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
             // Start RPC
             tokio::task::spawn(rpcserver::rpc_init(
-                user_data.pool.clone(), 
-                user_data.cache_http.clone())
-            );
-            
+                user_data.pool.clone(),
+                user_data.cache_http.clone(),
+            ));
+
             // Start tasks
             let mut set = JoinSet::new();
 
             set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(), 
+                user_data.pool.clone(),
                 user_data.cache_http.clone(),
-                tasks::taskcat::Task::AutoUnclaim
+                tasks::taskcat::Task::AutoUnclaim,
             ));
 
             set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(), 
+                user_data.pool.clone(),
                 user_data.cache_http.clone(),
-                tasks::taskcat::Task::Bans
+                tasks::taskcat::Task::Bans,
             ));
 
             set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(), 
+                user_data.pool.clone(),
                 user_data.cache_http.clone(),
-                tasks::taskcat::Task::StaffResync
+                tasks::taskcat::Task::StaffResync,
             ));
 
             set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(), 
+                user_data.pool.clone(),
                 user_data.cache_http.clone(),
-                tasks::taskcat::Task::DeadGuilds
+                tasks::taskcat::Task::DeadGuilds,
             ));
 
             while let Some(res) = set.join_next().await {

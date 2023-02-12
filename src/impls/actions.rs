@@ -526,22 +526,12 @@ pub async fn premium_remove_bot(
         return Err("Bot does not exist".into());
     }
 
-    add_action_log(
-        pool,
-        bot_id,
-        staff_id,
-        reason,
-        "premium_remove",
-    )
-    .await?;
+    add_action_log(pool, bot_id, staff_id, reason, "premium_remove").await?;
 
     // Set premium_period_length which is a postgres interval
-    sqlx::query!(
-        "UPDATE bots SET premium = false WHERE bot_id = $1",
-        bot_id
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query!("UPDATE bots SET premium = false WHERE bot_id = $1", bot_id)
+        .execute(pool)
+        .await?;
 
     let msg = CreateMessage::new().embed(
         CreateEmbed::default()

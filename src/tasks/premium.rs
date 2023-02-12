@@ -22,19 +22,33 @@ pub async fn premium_remove(
 
     for row in res {
         log::info!("Removing premium from bot {}", row.bot_id);
-        
+
         sqlx::query!(
             "UPDATE bots SET premium = false WHERE bot_id = $1",
             row.bot_id
         )
         .execute(pool)
         .await
-        .map_err(|e| format!("Error while removing premium from bot {}: {}", row.bot_id, e))?;
+        .map_err(|e| {
+            format!(
+                "Error while removing premium from bot {}: {}",
+                row.bot_id, e
+            )
+        })?;
 
-        let bot_id = row.bot_id.parse().map_err(|e| format!("Error while parsing bot id: {}", e))?;
+        let bot_id = row
+            .bot_id
+            .parse()
+            .map_err(|e| format!("Error while parsing bot id: {}", e))?;
 
         let bot_username = {
-            if let Some(name) = cache_http.cache.member_field(crate::config::CONFIG.servers.main, bot_id, |m| m.user.name.clone()) {
+            if let Some(name) =
+                cache_http
+                    .cache
+                    .member_field(crate::config::CONFIG.servers.main, bot_id, |m| {
+                        m.user.name.clone()
+                    })
+            {
                 name
             } else {
                 // Get bot from API
@@ -64,8 +78,10 @@ pub async fn premium_remove(
             }
         };
 
-        ChannelId(crate::config::CONFIG.channels.mod_logs).send_message(&cache_http, CreateMessage::default().content(msg)).await?;
-    }    
+        ChannelId(crate::config::CONFIG.channels.mod_logs)
+            .send_message(&cache_http, CreateMessage::default().content(msg))
+            .await?;
+    }
 
     Ok(())
 }

@@ -117,12 +117,14 @@ pub async fn staff_resync(
                 .execute(&mut tx)
                 .await
             }
-            StaffPosition::HeadDeveloper => sqlx::query!(
+            StaffPosition::HeadDeveloper => {
+                sqlx::query!(
                 "UPDATE users SET staff = true, ibldev = true, iblhdev = true WHERE user_id = $1",
                 staff.user_id.to_string()
             )
-            .execute(&mut tx)
-            .await,
+                .execute(&mut tx)
+                .await
+            }
             StaffPosition::HeadManager => {
                 sqlx::query!(
                     "UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1",

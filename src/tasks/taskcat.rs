@@ -5,7 +5,7 @@ pub enum Task {
     AutoUnclaim,
     DeadGuilds,
     StaffResync,
-    PremiumRemove
+    PremiumRemove,
 }
 
 pub async fn taskcat(

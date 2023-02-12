@@ -26,7 +26,6 @@ pub struct RPCRequest {
     pub token: String,
     pub method: RPCMethod,
     pub protocol: u8,
-    pub reason: String,
 }
 
 #[derive(Deserialize, TS)]
@@ -34,24 +33,32 @@ pub struct RPCRequest {
 pub enum RPCMethod {
     BotApprove {
         bot_id: String,
+        reason: String,
     },
     BotDeny {
         bot_id: String,
-    }, 
+        reason: String,
+    },
     BotVoteReset {
         bot_id: String,
+        reason: String,
     },
-    BotVoteResetAll {}, 
+    BotVoteResetAll {
+        reason: String,
+    },
     BotUnverify {
         bot_id: String,
+        reason: String,
     },
     BotPremiumAdd {
         bot_id: String,
+        reason: String,
         /// Time period in hours
-        time: i32, 
+        time: i32,
     },
     BotPremiumRemove {
         bot_id: String,
+        reason: String,
     },
 }
 
@@ -216,7 +223,7 @@ async fn web_rpc_api(
 
     let count = res.unwrap().count.unwrap_or_default();
 
-    if count > 5 {
+    if count > 6 {
         let res = sqlx::query!(
             "UPDATE users SET api_token = $2 WHERE user_id = $1",
             &req.user_id,
@@ -235,13 +242,13 @@ async fn web_rpc_api(
     }
 
     match &req.method {
-        RPCMethod::BotApprove { bot_id } => {
+        RPCMethod::BotApprove { bot_id, reason } => {
             let res = impls::actions::approve_bot(
                 &state.cache_http,
                 &state.pool,
                 &bot_id,
                 &req.user_id,
-                &req.reason,
+                &reason,
             )
             .await;
 
@@ -251,13 +258,13 @@ async fn web_rpc_api(
                 RPCResponse::Content(res.unwrap())
             }
         }
-        RPCMethod::BotDeny { bot_id } => {
+        RPCMethod::BotDeny { bot_id, reason } => {
             let err = impls::actions::deny_bot(
                 &state.cache_http,
                 &state.pool,
                 &bot_id,
                 &req.user_id,
-                &req.reason,
+                &reason,
             )
             .await;
 
@@ -267,7 +274,7 @@ async fn web_rpc_api(
                 RPCResponse::NoContent
             }
         }
-        RPCMethod::BotVoteReset { bot_id } => {
+        RPCMethod::BotVoteReset { bot_id, reason } => {
             if !config::CONFIG.owners.contains(&user_id_snowflake) {
                 RPCResponse::PermissionDenied(vec!["owner"])
             } else {
@@ -276,7 +283,7 @@ async fn web_rpc_api(
                     &state.pool,
                     &bot_id,
                     &req.user_id,
-                    &req.reason,
+                    &reason,
                 )
                 .await;
 
@@ -287,7 +294,7 @@ async fn web_rpc_api(
                 }
             }
         }
-        RPCMethod::BotVoteResetAll { } => {
+        RPCMethod::BotVoteResetAll { reason } => {
             if !config::CONFIG.owners.contains(&user_id_snowflake) {
                 RPCResponse::PermissionDenied(vec!["owner"])
             } else {
@@ -295,7 +302,7 @@ async fn web_rpc_api(
                     &state.cache_http,
                     &state.pool,
                     &req.user_id,
-                    &req.reason,
+                    &reason,
                 )
                 .await;
 
@@ -306,7 +313,7 @@ async fn web_rpc_api(
                 }
             }
         }
-        RPCMethod::BotUnverify { bot_id } => {
+        RPCMethod::BotUnverify { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {
@@ -315,7 +322,7 @@ async fn web_rpc_api(
                     &state.pool,
                     &bot_id,
                     &req.user_id,
-                    &req.reason,
+                    &reason,
                 )
                 .await;
 
@@ -326,7 +333,11 @@ async fn web_rpc_api(
                 }
             }
         }
-        RPCMethod::BotPremiumAdd { bot_id, time } => {
+        RPCMethod::BotPremiumAdd {
+            bot_id,
+            reason,
+            time,
+        } => {
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {
@@ -335,7 +346,7 @@ async fn web_rpc_api(
                     &state.pool,
                     &bot_id,
                     &req.user_id,
-                    &req.reason,
+                    &reason,
                     *time,
                 )
                 .await;
@@ -346,8 +357,8 @@ async fn web_rpc_api(
                     RPCResponse::NoContent
                 }
             }
-        },
-        RPCMethod::BotPremiumRemove { bot_id } => {
+        }
+        RPCMethod::BotPremiumRemove { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {
@@ -356,7 +367,7 @@ async fn web_rpc_api(
                     &state.pool,
                     &bot_id,
                     &req.user_id,
-                    &req.reason,
+                    &reason,
                 )
                 .await;
 
@@ -366,6 +377,6 @@ async fn web_rpc_api(
                     RPCResponse::NoContent
                 }
             }
-        },
+        }
     }
 }

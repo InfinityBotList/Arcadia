@@ -75,7 +75,7 @@ impl OnboardState {
 ///
 /// This internally creates a onboarding 'fragment' which is used to ensure that a user isn't peeping into someone elses staff verification code
 ///
-/// This fragment is then used by sovngarde to fetch the full code and add it to the guide.
+/// This fragment is then used later on to fetch the full code and add it to the guide.
 async fn _handle_staff_guide(ctx: crate::Context<'_>, user_id: String) -> Result<(), crate::Error> {
     // This is the onboard code user needs to input (random_string@CURRENT_TIME)
     let onboard_code =

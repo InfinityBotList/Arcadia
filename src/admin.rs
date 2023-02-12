@@ -332,3 +332,33 @@ pub async fn premiumadd(
 
     Ok(())
 }
+
+/// Removes premium from a bot
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn premiumdel(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
+    impls::actions::premium_remove_bot(
+        &data.cache_http,
+        &data.pool,
+        &bot.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+    )
+    .await?;
+
+    ctx.say("This bot has been removed from premium successfully!")
+        .await?;
+
+    Ok(())
+}

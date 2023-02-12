@@ -495,3 +495,71 @@ pub async fn premium_add_bot(
 
     Ok(())
 }
+
+pub async fn premium_remove_bot(
+    discord: &CacheHttpImpl,
+    pool: &PgPool,
+    bot_id: &str,
+    staff_id: &str,
+    reason: &str,
+) -> Result<(), Error> {
+    // Ensure user has iblhdev or hadmin
+    let check = sqlx::query!(
+        "SELECT iblhdev, hadmin FROM users WHERE user_id = $1",
+        staff_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if !(check.iblhdev || check.hadmin) {
+        return Err(
+            "You need `Head Staff Manager` or `Head Developer` to remove premium from bots".into(),
+        );
+    }
+
+    // Ensure the bot actually exists
+    let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
+        .fetch_one(pool)
+        .await?;
+
+    if bot.count.unwrap_or_default() == 0 {
+        return Err("Bot does not exist".into());
+    }
+
+    add_action_log(
+        pool,
+        bot_id,
+        staff_id,
+        reason,
+        "premium_remove",
+    )
+    .await?;
+
+    // Set premium_period_length which is a postgres interval
+    sqlx::query!(
+        "UPDATE bots SET premium = false WHERE bot_id = $1",
+        bot_id
+    )
+    .execute(pool)
+    .await?;
+
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("Premium Removed!")
+            .description(format!(
+                "<@{}> has removed premium from <@{}>",
+                staff_id, bot_id
+            ))
+            .field("Reason", reason, true)
+            .footer(CreateEmbedFooter::new(
+                "Well done, young traveller. Sad to see you go...",
+            ))
+            .color(0x00ff00),
+    );
+
+    ChannelId(crate::config::CONFIG.channels.mod_logs)
+        .send_message(&discord, msg)
+        .await?;
+
+    Ok(())
+}

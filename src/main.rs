@@ -252,6 +252,7 @@ async fn main() {
                 admin::onboardman(),
                 admin::unverifybot(),
                 admin::premiumadd(),
+                admin::premiumdel(),
                 stats::stats(),
                 botowners::setstats(),
                 botowners::getbotroles(),

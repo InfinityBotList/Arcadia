@@ -55,6 +55,10 @@ pub enum RPCMethod {
         reason: String,
         time_period_hours: i32,
     },
+    BotPremiumRemove {
+        bot_id: String,
+        reason: String,
+    },
 }
 
 impl ToString for RPCMethod {
@@ -66,6 +70,7 @@ impl ToString for RPCMethod {
             Self::BotVoteResetAll { .. } => "BotVoteResetAll",
             Self::BotUnverify { .. } => "BotUnverify",
             Self::BotPremiumAdd { .. } => "BotPremiumAdd",
+            Self::BotPremiumRemove { .. } => "BotPremiumRemove",
         }
         .to_string()
     }
@@ -351,6 +356,26 @@ async fn web_rpc_api(
                     RPCResponse::NoContent
                 }
             }
-        }
+        },
+        RPCMethod::BotPremiumRemove { bot_id, reason } => {
+            if !(check.hadmin || check.iblhdev) {
+                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+            } else {
+                let err = impls::actions::premium_remove_bot(
+                    &state.cache_http,
+                    &state.pool,
+                    &bot_id,
+                    &req.user_id,
+                    &reason,
+                )
+                .await;
+
+                if err.is_err() {
+                    RPCResponse::Err(err.unwrap_err().to_string())
+                } else {
+                    RPCResponse::NoContent
+                }
+            }
+        },
     }
 }

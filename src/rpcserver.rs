@@ -34,27 +34,26 @@ pub enum RPCMethod {
     BotApprove {
         bot_id: String,
         reason: String,
-    },
+    }, 
     BotDeny {
         bot_id: String,
         reason: String,
-    },
+    }, 
     BotVoteReset {
         bot_id: String,
         reason: String,
-    },
+    }, 
     BotVoteResetAll {
         reason: String,
     },
     BotUnverify {
         bot_id: String,
         reason: String,
-    },
+    }, 
     BotPremiumAdd {
         bot_id: String,
         reason: String,
-        /// Time period in hours
-        time: i32,
+        time_period_hours: i32,
     },
     BotPremiumRemove {
         bot_id: String,
@@ -223,7 +222,7 @@ async fn web_rpc_api(
 
     let count = res.unwrap().count.unwrap_or_default();
 
-    if count > 6 {
+    if count > 5 {
         let res = sqlx::query!(
             "UPDATE users SET api_token = $2 WHERE user_id = $1",
             &req.user_id,
@@ -336,7 +335,7 @@ async fn web_rpc_api(
         RPCMethod::BotPremiumAdd {
             bot_id,
             reason,
-            time,
+            time_period_hours,
         } => {
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
@@ -347,7 +346,7 @@ async fn web_rpc_api(
                     &bot_id,
                     &req.user_id,
                     &reason,
-                    *time,
+                    *time_period_hours,
                 )
                 .await;
 
@@ -357,7 +356,7 @@ async fn web_rpc_api(
                     RPCResponse::NoContent
                 }
             }
-        }
+        },
         RPCMethod::BotPremiumRemove { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
@@ -377,6 +376,6 @@ async fn web_rpc_api(
                     RPCResponse::NoContent
                 }
             }
-        }
+        },
     }
 }

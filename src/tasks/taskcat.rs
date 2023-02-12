@@ -5,6 +5,7 @@ pub enum Task {
     AutoUnclaim,
     DeadGuilds,
     StaffResync,
+    PremiumRemove
 }
 
 pub async fn taskcat(
@@ -17,6 +18,7 @@ pub async fn taskcat(
         Task::AutoUnclaim => Duration::from_secs(60),
         Task::DeadGuilds => Duration::from_secs(60),
         Task::StaffResync => Duration::from_secs(45),
+        Task::PremiumRemove => Duration::from_secs(75),
     };
 
     let task_name = match task {
@@ -24,6 +26,7 @@ pub async fn taskcat(
         Task::AutoUnclaim => "auto_unclaim",
         Task::DeadGuilds => "dead_guilds",
         Task::StaffResync => "staff_resync",
+        Task::PremiumRemove => "premium_remove",
     };
 
     let task_desc = match task {
@@ -31,6 +34,7 @@ pub async fn taskcat(
         Task::AutoUnclaim => "Checking for claimed bots greater than 1 hour claim interval",
         Task::DeadGuilds => "Checking for dead guilds",
         Task::StaffResync => "Resyncing staff permissions",
+        Task::PremiumRemove => "Removing expired subscriptions",
     };
 
     let mut interval = tokio::time::interval(duration);
@@ -50,6 +54,7 @@ pub async fn taskcat(
             Task::AutoUnclaim => crate::tasks::autounclaim::auto_unclaim(&pool, &cache_http).await,
             Task::DeadGuilds => crate::tasks::deadguilds::dead_guilds(&pool, &cache_http).await,
             Task::StaffResync => crate::tasks::staffresync::staff_resync(&pool, &cache_http).await,
+            Task::PremiumRemove => crate::tasks::premium::premium_remove(&pool, &cache_http).await,
         } {
             log::error!("TASK {} ERROR'd: {:?}", task_name, e);
         }

@@ -163,6 +163,12 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 tasks::taskcat::Task::DeadGuilds,
             ));
 
+            set.spawn(crate::tasks::taskcat::taskcat(
+                user_data.pool.clone(),
+                user_data.cache_http.clone(),
+                tasks::taskcat::Task::PremiumRemove,
+            ));
+
             while let Some(res) = set.join_next().await {
                 if let Err(e) = res {
                     error!("Error while running task: {}", e);

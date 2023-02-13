@@ -59,10 +59,13 @@ pub enum RPCMethod {
         bot_id: String,
         reason: String,
     },
-    BotVoteBanEdit {
+    BotVoteBanAdd {
         bot_id: String,
         reason: String,
-        banned: bool,
+    },
+    BotVoteBanRemove {
+        bot_id: String,
+        reason: String,
     },
 }
 
@@ -76,13 +79,8 @@ impl ToString for RPCMethod {
             Self::BotUnverify { .. } => "BotUnverify",
             Self::BotPremiumAdd { .. } => "BotPremiumAdd",
             Self::BotPremiumRemove { .. } => "BotPremiumRemove",
-            Self::BotVoteBanEdit { banned, ..} => {
-                if *banned {
-                    "BotVoteBanEdit:Set"
-                } else {
-                    "BotVoteBanEdit:Unset"
-                }
-            }
+            Self::BotVoteBanAdd { .. } => "BotVoteBanAdd",
+            Self::BotVoteBanRemove { .. } => "BotVoteBanRemove",
         }
         .to_string()
     }
@@ -100,7 +98,8 @@ impl RPCMethod {
             Self::BotUnverify { .. } => crate::admin::botunverify,
             Self::BotPremiumAdd { .. } => crate::admin::botpremiumadd,
             Self::BotPremiumRemove { .. } => crate::admin::botpremiumdel,
-            Self::BotVoteBanEdit { .. } => crate::admin::botvoteban,
+            Self::BotVoteBanAdd { .. } => crate::admin::botvotebanadd,
+            Self::BotVoteBanRemove { .. } => crate::admin::botvotebandel,
         };
     }
 }
@@ -406,17 +405,16 @@ async fn web_rpc_api(
                 }
             }
         },
-        RPCMethod::BotVoteBanEdit { bot_id, reason, banned } => {
+        RPCMethod::BotVoteBanAdd { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {
-                let err = impls::actions::vote_ban_bot(
+                let err = impls::actions::vote_ban_add_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
                     &req.user_id,
                     &reason,
-                    *banned
                 )
                 .await;
 
@@ -426,6 +424,26 @@ async fn web_rpc_api(
                     RPCResponse::NoContent
                 }
             }
-        }
+        },
+        RPCMethod::BotVoteBanRemove { bot_id, reason } => {
+            if !(check.hadmin || check.iblhdev) {
+                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+            } else {
+                let err = impls::actions::vote_ban_remove_bot(
+                    &state.cache_http,
+                    &state.pool,
+                    &bot_id,
+                    &req.user_id,
+                    &reason,
+                )
+                .await;
+
+                if err.is_err() {
+                    RPCResponse::Err(err.unwrap_err().to_string())
+                } else {
+                    RPCResponse::NoContent
+                }
+            }
+        },
     }
 }

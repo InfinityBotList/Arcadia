@@ -207,7 +207,7 @@ pub async fn resetonboard(
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("botunverify", "botpremiumadd", "botpremiumdel", "botvotereset", "botvoteresetall", "botvoteban")
+    subcommands("botunverify", "botpremiumadd", "botpremiumdel", "botvotereset", "botvoteresetall", "botvotebanadd", "botvotebandel")
 )]
 pub async fn botman(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("See /help botman for more info").await?;
@@ -384,25 +384,53 @@ pub async fn botpremiumdel(
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn botvoteban(
+pub async fn botvotebanadd(
     ctx: crate::Context<'_>,
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
-    #[description = "New voteban state"] banned: bool,
 ) -> Result<(), crate::Error> {
     let data = ctx.data();
 
-    impls::actions::vote_ban_bot(
+    impls::actions::vote_ban_add_bot(
         &data.cache_http,
         &data.pool,
         &bot.id.to_string(),
         &ctx.author().id.to_string(),
         &reason,
-        banned
     )
     .await?;
 
-    ctx.say("This bot has been editted!")
+    ctx.say("This bot has been vote banned!")
+        .await?;
+
+    Ok(())
+}
+
+/// Bans or unbans a bot from votes
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn botvotebandel(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
+    impls::actions::vote_ban_remove_bot(
+        &data.cache_http,
+        &data.pool,
+        &bot.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+    )
+    .await?;
+
+    ctx.say("This bot has been un-vote banned!")
         .await?;
 
     Ok(())

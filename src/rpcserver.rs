@@ -100,7 +100,7 @@ impl RPCMethod {
             Self::BotUnverify { .. } => crate::admin::botunverify,
             Self::BotPremiumAdd { .. } => crate::admin::botpremiumadd,
             Self::BotPremiumRemove { .. } => crate::admin::botpremiumdel,
-            Self::BotVoteBanEdit { .. } => crate::admin::botvotebanedit,
+            Self::BotVoteBanEdit { .. } => crate::admin::botvoteban,
         };
     }
 }
@@ -410,7 +410,7 @@ async fn web_rpc_api(
             if !(check.hadmin || check.iblhdev) {
                 RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
             } else {
-                let err = impls::actions::vote_ban_bot_edit(
+                let err = impls::actions::vote_ban_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,

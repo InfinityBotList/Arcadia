@@ -207,7 +207,7 @@ pub async fn resetonboard(
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("botunverify", "botpremiumadd", "botpremiumdel", "botvotereset", "botvoteresetall", "botvotebanedit")
+    subcommands("botunverify", "botpremiumadd", "botpremiumdel", "botvotereset", "botvoteresetall", "botvoteban")
 )]
 pub async fn botman(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("See /help botman for more info").await?;
@@ -384,7 +384,7 @@ pub async fn botpremiumdel(
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn botvotebanedit(
+pub async fn botvoteban(
     ctx: crate::Context<'_>,
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
@@ -392,7 +392,7 @@ pub async fn botvotebanedit(
 ) -> Result<(), crate::Error> {
     let data = ctx.data();
 
-    impls::actions::vote_ban_bot_edit(
+    impls::actions::vote_ban_bot(
         &data.cache_http,
         &data.pool,
         &bot.id.to_string(),

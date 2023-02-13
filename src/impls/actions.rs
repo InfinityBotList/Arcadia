@@ -554,7 +554,7 @@ pub async fn premium_remove_bot(
     Ok(())
 }
 
-pub async fn vote_ban_bot_edit(
+pub async fn vote_ban_bot(
     discord: &CacheHttpImpl,
     pool: &PgPool,
     bot_id: &str,
@@ -596,10 +596,13 @@ pub async fn vote_ban_bot_edit(
         CreateEmbed::default()
             .title("Vote Ban Edit!")
             .description(format!(
-                "<@{}> has removed premium from <@{}>",
-                staff_id, bot_id
+                "<@{}> has set the vote ban on <@{}> to '{}'",
+                staff_id,
+                bot_id,
+                banned
             ))
             .field("Reason", reason, true)
+            .field("Is Banned", banned.to_string(), true)
             .footer(CreateEmbedFooter::new(
                 "Remember: don't abuse our services!",
             ))

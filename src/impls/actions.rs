@@ -26,6 +26,10 @@ pub async fn add_action_log(
     reason: &str,
     event_type: &str,
 ) -> Result<(), Error> {
+    if reason.len() < 5 || reason.len() > 1998 {
+        return Err("Reason is too short or too long".into());
+    }
+
     sqlx::query!(
         "INSERT INTO action_logs (bot_id, staff_id, action_reason, event) VALUES ($1, $2, $3, $4)",
         bot_id,
@@ -208,10 +212,6 @@ pub async fn approve_bot(
         return Err("onboarding_required".into());
     }
 
-    if reason.len() < 5 || reason.len() > 1998 {
-        return Err("Reason is too short or too long".into());
-    }
-
     sqlx::query!(
         "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
     )
@@ -333,10 +333,6 @@ pub async fn deny_bot(
     // We should never get this on bot, but maybe on website
     if onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Completed.as_str() {
         return Err("You need to complete onboarding to continue!".into());
-    }
-
-    if reason.len() < 5 || reason.len() > 1998 {
-        return Err("Reason is too short or too long".into());
     }
 
     sqlx::query!(

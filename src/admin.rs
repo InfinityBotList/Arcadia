@@ -201,6 +201,19 @@ pub async fn resetonboard(
     Ok(())
 }
 
+/// Bot management command
+#[poise::command(
+    category = "Admin",
+    prefix_command,
+    slash_command,
+    guild_cooldown = 10,
+    subcommands("botunverify", "botpremiumadd", "botpremiumdel", "botvotereset", "botvoteresetall", "botvotebanedit")
+)]
+pub async fn botman(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.say("See /help botman for more info").await?;
+    Ok(())
+}
+
 /// Resets the votes of a bot
 #[poise::command(
     category = "Admin",
@@ -209,7 +222,7 @@ pub async fn resetonboard(
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn voteresetbot(
+pub async fn botvotereset(
     ctx: crate::Context<'_>,
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
@@ -238,7 +251,7 @@ pub async fn voteresetbot(
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn voteresetallbots(
+pub async fn botvoteresetall(
     ctx: crate::Context<'_>,
     #[description = "The reason"] reason: String,
 ) -> Result<(), crate::Error> {
@@ -265,7 +278,7 @@ pub async fn voteresetallbots(
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn unverifybot(
+pub async fn botunverify(
     ctx: crate::Context<'_>,
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
@@ -304,7 +317,7 @@ pub enum TimePeriodUnit {
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn premiumadd(
+pub async fn botpremiumadd(
     ctx: crate::Context<'_>,
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
@@ -341,7 +354,7 @@ pub async fn premiumadd(
     slash_command,
     check = "checks::is_hdev_hadmin"
 )]
-pub async fn premiumdel(
+pub async fn botpremiumdel(
     ctx: crate::Context<'_>,
     #[description = "The bots ID"] bot: User,
     #[description = "The reason"] reason: String,
@@ -358,6 +371,38 @@ pub async fn premiumdel(
     .await?;
 
     ctx.say("This bot has been removed from premium successfully!")
+        .await?;
+
+    Ok(())
+}
+
+/// Bans or unbans a bot from votes
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn botvotebanedit(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+    #[description = "New voteban state"] banned: bool,
+) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
+    impls::actions::vote_ban_bot_edit(
+        &data.cache_http,
+        &data.pool,
+        &bot.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+        banned
+    )
+    .await?;
+
+    ctx.say("This bot has been editted!")
         .await?;
 
     Ok(())

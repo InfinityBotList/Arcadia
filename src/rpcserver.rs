@@ -59,6 +59,11 @@ pub enum RPCMethod {
         bot_id: String,
         reason: String,
     },
+    BotVoteBanEdit {
+        bot_id: String,
+        reason: String,
+        banned: bool,
+    },
 }
 
 impl ToString for RPCMethod {
@@ -71,8 +76,32 @@ impl ToString for RPCMethod {
             Self::BotUnverify { .. } => "BotUnverify",
             Self::BotPremiumAdd { .. } => "BotPremiumAdd",
             Self::BotPremiumRemove { .. } => "BotPremiumRemove",
+            Self::BotVoteBanEdit { banned, ..} => {
+                if *banned {
+                    "BotVoteBanEdit:Set"
+                } else {
+                    "BotVoteBanEdit:Unset"
+                }
+            }
         }
         .to_string()
+    }
+}
+
+/// Dead code as compilation check/requirement
+#[allow(dead_code)]
+impl RPCMethod {
+    fn associated_cmd(&self) {
+        match self {
+            Self::BotApprove { .. } => crate::testing::approve,
+            Self::BotDeny { .. } => crate::testing::deny,
+            Self::BotVoteReset { .. } => crate::admin::botvotereset,
+            Self::BotVoteResetAll { .. } => crate::admin::botvoteresetall,
+            Self::BotUnverify { .. } => crate::admin::botunverify,
+            Self::BotPremiumAdd { .. } => crate::admin::botpremiumadd,
+            Self::BotPremiumRemove { .. } => crate::admin::botpremiumdel,
+            Self::BotVoteBanEdit { .. } => crate::admin::botvotebanedit,
+        };
     }
 }
 
@@ -377,5 +406,26 @@ async fn web_rpc_api(
                 }
             }
         },
+        RPCMethod::BotVoteBanEdit { bot_id, reason, banned } => {
+            if !(check.hadmin || check.iblhdev) {
+                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+            } else {
+                let err = impls::actions::vote_ban_bot_edit(
+                    &state.cache_http,
+                    &state.pool,
+                    &bot_id,
+                    &req.user_id,
+                    &reason,
+                    *banned
+                )
+                .await;
+
+                if err.is_err() {
+                    RPCResponse::Err(err.unwrap_err().to_string())
+                } else {
+                    RPCResponse::NoContent
+                }
+            }
+        }
     }
 }

@@ -435,3 +435,37 @@ pub async fn botvotebandel(
 
     Ok(())
 }
+
+/*
+
+/// Unlocks RPC for a one hour time period, is logged
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn rpcunlock(
+    ctx: crate::Context<'_>,
+    #[description = "Purpose"] purpose: String,
+) -> Result<(), Error> {
+    let nonce = impls::crypto::gen_random(5);
+
+    let warn_embed = {
+        CreateEmbed::new()
+        .title(":warning: Warning")
+        .description(
+            format!("**You are about to unlock full access to the RPC API for one hour on your account (required by some parts of our staff panel)**
+
+While RPC is unlocked, any leaks have a higher change in in data being destroyed and mass-nukes to potentially occur although the API does protect against it using ratelimits!
+
+To continue, please click the `Unlock` button and input ``{}`` in the next 30 seconds OR use bot commands instead (where permitted).
+            ", 
+            nonce)
+        )
+    };
+
+    Ok(())
+}
+*/

@@ -524,7 +524,7 @@ pub async fn rpclock(
     ctx: crate::Context<'_>,
 ) -> Result<(), Error> {
     sqlx::query!(
-        "UPDATE users SET staff_rpc_last_verify = NULL WHERE user_id = $1",
+        "UPDATE users SET staff_rpc_last_verify = NOW() - interval '1 hour' WHERE user_id = $1",
         ctx.author().id.to_string()
     )
     .execute(&ctx.data().pool)

@@ -3,7 +3,6 @@ use crate::impls;
 use crate::Context;
 use crate::Error;
 use crate::impls::actions::add_action_log;
-
 use poise::serenity_prelude::ButtonStyle;
 use poise::serenity_prelude::CreateActionRow;
 use poise::serenity_prelude::CreateButton;

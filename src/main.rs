@@ -251,7 +251,6 @@ async fn main() {
                 admin::botman(),
                 admin::rpcunlock(),
                 admin::rpclock(),
-                admin::rpcunlock(),
                 stats::stats(),
                 botowners::setstats(),
                 botowners::getbotroles(),

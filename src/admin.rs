@@ -460,7 +460,7 @@ While RPC is unlocked, any leaks or bugs have a higher change in leading to data
 
 To continue, please click the `Unlock` button OR instead, (PREFERRED) just use bot commands instead (where permitted).
 
-**Reason:** {}
+**Given Reason:** {}
             ", 
             purpose)
         )

@@ -36,22 +36,22 @@ pub enum RPCMethod {
     BotApprove {
         bot_id: String,
         reason: String,
-    }, 
+    },
     BotDeny {
         bot_id: String,
         reason: String,
-    }, 
+    },
     BotVoteReset {
         bot_id: String,
         reason: String,
-    }, 
+    },
     BotVoteResetAll {
         reason: String,
     },
     BotUnverify {
         bot_id: String,
         reason: String,
-    }, 
+    },
     BotPremiumAdd {
         bot_id: String,
         reason: String,
@@ -73,7 +73,7 @@ pub enum RPCMethod {
         bot_id: String,
         reason: String,
         kick: bool,
-    }
+    },
 }
 
 impl ToString for RPCMethod {
@@ -148,18 +148,26 @@ impl IntoResponse for RPCResponse {
             Self::InvalidProtocol => {
                 (StatusCode::PRECONDITION_FAILED, "Invalid protocol").into_response()
             }
-            Self::RPCLocked => {
-                (StatusCode::PRECONDITION_FAILED, "RPC is locked. Use `rpcunlock` to unlock it for 1 hour").into_response()
-            }
-            Self::RatelimitAddFail => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to add request to rpc_requests table").into_response()
-            }
-            Self::RatelimitReqFindFail => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get number of requests in the last 7 minutes").into_response()
-            }
-            Self::RatelimitUserTokenResetFail => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to reset user token (caused by ratelimit)").into_response()
-            }
+            Self::RPCLocked => (
+                StatusCode::PRECONDITION_FAILED,
+                "RPC is locked. Use `rpcunlock` to unlock it for 1 hour",
+            )
+                .into_response(),
+            Self::RatelimitAddFail => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to add request to rpc_requests table",
+            )
+                .into_response(),
+            Self::RatelimitReqFindFail => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to get number of requests in the last 7 minutes",
+            )
+                .into_response(),
+            Self::RatelimitUserTokenResetFail => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to reset user token (caused by ratelimit)",
+            )
+                .into_response(),
             Self::Ratelimited => (
                 StatusCode::TOO_MANY_REQUESTS,
                 "Rate limit exceeded. Wait 5-10 minutes, You will need to login/logout as well.",
@@ -244,16 +252,19 @@ async fn web_rpc_api(
     }
 
     match &req.method {
-        RPCMethod::BotApprove { .. } => {},
-        RPCMethod::BotDeny { .. } => {},
+        RPCMethod::BotApprove { .. } => {}
+        RPCMethod::BotDeny { .. } => {}
         _ => {
             if Utc::now().timestamp() - check.staff_rpc_last_verify.timestamp() > 600 {
                 return Err(RPCResponse::RPCLocked);
-            }        
+            }
         }
     }
 
-    let user_id_snowflake = req.user_id.parse::<NonZeroU64>().map_err(|_| RPCResponse::UserNotFound)?;
+    let user_id_snowflake = req
+        .user_id
+        .parse::<NonZeroU64>()
+        .map_err(|_| RPCResponse::UserNotFound)?;
 
     // Add request to rpc_requests table
     sqlx::query!(
@@ -304,15 +315,9 @@ async fn web_rpc_api(
             Ok(RPCSuccess::Content(res))
         }
         RPCMethod::BotDeny { bot_id, reason } => {
-            impls::actions::deny_bot(
-                &state.cache_http,
-                &state.pool,
-                bot_id,
-                &req.user_id,
-                reason,
-            )
-            .await
-            .map_err(|e| RPCResponse::Err(e.to_string()))?;
+            impls::actions::deny_bot(&state.cache_http, &state.pool, bot_id, &req.user_id, reason)
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
             Ok(RPCSuccess::NoContent)
         }
@@ -387,7 +392,7 @@ async fn web_rpc_api(
 
                 Ok(RPCSuccess::NoContent)
             }
-        },
+        }
         RPCMethod::BotPremiumRemove { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
@@ -404,7 +409,7 @@ async fn web_rpc_api(
 
                 Ok(RPCSuccess::NoContent)
             }
-        },
+        }
         RPCMethod::BotVoteBanAdd { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
@@ -421,7 +426,7 @@ async fn web_rpc_api(
 
                 Ok(RPCSuccess::NoContent)
             }
-        },
+        }
         RPCMethod::BotVoteBanRemove { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
                 Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
@@ -438,8 +443,12 @@ async fn web_rpc_api(
 
                 Ok(RPCSuccess::NoContent)
             }
-        },
-        RPCMethod::BotForceRemove { bot_id, reason, kick } => {
+        }
+        RPCMethod::BotForceRemove {
+            bot_id,
+            reason,
+            kick,
+        } => {
             if !(check.hadmin || check.iblhdev) {
                 Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
             } else {

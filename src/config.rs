@@ -78,7 +78,6 @@ pub struct Metro {
     pub secret: String,
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct Config {
     pub database_url: String,
@@ -127,10 +126,7 @@ impl Config {
         let mut sample = File::create("config.yaml.sample")?;
 
         // Write default config to config.yaml.sample
-        sample
-            .write_all(
-                serde_yaml::to_string(&Config::default())?.as_bytes(),
-            )?;
+        sample.write_all(serde_yaml::to_string(&Config::default())?.as_bytes())?;
 
         // Open config.yaml
         let file = File::open("config.yaml");

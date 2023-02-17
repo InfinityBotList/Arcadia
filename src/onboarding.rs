@@ -52,11 +52,17 @@ impl OnboardState {
     }
 
     pub fn queue_unclaim(&self) -> bool {
-        matches!(self, OnboardState::QueueRemind | OnboardState::QueueForceClaim)
+        matches!(
+            self,
+            OnboardState::QueueRemind | OnboardState::QueueForceClaim
+        )
     }
 
     pub fn queue_passthrough(&self) -> bool {
-        matches!(self, OnboardState::Pending | OnboardState::PendingManagerReview | OnboardState::Denied)
+        matches!(
+            self,
+            OnboardState::Pending | OnboardState::PendingManagerReview | OnboardState::Denied
+        )
     }
 }
 

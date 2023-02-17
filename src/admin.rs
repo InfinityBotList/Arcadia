@@ -1,8 +1,8 @@
 use crate::checks;
 use crate::impls;
+use crate::impls::actions::add_action_log;
 use crate::Context;
 use crate::Error;
-use crate::impls::actions::add_action_log;
 use poise::serenity_prelude::ButtonStyle;
 use poise::serenity_prelude::CreateActionRow;
 use poise::serenity_prelude::CreateButton;
@@ -209,7 +209,16 @@ pub async fn resetonboard(
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("botunverify", "botpremiumadd", "botpremiumdel", "botvotereset", "botvoteresetall", "botvotebanadd", "botvotebandel", "botforcedel")
+    subcommands(
+        "botunverify",
+        "botpremiumadd",
+        "botpremiumdel",
+        "botvotereset",
+        "botvoteresetall",
+        "botvotebanadd",
+        "botvotebandel",
+        "botforcedel"
+    )
 )]
 pub async fn botman(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("See /help botman for more info").await?;
@@ -402,8 +411,7 @@ pub async fn botvotebanadd(
     )
     .await?;
 
-    ctx.say("This bot has been vote banned!")
-        .await?;
+    ctx.say("This bot has been vote banned!").await?;
 
     Ok(())
 }
@@ -432,8 +440,7 @@ pub async fn botvotebandel(
     )
     .await?;
 
-    ctx.say("This bot has been un-vote banned!")
-        .await?;
+    ctx.say("This bot has been un-vote banned!").await?;
 
     Ok(())
 }
@@ -464,20 +471,13 @@ pub async fn botforcedel(
     )
     .await?;
 
-    ctx.say("This bot has been forcefully deleted!")
-        .await?;
+    ctx.say("This bot has been forcefully deleted!").await?;
 
     Ok(())
 }
 
-
 /// Unlocks RPC for a 10 minutes, is logged
-#[poise::command(
-    category = "Admin",
-    track_edits,
-    prefix_command,
-    slash_command,
-)]
+#[poise::command(category = "Admin", track_edits, prefix_command, slash_command)]
 pub async fn rpcunlock(
     ctx: crate::Context<'_>,
     #[description = "Purpose"] purpose: String,
@@ -502,28 +502,24 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
     let msg = ctx
         .send(
             CreateReply::new()
-            .embed(warn_embed)
-            .components(vec![
-                CreateActionRow::Buttons(
-                    vec![
-                        CreateButton::new("a:unlock")
+                .embed(warn_embed)
+                .components(vec![CreateActionRow::Buttons(vec![
+                    CreateButton::new("a:unlock")
                         .style(ButtonStyle::Primary)
                         .label("Unlock"),
-                        CreateButton::new("a:cancel")
+                    CreateButton::new("a:cancel")
                         .style(ButtonStyle::Danger)
-                        .label("Cancel")
-                    ]
-                )
-            ])
+                        .label("Cancel"),
+                ])]),
         )
         .await?
         .into_message()
         .await?;
 
     let interaction = msg
-    .await_component_interaction(ctx.discord())
-    .author_id(ctx.author().id)
-    .await;
+        .await_component_interaction(ctx.discord())
+        .author_id(ctx.author().id)
+        .await;
 
     if let Some(item) = interaction {
         let custom_id = &item.data.custom_id;
@@ -531,7 +527,14 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
         if custom_id == "a:cancel" {
             item.delete_response(ctx.discord()).await?;
         } else if custom_id == "a:unlock" {
-            add_action_log(&ctx.data().pool, &crate::config::CONFIG.test_bot.to_string(), &ctx.author().id.to_string(), &purpose, "rpc_unlock").await?;
+            add_action_log(
+                &ctx.data().pool,
+                &crate::config::CONFIG.test_bot.to_string(),
+                &ctx.author().id.to_string(),
+                &purpose,
+                "rpc_unlock",
+            )
+            .await?;
 
             sqlx::query!(
                 "UPDATE users SET staff_rpc_last_verify = NOW() WHERE user_id = $1",
@@ -546,15 +549,8 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
 }
 
 /// Locks RPC
-#[poise::command(
-    category = "Admin",
-    track_edits,
-    prefix_command,
-    slash_command,
-)]
-pub async fn rpclock(
-    ctx: crate::Context<'_>,
-) -> Result<(), Error> {
+#[poise::command(category = "Admin", track_edits, prefix_command, slash_command)]
+pub async fn rpclock(ctx: crate::Context<'_>) -> Result<(), Error> {
     sqlx::query!(
         "UPDATE users SET staff_rpc_last_verify = NOW() - interval '1 hour' WHERE user_id = $1",
         ctx.author().id.to_string()

@@ -5,7 +5,7 @@ use log::{error, info};
 use poise::serenity_prelude::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
     model::id::ChannelId,
-    UserId, GuildId,
+    GuildId, UserId,
 };
 use serde::Serialize;
 use sqlx::PgPool;
@@ -566,9 +566,7 @@ pub async fn vote_ban_add_bot(
     .await?;
 
     if !(check.iblhdev || check.hadmin) {
-        return Err(
-            "You need `Head Staff Manager` or `Head Developer` to edit votebans".into(),
-        );
+        return Err("You need `Head Staff Manager` or `Head Developer` to edit votebans".into());
     }
 
     // Ensure the bot actually exists
@@ -583,17 +581,19 @@ pub async fn vote_ban_add_bot(
     add_action_log(pool, bot_id, staff_id, reason, "vote_ban_add").await?;
 
     // Set premium_period_length which is a postgres interval
-    sqlx::query!("UPDATE bots SET vote_banned = true WHERE bot_id = $1", bot_id)
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE bots SET vote_banned = true WHERE bot_id = $1",
+        bot_id
+    )
+    .execute(pool)
+    .await?;
 
     let msg = CreateMessage::new().embed(
         CreateEmbed::default()
             .title("Vote Ban Edit!")
             .description(format!(
                 "<@{}> has set the vote ban on <@{}>",
-                staff_id,
-                bot_id,
+                staff_id, bot_id,
             ))
             .field("Reason", reason, true)
             .footer(CreateEmbedFooter::new(
@@ -604,7 +604,7 @@ pub async fn vote_ban_add_bot(
 
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)
-        .await?;    
+        .await?;
 
     Ok(())
 }
@@ -658,8 +658,7 @@ pub async fn force_bot_remove(
             .title("Bot Force Deleted!")
             .description(format!(
                 "<@{}> has force-removed <@{}> for violating our rules or Discord ToS",
-                staff_id,
-                bot_id,
+                staff_id, bot_id,
             ))
             .field("Reason", reason, true)
             .footer(CreateEmbedFooter::new(
@@ -670,22 +669,22 @@ pub async fn force_bot_remove(
 
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)
-        .await?;    
+        .await?;
 
     if kick {
         // Check that the bot is in the server
         let bot = discord.cache.member_field(
-            GuildId(crate::config::CONFIG.servers.main), 
-            UserId(bot_id_snow), 
-            |m| m.user.name.clone()
+            GuildId(crate::config::CONFIG.servers.main),
+            UserId(bot_id_snow),
+            |m| m.user.name.clone(),
         );
 
         if bot.is_some() {
             GuildId(crate::config::CONFIG.servers.main)
-            .member(&discord, UserId(bot_id.parse()?))
-            .await?
-            .kick_with_reason(&discord, &(staff_id.to_string()+":" + reason))
-            .await?;
+                .member(&discord, UserId(bot_id.parse()?))
+                .await?
+                .kick_with_reason(&discord, &(staff_id.to_string() + ":" + reason))
+                .await?;
         }
     }
 
@@ -708,9 +707,7 @@ pub async fn vote_ban_remove_bot(
     .await?;
 
     if !(check.iblhdev || check.hadmin) {
-        return Err(
-            "You need `Head Staff Manager` or `Head Developer` to edit votebans".into(),
-        );
+        return Err("You need `Head Staff Manager` or `Head Developer` to edit votebans".into());
     }
 
     // Ensure the bot actually exists
@@ -724,17 +721,19 @@ pub async fn vote_ban_remove_bot(
 
     add_action_log(pool, bot_id, staff_id, reason, "vote_ban_remove").await?;
 
-    sqlx::query!("UPDATE bots SET vote_banned = false WHERE bot_id = $1", bot_id)
-        .execute(pool)
-        .await?;
+    sqlx::query!(
+        "UPDATE bots SET vote_banned = false WHERE bot_id = $1",
+        bot_id
+    )
+    .execute(pool)
+    .await?;
 
     let msg = CreateMessage::new().embed(
         CreateEmbed::default()
             .title("Vote Ban Removed!")
             .description(format!(
                 "<@{}> has removed the vote ban on <@{}>",
-                staff_id,
-                bot_id,
+                staff_id, bot_id,
             ))
             .field("Reason", reason, true)
             .footer(CreateEmbedFooter::new(
@@ -745,7 +744,7 @@ pub async fn vote_ban_remove_bot(
 
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)
-        .await?;    
+        .await?;
 
     Ok(())
 }

@@ -9,6 +9,7 @@ use axum::{
     routing::post,
     Json, Router,
 };
+use chrono::Utc;
 use log::info;
 use reqwest::Method;
 use serde::Deserialize;
@@ -121,6 +122,7 @@ impl IntoResponse for RPCSuccess {
 pub enum RPCResponse {
     Err(String),
     InvalidProtocol,
+    RPCLocked,
     RatelimitReqFindFail,
     RatelimitAddFail,
     RatelimitUserTokenResetFail,
@@ -137,6 +139,9 @@ impl IntoResponse for RPCResponse {
             Self::Err(err) => (StatusCode::BAD_REQUEST, err).into_response(),
             Self::InvalidProtocol => {
                 (StatusCode::PRECONDITION_FAILED, "Invalid protocol").into_response()
+            }
+            Self::RPCLocked => {
+                (StatusCode::SERVICE_UNAVAILABLE, "RPC is locked. Use `rpcunlock` to unlock it for 1 hour").into_response()
             }
             Self::RatelimitAddFail => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Failed to add request to rpc_requests table").into_response()
@@ -215,7 +220,7 @@ async fn web_rpc_api(
     }
 
     let check = sqlx::query!(
-        "SELECT staff, ibldev, iblhdev, admin, hadmin, api_token FROM users WHERE user_id = $1",
+        "SELECT staff, ibldev, iblhdev, admin, hadmin, api_token, staff_rpc_last_verify FROM users WHERE user_id = $1",
         &req.user_id
     )
     .fetch_one(&state.pool)
@@ -228,6 +233,16 @@ async fn web_rpc_api(
 
     if !check.staff {
         return Err(RPCResponse::StaffOnly);
+    }
+
+    match &req.method {
+        RPCMethod::BotApprove { .. } => {},
+        RPCMethod::BotDeny { .. } => {},
+        _ => {
+            if Utc::now().timestamp() - check.staff_rpc_last_verify.timestamp() > 600 {
+                return Err(RPCResponse::RPCLocked);
+            }        
+        }
     }
 
     let user_id_snowflake = req.user_id.parse::<NonZeroU64>().map_err(|_| RPCResponse::UserNotFound)?;

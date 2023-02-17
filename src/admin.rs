@@ -2,6 +2,7 @@ use crate::checks;
 use crate::impls;
 use crate::Context;
 use crate::Error;
+use crate::impls::actions::add_action_log;
 
 use poise::serenity_prelude::ButtonStyle;
 use poise::serenity_prelude::CreateActionRow;
@@ -438,33 +439,29 @@ pub async fn botvotebandel(
     Ok(())
 }
 
-/// Unlocks RPC for a one hour time period, is logged
+/// Unlocks RPC for a 10 minutes, is logged
 #[poise::command(
     category = "Admin",
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_hdev_hadmin"
 )]
 pub async fn rpcunlock(
     ctx: crate::Context<'_>,
     #[description = "Purpose"] purpose: String,
 ) -> Result<(), Error> {
-    let nonce = impls::crypto::gen_random(5);
-
     let warn_embed = {
         CreateEmbed::new()
         .title(":warning: Warning")
         .description(
-            format!("**You are about to unlock full access to the RPC API for one hour on your account (required by some parts of our staff panel)**
+            format!("**You are about to unlock full access to the RPC API for 10 minutes on your account (required by some parts of our staff panel)**
 
 While RPC is unlocked, any leaks have a higher change in in data being destroyed and mass-nukes to potentially occur although the API does protect against it using ratelimits!
 
-To continue, please click the `Unlock` button and input ``{}`` in the next 30 seconds OR use bot commands instead (where permitted).
+To continue, please click the `Unlock` button OR use bot commands instead (where permitted).
 
 **Reason:** {}
             ", 
-            nonce,
             purpose)
         )
         .color(0xFF0000)
@@ -502,6 +499,8 @@ To continue, please click the `Unlock` button and input ``{}`` in the next 30 se
         if custom_id == "a:cancel" {
             item.delete_response(ctx.discord()).await?;
         } else if custom_id == "a:unlock" {
+            add_action_log(&ctx.data().pool, "", &ctx.author().id.to_string(), &purpose, "rpc_unlock").await?;
+
             sqlx::query!(
                 "UPDATE users SET staff_rpc_last_verify = NOW() WHERE user_id = $1",
                 ctx.author().id.to_string()
@@ -510,6 +509,26 @@ To continue, please click the `Unlock` button and input ``{}`` in the next 30 se
             .await?;
         }
     }
+
+    Ok(())
+}
+
+/// Locks RPC
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+)]
+pub async fn rpclock(
+    ctx: crate::Context<'_>,
+) -> Result<(), Error> {
+    sqlx::query!(
+        "UPDATE users SET staff_rpc_last_verify = NULL WHERE user_id = $1",
+        ctx.author().id.to_string()
+    )
+    .execute(&ctx.data().pool)
+    .await?;
 
     Ok(())
 }

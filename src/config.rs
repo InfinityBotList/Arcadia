@@ -92,6 +92,7 @@ pub struct Config {
     pub metro: Metro,
     pub rpc_allowed_urls: Vec<String>,
     pub owners: Vec<NonZeroU64>,
+    pub protected_bots: Vec<NonZeroU64>,
 }
 
 impl Default for Config {
@@ -108,6 +109,9 @@ impl Default for Config {
             proxy_url: String::from("http://127.0.0.1:3219"),
             rpc_allowed_urls: vec![],
             owners: vec![NonZeroU64::new(510065483693817867).unwrap()],
+            protected_bots: vec![
+                NonZeroU64::new(1019662370278228028).unwrap(), // Reedwhisker (PTB) - Main Bot
+            ],
         }
     }
 }

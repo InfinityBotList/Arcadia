@@ -642,6 +642,10 @@ pub async fn force_bot_remove(
 
     let bot_id_snow = bot_id.parse::<NonZeroU64>()?;
 
+    if crate::config::CONFIG.protected_bots.contains(&bot_id_snow) && kick {
+        return Err("You can't force delete this bot with 'kick' enabled!".into());
+    }
+
     add_action_log(pool, bot_id, staff_id, reason, "force_bot_remove").await?;
 
     // Set premium_period_length which is a postgres interval
@@ -680,7 +684,7 @@ pub async fn force_bot_remove(
             GuildId(crate::config::CONFIG.servers.main)
             .member(&discord, UserId(bot_id.parse()?))
             .await?
-            .kick_with_reason(&discord, reason)
+            .kick_with_reason(&discord, &(staff_id.to_string()+":" + reason))
             .await?;
         }
     }

@@ -5,7 +5,7 @@ use log::{error, info};
 use poise::serenity_prelude::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
     model::id::ChannelId,
-    UserId,
+    UserId, GuildId,
 };
 use serde::Serialize;
 use sqlx::PgPool;
@@ -605,6 +605,85 @@ pub async fn vote_ban_add_bot(
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)
         .await?;    
+
+    Ok(())
+}
+
+pub async fn force_bot_remove(
+    discord: &CacheHttpImpl,
+    pool: &PgPool,
+    bot_id: &str,
+    staff_id: &str,
+    reason: &str,
+    kick: bool,
+) -> Result<(), Error> {
+    // Ensure user has iblhdev or hadmin
+    let check = sqlx::query!(
+        "SELECT iblhdev, hadmin FROM users WHERE user_id = $1",
+        staff_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if !(check.iblhdev || check.hadmin) {
+        return Err(
+            "You need `Head Staff Manager` or `Head Developer` to forcibly remove a bit".into(),
+        );
+    }
+
+    // Ensure the bot actually exists
+    let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
+        .fetch_one(pool)
+        .await?;
+
+    if bot.count.unwrap_or_default() == 0 {
+        return Err("Bot does not exist".into());
+    }
+
+    let bot_id_snow = bot_id.parse::<NonZeroU64>()?;
+
+    add_action_log(pool, bot_id, staff_id, reason, "force_bot_remove").await?;
+
+    // Set premium_period_length which is a postgres interval
+    sqlx::query!("DELETE FROM bots WHERE bot_id = $1", bot_id)
+        .execute(pool)
+        .await?;
+
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("Bot Force Deleted!")
+            .description(format!(
+                "<@{}> has force-removed <@{}> for violating our rules or Discord ToS",
+                staff_id,
+                bot_id,
+            ))
+            .field("Reason", reason, true)
+            .footer(CreateEmbedFooter::new(
+                "Remember: don't abuse our services!",
+            ))
+            .color(0xFF0000),
+    );
+
+    ChannelId(crate::config::CONFIG.channels.mod_logs)
+        .send_message(&discord, msg)
+        .await?;    
+
+    if kick {
+        // Check that the bot is in the server
+        let bot = discord.cache.member_field(
+            GuildId(crate::config::CONFIG.servers.main), 
+            UserId(bot_id_snow), 
+            |m| m.user.name.clone()
+        );
+
+        if bot.is_some() {
+            GuildId(crate::config::CONFIG.servers.main)
+            .member(&discord, UserId(bot_id.parse()?))
+            .await?
+            .kick_with_reason(&discord, reason)
+            .await?;
+        }
+    }
 
     Ok(())
 }

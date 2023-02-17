@@ -31,6 +31,7 @@ pub struct RPCRequest {
 
 #[derive(Deserialize, TS)]
 #[ts(export, export_to = ".generated/RPCMethod.ts")]
+#[allow(clippy::enum_variant_names)]
 pub enum RPCMethod {
     BotApprove {
         bot_id: String,
@@ -68,6 +69,11 @@ pub enum RPCMethod {
         bot_id: String,
         reason: String,
     },
+    BotForceRemove {
+        bot_id: String,
+        reason: String,
+        kick: bool,
+    }
 }
 
 impl ToString for RPCMethod {
@@ -82,6 +88,7 @@ impl ToString for RPCMethod {
             Self::BotPremiumRemove { .. } => "BotPremiumRemove",
             Self::BotVoteBanAdd { .. } => "BotVoteBanAdd",
             Self::BotVoteBanRemove { .. } => "BotVoteBanRemove",
+            Self::BotForceRemove { .. } => "BotForceRemove",
         }
         .to_string()
     }
@@ -101,6 +108,7 @@ impl RPCMethod {
             Self::BotPremiumRemove { .. } => crate::admin::botpremiumdel,
             Self::BotVoteBanAdd { .. } => crate::admin::botvotebanadd,
             Self::BotVoteBanRemove { .. } => crate::admin::botvotebandel,
+            Self::BotForceRemove { .. } => crate::admin::botforcedel,
         };
     }
 }
@@ -168,7 +176,7 @@ impl IntoResponse for RPCResponse {
             Self::StaffOnly => (StatusCode::FORBIDDEN, "Staff-only endpoint").into_response(),
             Self::PermissionDenied(perms) => (
                 StatusCode::FORBIDDEN,
-                "Permission denied: ".to_string() + &perms.join(" ").to_string(),
+                "Permission denied: ".to_string() + &perms.join(" "),
             )
                 .into_response(),
         }
@@ -286,9 +294,9 @@ async fn web_rpc_api(
             let res = impls::actions::approve_bot(
                 &state.cache_http,
                 &state.pool,
-                &bot_id,
+                bot_id,
                 &req.user_id,
-                &reason,
+                reason,
             )
             .await
             .map_err(|e| RPCResponse::Err(e.to_string()))?;
@@ -299,9 +307,9 @@ async fn web_rpc_api(
             impls::actions::deny_bot(
                 &state.cache_http,
                 &state.pool,
-                &bot_id,
+                bot_id,
                 &req.user_id,
-                &reason,
+                reason,
             )
             .await
             .map_err(|e| RPCResponse::Err(e.to_string()))?;
@@ -315,9 +323,9 @@ async fn web_rpc_api(
                 impls::actions::vote_reset_bot(
                     &state.cache_http,
                     &state.pool,
-                    &bot_id,
+                    bot_id,
                     &req.user_id,
-                    &reason,
+                    reason,
                 )
                 .await
                 .map_err(|e| RPCResponse::Err(e.to_string()))?;
@@ -333,7 +341,7 @@ async fn web_rpc_api(
                     &state.cache_http,
                     &state.pool,
                     &req.user_id,
-                    &reason,
+                    reason,
                 )
                 .await
                 .map_err(|e| RPCResponse::Err(e.to_string()))?;
@@ -348,9 +356,9 @@ async fn web_rpc_api(
                 impls::actions::unverify_bot(
                     &state.cache_http,
                     &state.pool,
-                    &bot_id,
+                    bot_id,
                     &req.user_id,
-                    &reason,
+                    reason,
                 )
                 .await
                 .map_err(|e| RPCResponse::Err(e.to_string()))?;
@@ -369,9 +377,9 @@ async fn web_rpc_api(
                 impls::actions::premium_add_bot(
                     &state.cache_http,
                     &state.pool,
-                    &bot_id,
+                    bot_id,
                     &req.user_id,
-                    &reason,
+                    reason,
                     *time_period_hours,
                 )
                 .await
@@ -387,9 +395,9 @@ async fn web_rpc_api(
                 impls::actions::premium_remove_bot(
                     &state.cache_http,
                     &state.pool,
-                    &bot_id,
+                    bot_id,
                     &req.user_id,
-                    &reason,
+                    reason,
                 )
                 .await
                 .map_err(|e| RPCResponse::Err(e.to_string()))?;
@@ -404,9 +412,9 @@ async fn web_rpc_api(
                 impls::actions::vote_ban_add_bot(
                     &state.cache_http,
                     &state.pool,
-                    &bot_id,
+                    bot_id,
                     &req.user_id,
-                    &reason,
+                    reason,
                 )
                 .await
                 .map_err(|e| RPCResponse::Err(e.to_string()))?;
@@ -421,9 +429,9 @@ async fn web_rpc_api(
                 impls::actions::vote_ban_remove_bot(
                     &state.cache_http,
                     &state.pool,
-                    &bot_id,
+                    bot_id,
                     &req.user_id,
-                    &reason,
+                    reason,
                 )
                 .await
                 .map_err(|e| RPCResponse::Err(e.to_string()))?;
@@ -431,5 +439,23 @@ async fn web_rpc_api(
                 Ok(RPCSuccess::NoContent)
             }
         },
+        RPCMethod::BotForceRemove { bot_id, reason, kick } => {
+            if !(check.hadmin || check.iblhdev) {
+                Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
+            } else {
+                impls::actions::force_bot_remove(
+                    &state.cache_http,
+                    &state.pool,
+                    bot_id,
+                    &req.user_id,
+                    reason,
+                    *kick,
+                )
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+        }
     }
 }

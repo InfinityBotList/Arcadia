@@ -209,7 +209,7 @@ pub async fn resetonboard(
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("botunverify", "botpremiumadd", "botpremiumdel", "botvotereset", "botvoteresetall", "botvotebanadd", "botvotebandel")
+    subcommands("botunverify", "botpremiumadd", "botpremiumdel", "botvotereset", "botvoteresetall", "botvotebanadd", "botvotebandel", "botforcedel")
 )]
 pub async fn botman(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("See /help botman for more info").await?;
@@ -437,6 +437,39 @@ pub async fn botvotebandel(
 
     Ok(())
 }
+
+/// Forcefully deletes a bot
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn botforcedel(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+    #[description = "Kick the bot from main server"] kick: bool,
+) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
+    impls::actions::force_bot_remove(
+        &data.cache_http,
+        &data.pool,
+        &bot.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+        kick,
+    )
+    .await?;
+
+    ctx.say("This bot has been forcefully deleted!")
+        .await?;
+
+    Ok(())
+}
+
 
 /// Unlocks RPC for a 10 minutes, is logged
 #[poise::command(

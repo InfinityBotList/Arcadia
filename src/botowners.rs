@@ -82,7 +82,7 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
         .fetch_all(&data.pool)
         .await?;
 
-        if owner.len() == 0 {
+        if owner.is_empty() {
             return Err("You are not the owner/additional owner of any bots".into());
         }
 
@@ -145,11 +145,11 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
         }
 
         // Apply the required changes
-        if roles_to_add.len() > 0 {
+        if !roles_to_add.is_empty() {
             member.add_roles(&ctx, &roles_to_add).await?;
         }
 
-        if roles_to_remove.len() > 0 {
+        if !roles_to_remove.is_empty() {
             member.remove_roles(&ctx, &roles_to_remove).await?;
         }
 

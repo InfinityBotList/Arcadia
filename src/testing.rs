@@ -120,7 +120,7 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
         CreateButton::new("q:prev")
             .label("Previous")
             .style(serenity::ButtonStyle::Primary)
-            .disabled(qb.index <= 0),
+            .disabled(qb.index == 0),
         CreateButton::new("q:cancel")
             .label("Cancel")
             .style(serenity::ButtonStyle::Danger),

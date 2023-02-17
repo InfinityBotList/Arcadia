@@ -1,6 +1,5 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use serde_yaml;
 use std::{fs::File, io::Write, num::NonZeroU64};
 
 use crate::Error;
@@ -73,20 +72,12 @@ impl Default for Channels {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Metro {
     pub list_id: String,
     pub secret: String,
 }
 
-impl Default for Metro {
-    fn default() -> Self {
-        Self {
-            list_id: String::from(""),
-            secret: String::from(""),
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {

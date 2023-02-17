@@ -124,8 +124,8 @@ pub struct MsgInfo {
 }
 
 /// Internal function that creates a select menu
-fn _create_select_menu<'a>(
-    data: &'a [EmbedHelp],
+fn _create_select_menu(
+    data: &[EmbedHelp],
     index: usize,
 ) -> serenity::builder::CreateSelectMenu {
     let mut options = Vec::new();
@@ -153,7 +153,7 @@ fn _create_select_menu<'a>(
 
 fn _create_reply(
     data: &EmbedHelp,
-    l_data: &Vec<EmbedHelp>,
+    l_data: &[EmbedHelp],
     index: usize,
     prev_disabled: bool,
     next_disabled: bool,

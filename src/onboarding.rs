@@ -52,22 +52,11 @@ impl OnboardState {
     }
 
     pub fn queue_unclaim(&self) -> bool {
-        match self {
-            OnboardState::Pending => true,
-            OnboardState::QueueRemind => true,
-            OnboardState::QueueForceClaim => true,
-            _ => false,
-        }
+        matches!(self, OnboardState::QueueRemind | OnboardState::QueueForceClaim)
     }
 
     pub fn queue_passthrough(&self) -> bool {
-        match self {
-            OnboardState::Pending => true,
-            OnboardState::PendingManagerReview => true,
-            OnboardState::Denied => true,
-            OnboardState::Completed => true,
-            _ => false,
-        }
+        matches!(self, OnboardState::Pending | OnboardState::PendingManagerReview | OnboardState::Denied)
     }
 }
 
@@ -126,20 +115,15 @@ pub async fn handle_onboarding(
     let discord = ctx.discord();
 
     // Verify staff first
-    let is_staff = crate::checks::is_staff(ctx).await.unwrap_or_else(|_| false) || {
+    let is_staff = crate::checks::is_staff(ctx).await.unwrap_or(false) || {
         let member = discord
             .cache
             .member(config::CONFIG.servers.main, ctx.author().id);
 
         if let Some(member) = member {
-            if !member
+            member
                 .roles
                 .contains(&RoleId(config::CONFIG.roles.awaiting_staff))
-            {
-                false
-            } else {
-                true
-            }
         } else {
             false
         }
@@ -334,7 +318,7 @@ be approved or denied.
         .await?;
 
         // Check for old onboarding server
-        let id = if onboard_guild != "" {
+        let id = if !onboard_guild.is_empty() {
             if let Some(guild) = discord.cache.guild(onboard_guild.parse::<NonZeroU64>()?) {
                 Some(guild.id)
             } else {
@@ -404,7 +388,7 @@ Welcome to your onboarding server! Please read the following:
                 vec![
                     CreateActionRow::Buttons(
                         vec![
-                            CreateButton::new_link(&dm_invite.url()).label("Join Onboarding Server")
+                            CreateButton::new_link(dm_invite.url()).label("Join Onboarding Server")
                         ]
                     )
                 ]
@@ -474,7 +458,7 @@ Welcome to your onboarding server! Please read the following:
                 vec![
                     CreateActionRow::Buttons(
                         vec![
-                            CreateButton::new_link(&invite.url()).label("Join Onboarding Server")
+                            CreateButton::new_link(invite.url()).label("Join Onboarding Server")
                         ]
                     )
                 ]
@@ -500,7 +484,7 @@ Welcome to your onboarding server! Please read the following:
                 vec![
                     CreateActionRow::Buttons(
                         vec![
-                            CreateButton::new_link(&invite.url()).label("Join Onboarding Server")
+                            CreateButton::new_link(invite.url()).label("Join Onboarding Server")
                         ]
                     )
                 ]

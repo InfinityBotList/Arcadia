@@ -3,8 +3,10 @@ use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::{fs::File, io::Write, num::NonZeroU64};
 
+use crate::Error;
+
 /// Global config object
-pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load());
+pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load().expect("Failed to load config"));
 
 #[derive(Serialize, Deserialize)]
 pub struct Servers {
@@ -120,23 +122,20 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn load() -> Self {
+    pub fn load() -> Result<Self, Error> {
         // Delete config.yaml.sample if it exists
         if std::path::Path::new("config.yaml.sample").exists() {
-            std::fs::remove_file("config.yaml.sample").unwrap();
+            std::fs::remove_file("config.yaml.sample")?;
         }
 
         // Create config.yaml.sample
-        let mut sample = File::create("config.yaml.sample").unwrap();
+        let mut sample = File::create("config.yaml.sample")?;
 
         // Write default config to config.yaml.sample
         sample
             .write_all(
-                serde_yaml::to_string(&Config::default())
-                    .unwrap()
-                    .as_bytes(),
-            )
-            .unwrap();
+                serde_yaml::to_string(&Config::default())?.as_bytes(),
+            )?;
 
         // Open config.yaml
         let file = File::open("config.yaml");
@@ -144,10 +143,10 @@ impl Config {
         match file {
             Ok(file) => {
                 // Parse config.yaml
-                let cfg: Config = serde_yaml::from_reader(file).unwrap();
+                let cfg: Config = serde_yaml::from_reader(file)?;
 
                 // Return config
-                cfg
+                Ok(cfg)
             }
             Err(e) => {
                 // Print error

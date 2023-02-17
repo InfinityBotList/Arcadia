@@ -456,9 +456,9 @@ pub async fn rpcunlock(
         .description(
             format!("**You are about to unlock full access to the RPC API for 10 minutes on your account (required by some parts of our staff panel)**
 
-While RPC is unlocked, any leaks have a higher change in in data being destroyed and mass-nukes to potentially occur although the API does protect against it using ratelimits!
+While RPC is unlocked, any leaks or bugs have a higher change in leading to data being destroyed and mass-nukes to potentially occur although the API does try to protect against it using ratelimits etc.!
 
-To continue, please click the `Unlock` button OR use bot commands instead (where permitted).
+To continue, please click the `Unlock` button OR instead, (PREFERRED) just use bot commands instead (where permitted).
 
 **Reason:** {}
             ", 

@@ -149,7 +149,7 @@ impl IntoResponse for RPCResponse {
                 (StatusCode::PRECONDITION_FAILED, "Invalid protocol").into_response()
             }
             Self::RPCLocked => {
-                (StatusCode::SERVICE_UNAVAILABLE, "RPC is locked. Use `rpcunlock` to unlock it for 1 hour").into_response()
+                (StatusCode::PRECONDITION_FAILED, "RPC is locked. Use `rpcunlock` to unlock it for 1 hour").into_response()
             }
             Self::RatelimitAddFail => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Failed to add request to rpc_requests table").into_response()

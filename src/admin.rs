@@ -531,7 +531,7 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
         if custom_id == "a:cancel" {
             item.delete_response(ctx.discord()).await?;
         } else if custom_id == "a:unlock" {
-            add_action_log(&ctx.data().pool, "", &ctx.author().id.to_string(), &purpose, "rpc_unlock").await?;
+            add_action_log(&ctx.data().pool, &crate::config::CONFIG.test_bot.to_string(), &ctx.author().id.to_string(), &purpose, "rpc_unlock").await?;
 
             sqlx::query!(
                 "UPDATE users SET staff_rpc_last_verify = NOW() WHERE user_id = $1",

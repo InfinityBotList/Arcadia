@@ -529,5 +529,7 @@ pub async fn rpclock(
     .execute(&ctx.data().pool)
     .await?;
 
+    ctx.say("RPC has been locked").await?;
+
     Ok(())
 }

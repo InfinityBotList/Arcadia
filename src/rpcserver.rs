@@ -104,11 +104,26 @@ impl RPCMethod {
     }
 }
 
-pub enum RPCResponse {
+pub enum RPCSuccess {
     NoContent,
     Content(String),
+}
+
+impl IntoResponse for RPCSuccess {
+    fn into_response(self) -> Response {
+        match self {
+            Self::NoContent => (StatusCode::NO_CONTENT, "").into_response(),
+            Self::Content(content) => (StatusCode::OK, content).into_response(),
+        }
+    }
+}
+
+pub enum RPCResponse {
     Err(String),
     InvalidProtocol,
+    RatelimitReqFindFail,
+    RatelimitAddFail,
+    RatelimitUserTokenResetFail,
     Ratelimited,
     UserNotFound,
     InvalidAuth,
@@ -119,11 +134,18 @@ pub enum RPCResponse {
 impl IntoResponse for RPCResponse {
     fn into_response(self) -> Response {
         match self {
-            Self::NoContent => (StatusCode::NO_CONTENT, "").into_response(),
-            Self::Content(content) => (StatusCode::OK, content).into_response(),
             Self::Err(err) => (StatusCode::BAD_REQUEST, err).into_response(),
             Self::InvalidProtocol => {
                 (StatusCode::PRECONDITION_FAILED, "Invalid protocol").into_response()
+            }
+            Self::RatelimitAddFail => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to add request to rpc_requests table").into_response()
+            }
+            Self::RatelimitReqFindFail => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get number of requests in the last 7 minutes").into_response()
+            }
+            Self::RatelimitUserTokenResetFail => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to reset user token (caused by ratelimit)").into_response()
             }
             Self::Ratelimited => (
                 StatusCode::TOO_MANY_REQUESTS,
@@ -187,9 +209,9 @@ pub async fn rpc_init(pool: PgPool, cache_http: CacheHttpImpl) {
 async fn web_rpc_api(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RPCRequest>,
-) -> impl IntoResponse {
+) -> Result<RPCSuccess, RPCResponse> {
     if req.protocol != 3 {
-        return RPCResponse::InvalidProtocol;
+        return Err(RPCResponse::InvalidProtocol);
     }
 
     let check = sqlx::query!(
@@ -197,42 +219,28 @@ async fn web_rpc_api(
         &req.user_id
     )
     .fetch_one(&state.pool)
-    .await;
-
-    if check.is_err() {
-        return RPCResponse::UserNotFound;
-    }
-
-    let check = check.unwrap();
+    .await
+    .map_err(|_| RPCResponse::UserNotFound)?;
 
     if check.api_token != req.token {
-        return RPCResponse::InvalidAuth;
+        return Err(RPCResponse::InvalidAuth);
     }
 
     if !check.staff {
-        return RPCResponse::StaffOnly;
+        return Err(RPCResponse::StaffOnly);
     }
 
-    let user_id_snowflake = req.user_id.parse::<NonZeroU64>();
-
-    if user_id_snowflake.is_err() {
-        return RPCResponse::UserNotFound;
-    }
-
-    let user_id_snowflake = user_id_snowflake.unwrap();
+    let user_id_snowflake = req.user_id.parse::<NonZeroU64>().map_err(|_| RPCResponse::UserNotFound)?;
 
     // Add request to rpc_requests table
-    let err = sqlx::query!(
+    sqlx::query!(
         "INSERT INTO rpc_requests (user_id, method) VALUES ($1, $2)",
         &req.user_id,
         &req.method.to_string()
     )
     .execute(&state.pool)
-    .await;
-
-    if err.is_err() {
-        return RPCResponse::Err("Failed to add request to rpc_requests table".to_string());
-    }
+    .await
+    .map_err(|_| RPCResponse::RatelimitAddFail)?;
 
     // Get number of requests in the last 7 minutes
     let res = sqlx::query!(
@@ -240,32 +248,22 @@ async fn web_rpc_api(
         &req.user_id
     )
     .fetch_one(&state.pool)
-    .await;
+    .await
+    .map_err(|_| RPCResponse::RatelimitReqFindFail)?;
 
-    if res.is_err() {
-        return RPCResponse::Err(
-            "Failed to get number of requests in the last 7 minutes".to_string(),
-        );
-    }
-
-    let count = res.unwrap().count.unwrap_or_default();
+    let count = res.count.unwrap_or_default();
 
     if count > 5 {
-        let res = sqlx::query!(
+        sqlx::query!(
             "UPDATE users SET api_token = $2 WHERE user_id = $1",
             &req.user_id,
             impls::crypto::gen_random(136)
         )
         .execute(&state.pool)
-        .await;
+        .await
+        .map_err(|_| RPCResponse::RatelimitUserTokenResetFail)?;
 
-        if res.is_err() {
-            return RPCResponse::Err(
-                "Failed to reset user token (caused by ratelimit)".to_string(),
-            );
-        }
-
-        return RPCResponse::Ratelimited;
+        return Err(RPCResponse::Ratelimited);
     }
 
     match &req.method {
@@ -277,87 +275,72 @@ async fn web_rpc_api(
                 &req.user_id,
                 &reason,
             )
-            .await;
+            .await
+            .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-            if res.is_err() {
-                RPCResponse::Err(res.unwrap_err().to_string())
-            } else {
-                RPCResponse::Content(res.unwrap())
-            }
+            Ok(RPCSuccess::Content(res))
         }
         RPCMethod::BotDeny { bot_id, reason } => {
-            let err = impls::actions::deny_bot(
+            impls::actions::deny_bot(
                 &state.cache_http,
                 &state.pool,
                 &bot_id,
                 &req.user_id,
                 &reason,
             )
-            .await;
+            .await
+            .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-            if err.is_err() {
-                RPCResponse::Err(err.unwrap_err().to_string())
-            } else {
-                RPCResponse::NoContent
-            }
+            Ok(RPCSuccess::NoContent)
         }
         RPCMethod::BotVoteReset { bot_id, reason } => {
             if !config::CONFIG.owners.contains(&user_id_snowflake) {
-                RPCResponse::PermissionDenied(vec!["owner"])
+                Err(RPCResponse::PermissionDenied(vec!["owner"]))
             } else {
-                let err = impls::actions::vote_reset_bot(
+                impls::actions::vote_reset_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
                     &req.user_id,
                     &reason,
                 )
-                .await;
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-                if err.is_err() {
-                    RPCResponse::Err(err.unwrap_err().to_string())
-                } else {
-                    RPCResponse::NoContent
-                }
+                Ok(RPCSuccess::NoContent)
             }
         }
         RPCMethod::BotVoteResetAll { reason } => {
             if !config::CONFIG.owners.contains(&user_id_snowflake) {
-                RPCResponse::PermissionDenied(vec!["owner"])
+                Err(RPCResponse::PermissionDenied(vec!["owner"]))
             } else {
-                let err = impls::actions::vote_reset_all_bot(
+                impls::actions::vote_reset_all_bot(
                     &state.cache_http,
                     &state.pool,
                     &req.user_id,
                     &reason,
                 )
-                .await;
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-                if err.is_err() {
-                    RPCResponse::Err(err.unwrap_err().to_string())
-                } else {
-                    RPCResponse::NoContent
-                }
+                Ok(RPCSuccess::NoContent)
             }
         }
         RPCMethod::BotUnverify { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
-                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+                Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
             } else {
-                let err = impls::actions::unverify_bot(
+                impls::actions::unverify_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
                     &req.user_id,
                     &reason,
                 )
-                .await;
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-                if err.is_err() {
-                    RPCResponse::Err(err.unwrap_err().to_string())
-                } else {
-                    RPCResponse::NoContent
-                }
+                Ok(RPCSuccess::NoContent)
             }
         }
         RPCMethod::BotPremiumAdd {
@@ -366,9 +349,9 @@ async fn web_rpc_api(
             time_period_hours,
         } => {
             if !(check.hadmin || check.iblhdev) {
-                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+                Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
             } else {
-                let err = impls::actions::premium_add_bot(
+                impls::actions::premium_add_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
@@ -376,73 +359,61 @@ async fn web_rpc_api(
                     &reason,
                     *time_period_hours,
                 )
-                .await;
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-                if err.is_err() {
-                    RPCResponse::Err(err.unwrap_err().to_string())
-                } else {
-                    RPCResponse::NoContent
-                }
+                Ok(RPCSuccess::NoContent)
             }
         },
         RPCMethod::BotPremiumRemove { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
-                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+                Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
             } else {
-                let err = impls::actions::premium_remove_bot(
+                impls::actions::premium_remove_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
                     &req.user_id,
                     &reason,
                 )
-                .await;
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-                if err.is_err() {
-                    RPCResponse::Err(err.unwrap_err().to_string())
-                } else {
-                    RPCResponse::NoContent
-                }
+                Ok(RPCSuccess::NoContent)
             }
         },
         RPCMethod::BotVoteBanAdd { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
-                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+                Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
             } else {
-                let err = impls::actions::vote_ban_add_bot(
+                impls::actions::vote_ban_add_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
                     &req.user_id,
                     &reason,
                 )
-                .await;
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-                if err.is_err() {
-                    RPCResponse::Err(err.unwrap_err().to_string())
-                } else {
-                    RPCResponse::NoContent
-                }
+                Ok(RPCSuccess::NoContent)
             }
         },
         RPCMethod::BotVoteBanRemove { bot_id, reason } => {
             if !(check.hadmin || check.iblhdev) {
-                RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"])
+                Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
             } else {
-                let err = impls::actions::vote_ban_remove_bot(
+                impls::actions::vote_ban_remove_bot(
                     &state.cache_http,
                     &state.pool,
                     &bot_id,
                     &req.user_id,
                     &reason,
                 )
-                .await;
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
-                if err.is_err() {
-                    RPCResponse::Err(err.unwrap_err().to_string())
-                } else {
-                    RPCResponse::NoContent
-                }
+                Ok(RPCSuccess::NoContent)
             }
         },
     }

@@ -3,8 +3,10 @@ use crate::impls;
 use crate::Context;
 use crate::Error;
 
+use poise::serenity_prelude::ButtonStyle;
 use poise::serenity_prelude::CreateActionRow;
 use poise::serenity_prelude::CreateButton;
+use poise::serenity_prelude::CreateEmbed;
 use poise::serenity_prelude::CreateMessage;
 use poise::serenity_prelude::User;
 use poise::CreateReply;
@@ -436,8 +438,6 @@ pub async fn botvotebandel(
     Ok(())
 }
 
-/*
-
 /// Unlocks RPC for a one hour time period, is logged
 #[poise::command(
     category = "Admin",
@@ -461,11 +461,55 @@ pub async fn rpcunlock(
 While RPC is unlocked, any leaks have a higher change in in data being destroyed and mass-nukes to potentially occur although the API does protect against it using ratelimits!
 
 To continue, please click the `Unlock` button and input ``{}`` in the next 30 seconds OR use bot commands instead (where permitted).
+
+**Reason:** {}
             ", 
-            nonce)
+            nonce,
+            purpose)
         )
+        .color(0xFF0000)
     };
+
+    let msg = ctx
+        .send(
+            CreateReply::new()
+            .embed(warn_embed)
+            .components(vec![
+                CreateActionRow::Buttons(
+                    vec![
+                        CreateButton::new("a:unlock")
+                        .style(ButtonStyle::Primary)
+                        .label("Unlock"),
+                        CreateButton::new("a:cancel")
+                        .style(ButtonStyle::Danger)
+                        .label("Cancel")
+                    ]
+                )
+            ])
+        )
+        .await?
+        .into_message()
+        .await?;
+
+    let interaction = msg
+    .await_component_interaction(ctx.discord())
+    .author_id(ctx.author().id)
+    .await;
+
+    if let Some(item) = interaction {
+        let custom_id = &item.data.custom_id;
+
+        if custom_id == "a:cancel" {
+            item.delete_response(ctx.discord()).await?;
+        } else if custom_id == "a:unlock" {
+            sqlx::query!(
+                "UPDATE users SET staff_rpc_last_verify = NOW() WHERE user_id = $1",
+                ctx.author().id.to_string()
+            )
+            .execute(&ctx.data().pool)
+            .await?;
+        }
+    }
 
     Ok(())
 }
-*/

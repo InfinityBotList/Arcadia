@@ -7,6 +7,7 @@ use poise::serenity_prelude::ButtonStyle;
 use poise::serenity_prelude::CreateActionRow;
 use poise::serenity_prelude::CreateButton;
 use poise::serenity_prelude::CreateEmbed;
+use poise::serenity_prelude::CreateInteractionResponseMessage;
 use poise::serenity_prelude::CreateMessage;
 use poise::serenity_prelude::User;
 use poise::CreateReply;
@@ -573,7 +574,10 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
             .execute(&ctx.data().pool)
             .await?;
 
-            ctx.say("RPC unlocked").await?;
+            item.create_response(&ctx.discord(), serenity::CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::default()
+                .content("RPC unlocked")
+            )).await?;
         }
     }
 

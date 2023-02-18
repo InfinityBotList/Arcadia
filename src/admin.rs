@@ -217,7 +217,8 @@ pub async fn resetonboard(
         "botvoteresetall",
         "botvotebanadd",
         "botvotebandel",
-        "botforcedel"
+        "botforcedel",
+        "botuncertify"
     )
 )]
 pub async fn botman(ctx: Context<'_>) -> Result<(), Error> {
@@ -387,7 +388,7 @@ pub async fn botpremiumdel(
     Ok(())
 }
 
-/// Bans or unbans a bot from votes
+/// Bans a bot from votes
 #[poise::command(
     category = "Admin",
     track_edits,
@@ -416,7 +417,7 @@ pub async fn botvotebanadd(
     Ok(())
 }
 
-/// Bans or unbans a bot from votes
+/// Unbans a bot from votes
 #[poise::command(
     category = "Admin",
     track_edits,
@@ -441,6 +442,35 @@ pub async fn botvotebandel(
     .await?;
 
     ctx.say("This bot has been un-vote banned!").await?;
+
+    Ok(())
+}
+
+/// Uncertifies a bot
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn botuncertify(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
+    impls::actions::certify_remove_bot(
+        &data.cache_http,
+        &data.pool,
+        &bot.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+    )
+    .await?;
+
+    ctx.say("This bot has been uncertified!").await?;
 
     Ok(())
 }
@@ -542,6 +572,8 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
             )
             .execute(&ctx.data().pool)
             .await?;
+
+            ctx.say("RPC unlocked").await?;
         }
     }
 

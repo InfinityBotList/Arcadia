@@ -492,6 +492,74 @@ pub async fn premium_add_bot(
     Ok(())
 }
 
+pub async fn certify_remove_bot(
+    discord: &CacheHttpImpl,
+    pool: &PgPool,
+    bot_id: &str,
+    staff_id: &str,
+    reason: &str,
+) -> Result<(), Error> {
+    // Ensure user has iblhdev or hadmin
+    let check = sqlx::query!(
+        "SELECT iblhdev, hadmin FROM users WHERE user_id = $1",
+        staff_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    if !(check.iblhdev || check.hadmin) {
+        return Err(
+            "You need `Head Staff Manager` or `Head Developer` to uncertify bots".into(),
+        );
+    }
+
+    // Ensure the bot actually exists
+    let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
+        .fetch_one(pool)
+        .await?;
+
+    if bot.count.unwrap_or_default() == 0 {
+        return Err("Bot does not exist".into());
+    }
+
+    add_action_log(
+        pool,
+        bot_id,
+        staff_id,
+        reason,
+        "certify_remove_bot",
+    )
+    .await?;
+
+    // Set premium_period_length which is a postgres interval
+    sqlx::query!(
+        "UPDATE bots SET type = 'approved' WHERE bot_id = $1",
+        bot_id
+    )
+    .execute(pool)
+    .await?;
+
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("Bot Uncertified!")
+            .description(format!(
+                "<@{}> has uncertified <@{}>",
+                staff_id, bot_id
+            ))
+            .field("Reason", reason, true)
+            .footer(CreateEmbedFooter::new(
+                "Uh oh, looks like you've been naughty...",
+            ))
+            .color(0xff0000),
+    );
+
+    ChannelId(crate::config::CONFIG.channels.mod_logs)
+        .send_message(&discord, msg)
+        .await?;
+
+    Ok(())
+}
+
 pub async fn premium_remove_bot(
     discord: &CacheHttpImpl,
     pool: &PgPool,

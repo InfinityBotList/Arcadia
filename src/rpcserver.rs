@@ -74,6 +74,10 @@ pub enum RPCMethod {
         reason: String,
         kick: bool,
     },
+    BotCertifyRemove {
+        bot_id: String,
+        reason: String,
+    }
 }
 
 impl ToString for RPCMethod {
@@ -89,6 +93,7 @@ impl ToString for RPCMethod {
             Self::BotVoteBanAdd { .. } => "BotVoteBanAdd",
             Self::BotVoteBanRemove { .. } => "BotVoteBanRemove",
             Self::BotForceRemove { .. } => "BotForceRemove",
+            Self::BotCertifyRemove { .. } => "BotCertifyRemove",
         }
         .to_string()
     }
@@ -109,6 +114,7 @@ impl RPCMethod {
             Self::BotVoteBanAdd { .. } => crate::admin::botvotebanadd,
             Self::BotVoteBanRemove { .. } => crate::admin::botvotebandel,
             Self::BotForceRemove { .. } => crate::admin::botforcedel,
+            Self::BotCertifyRemove { .. } => crate::admin::botuncertify,
         };
     }
 }
@@ -459,6 +465,23 @@ async fn web_rpc_api(
                     &req.user_id,
                     reason,
                     *kick,
+                )
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+        }
+        RPCMethod::BotCertifyRemove { bot_id, reason } => {
+            if !(check.hadmin || check.iblhdev) {
+                Err(RPCResponse::PermissionDenied(vec!["hadmin", "iblhdev"]))
+            } else {
+                impls::actions::certify_remove_bot(
+                    &state.cache_http,
+                    &state.pool,
+                    bot_id,
+                    &req.user_id,
+                    reason,
                 )
                 .await
                 .map_err(|e| RPCResponse::Err(e.to_string()))?;

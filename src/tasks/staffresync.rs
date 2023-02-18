@@ -8,6 +8,7 @@ enum StaffPosition {
     HeadManager,
     Developer,
     HeadDeveloper,
+    Owner,
 }
 
 struct StaffResync {
@@ -42,6 +43,12 @@ pub async fn staff_resync(
     {
         if let Some(guild) = cache_http.cache.guild(config::CONFIG.servers.staff) {
             for (_, member) in guild.members.iter() {
+                if config::CONFIG.owners.contains(&member.user.id.0) {
+                    staff_resync.push(StaffResync {
+                        user_id: member.user.id.0,
+                        col: StaffPosition::Owner,
+                    });
+                }
                 if member.roles.contains(&dev_role) {
                     staff_resync.push(StaffResync {
                         user_id: member.user.id.0,
@@ -85,7 +92,15 @@ pub async fn staff_resync(
         .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
     // First unset all staff
-    sqlx::query!("UPDATE users SET staff = false, ibldev = false, iblhdev = false, admin = false, hadmin = false")
+    sqlx::query!("
+        UPDATE users SET 
+            staff = false, 
+            ibldev = false, 
+            iblhdev = false, 
+            admin = false, 
+            hadmin = false,
+            owner = false
+    ")
     .execute(&mut tx)
     .await
     .map_err(|e| format!("Error while updating users in database: {:?}", e))?;
@@ -128,6 +143,14 @@ pub async fn staff_resync(
             StaffPosition::HeadManager => {
                 sqlx::query!(
                     "UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1",
+                    staff.user_id.to_string()
+                )
+                .execute(&mut tx)
+                .await
+            }
+            StaffPosition::Owner => {
+                sqlx::query!(
+                    "UPDATE users SET staff = true, owner = true WHERE user_id = $1",
                     staff.user_id.to_string()
                 )
                 .execute(&mut tx)

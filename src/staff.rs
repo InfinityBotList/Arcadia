@@ -181,7 +181,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
         };
 
         let staff = sqlx::query!(
-            "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE user_id = $1",
+            "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin, owner FROM users WHERE user_id = $1",
             user_id.to_string()
         )
         .fetch_one(&data.pool)
@@ -206,6 +206,9 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
                 }
                 if staff.staff {
                     errs.push(writeln!(perms, "- Staff [staff]"));
+                }
+                if staff.owner {
+                    errs.push(writeln!(perms, "- Owner [owner]"));
                 }
 
                 errs
@@ -263,7 +266,7 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
     let discord = &ctx.discord();
 
     let staffs = sqlx::query!(
-        "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE staff = true ORDER BY user_id ASC"
+        "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin, owner FROM users WHERE staff = true ORDER BY user_id ASC"
     )
     .fetch_all(&data.pool)
     .await?;
@@ -287,7 +290,7 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
 
         writeln!(
             staff_list,
-            "{user_id} ({username}) [staff={staff}, admin={admin}, ibldev={ibldev}, iblhdev={iblhdev} hadmin={hadmin}]", 
+            "{user_id} ({username}) [staff={staff}, admin={admin}, ibldev={ibldev}, iblhdev={iblhdev} hadmin={hadmin}, owner={owner}]", 
             user_id=staff.user_id,
             username=user.name,
             staff=staff.staff,
@@ -295,6 +298,7 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
             ibldev=staff.ibldev,
             iblhdev=staff.iblhdev,
             hadmin=staff.hadmin,
+            owner=staff.owner
         )?;
     }
 

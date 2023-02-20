@@ -1066,7 +1066,7 @@ This bot *will* now leave this server however you should not! Be prepared to sen
                             user_id = user_id,
                             action = cmd_name,
                             reason = reason.unwrap_or_default(),
-                            url = "https://ptb.botlist.app/staff/onboardresp/".to_string() + &tok
+                            url = (crate::config::CONFIG.frontend_url.clone() + "/staff/onboardresp/" + &tok)
                         )
                     ).await?;
 

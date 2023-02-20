@@ -11,7 +11,7 @@
 
 ## Database Seeds
 
-You can find a seed of the Infinity Bot List database at https://ptb.botlist.app/dev/seedguide. This seed is public and available for all contributors
+You can find a seed of the Infinity Bot List database at https://reedwhisker.infinitybots.gg/help/contribute/seedguide. This seed is public and available for all contributors
 
 ## Contributing
 

@@ -104,7 +104,7 @@ impl Default for Config {
             channels: Channels::default(),
             metro: Metro::default(),
             test_bot: NonZeroU64::new(990885577979224104).unwrap(),
-            frontend_url: String::from("https://reedwhisker.infinitybots.gg"),
+            frontend_url: String::from("https://infinitybots.gg"),
             proxy_url: String::from("http://127.0.0.1:3219"),
             rpc_allowed_urls: vec![],
             owners: vec![NonZeroU64::new(510065483693817867).unwrap()],

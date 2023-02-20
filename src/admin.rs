@@ -216,6 +216,7 @@ pub async fn resetonboard(
         "botpremiumdel",
         "botvotereset",
         "botvoteresetall",
+        "botvoteset",
         "botvotebanadd",
         "botvotebandel",
         "botforcedel",
@@ -248,6 +249,37 @@ pub async fn botvotereset(
         &bot.id.to_string(),
         &ctx.author().id.to_string(),
         &reason,
+    )
+    .await?;
+
+    ctx.say("This bots votes have been reset!").await?;
+
+    Ok(())
+}
+
+/// Resets the votes of a bot
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::is_hdev_hadmin"
+)]
+pub async fn botvoteset(
+    ctx: crate::Context<'_>,
+    #[description = "The bots ID"] bot: User,
+    #[description = "The reason"] reason: String,
+    #[description = "The new amount of votes"] count: i32,
+) -> Result<(), crate::Error> {
+    let data = ctx.data();
+
+    impls::actions::vote_count_set_bot(
+        &data.cache_http,
+        &data.pool,
+        &bot.id.to_string(),
+        &ctx.author().id.to_string(),
+        &reason,
+        count
     )
     .await?;
 

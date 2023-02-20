@@ -816,3 +816,59 @@ pub async fn vote_ban_remove_bot(
 
     Ok(())
 }
+
+pub async fn vote_count_set_bot(
+    discord: &CacheHttpImpl,
+    pool: &PgPool,
+    bot_id: &str,
+    staff_id: &str,
+    reason: &str,
+    count: i32,
+) -> Result<(), Error> {
+    let staff_id_snow = UserId(staff_id.parse::<NonZeroU64>()?);
+
+    if !config::CONFIG.owners.contains(&staff_id_snow.0) {
+        return Err("You cannot reset votes unless you are owner".into());
+    }
+
+    // Ensure the bot actually exists
+    let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
+        .fetch_one(pool)
+        .await?;
+
+    if bot.count.unwrap_or_default() == 0 {
+        return Err("Bot does not exist".into());
+    }
+
+    add_action_log(pool, bot_id, staff_id, reason, "vote_count_set").await?;
+
+    // Set premium_period_length which is a postgres interval
+    sqlx::query!(
+        "UPDATE bots SET votes = $2 WHERE bot_id = $1",
+        bot_id,
+        count
+    )
+    .execute(pool)
+    .await?;
+
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("Vote Count Updated!")
+            .description(format!(
+                "<@{}> has force-updated the vote count of <@{}>",
+                staff_id, bot_id,
+            ))
+            .field("Reason", reason, true)
+            .field("New Vote Count", count.to_string(), true)
+            .footer(CreateEmbedFooter::new(
+                "Remember: don't abuse our services!",
+            ))
+            .color(0xFF0000),
+    );
+
+    ChannelId(crate::config::CONFIG.channels.mod_logs)
+        .send_message(&discord, msg)
+        .await?;
+
+    Ok(())
+}

@@ -77,6 +77,11 @@ pub enum RPCMethod {
     BotCertifyRemove {
         bot_id: String,
         reason: String,
+    },
+    BotVoteCountSet {
+        bot_id: String,
+        count: i32,
+        reason: String,
     }
 }
 
@@ -94,6 +99,7 @@ impl ToString for RPCMethod {
             Self::BotVoteBanRemove { .. } => "BotVoteBanRemove",
             Self::BotForceRemove { .. } => "BotForceRemove",
             Self::BotCertifyRemove { .. } => "BotCertifyRemove",
+            Self::BotVoteCountSet { .. } => "BotVoteCountSet",
         }
         .to_string()
     }
@@ -115,6 +121,7 @@ impl RPCMethod {
             Self::BotVoteBanRemove { .. } => crate::admin::botvotebandel,
             Self::BotForceRemove { .. } => crate::admin::botforcedel,
             Self::BotCertifyRemove { .. } => crate::admin::botuncertify,
+            Self::BotVoteCountSet { .. } => crate::admin::botvoteset,
         };
     }
 }
@@ -482,6 +489,24 @@ async fn web_rpc_api(
                     bot_id,
                     &req.user_id,
                     reason,
+                )
+                .await
+                .map_err(|e| RPCResponse::Err(e.to_string()))?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+        },
+        RPCMethod::BotVoteCountSet { bot_id, count, reason } => {
+            if !config::CONFIG.owners.contains(&user_id_snowflake) {
+                Err(RPCResponse::PermissionDenied(vec!["owner"]))
+            } else {
+                impls::actions::vote_count_set_bot(
+                    &state.cache_http,
+                    &state.pool,
+                    bot_id,
+                    &req.user_id,
+                    reason,
+                    *count,
                 )
                 .await
                 .map_err(|e| RPCResponse::Err(e.to_string()))?;

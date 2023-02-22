@@ -256,11 +256,6 @@ pub async fn approve_bot(
     .execute(pool)
     .await?;
 
-    // Get main owner and modlogs
-    let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
-
-    let private_channel = owner.create_dm_channel(&discord).await?;
-
     let msg = CreateMessage::default().embed(
         CreateEmbed::default()
             .title("Bot Approved!")
@@ -271,9 +266,6 @@ pub async fn approve_bot(
             .footer(CreateEmbedFooter::new("Well done, young traveller!"))
             .color(0x00ff00),
     );
-
-    // Clone here is OK, we want to copy the message
-    private_channel.send_message(&discord, msg.clone()).await?;
 
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)
@@ -370,9 +362,6 @@ pub async fn deny_bot(
         return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
     }
 
-    // Get main owner and modlogs
-    let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
-
     // Add action logs
     add_action_log(pool, bot_id, staff_id, reason, "deny").await?;
 
@@ -382,8 +371,6 @@ pub async fn deny_bot(
     )
     .execute(pool)
     .await?;
-
-    let private_channel = owner.create_dm_channel(&discord).await?;
 
     let msg = CreateMessage::new().embed(
         CreateEmbed::default()
@@ -395,8 +382,6 @@ pub async fn deny_bot(
             ))
             .color(0x00ff00),
     );
-
-    private_channel.send_message(&discord, msg.clone()).await?;
 
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)

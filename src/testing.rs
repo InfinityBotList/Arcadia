@@ -2,11 +2,10 @@ use crate::{checks, config, impls};
 use futures_util::StreamExt;
 use log::info;
 use poise::serenity_prelude::{
-    CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter, CreateMessage, User, UserId,
+    CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter, CreateMessage, User, ChannelId
 };
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde::Serialize;
-use std::num::NonZeroU64;
 use std::time::Duration;
 
 type Error = crate::Error;
@@ -276,9 +275,6 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
         return Err("This bot is not pending review".into());
     }
 
-    // Get main owner
-    let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
-
     if claimed.r#type == "pending" {
         // Claim it
         sqlx::query!(
@@ -301,7 +297,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
         let msg = CreateReply::default().embed(
             CreateEmbed::default()
                 .title("Bot Claimed")
-                .description(format!("You have claimed <@{}>", bot.name))
+                .description(format!("You have claimed <@{}>", bot.id))
                 .footer(CreateEmbedFooter::new(
                     "Use ibb!invite or /invite to get the bots invite",
                 )),
@@ -309,9 +305,11 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
 
         ctx.send(msg).await?;
 
-        let private_channel = owner.create_dm_channel(discord).await?;
-
-        let priv_msg = CreateMessage::default().embed(
+        let msg = CreateMessage::default()
+	.content(
+		format!("<@{}>", claimed.owner)
+	)
+	.embed(
             CreateEmbed::default()
                 .title("Bot Claimed!")
                 .description(format!(
@@ -324,7 +322,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
                 )),
         );
 
-        private_channel.send_message(discord, priv_msg).await?;
+        ChannelId(crate::config::CONFIG.channels.mod_logs).send_message(discord, msg).await?;
     } else {
         let builder = CreateReply::default()
             .embed(
@@ -395,9 +393,11 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
                 )
                 .await?;
 
-                let private_channel = owner.create_dm_channel(discord).await?;
-
-                let priv_msg = CreateMessage::default().embed(
+                let msg = CreateMessage::default()
+        	.content(
+        	        format!("<@{}>", claimed.owner)
+	        )
+		.embed(
                     CreateEmbed::default()
                         .title("Bot Reclaimed!")
                         .description(format!(
@@ -411,7 +411,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
                         )),
                 );
 
-                private_channel.send_message(discord, priv_msg).await?;
+                ChannelId(crate::config::CONFIG.channels.mod_logs).send_message(discord, msg).await?;
 
                 ctx.say(format!(
                     "You have claimed <@{bot_id}> and the bot owner has been notified!",
@@ -485,9 +485,6 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
     .fetch_one(&data.pool)
     .await?;
 
-    // Get main owner
-    let owner = UserId(claimed.owner.parse::<NonZeroU64>()?);
-
     if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
         ctx.say(format!("<@{}> is not claimed", bot.id.0)).await?;
     } else {
@@ -507,9 +504,11 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
         )
         .await?;
 
-        let private_channel = owner.create_dm_channel(discord).await?;
-
-        let priv_msg = CreateMessage::new().embed(
+        let msg = CreateMessage::new()
+	.content(
+		format!("<@{}>", claimed.owner)
+	) 	
+	.embed(
             CreateEmbed::new()
                 .title("Bot Unclaimed!")
                 .description(format!(
@@ -522,7 +521,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
                 )),
         );
 
-        private_channel.send_message(discord, priv_msg).await?;
+        ChannelId(crate::config::CONFIG.channels.mod_logs).send_message(discord, msg).await?;
 
         ctx.say(format!("You have unclaimed <@{}>", bot.id.0))
             .await?;

@@ -1,5 +1,5 @@
 use log::{error, info};
-use poise::serenity_prelude::{self as serenity, FullEvent, GuildId};
+use poise::serenity_prelude::{self as serenity, FullEvent, GuildId, ChannelId, CreateMessage, CreateEmbed, Timestamp, RoleId};
 use sqlx::postgres::PgPoolOptions;
 
 use tokio::task::JoinSet;
@@ -193,6 +193,36 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                         .kick_with_reason(&ctx, new_member.user.id, "Added to main server")
                         .await?;
                 }
+
+                // Send member join message
+                ChannelId(config::CONFIG.channels.system)
+                .send_message(
+                    &ctx,
+                    CreateMessage::new()
+                    .embed(
+                        CreateEmbed::default()
+                        .title("__**New Bot Added**__")
+                        .description(
+                            format!(
+                                "Bot <@{}> ({}) has joined the server and has been given the `Bots` role.",
+                                new_member.user.id,
+                                new_member.user.name
+                            )
+                        )
+                        .color(0x00ff00)
+                        .thumbnail(new_member.user.face())
+                        .timestamp(Timestamp::now())
+                    )
+                )
+                .await?;
+
+                // Give bot role
+                ctx.http.add_member_role(
+                    GuildId(config::CONFIG.servers.main),
+                    new_member.user.id,
+                    RoleId(config::CONFIG.roles.bot_role),
+                    Some("Bot added to server"),
+                ).await?;
             }
         }
         _ => {}

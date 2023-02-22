@@ -35,6 +35,7 @@ pub struct Roles {
     pub awaiting_staff: NonZeroU64,
     pub bot_developer: NonZeroU64,
     pub certified_developer: NonZeroU64,
+    pub bot_role: NonZeroU64,
 }
 
 impl Default for Roles {
@@ -49,6 +50,7 @@ impl Default for Roles {
             awaiting_staff: NonZeroU64::new(1029058929361174678).unwrap(),
             bot_developer: NonZeroU64::new(758756147313246209).unwrap(),
             certified_developer: NonZeroU64::new(759468303344992266).unwrap(),
+            bot_role: NonZeroU64::new(758652296459976715).unwrap(),
         }
     }
 }
@@ -60,6 +62,8 @@ pub struct Channels {
     pub mod_logs: NonZeroU64,
     /// Where onboardings are sent to for staff managers to moderate
     pub onboarding_channel: NonZeroU64,
+    // System channel
+    pub system: NonZeroU64,
 }
 
 impl Default for Channels {
@@ -68,6 +72,7 @@ impl Default for Channels {
             testing_lounge: NonZeroU64::new(891611731699335209).unwrap(),
             mod_logs: NonZeroU64::new(911907978926493716).unwrap(),
             onboarding_channel: NonZeroU64::new(990716921475375114).unwrap(),
+            system: NonZeroU64::new(762958420277067786).unwrap()
         }
     }
 }

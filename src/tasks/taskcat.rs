@@ -6,6 +6,7 @@ pub enum Task {
     DeadGuilds,
     StaffResync,
     PremiumRemove,
+    SpecRoleSync,
 }
 
 pub async fn taskcat(
@@ -19,6 +20,7 @@ pub async fn taskcat(
         Task::DeadGuilds => Duration::from_secs(60),
         Task::StaffResync => Duration::from_secs(45),
         Task::PremiumRemove => Duration::from_secs(75),
+        Task::SpecRoleSync => Duration::from_secs(50),
     };
 
     let task_name = match task {
@@ -27,6 +29,7 @@ pub async fn taskcat(
         Task::DeadGuilds => "dead_guilds",
         Task::StaffResync => "staff_resync",
         Task::PremiumRemove => "premium_remove",
+        Task::SpecRoleSync => "spec_role_sync",
     };
 
     let task_desc = match task {
@@ -35,6 +38,7 @@ pub async fn taskcat(
         Task::DeadGuilds => "Checking for dead guilds",
         Task::StaffResync => "Resyncing staff permissions",
         Task::PremiumRemove => "Removing expired subscriptions",
+        Task::SpecRoleSync => "Syncing special roles",
     };
 
     let mut interval = tokio::time::interval(duration);
@@ -55,6 +59,7 @@ pub async fn taskcat(
             Task::DeadGuilds => crate::tasks::deadguilds::dead_guilds(&pool, &cache_http).await,
             Task::StaffResync => crate::tasks::staffresync::staff_resync(&pool, &cache_http).await,
             Task::PremiumRemove => crate::tasks::premium::premium_remove(&pool, &cache_http).await,
+            Task::SpecRoleSync => crate::tasks::specrolesync::spec_role_sync(&pool, &cache_http).await
         } {
             log::error!("TASK {} ERROR'd: {:?}", task_name, e);
         }

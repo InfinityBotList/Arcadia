@@ -36,6 +36,7 @@ pub struct Roles {
     pub bot_developer: NonZeroU64,
     pub certified_developer: NonZeroU64,
     pub bot_role: NonZeroU64,
+    pub bug_hunters: NonZeroU64,
 }
 
 impl Default for Roles {
@@ -51,6 +52,7 @@ impl Default for Roles {
             bot_developer: NonZeroU64::new(758756147313246209).unwrap(),
             certified_developer: NonZeroU64::new(759468303344992266).unwrap(),
             bot_role: NonZeroU64::new(758652296459976715).unwrap(),
+            bug_hunters: NonZeroU64::new(1042546603795427398).unwrap(),
         }
     }
 }

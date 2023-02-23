@@ -3,11 +3,6 @@
   <br> 
   Arcadia
 </h2>
-<p align="center">
- Arcadia is a monorepo with the following components:
-</p>
-
-<hr>
 
 ## Database Seeds
 

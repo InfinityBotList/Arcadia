@@ -20,17 +20,6 @@ pub async fn staff_resync(
     pool: &sqlx::PgPool,
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
-    // Remove bad users
-    sqlx::query!("UPDATE users SET user_id = TRIM(user_id)")
-        .execute(pool)
-        .await
-        .map_err(|e| format!("Error while trimming user_id: {:?}", e))?;
-
-    sqlx::query!("DELETE FROM users WHERE user_id = ''")
-        .execute(pool)
-        .await
-        .map_err(|e| format!("Error while removing empty user_id: {:?}", e))?;
-
     // Now actually resync
     let mut staff_resync = Vec::new();
 

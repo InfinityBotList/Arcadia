@@ -169,6 +169,12 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 tasks::taskcat::Task::PremiumRemove,
             ));
 
+            set.spawn(crate::tasks::taskcat::taskcat(
+                user_data.pool.clone(),
+                user_data.cache_http.clone(),
+                tasks::taskcat::Task::SpecRoleSync,
+            ));
+
             while let Some(res) = set.join_next().await {
                 if let Err(e) = res {
                     error!("Error while running task: {}", e);

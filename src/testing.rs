@@ -118,21 +118,27 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
         CreateReply::default().embed(embed)
     };
 
-    reply.components(vec![CreateActionRow::Buttons(vec![
-        CreateButton::new("q:prev")
-            .label("Previous")
-            .style(serenity::ButtonStyle::Primary)
-            .disabled(qb.index == 0),
-        CreateButton::new("q:cancel")
-            .label("Cancel")
-            .style(serenity::ButtonStyle::Danger),
-        CreateButton::new_link(qb.invite)
-            .label("Invite"),
-        CreateButton::new("q:next")
-            .label("Next")
-            .style(serenity::ButtonStyle::Primary)
-            .disabled(qb.index >= qb.total_bots - 1),
-    ])])
+    reply.components(
+        vec![
+            CreateActionRow::Buttons(vec![
+                CreateButton::new("q:prev")
+                    .label("Previous")
+                    .style(serenity::ButtonStyle::Primary)
+                    .disabled(qb.index == 0),
+                CreateButton::new("q:cancel")
+                    .label("Cancel")
+                    .style(serenity::ButtonStyle::Danger),
+                CreateButton::new("q:next")
+                    .label("Next")
+                    .style(serenity::ButtonStyle::Primary)
+                    .disabled(qb.index >= qb.total_bots - 1),
+            ]),
+            CreateActionRow::Buttons(vec![
+                CreateButton::new_link(qb.invite)
+                .label("Invite"),    
+            ])
+        ]
+    )
 }
 
 /// Checks the bot queue

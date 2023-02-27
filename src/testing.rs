@@ -102,7 +102,7 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
                 c_bot = qb.index + 1,
                 bot_len = qb.total_bots
             ))
-            .field("ID", qb.bot_id, false)
+            .field("ID", qb.bot_id.clone(), false)
             .field("Short", qb.short, false)
             .field("Owner", qb.owner, false)
             .field(
@@ -137,6 +137,8 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
             CreateActionRow::Buttons(vec![
                 CreateButton::new_link(qb.invite)
                 .label("Invite"),    
+                CreateButton::new_link(config::CONFIG.frontend_url.clone()+"/bots/"+&qb.bot_id)
+                .label("View Page"),    
             ])
         ]
     )

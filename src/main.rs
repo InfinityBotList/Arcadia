@@ -230,6 +230,30 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                     Some("Bot added to server"),
                 ).await?;
             }
+
+            if !new_member.user.bot {
+                // Send member join message
+                ChannelId(config::CONFIG.channels.system)
+                .send_message(
+                    &ctx,
+                    CreateMessage::new()
+                    .embed(
+                        CreateEmbed::default()
+                        .title("__**New User**__")
+                        .description(
+                            format!(
+                                "Hmmmm... looks like <@{}> ({}) has strolled in. Can we trust them?",
+                                new_member.user.id,
+                                new_member.user.name
+                            )
+                        )
+                        .color(0x00ff00)
+                        .thumbnail(new_member.user.face())
+                        .timestamp(Timestamp::now())
+                    )
+                )
+                .await?;
+            }
         }
         _ => {}
     }
@@ -288,7 +312,6 @@ async fn main() {
                 admin::rpcunlock(),
                 admin::rpclock(),
                 stats::stats(),
-                botowners::setstats(),
                 botowners::getbotroles(),
             ],
             /// This code is run before every command

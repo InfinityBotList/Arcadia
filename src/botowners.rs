@@ -1,61 +1,8 @@
 use crate::{checks, config};
-use poise::serenity_prelude::RoleId;
+use poise::serenity_prelude::{RoleId, CacheHttp, GuildId};
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
-
-#[poise::command(
-    category = "Bot Owner",
-    prefix_command,
-    slash_command,
-    user_cooldown = 1
-)]
-pub async fn setstats(
-    ctx: Context<'_>,
-    #[description = "Bot ID to update"] bot_id: String,
-    #[description = "The new guild count"] servers: Option<i32>,
-    #[description = "The new shard count"] shards: Option<i32>,
-    #[description = "The new user count"] users: Option<i32>,
-) -> Result<(), Error> {
-    let data = ctx.data();
-
-    let owner = sqlx::query!(
-        "SELECT owner, additional_owners FROM bots WHERE bot_id = $1",
-        bot_id
-    )
-    .fetch_one(&data.pool)
-    .await?;
-
-    if owner.owner != ctx.author().id.to_string()
-        && !owner
-            .additional_owners
-            .contains(&ctx.author().id.to_string())
-    {
-        return Err("You are not the owner of this bot".into());
-    }
-
-    if let Some(gc) = servers {
-        sqlx::query!("UPDATE bots SET servers = $1 WHERE bot_id = $2", gc, bot_id)
-            .execute(&data.pool)
-            .await?;
-    }
-
-    if let Some(sc) = shards {
-        sqlx::query!("UPDATE bots SET shards = $1 WHERE bot_id = $2", sc, bot_id)
-            .execute(&data.pool)
-            .await?;
-    }
-
-    if let Some(uc) = users {
-        sqlx::query!("UPDATE bots SET users = $1 WHERE bot_id = $2", uc, bot_id)
-            .execute(&data.pool)
-            .await?;
-    }
-
-    ctx.say("Updated stats of bot!").await?;
-
-    Ok(())
-}
 
 /// Get your roles based on the bots you own
 #[poise::command(
@@ -69,33 +16,25 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
     let data = ctx.data();
 
     let id = ctx.author().id.to_string();
-    let id_vec = vec![id.clone()];
     let member = ctx.author_member().await;
 
     if let Some(member) = member {
-        let mut member = member.into_owned();
-        let owner = sqlx::query!(
-            "SELECT bot_id, type FROM bots WHERE owner = $1 OR additional_owners && $2",
-            id,
-            &id_vec
-        )
-        .fetch_all(&data.pool)
-        .await?;
+        let owned_bots = crate::impls::utils::get_owned_by(&id, &data.pool).await?;
 
-        if owner.is_empty() {
+        if owned_bots.is_empty() {
             return Err("You are not the owner/additional owner of any bots".into());
         }
 
         let mut approved = false;
         let mut certified = false;
 
-        for bot in owner {
-            if bot.r#type == "approved" {
+        for bot in owned_bots {
+            if bot.bot_type == "approved" {
                 approved = true; // We need to check for certified as well
                 continue;
             }
 
-            if bot.r#type == "certified" {
+            if bot.bot_type == "certified" {
                 approved = true;
                 certified = true;
                 break; // No need to check for more
@@ -146,11 +85,25 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
 
         // Apply the required changes
         if !roles_to_add.is_empty() {
-            member.add_roles(&ctx, &roles_to_add).await?;
+            for role in roles_to_add {
+                ctx.http().add_member_role(
+                    GuildId(config::CONFIG.servers.main),
+                    member.user.id,
+                    role,
+                    Some("Autorole due to bots owned")
+                ).await?;    
+            }
         }
 
         if !roles_to_remove.is_empty() {
-            member.remove_roles(&ctx, &roles_to_remove).await?;
+            for role in roles_to_remove {
+                ctx.http().remove_member_role(
+                    GuildId(config::CONFIG.servers.main),
+                    member.user.id,
+                    role,
+                    Some("Autorole due to bots owned")
+                ).await?;    
+            }
         }
 
         ctx.say("Done!").await?;

@@ -76,11 +76,12 @@ struct InternalQueueBot {
     approval_note: String,
     short: String,
     owner: String,
+    invite: String,
 }
 
 fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
     let reply = if qb.text_msg {
-        let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}\n**Owner:** {owner}", 
+        let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}\n**Owner:** {owner}\n**Invite:** {invite}", 
             name = qb.queue_name,
             c_bot = qb.index + 1,
             bot_len = qb.total_bots,
@@ -88,7 +89,8 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
             claimed_by = qb.claimed_by.unwrap_or_else(|| "*You are free to test this bot. It is not claimed*".to_string()), 
             approve_note = qb.approval_note,
             short = qb.short,
-            owner = qb.owner
+            owner = qb.owner,
+            invite = qb.invite
         );
 
         CreateReply::default().content(text_msg)
@@ -110,7 +112,8 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
                 false,
             )
             .field("Approval note", qb.approval_note, true)
-            .field("Queue name", qb.queue_name, true);
+            .field("Queue name", qb.queue_name, true)
+            .field("Invite", format!("[Invite Bot]({})", qb.invite), true);
 
         CreateReply::default().embed(embed)
     };
@@ -123,6 +126,8 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
         CreateButton::new("q:cancel")
             .label("Cancel")
             .style(serenity::ButtonStyle::Danger),
+        CreateButton::new_link(qb.invite)
+            .label("Invite"),
         CreateButton::new("q:next")
             .label("Next")
             .style(serenity::ButtonStyle::Primary)
@@ -151,7 +156,7 @@ pub async fn queue(
     .await?;
 
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note, short, queue_name, owner FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at ASC",
+        "SELECT claimed_by, bot_id, approval_note, short, queue_name, invite FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at ASC",
     )
     .fetch_all(&data.pool)
     .await?;
@@ -166,6 +171,9 @@ pub async fn queue(
 
     // Send message with buttons
     let bot = &bots[current_bot];
+
+    let bot_owner = crate::impls::utils::resolve_ping_user(&bot.bot_id, &data.pool).await?;
+
     let mut msg = ctx
         .send(_queue_bot(InternalQueueBot {
             index: current_bot,
@@ -176,7 +184,8 @@ pub async fn queue(
             claimed_by: bot.claimed_by.clone(),
             approval_note: bot.approval_note.clone(),
             short: bot.short.clone(),
-            owner: bot.owner.clone(),
+            owner: bot_owner,
+            invite: bot.invite.clone(),
         }))
         .await?
         .into_message()
@@ -215,6 +224,9 @@ pub async fn queue(
         }
 
         let bot = &bots[current_bot];
+
+        let bot_owner = crate::impls::utils::resolve_ping_user(&bot.bot_id, &data.pool).await?;
+
         msg.edit(
             ctx,
             _queue_bot(InternalQueueBot {
@@ -226,7 +238,8 @@ pub async fn queue(
                 claimed_by: bot.claimed_by.clone(),
                 approval_note: bot.approval_note.clone(),
                 short: bot.short.clone(),
-                owner: bot.owner.clone(),
+                owner: bot_owner,
+                invite: bot.invite.clone(),
             })
             .to_prefix_edit(),
         )
@@ -265,7 +278,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
     .await?;
 
     let claimed = sqlx::query!(
-        "SELECT type, owner, claimed_by FROM bots WHERE bot_id = $1",
+        "SELECT type, claimed_by FROM bots WHERE bot_id = $1",
         bot.id.to_string()
     )
     .fetch_one(&data.pool)
@@ -274,6 +287,8 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
     if claimed.r#type != "pending" && claimed.r#type != "claimed" {
         return Err("This bot is not pending review".into());
     }
+
+    let bot_owner = crate::impls::utils::resolve_ping_user(&bot.id.to_string(), &data.pool).await?;
 
     if claimed.r#type == "pending" {
         // Claim it
@@ -307,7 +322,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
 
         let msg = CreateMessage::default()
 	.content(
-		format!("<@{}>", claimed.owner)
+		format!("<@{}>", bot_owner)
 	)
 	.embed(
             CreateEmbed::default()
@@ -395,7 +410,7 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
 
                 let msg = CreateMessage::default()
         	.content(
-        	        format!("<@{}>", claimed.owner)
+        	        format!("<@{}>", bot_owner)
 	        )
 		.embed(
                     CreateEmbed::default()
@@ -480,10 +495,12 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
 
     let claimed = sqlx::query!(
         "SELECT claimed_by, owner FROM bots WHERE bot_id = $1",
-        bot.id.0.to_string()
+        bot.id.to_string()
     )
     .fetch_one(&data.pool)
     .await?;
+
+    let bot_owner = crate::impls::utils::resolve_ping_user(&bot.id.to_string(), &data.pool).await?;
 
     if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
         ctx.say(format!("<@{}> is not claimed", bot.id.0)).await?;
@@ -497,8 +514,8 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
 
         impls::actions::add_action_log(
             &data.pool,
-            &bot.id.0.to_string(),
-            &ctx.author().id.0.to_string(),
+            &bot.id.to_string(),
+            &ctx.author().id.to_string(),
             "Unclaimed bot",
             "unclaim",
         )
@@ -506,7 +523,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
 
         let msg = CreateMessage::new()
 	.content(
-		format!("<@{}>", claimed.owner)
+		format!("<@{}>", bot_owner)
 	) 	
 	.embed(
             CreateEmbed::new()

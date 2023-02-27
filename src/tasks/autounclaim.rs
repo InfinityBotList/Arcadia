@@ -8,7 +8,7 @@ pub async fn auto_unclaim(
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
     let bots = sqlx::query!(
-        "SELECT bot_id, claimed_by, last_claimed, owner FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
+        "SELECT bot_id, claimed_by, last_claimed FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
     )
     .fetch_all(pool)
     .await
@@ -84,7 +84,9 @@ pub async fn auto_unclaim(
                     .await
                     .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
 
-                if let Ok(owner) = bot.owner.parse::<NonZeroU64>() {
+                let bot_owner = crate::impls::utils::resolve_ping_user(&bot.bot_id, pool).await?;
+
+                if let Ok(owner) = bot_owner.parse::<NonZeroU64>() {
                     // Check that owner is in the server
 
                     if cache_http

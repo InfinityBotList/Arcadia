@@ -6,7 +6,7 @@ pub async fn premium_remove(
 ) -> Result<(), crate::Error> {
     let res = sqlx::query!(
         "
-        SELECT bot_id, owner, start_premium_period, premium_period_length, type FROM bots 
+        SELECT bot_id, start_premium_period, premium_period_length, type FROM bots 
 		WHERE (
 			premium = true
 			AND (
@@ -60,20 +60,22 @@ pub async fn premium_remove(
             }
         };
 
+        let bot_owner = crate::impls::utils::resolve_ping_user(&bot_id.to_string(), pool).await?;
+
         let msg = {
             if row.r#type != "approved" && row.r#type != "certified" {
                 format!(
                     "<@{}> ({}) by <@{}> has been removed from the premium list because it is not/no longer approved or certified [v4].", 
                     bot_id, 
                     bot_username,
-                    row.owner,
+                    bot_owner,
                 )
             } else {
                 format!(
                     "<@{}> ({}) by <@{}> has been removed from the premium list as their subscription has expired [v4].", 
                     bot_id, 
                     bot_username,
-                    row.owner,
+                    bot_owner,
                 )
             }
         };

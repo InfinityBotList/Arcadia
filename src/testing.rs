@@ -104,6 +104,7 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
             ))
             .field("ID", qb.bot_id, false)
             .field("Short", qb.short, false)
+            .field("Owner", qb.owner, false)
             .field(
                 "Claimed by",
                 qb.claimed_by.unwrap_or_else(|| {

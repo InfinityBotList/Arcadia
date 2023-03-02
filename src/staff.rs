@@ -52,7 +52,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     };
 
     let staffs = sqlx::query!(
-        "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin FROM users WHERE staff = true ORDER BY user_id ASC"
+        "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin, owner FROM users WHERE staff = true ORDER BY user_id ASC"
     )
     .fetch_all(&data.pool)
     .await?;
@@ -68,7 +68,9 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
     for staff in staffs {
         let highest_perm = {
-            if staff.hadmin {
+            if staff.owner {
+                "Owner [owner]"
+            } else if staff.hadmin {
                 "Head Staff Manager [hadmin]"
             } else if staff.iblhdev {
                 "Head Developer [iblhdev]"

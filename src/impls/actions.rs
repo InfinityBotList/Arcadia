@@ -247,6 +247,20 @@ pub async fn approve_bot(
         return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
     }
 
+    // Find bot in testing server
+    {
+        let guild = discord
+        .cache
+        .guild(GuildId(crate::config::CONFIG.servers.testing))
+        .ok_or("Failed to find guild")?;  
+
+        let member = guild.members.contains_key(&UserId(bot_id.parse()?));
+
+        if !member {
+            return Err("Bot is not in testing server. Please ensure this bot is in the testing server when approving. It will then be kicked by Arcadia when added to main server".into());
+        }
+    }
+
     add_action_log(pool, bot_id, staff_id, reason, "approve").await?;
 
     sqlx::query!(

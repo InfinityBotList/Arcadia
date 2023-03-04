@@ -445,7 +445,7 @@ pub async fn rpc(
             rpc_method.interaction.create_response(ctx, CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::default()
                 .content(format!(
-                    "Error performing the requested operation: `{}`\n**{}**",
+                    "Error performing `{}`: **{}**",
                     rpc_method.method,
                     e
                 ))

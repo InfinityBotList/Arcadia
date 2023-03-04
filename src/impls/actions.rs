@@ -139,20 +139,16 @@ pub async fn unverify_bot(
     staff_id: &str,
     reason: &str,
 ) -> Result<(), Error> {
-    if bot_id == "all" {
-        return Err("You cannot unverify all bots".into());
-    }
-
     // Ensure user has iblhdev or hadmin
     let check = sqlx::query!(
-        "SELECT iblhdev, hadmin FROM users WHERE user_id = $1",
+        "SELECT staff FROM users WHERE user_id = $1",
         staff_id
     )
     .fetch_one(pool)
     .await?;
 
-    if !(check.iblhdev || check.hadmin) {
-        return Err("You need `Head Staff Manager` or `Head Developer` to unverify bots".into());
+    if !(check.staff) {
+        return Err("You need to be a staff member to unverify bots".into());
     }
 
     // Ensure the bot actually exists

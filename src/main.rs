@@ -14,7 +14,7 @@ mod explain;
 mod help;
 mod impls;
 mod onboarding;
-mod rpcserver;
+mod rpc;
 mod staff;
 mod stats;
 mod tasks;
@@ -131,7 +131,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
             .await?;
 
             // Start RPC
-            tokio::task::spawn(rpcserver::rpc_init(
+            tokio::task::spawn(rpc::server::rpc_init(
                 user_data.pool.clone(),
                 user_data.cache_http.clone(),
             ));
@@ -308,11 +308,11 @@ async fn main() {
                 tests::test_admin_dev(),
                 tests::test_admin(),
                 admin::onboardman(),
-                admin::botman(),
                 admin::rpcunlock(),
                 admin::rpclock(),
                 stats::stats(),
                 botowners::getbotroles(),
+                rpc::command::rpc(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {

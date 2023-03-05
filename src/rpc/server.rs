@@ -108,7 +108,7 @@ pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
         .layer(
             CorsLayer::new()
                 .allow_origin(origins)
-                .allow_methods([Method::GET])
+                .allow_methods([Method::POST])
                 .allow_headers([http::header::CONTENT_TYPE]),
         );
 

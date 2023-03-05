@@ -70,7 +70,8 @@ pub async fn staff_resync(
                 }
             }
         } else {
-            log::warn!("Failed to get guild");
+            // Do not continue if we can't get the guild
+            return Err("Failed to get guild".into());
         }
     }
 

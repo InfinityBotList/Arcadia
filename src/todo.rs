@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use log::info;
-use poise::{ChoiceParameter, serenity_prelude::{self as serenity, CreateEmbed, CreateSelectMenuOption, CreateActionRow, CreateButton, ComponentInteractionDataKind}, CreateReply};
+use poise::{ChoiceParameter, serenity_prelude::{self as serenity, CreateEmbed, CreateSelectMenuOption, CreateActionRow, CreateButton, ComponentInteractionDataKind, EditInteractionResponse}, CreateReply};
 use serde::Serialize;
 use sqlx::PgPool;
 use strum_macros::FromRepr;
@@ -31,12 +31,12 @@ pub enum ResolveState {
 #[poise::command(
     slash_command,
     prefix_command,
-    subcommands("todo_add", "todo_list")
+    subcommands("todo_add", "todo_list", "todo_resolve", "todo_filter")
 )]
 pub async fn todo(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
-    ctx.say("Available options are ``todo add``, ``todo resolve`` and ``todo list``").await?;
+    ctx.say("Available options are ``todo add``, ``todo resolve`` and ``todo list`` and ``todo filter``").await?;
 
     Ok(())
 }
@@ -261,6 +261,139 @@ pub async fn todo_list(
             // Edit message
             item.edit_response(&ctx, entry.to_slash_initial_response_edit()).await?;
         }
+    }
+
+    Ok(())
+}
+
+#[poise::command(
+    slash_command,
+    prefix_command,
+    rename = "resolve",
+    check = "checks::is_admin_hdev",
+)]
+pub async fn todo_resolve(
+    ctx: Context<'_>,
+    #[description = "The todo entry ID"] id: i32,
+) -> Result<(), Error> {
+    let entry = sqlx::query!(
+        "select id, title, description, priority, resolve_state from todo_list where id = $1",
+        id
+    )
+    .fetch_one(&ctx.data().pool)
+    .await?;
+
+    let msg = CreateReply::default()
+    .embed(
+        CreateEmbed::default()
+            .title(format!("#{} {}", id, entry.title))
+            .description(&entry.description)
+            .field("Priority", entry.priority, true)
+            .field("Resolved", entry.resolve_state, true)
+    );
+
+    ctx.send(msg).await?;
+
+    Ok(())
+}
+
+#[poise::command(
+    slash_command,
+    prefix_command,
+    rename = "filter",
+    check = "checks::is_admin_hdev",
+    subcommands("todo_filter_resolved")
+)]
+pub async fn todo_filter(
+    ctx: Context<'_>
+) -> Result<(), Error> {
+    ctx.say("Available filters: `all`, `resolved`, `unresolved`").await?;
+
+    Ok(())
+}
+
+#[poise::command(
+    slash_command,
+    prefix_command,
+    rename = "resolve",
+    check = "checks::is_admin_hdev",
+)]
+pub async fn todo_filter_resolved(
+    ctx: Context<'_>,
+    #[description = "Filter by resolve state"] state: ResolveState,
+) -> Result<(), Error> {
+    let entry = sqlx::query!(
+        "select id, title, priority from todo_list where resolve_state = $1",
+        state.to_string()
+    )
+    .fetch_all(&ctx.data().pool)
+    .await?;
+
+    let mut embeds = Vec::new();
+
+    for entry in entry {
+        embeds.push(
+            CreateEmbed::default()
+                .title(format!("#{}: {}", entry.id, entry.title))
+                .field("Priority", entry.priority, true)
+                .field("Resolved", state.to_string(), true)
+        );
+    }
+
+    if embeds.is_empty() {
+        return Err("No entries found".into());
+    }
+
+    let component = CreateActionRow::Buttons(vec![
+        CreateButton::new("todor:1")
+            .label("Prev")
+            .disabled(true),
+        CreateButton::new("todor:cancel")
+            .label("Cancel")
+            .style(serenity::ButtonStyle::Danger),
+        CreateButton::new("todor:2")
+            .label("Next")
+            .disabled(embeds.len() == 1),
+    ]);
+
+    let msg = ctx.send(CreateReply::default().embed(embeds[0].clone()).components(vec![component])).await?.into_message().await?;
+
+    let interaction = msg
+    .await_component_interactions(ctx.discord())
+    .author_id(ctx.author().id)
+    .timeout(Duration::from_secs(120));
+
+    let mut collect_stream = interaction.stream();
+
+    while let Some(item) = collect_stream.next().await {
+        item.defer(&ctx.discord()).await?;
+
+        let id = &item.data.custom_id;
+
+        info!("Received todo-resolved interaction: {}", id);
+
+        if id == "todor:cancel" {
+            item.delete_response(ctx.discord()).await?;
+            return Ok(());
+        }
+
+        let pageno = id.replace("todor:", "").parse::<usize>()?;
+
+        let component = CreateActionRow::Buttons(vec![
+            CreateButton::new("todor:".to_string()+&(pageno-1).to_string())
+                .label("Prev")
+                .disabled(pageno <= 1),
+            CreateButton::new("todor:cancel")
+                .label("Cancel")
+                .style(serenity::ButtonStyle::Danger),
+            CreateButton::new("todor:".to_string()+&(pageno+1).to_string())
+                .label("Next")
+                .disabled(embeds.len() <= pageno),
+        ]);    
+
+        let embed = embeds.get(pageno - 1).ok_or("Page number out of range")?.clone();
+
+        item.edit_response(&ctx, EditInteractionResponse::default().embed(embed).components(vec![component])).await?;
     }
 
     Ok(())

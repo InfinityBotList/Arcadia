@@ -191,7 +191,7 @@ pub async fn approve_bot(
     staff_id: &str,
     reason: &str,
 ) -> Result<String, Error> {
-    // The bot has way better onboarding, but this is a generic impl function so we need it
+    // The bot has way better onboarding, block in RPC
     let onboard_state = sqlx::query!(
         "SELECT staff, staff_onboard_state FROM users WHERE user_id = $1",
         staff_id
@@ -215,7 +215,7 @@ pub async fn approve_bot(
     .await?;
 
     let claimed = sqlx::query!(
-        "SELECT type, claimed_by, owner, last_claimed FROM bots WHERE bot_id = $1",
+        "SELECT type, claimed_by, last_claimed FROM bots WHERE bot_id = $1",
         bot_id
     )
     .fetch_one(pool)
@@ -257,6 +257,8 @@ pub async fn approve_bot(
         }
     }
 
+    let ping = super::utils::resolve_ping_user(bot_id, pool).await?;
+
     add_action_log(pool, bot_id, staff_id, reason, "approve").await?;
 
     sqlx::query!(
@@ -266,12 +268,14 @@ pub async fn approve_bot(
     .execute(pool)
     .await?;
 
-    let msg = CreateMessage::default().embed(
+    let msg = CreateMessage::default()
+    .content(format!("<@!{}>", ping))
+    .embed(
         CreateEmbed::default()
             .title("Bot Approved!")
-            .description(format!("<@{}> has approved <@{}>", staff_id, bot_id))
+            .description(format!("<@!{}> has approved <@!{}>", staff_id, bot_id))
             .field("Feedback", reason, true)
-            .field("Moderator", "<@".to_string() + staff_id + ">", true)
+            .field("Moderator", "<!@".to_string() + staff_id + ">", true)
             .field("Bot", "<@".to_string() + bot_id + ">", true)
             .footer(CreateEmbedFooter::new("Well done, young traveller!"))
             .color(0x00ff00),

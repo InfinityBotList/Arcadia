@@ -267,6 +267,7 @@ async fn main() {
                 admin::rpcunlock(),
                 admin::rpclock(),
                 admin::updprod(),
+                admin::uninvitedbots(),
                 stats::stats(),
                 botowners::getbotroles(),
                 rpc::command::rpc(),

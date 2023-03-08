@@ -1,8 +1,11 @@
+use std::num::NonZeroU64;
+
 use crate::checks;
 use crate::impls::actions::add_action_log;
 use crate::Context;
 use crate::Error;
 use poise::serenity_prelude::ButtonStyle;
+use poise::serenity_prelude::CacheHttp;
 use poise::serenity_prelude::CreateActionRow;
 use poise::serenity_prelude::CreateButton;
 use poise::serenity_prelude::CreateEmbed;
@@ -11,6 +14,8 @@ use poise::serenity_prelude::CreateMessage;
 use poise::CreateReply;
 
 use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::GuildId;
+use poise::serenity_prelude::UserId;
 
 /// Onboarding base command
 #[poise::command(
@@ -304,8 +309,63 @@ pub async fn rpclock(ctx: crate::Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::staff_server",
+    check = "checks::is_staff"
+)]
+pub async fn uninvitedbots(ctx: crate::Context<'_>) -> Result<(), Error> {
+    let presences = {
+        if let Some(guild) = ctx.cache_and_http().cache().ok_or("Error finding main server")?.guild(GuildId(crate::config::CONFIG.servers.main)) {
+            Some(guild.presences.clone())
+        } else {
+            None
+        }
+    }
+    .ok_or("Could not find main server")?;
+
+    let subject_rows = sqlx::query!(
+        "SELECT bot_id, uptime, total_uptime FROM bots WHERE type = 'approved' OR type = 'certified'"
+    )
+    .fetch_all(&ctx.data().pool)
+    .await?;
+
+    let mut bad_ids = Vec::new();
+
+    for row in subject_rows {
+        if !presences.contains_key(&UserId(row.bot_id.parse::<NonZeroU64>().map_err(|e| format!("{}: {}", row.bot_id, e))?)) {
+            bad_ids.push(row.bot_id);
+        }
+    }
+    
+    log::error!("Bad ids: {:?}", bad_ids);
+
+    // Get the first 20 bots
+    let first_bots = bad_ids.iter().take(20).map(|x| format!("`{}`", x)).collect::<Vec<String>>();
+
+    let mut msg = "".to_string();
+
+    for bot in first_bots {
+        msg.push_str(&format!("{id} https://discord.com/oauth2/authorize?client_id={id}&permissions=0&scope=bot%20applications.commands", id=bot));
+    }
+
+    ctx.say(msg).await?;
+
+    Ok(())
+}
+
 /// Updates the production build of the site. Owner only
-#[poise::command(category = "Admin", track_edits, prefix_command, slash_command)]
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::staff_server",
+    check = "checks::is_staff"
+)]
 pub async fn updprod(ctx: crate::Context<'_>) -> Result<(), Error> {
     if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
         ctx.say("Only owners can update the main site").await?;

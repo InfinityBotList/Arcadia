@@ -343,14 +343,16 @@ pub async fn uninvitedbots(ctx: crate::Context<'_>) -> Result<(), Error> {
     
     log::error!("Bad ids: {:?}", bad_ids);
 
-    // Get the first 20 bots
-    let first_bots = bad_ids.iter().take(20).map(|x| format!("`{}`", x)).collect::<Vec<String>>();
+    // Get the first 10 bots
+    let first_bots = bad_ids.iter().take(10).map(|x| format!("`{}`", x)).collect::<Vec<String>>();
 
     let mut msg = "".to_string();
 
     for bot in first_bots {
-        msg.push_str(&format!("{id} https://discord.com/oauth2/authorize?client_id={id}&permissions=0&scope=bot%20applications.commands", id=bot));
+        msg.push_str(&format!("{id} https://discord.com/oauth2/authorize?client_id={id}&permissions=0&scope=bot%20applications.commands\n", id=bot));
     }
+
+    msg.push_str(&format!("**Total Len:** {}", bad_ids.len()));
 
     ctx.say(msg).await?;
 

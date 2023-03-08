@@ -1,7 +1,6 @@
 use std::num::NonZeroU64;
 
 use crate::config;
-use log::{error, info};
 use poise::serenity_prelude::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
     model::id::ChannelId,
@@ -283,35 +282,11 @@ pub async fn approve_bot(
         .send_message(&discord, msg)
         .await?;
 
-    let request = reqwest::Client::new()
-        .post(format!(
-            "https://catnip.metrobots.xyz/bots/{}/approve",
-            bot_id
-        ))
-        .query(&[("list_id", crate::config::CONFIG.metro.list_id.clone())])
-        .query(&[("reviewer", bot_id)])
-        .header("Authorization", crate::config::CONFIG.metro.secret.clone())
-        .json(&MetroReason {
-            reason: reason.to_string(),
-        })
-        .send()
-        .await?;
-
     let invite_data = sqlx::query!("SELECT invite FROM bots WHERE bot_id = $1", bot_id)
         .fetch_one(pool)
         .await?;
 
-    if request.status().is_success() {
-        info!("Successfully approved bot {} on metro", bot_id);
-
-        Ok(invite_data.invite)
-    } else {
-        error!(
-            "Failed to approve bot {} on metro, but success on IBL",
-            bot_id
-        );
-        Ok(invite_data.invite)
-    }
+    Ok(invite_data.invite)
 }
 
 /// Deny bot implementation
@@ -404,24 +379,7 @@ pub async fn deny_bot(
         .send_message(&discord, msg)
         .await?;
 
-    let request = reqwest::Client::new()
-        .post(format!("https://catnip.metrobots.xyz/bots/{}/deny", bot_id))
-        .query(&[("list_id", crate::config::CONFIG.metro.list_id.clone())])
-        .query(&[("reviewer", bot_id)])
-        .header("Authorization", crate::config::CONFIG.metro.secret.clone())
-        .json(&MetroReason {
-            reason: reason.to_string(),
-        })
-        .send()
-        .await?;
-
-    if request.status().is_success() {
-        info!("Successfully denied bot {} on metro", bot_id);
-        Ok(())
-    } else {
-        error!("Failed to deny bot {} on metro, but success on IBL", bot_id);
-        Ok(())
-    }
+    Ok(())
 }
 
 pub async fn premium_add_bot(

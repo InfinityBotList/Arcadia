@@ -56,7 +56,7 @@ async fn taskcat(
         Task::StaffResync => Duration::from_secs(45),
         Task::PremiumRemove => Duration::from_secs(75),
         Task::SpecRoleSync => Duration::from_secs(50),
-        Task::Uptime => Duration::from_secs(120),
+        Task::Uptime => Duration::from_secs(900),
     };
 
     let task_desc = match task {

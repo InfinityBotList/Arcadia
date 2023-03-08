@@ -1,6 +1,6 @@
 use std::num::NonZeroU64;
 
-use poise::serenity_prelude::{GuildId, UserId, CreateEmbed, CreateEmbedFooter, CreateMessage, RoleId, Mentionable, ChannelId};
+use poise::serenity_prelude::{GuildId, CreateEmbed, CreateEmbedFooter, CreateMessage, ChannelId};
 
 pub async fn uptime_checker(
     pool: &sqlx::PgPool,
@@ -32,9 +32,16 @@ pub async fn uptime_checker(
         };
 
         // Find user in precense cache
-        match presences.get(&UserId(bot_snow)) {
+        match cache_http.cache.member_field(GuildId(crate::config::CONFIG.servers.main), bot_snow, |m| m.user.id) {
             Some(precense) => {
-                let uptime = precense.status != poise::serenity_prelude::OnlineStatus::Offline;
+                let uptime = match presences.get(&precense) {
+                    Some(precense) => {
+                        precense.status != poise::serenity_prelude::OnlineStatus::Offline
+                    },
+                    None => {
+                        false
+                    }
+                };
 
                 if uptime {
                     sqlx::query!(
@@ -52,19 +59,16 @@ pub async fn uptime_checker(
                     .execute(pool)
                     .await?;
 
-                    let uptime_rate = ((row.uptime + 1) / row.total_uptime) * 100;
+                    let uptime_rate = ((row.uptime + 1) / (row.total_uptime + 1)) * 100;
 
-                    if uptime_rate < 50 && row.total_uptime > 20 {
+                    if uptime_rate < 50 && row.total_uptime > 25 {
                         // Send message to mod logs
-                        let ping = crate::impls::utils::resolve_ping_user(&row.bot_id, pool).await?;
-
                         let msg = CreateMessage::default()
-                        .content(format!("<@!{}> {}", ping, RoleId(crate::config::CONFIG.roles.web_moderator).mention()))
                         .embed(
                             CreateEmbed::default()
                                 .title("Bot Uptime Warning!")
-                                .url(format!("{}/bots/{}", crate::config::CONFIG.frontend_url, row.bot_id))
-                                .description(format!("<@!{}> a lower uptime than 50% with over 20 uptime checks", row.bot_id))
+                                .url(format!("{}/bots/{}", crate::config::CONFIG.channels.uptime, row.bot_id))
+                                .description(format!("<@!{}> a lower uptime than 50% with over 25 uptime checks", row.bot_id))
                                 .field("Bot", "<@!".to_string() + &row.bot_id + ">", true)
                                 .footer(CreateEmbedFooter::new("Please check this bot and ensure its actually alive!"))
                                 .color(0x00ff00),
@@ -77,6 +81,7 @@ pub async fn uptime_checker(
                 }
             },
             None => {
+                log::warn!("Could not find bot {} in cache", row.bot_id);
                 continue;
             }
         }

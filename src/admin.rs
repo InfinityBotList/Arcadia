@@ -15,7 +15,6 @@ use poise::CreateReply;
 
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::GuildId;
-use poise::serenity_prelude::UserId;
 
 /// Onboarding base command
 #[poise::command(
@@ -318,15 +317,6 @@ pub async fn rpclock(ctx: crate::Context<'_>) -> Result<(), Error> {
     check = "checks::is_staff"
 )]
 pub async fn uninvitedbots(ctx: crate::Context<'_>) -> Result<(), Error> {
-    let presences = {
-        if let Some(guild) = ctx.cache_and_http().cache().ok_or("Error finding main server")?.guild(GuildId(crate::config::CONFIG.servers.main)) {
-            Some(guild.presences.clone())
-        } else {
-            None
-        }
-    }
-    .ok_or("Could not find main server")?;
-
     let subject_rows = sqlx::query!(
         "SELECT bot_id, uptime, total_uptime FROM bots WHERE type = 'approved' OR type = 'certified'"
     )
@@ -336,15 +326,27 @@ pub async fn uninvitedbots(ctx: crate::Context<'_>) -> Result<(), Error> {
     let mut bad_ids = Vec::new();
 
     for row in subject_rows {
-        if !presences.contains_key(&UserId(row.bot_id.parse::<NonZeroU64>().map_err(|e| format!("{}: {}", row.bot_id, e))?)) {
-            bad_ids.push(row.bot_id);
+        match row.bot_id.parse::<NonZeroU64>() {
+            Ok(id) => {
+                match ctx.cache_and_http().cache().ok_or("Error finding main server")?.member_field(GuildId(crate::config::CONFIG.servers.main), id, |m| m.user.id) {
+                    Some(_) => {
+                        continue
+                    }
+                    None => {
+                        bad_ids.push(id.to_string());
+                    }
+                }
+            }
+            Err(_) => {
+                continue
+            }
         }
     }
     
     log::error!("Bad ids: {:?}", bad_ids);
 
     // Get the first 10 bots
-    let first_bots = bad_ids.iter().take(10).map(|x| format!("`{}`", x)).collect::<Vec<String>>();
+    let first_bots = bad_ids.iter().take(10).map(|x| x.to_string()).collect::<Vec<String>>();
 
     let mut msg = "".to_string();
 

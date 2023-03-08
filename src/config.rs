@@ -66,6 +66,7 @@ pub struct Channels {
     pub onboarding_channel: NonZeroU64,
     // System channel
     pub system: NonZeroU64,
+    pub uptime: NonZeroU64,
 }
 
 impl Default for Channels {
@@ -75,14 +76,9 @@ impl Default for Channels {
             mod_logs: NonZeroU64::new(911907978926493716).unwrap(),
             onboarding_channel: NonZeroU64::new(990716921475375114).unwrap(),
             system: NonZeroU64::new(762958420277067786).unwrap(),
+            uptime: NonZeroU64::new(1083108330442076292).unwrap()
         }
     }
-}
-
-#[derive(Default, Serialize, Deserialize)]
-pub struct Metro {
-    pub list_id: String,
-    pub secret: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,7 +91,6 @@ pub struct Config {
     pub test_bot: NonZeroU64,
     pub frontend_url: String,
     pub proxy_url: String,
-    pub metro: Metro,
     pub rpc_allowed_urls: Vec<String>,
     pub owners: Vec<NonZeroU64>,
     pub protected_bots: Vec<NonZeroU64>,
@@ -112,7 +107,6 @@ impl Default for Config {
             servers: Servers::default(),
             roles: Roles::default(),
             channels: Channels::default(),
-            metro: Metro::default(),
             test_bot: NonZeroU64::new(990885577979224104).unwrap(),
             frontend_url: String::from("https://infinitybots.gg"),
             proxy_url: String::from("http://127.0.0.1:3219"),

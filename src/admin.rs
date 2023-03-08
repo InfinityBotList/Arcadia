@@ -204,9 +204,9 @@ pub async fn resetonboard(
 
 /// Unlocks RPC for a 10 minutes, is logged
 #[poise::command(
-    category = "Admin", 
-    track_edits, 
-    prefix_command, 
+    category = "Admin",
+    track_edits,
+    prefix_command,
     slash_command,
     check = "checks::staff_server",
     check = "checks::is_staff"
@@ -276,10 +276,13 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
             .execute(&ctx.data().pool)
             .await?;
 
-            item.create_response(&ctx.discord(), serenity::CreateInteractionResponse::Message(
-                CreateInteractionResponseMessage::default()
-                .content("RPC unlocked")
-            )).await?;
+            item.create_response(
+                &ctx.discord(),
+                serenity::CreateInteractionResponse::Message(
+                    CreateInteractionResponseMessage::default().content("RPC unlocked"),
+                ),
+            )
+            .await?;
         }
     }
 
@@ -302,15 +305,8 @@ pub async fn rpclock(ctx: crate::Context<'_>) -> Result<(), Error> {
 }
 
 /// Updates the production build of the site. Owner only
-#[poise::command(
-    category = "Admin", 
-    track_edits, 
-    prefix_command, 
-    slash_command,
-)]
-pub async fn updprod(
-    ctx: crate::Context<'_>,
-) -> Result<(), Error> {
+#[poise::command(category = "Admin", track_edits, prefix_command, slash_command)]
+pub async fn updprod(ctx: crate::Context<'_>) -> Result<(), Error> {
     if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
         ctx.say("Only owners can update the main site").await?;
         return Ok(());
@@ -321,72 +317,82 @@ pub async fn updprod(
     // Delete the production branch using github api and github_pat
     let client = reqwest::Client::new();
 
-    let res = client.delete(
-        format!(
+    let res = client
+        .delete(format!(
             "https://api.github.com/repos/{}/git/refs/heads/production",
             crate::config::CONFIG.github_repo,
+        ))
+        .basic_auth(
+            &crate::config::CONFIG.github_username,
+            Some(&crate::config::CONFIG.github_pat),
         )
-    )
-    .basic_auth(&crate::config::CONFIG.github_username, Some(&crate::config::CONFIG.github_pat))
-    .header("User-Agent", &crate::config::CONFIG.github_username)
-    .send()
-    .await?;
+        .header("User-Agent", &crate::config::CONFIG.github_username)
+        .send()
+        .await?;
 
     if res.status() == 422 {
         ctx.say("Ignoring error 422 (branch not found)").await?;
     } else if res.status() != 204 {
-        ctx.say(
-            format!(
-                "Failed to delete production branch. Got status code: {} and resp: {}",
-                res.status(),
-                res.text().await?
-        )).await?;
+        ctx.say(format!(
+            "Failed to delete production branch. Got status code: {} and resp: {}",
+            res.status(),
+            res.text().await?
+        ))
+        .await?;
         return Ok(());
     }
 
     ctx.say("Creating new `production` branch").await?;
 
     // Get SHA of master branch
-    let res = client.get(
-        format!(
+    let res = client
+        .get(format!(
             "https://api.github.com/repos/{}/git/refs/heads/master",
             crate::config::CONFIG.github_repo,
+        ))
+        .basic_auth(
+            &crate::config::CONFIG.github_username,
+            Some(&crate::config::CONFIG.github_pat),
         )
-    )
-    .basic_auth(&crate::config::CONFIG.github_username, Some(&crate::config::CONFIG.github_pat))
-    .header("User-Agent", &crate::config::CONFIG.github_username)
-    .send()
-    .await?;
+        .header("User-Agent", &crate::config::CONFIG.github_username)
+        .send()
+        .await?;
 
     if res.status() != 200 {
-        ctx.say(
-            format!(
-                "Failed to fetch master branch. Got status code: {} and resp: {}",
-                res.status(),
-                res.text().await?
-        )).await?;
+        ctx.say(format!(
+            "Failed to fetch master branch. Got status code: {} and resp: {}",
+            res.status(),
+            res.text().await?
+        ))
+        .await?;
         return Ok(());
     }
 
     let sha = res.json::<serde_json::Value>().await?;
     let object = sha.get("object").ok_or("Failed to get object")?;
-    let sha = object.get("sha").ok_or("Failed to get sha")?.as_str().ok_or("Failed to parse SHA as str")?;
+    let sha = object
+        .get("sha")
+        .ok_or("Failed to get sha")?
+        .as_str()
+        .ok_or("Failed to parse SHA as str")?;
 
     // Create production branch using github api and github_pat
-    let res = client.post(
-        format!(
+    let res = client
+        .post(format!(
             "https://api.github.com/repos/{}/git/refs",
             crate::config::CONFIG.github_repo,
+        ))
+        .basic_auth(
+            &crate::config::CONFIG.github_username,
+            Some(&crate::config::CONFIG.github_pat),
         )
-    )
-    .basic_auth(&crate::config::CONFIG.github_username, Some(&crate::config::CONFIG.github_pat))
-    .header("User-Agent", &crate::config::CONFIG.github_username)
-    .json(&serde_json::json!({
-        "ref": "refs/heads/production",
-        "sha": sha
-    }))
-    .send()
-    .await?;
+        .header("User-Agent", &crate::config::CONFIG.github_username)
+        .json(&serde_json::json!({
+            "ref": "refs/heads/production",
+            "sha": sha
+        }))
+        .send()
+        .await?;
 
     if res.status() != 201 {
         ctx.say("Failed to create production branch").await?;

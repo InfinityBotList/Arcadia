@@ -82,7 +82,8 @@ pub async fn staff_resync(
         .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
     // First unset all staff
-    sqlx::query!("
+    sqlx::query!(
+        "
         UPDATE users SET 
             staff = false, 
             ibldev = false, 
@@ -90,7 +91,8 @@ pub async fn staff_resync(
             admin = false, 
             hadmin = false,
             owner = false
-    ")
+    "
+    )
     .execute(&mut tx)
     .await
     .map_err(|e| format!("Error while updating users in database: {:?}", e))?;

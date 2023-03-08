@@ -1,8 +1,8 @@
 use log::{error, info};
-use poise::serenity_prelude::{self as serenity, FullEvent, GuildId, ChannelId, CreateMessage, CreateEmbed, Timestamp, RoleId};
+use poise::serenity_prelude::{
+    self as serenity, ChannelId, CreateEmbed, CreateMessage, FullEvent, GuildId, RoleId, Timestamp,
+};
 use sqlx::postgres::PgPoolOptions;
-
-use tokio::task::JoinSet;
 
 use crate::impls::cache::CacheHttpImpl;
 
@@ -19,7 +19,6 @@ mod staff;
 mod stats;
 mod tasks;
 mod testing;
-mod tests;
 mod todo;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -137,53 +136,10 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 user_data.cache_http.clone(),
             ));
 
-            // Start tasks
-            let mut set = JoinSet::new();
-
-            set.spawn(crate::tasks::taskcat::taskcat(
+            tokio::task::spawn(crate::tasks::taskcat::start_all_tasks(
                 user_data.pool.clone(),
                 user_data.cache_http.clone(),
-                tasks::taskcat::Task::AutoUnclaim,
             ));
-
-            set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(),
-                user_data.cache_http.clone(),
-                tasks::taskcat::Task::Bans,
-            ));
-
-            set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(),
-                user_data.cache_http.clone(),
-                tasks::taskcat::Task::StaffResync,
-            ));
-
-            set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(),
-                user_data.cache_http.clone(),
-                tasks::taskcat::Task::DeadGuilds,
-            ));
-
-            set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(),
-                user_data.cache_http.clone(),
-                tasks::taskcat::Task::PremiumRemove,
-            ));
-
-            set.spawn(crate::tasks::taskcat::taskcat(
-                user_data.pool.clone(),
-                user_data.cache_http.clone(),
-                tasks::taskcat::Task::SpecRoleSync,
-            ));
-
-            while let Some(res) = set.join_next().await {
-                if let Err(e) = res {
-                    error!("Error while running task: {}", e);
-                }
-
-                info!("Task finished when it shouldn't have");
-                std::process::abort();
-            }
         }
         FullEvent::GuildMemberAddition { new_member, ctx } => {
             if new_member.guild_id.0 == config::CONFIG.servers.main && new_member.user.bot {
@@ -224,12 +180,14 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 .await?;
 
                 // Give bot role
-                ctx.http.add_member_role(
-                    GuildId(config::CONFIG.servers.main),
-                    new_member.user.id,
-                    RoleId(config::CONFIG.roles.bot_role),
-                    Some("Bot added to server"),
-                ).await?;
+                ctx.http
+                    .add_member_role(
+                        GuildId(config::CONFIG.servers.main),
+                        new_member.user.id,
+                        RoleId(config::CONFIG.roles.bot_role),
+                        Some("Bot added to server"),
+                    )
+                    .await?;
             }
 
             if !new_member.user.bot {
@@ -305,9 +263,6 @@ async fn main() {
                 testing::approve(),
                 testing::deny(),
                 testing::staffguide(),
-                tests::test_staffcheck(),
-                tests::test_admin_dev(),
-                tests::test_admin(),
                 admin::onboardman(),
                 admin::rpcunlock(),
                 admin::rpclock(),

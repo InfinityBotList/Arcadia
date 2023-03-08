@@ -2,13 +2,19 @@
 
 use std::time::Duration;
 
+use crate::checks;
 use futures_util::StreamExt;
 use log::info;
-use poise::{ChoiceParameter, serenity_prelude::{self as serenity, CreateEmbed, CreateSelectMenuOption, CreateActionRow, CreateButton, ComponentInteractionDataKind, EditInteractionResponse}, CreateReply};
+use poise::{
+    serenity_prelude::{
+        self as serenity, ComponentInteractionDataKind, CreateActionRow, CreateButton, CreateEmbed,
+        CreateSelectMenuOption, EditInteractionResponse,
+    },
+    ChoiceParameter, CreateReply,
+};
 use serde::Serialize;
 use sqlx::PgPool;
 use strum_macros::FromRepr;
-use crate::checks;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -33,9 +39,7 @@ pub enum ResolveState {
     prefix_command,
     subcommands("todo_add", "todo_list", "todo_resolve", "todo_filter")
 )]
-pub async fn todo(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
+pub async fn todo(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("Available options are ``todo add``, ``todo resolve`` and ``todo list`` and ``todo filter``").await?;
 
     Ok(())
@@ -45,7 +49,7 @@ pub async fn todo(
     slash_command,
     prefix_command,
     rename = "add",
-    check = "checks::is_admin_hdev",
+    check = "checks::is_admin_hdev"
 )]
 pub async fn todo_add(
     ctx: Context<'_>,
@@ -62,12 +66,10 @@ pub async fn todo_add(
     }
 
     // Get number of todo items
-    let count = sqlx::query!(
-        "select count(*) from todo_list"
-    )
-    .fetch_one(&ctx.data().pool)
-    .await?
-    .count;
+    let count = sqlx::query!("select count(*) from todo_list")
+        .fetch_one(&ctx.data().pool)
+        .await?
+        .count;
 
     if count.unwrap_or_default() > 2147483647 {
         return Err("There are too many todo items. Please remove some first.".into());
@@ -93,15 +95,15 @@ fn _create_select_menu(titles: &[String], index: usize) -> serenity::builder::Cr
     let mut options = Vec::new();
 
     for (i, pane) in titles.iter().enumerate() {
-        if i+1 == index {
+        if i + 1 == index {
             options.push(CreateSelectMenuOption::new(
                 pane.clone() + " (current)",
-                (i+1).to_string(),
+                (i + 1).to_string(),
             ))
         } else {
             options.push(CreateSelectMenuOption::new(
                 pane.clone(),
-                (i+1).to_string(),
+                (i + 1).to_string(),
             ));
         }
     }
@@ -117,18 +119,15 @@ async fn _create_reply(
     id: i32,
     total_count: i32,
     titles: &[String],
-    pool: &PgPool
+    pool: &PgPool,
 ) -> Result<CreateReply, Error> {
     if id < 1 {
         return Err("The ID is too low".into());
     }
 
-    let entry_id = sqlx::query!(
-        "select id from todo_list where id >= $1 limit 1",
-        id
-    )
-    .fetch_one(pool)
-    .await?;
+    let entry_id = sqlx::query!("select id from todo_list where id >= $1 limit 1", id)
+        .fetch_one(pool)
+        .await?;
 
     if id != entry_id.id {
         // Rename the ID on db as it is not the same sequentially
@@ -138,7 +137,7 @@ async fn _create_reply(
             entry_id.id
         )
         .execute(pool)
-        .await?;        
+        .await?;
     }
 
     let entry = sqlx::query!(
@@ -148,53 +147,48 @@ async fn _create_reply(
     .fetch_one(pool)
     .await?;
 
-    Ok(
-        CreateReply::default()
-            .embed(
-                CreateEmbed::default()
-                    .title(format!("{} [{}/{}]", entry.title, id, total_count))
-                    .description(&entry.description)
-                    .field("Priority", entry.priority, true)
-                    .field("Resolved", entry.resolve_state, true),
-            )
-            .components(vec![
-                CreateActionRow::Buttons(vec![
-                    CreateButton::new("todo:".to_string() + &(id - 1).to_string())
-                        .label("Previous")
-                        .disabled(id <= 1),
-                    CreateButton::new("todo:cancel")
-                        .label("Cancel")
-                        .style(serenity::ButtonStyle::Danger),
-                    CreateButton::new("todo:".to_string() + &(id + 1).to_string())
-                        .label("Next")
-                        .disabled(id == total_count),
-                ]),
-                CreateActionRow::SelectMenu(_create_select_menu(titles, id.try_into().unwrap_or_default())),
-            ])
-    )
+    Ok(CreateReply::default()
+        .embed(
+            CreateEmbed::default()
+                .title(format!("{} [{}/{}]", entry.title, id, total_count))
+                .description(&entry.description)
+                .field("Priority", entry.priority, true)
+                .field("Resolved", entry.resolve_state, true),
+        )
+        .components(vec![
+            CreateActionRow::Buttons(vec![
+                CreateButton::new("todo:".to_string() + &(id - 1).to_string())
+                    .label("Previous")
+                    .disabled(id <= 1),
+                CreateButton::new("todo:cancel")
+                    .label("Cancel")
+                    .style(serenity::ButtonStyle::Danger),
+                CreateButton::new("todo:".to_string() + &(id + 1).to_string())
+                    .label("Next")
+                    .disabled(id == total_count),
+            ]),
+            CreateActionRow::SelectMenu(_create_select_menu(
+                titles,
+                id.try_into().unwrap_or_default(),
+            )),
+        ]))
 }
 
 #[poise::command(
     slash_command,
     prefix_command,
     rename = "list",
-    check = "checks::is_admin_hdev",
+    check = "checks::is_admin_hdev"
 )]
-pub async fn todo_list(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
-    let total_count = sqlx::query!(
-        "select count(*)::integer from todo_list"
-    )
-    .fetch_one(&ctx.data().pool)
-    .await?;
+pub async fn todo_list(ctx: Context<'_>) -> Result<(), Error> {
+    let total_count = sqlx::query!("select count(*)::integer from todo_list")
+        .fetch_one(&ctx.data().pool)
+        .await?;
 
     // Get titles
-    let titles_rec = sqlx::query!(
-        "select title from todo_list order by id asc"
-    )
-    .fetch_all(&ctx.data().pool)
-    .await?;
+    let titles_rec = sqlx::query!("select title from todo_list order by id asc")
+        .fetch_all(&ctx.data().pool)
+        .await?;
 
     let mut titles = Vec::new();
 
@@ -210,9 +204,9 @@ pub async fn todo_list(
     let msg = ctx.send(entry).await?.into_message().await?;
 
     let interaction = msg
-    .await_component_interactions(ctx.discord())
-    .author_id(ctx.author().id)
-    .timeout(Duration::from_secs(120));
+        .await_component_interactions(ctx.discord())
+        .author_id(ctx.author().id)
+        .timeout(Duration::from_secs(120));
 
     let mut collect_stream = interaction.stream();
 
@@ -248,7 +242,8 @@ pub async fn todo_list(
             let entry = _create_reply(value, total_count, &titles, &ctx.data().pool).await?;
 
             // Edit message
-            item.edit_response(&ctx, entry.to_slash_initial_response_edit()).await?;
+            item.edit_response(&ctx, entry.to_slash_initial_response_edit())
+                .await?;
 
             continue;
         }
@@ -259,7 +254,8 @@ pub async fn todo_list(
             let entry = _create_reply(value, total_count, &titles, &ctx.data().pool).await?;
 
             // Edit message
-            item.edit_response(&ctx, entry.to_slash_initial_response_edit()).await?;
+            item.edit_response(&ctx, entry.to_slash_initial_response_edit())
+                .await?;
         }
     }
 
@@ -270,7 +266,7 @@ pub async fn todo_list(
     slash_command,
     prefix_command,
     rename = "resolve",
-    check = "checks::is_admin_hdev",
+    check = "checks::is_admin_hdev"
 )]
 pub async fn todo_resolve(
     ctx: Context<'_>,
@@ -283,13 +279,12 @@ pub async fn todo_resolve(
     .fetch_one(&ctx.data().pool)
     .await?;
 
-    let msg = CreateReply::default()
-    .embed(
+    let msg = CreateReply::default().embed(
         CreateEmbed::default()
             .title(format!("#{} {}", id, entry.title))
             .description(&entry.description)
             .field("Priority", entry.priority, true)
-            .field("Resolved", entry.resolve_state, true)
+            .field("Resolved", entry.resolve_state, true),
     );
 
     ctx.send(msg).await?;
@@ -304,10 +299,9 @@ pub async fn todo_resolve(
     check = "checks::is_admin_hdev",
     subcommands("todo_filter_resolved")
 )]
-pub async fn todo_filter(
-    ctx: Context<'_>
-) -> Result<(), Error> {
-    ctx.say("Available filters: `all`, `resolved`, `unresolved`").await?;
+pub async fn todo_filter(ctx: Context<'_>) -> Result<(), Error> {
+    ctx.say("Available filters: `all`, `resolved`, `unresolved`")
+        .await?;
 
     Ok(())
 }
@@ -316,7 +310,7 @@ pub async fn todo_filter(
     slash_command,
     prefix_command,
     rename = "resolve",
-    check = "checks::is_admin_hdev",
+    check = "checks::is_admin_hdev"
 )]
 pub async fn todo_filter_resolved(
     ctx: Context<'_>,
@@ -336,7 +330,7 @@ pub async fn todo_filter_resolved(
             CreateEmbed::default()
                 .title(format!("#{}: {}", entry.id, entry.title))
                 .field("Priority", entry.priority, true)
-                .field("Resolved", state.to_string(), true)
+                .field("Resolved", state.to_string(), true),
         );
     }
 
@@ -345,9 +339,7 @@ pub async fn todo_filter_resolved(
     }
 
     let component = CreateActionRow::Buttons(vec![
-        CreateButton::new("todor:1")
-            .label("Prev")
-            .disabled(true),
+        CreateButton::new("todor:1").label("Prev").disabled(true),
         CreateButton::new("todor:cancel")
             .label("Cancel")
             .style(serenity::ButtonStyle::Danger),
@@ -356,12 +348,20 @@ pub async fn todo_filter_resolved(
             .disabled(embeds.len() == 1),
     ]);
 
-    let msg = ctx.send(CreateReply::default().embed(embeds[0].clone()).components(vec![component])).await?.into_message().await?;
+    let msg = ctx
+        .send(
+            CreateReply::default()
+                .embed(embeds[0].clone())
+                .components(vec![component]),
+        )
+        .await?
+        .into_message()
+        .await?;
 
     let interaction = msg
-    .await_component_interactions(ctx.discord())
-    .author_id(ctx.author().id)
-    .timeout(Duration::from_secs(120));
+        .await_component_interactions(ctx.discord())
+        .author_id(ctx.author().id)
+        .timeout(Duration::from_secs(120));
 
     let mut collect_stream = interaction.stream();
 
@@ -380,20 +380,29 @@ pub async fn todo_filter_resolved(
         let pageno = id.replace("todor:", "").parse::<usize>()?;
 
         let component = CreateActionRow::Buttons(vec![
-            CreateButton::new("todor:".to_string()+&(pageno-1).to_string())
+            CreateButton::new("todor:".to_string() + &(pageno - 1).to_string())
                 .label("Prev")
                 .disabled(pageno <= 1),
             CreateButton::new("todor:cancel")
                 .label("Cancel")
                 .style(serenity::ButtonStyle::Danger),
-            CreateButton::new("todor:".to_string()+&(pageno+1).to_string())
+            CreateButton::new("todor:".to_string() + &(pageno + 1).to_string())
                 .label("Next")
                 .disabled(embeds.len() <= pageno),
-        ]);    
+        ]);
 
-        let embed = embeds.get(pageno - 1).ok_or("Page number out of range")?.clone();
+        let embed = embeds
+            .get(pageno - 1)
+            .ok_or("Page number out of range")?
+            .clone();
 
-        item.edit_response(&ctx, EditInteractionResponse::default().embed(embed).components(vec![component])).await?;
+        item.edit_response(
+            &ctx,
+            EditInteractionResponse::default()
+                .embed(embed)
+                .components(vec![component]),
+        )
+        .await?;
     }
 
     Ok(())

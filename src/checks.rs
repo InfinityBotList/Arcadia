@@ -63,21 +63,6 @@ pub async fn is_admin_hdev(ctx: Context<'_>) -> Result<bool, Error> {
     Ok(true)
 }
 
-pub async fn is_admin(ctx: Context<'_>) -> Result<bool, Error> {
-    let staff = sqlx::query!(
-        "SELECT admin FROM users WHERE user_id = $1",
-        ctx.author().id.to_string()
-    )
-    .fetch_one(&ctx.data().pool)
-    .await?;
-
-    if !(staff.admin) {
-        return Err("You are not admin (manager)".into());
-    }
-
-    Ok(true)
-}
-
 pub async fn is_hdev_hadmin(ctx: Context<'_>) -> Result<bool, Error> {
     let staff = sqlx::query!(
         "SELECT hadmin, iblhdev FROM users WHERE user_id = $1",

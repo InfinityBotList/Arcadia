@@ -74,7 +74,7 @@ impl Default for Channels {
             testing_lounge: NonZeroU64::new(891611731699335209).unwrap(),
             mod_logs: NonZeroU64::new(911907978926493716).unwrap(),
             onboarding_channel: NonZeroU64::new(990716921475375114).unwrap(),
-            system: NonZeroU64::new(762958420277067786).unwrap()
+            system: NonZeroU64::new(762958420277067786).unwrap(),
         }
     }
 }

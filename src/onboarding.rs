@@ -988,7 +988,7 @@ Welcome to your onboarding server! Please read the following:
                     qm.interaction.create_response(&discord, CreateInteractionResponse::Message(
                         CreateInteractionResponseMessage::default()
                         .content("And the magic continues... Thank you for completing the staff onboarding process! You will be notified when you are approved. Please wait while I send your application to the staff team...")
-                    )).await?; 
+                    )).await?;
 
                     if ctx.guild_id().is_none() {
                         return Err("Guild ID is none somehow".into());

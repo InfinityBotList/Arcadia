@@ -275,7 +275,7 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
 
     let mut staff_list = "**Staff List**\n".to_string();
 
-    let guild = ctx.guild().unwrap().id;
+    let guild = ctx.guild().ok_or("Failed to find staff server")?.id;
 
     for staff in staffs {
         // Convert ID to u64

@@ -1,7 +1,7 @@
-use sqlx::PgPool;
-use strum_macros::{EnumVariantNames, EnumString, Display};
-use ts_rs::TS;
 use serde::Deserialize;
+use sqlx::PgPool;
+use strum_macros::{Display, EnumString, EnumVariantNames};
+use ts_rs::TS;
 
 use crate::{impls, Error};
 
@@ -67,7 +67,7 @@ pub enum RPCMethod {
         bot_id: String,
         count: i32,
         reason: String,
-    }
+    },
 }
 
 pub struct RPCHandle {
@@ -88,12 +88,19 @@ impl RPCMethod {
                     reason,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::Content(res))
             }
             RPCMethod::BotDeny { bot_id, reason } => {
-                impls::actions::deny_bot(&state.cache_http, &state.pool, bot_id, &state.user_id, reason).await?;
-    
+                impls::actions::deny_bot(
+                    &state.cache_http,
+                    &state.pool,
+                    bot_id,
+                    &state.user_id,
+                    reason,
+                )
+                .await?;
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotVoteReset { bot_id, reason } => {
@@ -105,7 +112,7 @@ impl RPCMethod {
                     reason,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotVoteResetAll { reason } => {
@@ -116,7 +123,7 @@ impl RPCMethod {
                     reason,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotUnverify { bot_id, reason } => {
@@ -128,7 +135,7 @@ impl RPCMethod {
                     reason,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotPremiumAdd {
@@ -145,7 +152,7 @@ impl RPCMethod {
                     *time_period_hours,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotPremiumRemove { bot_id, reason } => {
@@ -157,7 +164,7 @@ impl RPCMethod {
                     reason,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotVoteBanAdd { bot_id, reason } => {
@@ -169,7 +176,7 @@ impl RPCMethod {
                     reason,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotVoteBanRemove { bot_id, reason } => {
@@ -181,7 +188,7 @@ impl RPCMethod {
                     reason,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotForceRemove {
@@ -198,7 +205,7 @@ impl RPCMethod {
                     *kick,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::BotCertifyRemove { bot_id, reason } => {
@@ -210,10 +217,14 @@ impl RPCMethod {
                     reason,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
-            },
-            RPCMethod::BotVoteCountSet { bot_id, count, reason } => {
+            }
+            RPCMethod::BotVoteCountSet {
+                bot_id,
+                count,
+                reason,
+            } => {
                 impls::actions::vote_count_set_bot(
                     &state.cache_http,
                     &state.pool,
@@ -223,10 +234,10 @@ impl RPCMethod {
                     *count,
                 )
                 .await?;
-    
+
                 Ok(RPCSuccess::NoContent)
             }
-        }    
+        }
     }
 }
 

@@ -4,7 +4,7 @@ use crate::config;
 
 pub enum SpecialRole {
     BugHunter,
-} 
+}
 
 struct SpecRoleSync {
     user_id: NonZeroU64,
@@ -42,21 +42,22 @@ pub async fn spec_role_sync(
         .await
         .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
-    sqlx::query!("
-            UPDATE users SET bug_hunters = false
-        ")
-        .execute(&mut tx)
-        .await
-        .map_err(|e| format!("Error updating users: {:?}", e))?;
+    sqlx::query!("UPDATE users SET bug_hunters = false")
+    .execute(&mut tx)
+    .await
+    .map_err(|e| format!("Error updating users: {:?}", e))?;
 
     for user in resync {
         match user.col {
             SpecialRole::BugHunter => {
-                sqlx::query!("
-                    UPDATE users SET bug_hunters = true WHERE user_id = $1", user.user_id.to_string())
-                    .execute(&mut tx)
-                    .await
-                    .map_err(|e| format!("Error updating users: {:?}", e))?;
+                sqlx::query!(
+                    "
+                    UPDATE users SET bug_hunters = true WHERE user_id = $1",
+                    user.user_id.to_string()
+                )
+                .execute(&mut tx)
+                .await
+                .map_err(|e| format!("Error updating users: {:?}", e))?;
             }
         }
     }

@@ -1,28 +1,24 @@
 use sqlx::PgPool;
 
-pub async fn resolve_ping_user(
-    bot_id: &str,
-    pool: &PgPool,
-) -> Result<String, crate::Error> {
+pub async fn resolve_ping_user(bot_id: &str, pool: &PgPool) -> Result<String, crate::Error> {
     // Check for owner first
-    let owner_rec = sqlx::query!(
-        "SELECT owner FROM bots WHERE bot_id = $1",
-        bot_id
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(|e| format!("Error while checking for owner of bot {}: {}", bot_id, e))?;
+    let owner_rec = sqlx::query!("SELECT owner FROM bots WHERE bot_id = $1", bot_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("Error while checking for owner of bot {}: {}", bot_id, e))?;
 
     if let Some(owner) = owner_rec.owner {
         Ok(owner)
     } else {
-        let team_id = sqlx::query!(
-            "SELECT team_owner FROM bots WHERE bot_id = $1",
-            bot_id
-        )
-        .fetch_one(pool)
-        .await
-        .map_err(|e| format!("Error while checking for team owner of bot {}: {}", bot_id, e))?;
+        let team_id = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| {
+                format!(
+                    "Error while checking for team owner of bot {}: {}",
+                    bot_id, e
+                )
+            })?;
 
         if let Some(team_id) = team_id.team_owner {
             // Get all team members first
@@ -33,7 +29,12 @@ pub async fn resolve_ping_user(
             )
             .fetch_all(pool)
             .await
-            .map_err(|e| format!("Error while getting team members of team {}: {}", team_id, e))?;
+            .map_err(|e| {
+                format!(
+                    "Error while getting team members of team {}: {}",
+                    team_id, e
+                )
+            })?;
 
             let mut owner = None;
 
@@ -50,10 +51,18 @@ pub async fn resolve_ping_user(
             } else if !team_members.is_empty() {
                 Ok(team_members[0].user_id.clone())
             } else {
-                Err(format!("Bot {} is on a team no owner or team members. Please contact a dev right now!", bot_id).into())
+                Err(format!(
+                    "Bot {} is on a team no owner or team members. Please contact a dev right now!",
+                    bot_id
+                )
+                .into())
             }
         } else {
-            Err(format!("Bot {} has no owner or team owner. Please contact a dev right now!", bot_id).into())
+            Err(format!(
+                "Bot {} has no owner or team owner. Please contact a dev right now!",
+                bot_id
+            )
+            .into())
         }
     }
 }
@@ -63,18 +72,17 @@ pub struct OwnedBy {
     pub bot_type: String,
 }
 
-pub async fn get_owned_by(
-    user_id: &str,
-    pool: &PgPool,
-) -> Result<Vec<OwnedBy>, crate::Error> {
+pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, crate::Error> {
     // Check for directly owned first
-    let owned = sqlx::query!(
-        "SELECT bot_id, type FROM bots WHERE owner = $1",
-        user_id
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| format!("Error while checking for owned bots of user {}: {}", user_id, e))?;
+    let owned = sqlx::query!("SELECT bot_id, type FROM bots WHERE owner = $1", user_id)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| {
+            format!(
+                "Error while checking for owned bots of user {}: {}",
+                user_id, e
+            )
+        })?;
 
     let mut owned_by = Vec::new();
 
@@ -101,7 +109,12 @@ pub async fn get_owned_by(
         )
         .fetch_all(pool)
         .await
-        .map_err(|e| format!("Error while checking for team owned bots of team {}: {}", team.team_id, e))?;
+        .map_err(|e| {
+            format!(
+                "Error while checking for team owned bots of team {}: {}",
+                team.team_id, e
+            )
+        })?;
 
         for bot in team_bots {
             owned_by.push(OwnedBy {
@@ -115,29 +128,25 @@ pub async fn get_owned_by(
 }
 
 #[allow(dead_code)]
-pub async fn get_bot_members(
-    bot_id: &str,
-    pool: &PgPool,
-) -> Result<Vec<String>, crate::Error> {
+pub async fn get_bot_members(bot_id: &str, pool: &PgPool) -> Result<Vec<String>, crate::Error> {
     // Check for owner first
-    let owner_rec = sqlx::query!(
-        "SELECT owner FROM bots WHERE bot_id = $1",
-        bot_id
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(|e| format!("Error while checking for owner of bot {}: {}", bot_id, e))?;
+    let owner_rec = sqlx::query!("SELECT owner FROM bots WHERE bot_id = $1", bot_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| format!("Error while checking for owner of bot {}: {}", bot_id, e))?;
 
     if let Some(owner) = owner_rec.owner {
         Ok(vec![owner])
     } else {
-        let team_id = sqlx::query!(
-            "SELECT team_owner FROM bots WHERE bot_id = $1",
-            bot_id
-        )
-        .fetch_one(pool)
-        .await
-        .map_err(|e| format!("Error while checking for team owner of bot {}: {}", bot_id, e))?;
+        let team_id = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| {
+                format!(
+                    "Error while checking for team owner of bot {}: {}",
+                    bot_id, e
+                )
+            })?;
 
         if let Some(team_id) = team_id.team_owner {
             let team_members = sqlx::query!(
@@ -146,7 +155,12 @@ pub async fn get_bot_members(
             )
             .fetch_all(pool)
             .await
-            .map_err(|e| format!("Error while getting team members of team {}: {}", team_id, e))?;
+            .map_err(|e| {
+                format!(
+                    "Error while getting team members of team {}: {}",
+                    team_id, e
+                )
+            })?;
 
             let mut members = Vec::new();
 
@@ -156,7 +170,11 @@ pub async fn get_bot_members(
 
             Ok(members)
         } else {
-            Err(format!("Bot {} has no owner or team owner. Please contact a dev right now!", bot_id).into())
+            Err(format!(
+                "Bot {} has no owner or team owner. Please contact a dev right now!",
+                bot_id
+            )
+            .into())
         }
     }
 }

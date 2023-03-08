@@ -83,7 +83,7 @@ pub async fn vote_reset_bot(
             .title("__Bot Vote Reset!__")
             .field("Reason", reason, true)
             .field("Moderator", "<@".to_string() + staff_id + ">", true)
-            .field("Bot", "<@".to_string() + bot_id + ">", true)
+            .field("Bot", "<@!".to_string() + bot_id + ">", true)
             .footer(CreateEmbedFooter::new("Sad life :("))
             .color(0xFF0000),
     );
@@ -140,12 +140,9 @@ pub async fn unverify_bot(
     reason: &str,
 ) -> Result<(), Error> {
     // Ensure user has iblhdev or hadmin
-    let check = sqlx::query!(
-        "SELECT staff FROM users WHERE user_id = $1",
-        staff_id
-    )
-    .fetch_one(pool)
-    .await?;
+    let check = sqlx::query!("SELECT staff FROM users WHERE user_id = $1", staff_id)
+        .fetch_one(pool)
+        .await?;
 
     if !(check.staff) {
         return Err("You need to be a staff member to unverify bots".into());
@@ -171,7 +168,7 @@ pub async fn unverify_bot(
             .title("__Bot Unverified For Futher Review!__")
             .field("Reason", reason, true)
             .field("Moderator", "<@".to_string() + staff_id + ">", true)
-            .field("Bot", "<@".to_string() + bot_id + ">", true)
+            .field("Bot", "<@!".to_string() + bot_id + ">", true)
             .footer(CreateEmbedFooter::new("Gonna be pending further review..."))
             .color(0xFF0000),
     );
@@ -246,9 +243,9 @@ pub async fn approve_bot(
     // Find bot in testing server
     {
         let guild = discord
-        .cache
-        .guild(GuildId(crate::config::CONFIG.servers.testing))
-        .ok_or("Failed to find guild")?;  
+            .cache
+            .guild(GuildId(crate::config::CONFIG.servers.testing))
+            .ok_or("Failed to find guild")?;
 
         let member = guild.members.contains_key(&UserId(bot_id.parse()?));
 
@@ -269,17 +266,18 @@ pub async fn approve_bot(
     .await?;
 
     let msg = CreateMessage::default()
-    .content(format!("<@!{}>", ping))
-    .embed(
-        CreateEmbed::default()
-            .title("Bot Approved!")
-            .description(format!("<@!{}> has approved <@!{}>", staff_id, bot_id))
-            .field("Feedback", reason, true)
-            .field("Moderator", "<@!".to_string() + staff_id + ">", true)
-            .field("Bot", "<@".to_string() + bot_id + ">", true)
-            .footer(CreateEmbedFooter::new("Well done, young traveller!"))
-            .color(0x00ff00),
-    );
+        .content(format!("<@!{}>", ping))
+        .embed(
+            CreateEmbed::default()
+                .title("Bot Approved!")
+                .url(format!("{}/bots/{}", config::CONFIG.frontend_url, bot_id))
+                .description(format!("<@!{}> has approved <@!{}>", staff_id, bot_id))
+                .field("Feedback", reason, true)
+                .field("Moderator", "<@!".to_string() + staff_id + ">", true)
+                .field("Bot", "<@!".to_string() + bot_id + ">", true)
+                .footer(CreateEmbedFooter::new("Well done, young traveller!"))
+                .color(0x00ff00),
+        );
 
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)
@@ -388,14 +386,14 @@ pub async fn deny_bot(
     .execute(pool)
     .await?;
 
-    let msg = CreateMessage::new()
-    .content(format!("<@!{}>", ping))
-    .embed(
+    let msg = CreateMessage::new().content(format!("<@!{}>", ping)).embed(
         CreateEmbed::default()
             .title("Bot Denied!")
+            .url(format!("{}/bots/{}", config::CONFIG.frontend_url, bot_id))
             .description(format!("<@{}> has denied <@{}>", staff_id, bot_id))
             .field("Reason", reason, true)
             .field("Moderator", "<@!".to_string() + staff_id + ">", true)
+            .field("Bot", "<@!".to_string() + bot_id + ">", true)
             .footer(CreateEmbedFooter::new(
                 "Well done, young traveller at getting denied from the club!",
             ))
@@ -512,9 +510,7 @@ pub async fn certify_remove_bot(
     .await?;
 
     if !(check.iblhdev || check.hadmin) {
-        return Err(
-            "You need `Head Staff Manager` or `Head Developer` to uncertify bots".into(),
-        );
+        return Err("You need `Head Staff Manager` or `Head Developer` to uncertify bots".into());
     }
 
     // Ensure the bot actually exists
@@ -526,14 +522,7 @@ pub async fn certify_remove_bot(
         return Err("Bot does not exist".into());
     }
 
-    add_action_log(
-        pool,
-        bot_id,
-        staff_id,
-        reason,
-        "certify_remove_bot",
-    )
-    .await?;
+    add_action_log(pool, bot_id, staff_id, reason, "certify_remove_bot").await?;
 
     // Set premium_period_length which is a postgres interval
     sqlx::query!(
@@ -546,10 +535,7 @@ pub async fn certify_remove_bot(
     let msg = CreateMessage::new().embed(
         CreateEmbed::default()
             .title("Bot Uncertified!")
-            .description(format!(
-                "<@{}> has uncertified <@{}>",
-                staff_id, bot_id
-            ))
+            .description(format!("<@{}> has uncertified <@{}>", staff_id, bot_id))
             .field("Reason", reason, true)
             .footer(CreateEmbedFooter::new(
                 "Uh oh, looks like you've been naughty...",

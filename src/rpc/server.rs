@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::{config, impls};
 use axum::{
     extract::State,
     http::{self, StatusCode},
@@ -8,12 +9,11 @@ use axum::{
     Json, Router,
 };
 use log::info;
+use reqwest::Method;
 use sqlx::PgPool;
 use tower_http::cors::CorsLayer;
-use crate::{impls, config};
-use reqwest::Method;
 
-use super::core::{RPCRequest, RPCSuccess, RPCMethod, RPCHandle};
+use super::core::{RPCHandle, RPCMethod, RPCRequest, RPCSuccess};
 use chrono::Utc;
 
 pub enum RPCResponse {
@@ -97,7 +97,7 @@ pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     let shared_state = Arc::new(AppState { pool, cache_http });
 
     let mut origins = vec![];
- 
+
     for origin in config::CONFIG.rpc_allowed_urls.iter() {
         origins.push(origin.parse().unwrap());
     }
@@ -119,8 +119,9 @@ pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     info!("Starting RPC server on {}", addr);
 
     if let Err(e) = axum::Server::bind(&addr)
-    .serve(app.into_make_service())
-    .await {
+        .serve(app.into_make_service())
+        .await
+    {
         panic!("RPC server error: {}", e);
     }
 }
@@ -193,14 +194,16 @@ async fn web_rpc_api(
         return Err(RPCResponse::Ratelimited);
     }
 
-    match req.method.handle(
-        RPCHandle {
+    match req
+        .method
+        .handle(RPCHandle {
             cache_http: state.cache_http.clone(),
             pool: state.pool.clone(),
             user_id: req.user_id,
-        }
-    ).await
-    .map_err(|e| RPCResponse::Err(e.to_string()))? {
+        })
+        .await
+        .map_err(|e| RPCResponse::Err(e.to_string()))?
+    {
         RPCSuccess::Content(content) => Ok(Success::Content(content)),
         RPCSuccess::NoContent => Ok(Success::NoContent),
     }

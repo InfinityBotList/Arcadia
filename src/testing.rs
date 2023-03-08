@@ -2,7 +2,7 @@ use crate::{checks, config, impls};
 use futures_util::StreamExt;
 use log::info;
 use poise::serenity_prelude::{
-    CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter, CreateMessage, User, ChannelId
+    ChannelId, CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter, CreateMessage, User,
 };
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde::Serialize;
@@ -119,29 +119,26 @@ fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
         CreateReply::default().embed(embed)
     };
 
-    reply.components(
-        vec![
-            CreateActionRow::Buttons(vec![
-                CreateButton::new("q:prev")
-                    .label("Previous")
-                    .style(serenity::ButtonStyle::Primary)
-                    .disabled(qb.index == 0),
-                CreateButton::new("q:cancel")
-                    .label("Cancel")
-                    .style(serenity::ButtonStyle::Danger),
-                CreateButton::new("q:next")
-                    .label("Next")
-                    .style(serenity::ButtonStyle::Primary)
-                    .disabled(qb.index >= qb.total_bots - 1),
-            ]),
-            CreateActionRow::Buttons(vec![
-                CreateButton::new_link(qb.invite)
-                .label("Invite"),    
-                CreateButton::new_link(config::CONFIG.frontend_url.clone()+"/bots/"+&qb.bot_id)
-                .label("View Page"),    
-            ])
-        ]
-    )
+    reply.components(vec![
+        CreateActionRow::Buttons(vec![
+            CreateButton::new("q:prev")
+                .label("Previous")
+                .style(serenity::ButtonStyle::Primary)
+                .disabled(qb.index == 0),
+            CreateButton::new("q:cancel")
+                .label("Cancel")
+                .style(serenity::ButtonStyle::Danger),
+            CreateButton::new("q:next")
+                .label("Next")
+                .style(serenity::ButtonStyle::Primary)
+                .disabled(qb.index >= qb.total_bots - 1),
+        ]),
+        CreateActionRow::Buttons(vec![
+            CreateButton::new_link(qb.invite).label("Invite"),
+            CreateButton::new_link(config::CONFIG.frontend_url.clone() + "/bots/" + &qb.bot_id)
+                .label("View Page"),
+        ]),
+    ])
 }
 
 /// Checks the bot queue
@@ -330,23 +327,23 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
         ctx.send(msg).await?;
 
         let msg = CreateMessage::default()
-	.content(
-		format!("<@{}>", bot_owner)
-	)
-	.embed(
-            CreateEmbed::default()
-                .title("Bot Claimed!")
-                .description(format!(
-                    "<@{}> has claimed <@{}>",
-                    ctx.author().id.0,
-                    bot.id
-                ))
-                .footer(CreateEmbedFooter::new(
-                    "This is completely normal, don't worry!",
-                )),
-        );
+            .content(format!("<@{}>", bot_owner))
+            .embed(
+                CreateEmbed::default()
+                    .title("Bot Claimed!")
+                    .description(format!(
+                        "<@{}> has claimed <@{}>",
+                        ctx.author().id.0,
+                        bot.id
+                    ))
+                    .footer(CreateEmbedFooter::new(
+                        "This is completely normal, don't worry!",
+                    )),
+            );
 
-        ChannelId(crate::config::CONFIG.channels.mod_logs).send_message(discord, msg).await?;
+        ChannelId(crate::config::CONFIG.channels.mod_logs)
+            .send_message(discord, msg)
+            .await?;
     } else {
         let builder = CreateReply::default()
             .embed(
@@ -418,24 +415,24 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
                 .await?;
 
                 let msg = CreateMessage::default()
-        	.content(
-        	        format!("<@{}>", bot_owner)
-	        )
-		.embed(
-                    CreateEmbed::default()
-                        .title("Bot Reclaimed!")
-                        .description(format!(
-                            "<@{}> has reclaimed <@{}> from <@{}>",
-                            ctx.author().id.0,
-                            bot.id,
-                            claimed_by
-                        ))
-                        .footer(CreateEmbedFooter::new(
-                            "This is completely normal, don't worry!",
-                        )),
-                );
+                    .content(format!("<@{}>", bot_owner))
+                    .embed(
+                        CreateEmbed::default()
+                            .title("Bot Reclaimed!")
+                            .description(format!(
+                                "<@{}> has reclaimed <@{}> from <@{}>",
+                                ctx.author().id.0,
+                                bot.id,
+                                claimed_by
+                            ))
+                            .footer(CreateEmbedFooter::new(
+                                "This is completely normal, don't worry!",
+                            )),
+                    );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs).send_message(discord, msg).await?;
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(discord, msg)
+                    .await?;
 
                 ctx.say(format!(
                     "You have claimed <@{bot_id}> and the bot owner has been notified!",
@@ -531,23 +528,23 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
         .await?;
 
         let msg = CreateMessage::new()
-	.content(
-		format!("<@{}>", bot_owner)
-	) 	
-	.embed(
-            CreateEmbed::new()
-                .title("Bot Unclaimed!")
-                .description(format!(
-                    "<@{}> has unclaimed <@{}>",
-                    ctx.author().id.0,
-                    bot.id.0
-                ))
-                .footer(CreateEmbedFooter::new(
-                    "This is completely normal, don't worry!",
-                )),
-        );
+            .content(format!("<@{}>", bot_owner))
+            .embed(
+                CreateEmbed::new()
+                    .title("Bot Unclaimed!")
+                    .description(format!(
+                        "<@{}> has unclaimed <@{}>",
+                        ctx.author().id.0,
+                        bot.id.0
+                    ))
+                    .footer(CreateEmbedFooter::new(
+                        "This is completely normal, don't worry!",
+                    )),
+            );
 
-        ChannelId(crate::config::CONFIG.channels.mod_logs).send_message(discord, msg).await?;
+        ChannelId(crate::config::CONFIG.channels.mod_logs)
+            .send_message(discord, msg)
+            .await?;
 
         ctx.say(format!("You have unclaimed <@{}>", bot.id.0))
             .await?;

@@ -1,5 +1,5 @@
 use crate::{checks, config};
-use poise::serenity_prelude::{RoleId, CacheHttp, GuildId};
+use poise::serenity_prelude::{CacheHttp, GuildId, RoleId};
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -86,23 +86,27 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
         // Apply the required changes
         if !roles_to_add.is_empty() {
             for role in roles_to_add {
-                ctx.http().add_member_role(
-                    GuildId(config::CONFIG.servers.main),
-                    member.user.id,
-                    role,
-                    Some("Autorole due to bots owned")
-                ).await?;    
+                ctx.http()
+                    .add_member_role(
+                        GuildId(config::CONFIG.servers.main),
+                        member.user.id,
+                        role,
+                        Some("Autorole due to bots owned"),
+                    )
+                    .await?;
             }
         }
 
         if !roles_to_remove.is_empty() {
             for role in roles_to_remove {
-                ctx.http().remove_member_role(
-                    GuildId(config::CONFIG.servers.main),
-                    member.user.id,
-                    role,
-                    Some("Autorole due to bots owned")
-                ).await?;    
+                ctx.http()
+                    .remove_member_role(
+                        GuildId(config::CONFIG.servers.main),
+                        member.user.id,
+                        role,
+                        Some("Autorole due to bots owned"),
+                    )
+                    .await?;
             }
         }
 

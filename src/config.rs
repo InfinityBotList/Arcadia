@@ -100,6 +100,7 @@ pub struct Config {
     pub owners: Vec<NonZeroU64>,
     pub protected_bots: Vec<NonZeroU64>,
     pub github_pat: String,
+    pub github_username: String,
     pub github_repo: String,
 }
 
@@ -121,6 +122,7 @@ impl Default for Config {
                 NonZeroU64::new(1019662370278228028).unwrap(), // Reedwhisker (PTB) - Main Bot
             ],
             github_pat: String::from(""),
+            github_username: String::from(""),
             github_repo: String::from("InfinityBotList/Infinity-Next"),
         }
     }

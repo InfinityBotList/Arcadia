@@ -327,12 +327,20 @@ pub async fn updprod(
             crate::config::CONFIG.github_repo,
         )
     )
-    .bearer_auth(&crate::config::CONFIG.github_pat)
+    .basic_auth(&crate::config::CONFIG.github_username, Some(&crate::config::CONFIG.github_pat))
+    .header("User-Agent", &crate::config::CONFIG.github_username)
     .send()
     .await?;
 
-    if res.status() != 204 {
-        ctx.say("Failed to delete production branch").await?;
+    if res.status() == 422 {
+        ctx.say("Ignoring error 422 (branch not found)").await?;
+    } else if res.status() != 204 {
+        ctx.say(
+            format!(
+                "Failed to delete production branch. Got status code: {} and resp: {}",
+                res.status(),
+                res.text().await?
+        )).await?;
         return Ok(());
     }
 
@@ -341,16 +349,22 @@ pub async fn updprod(
     // Get SHA of master branch
     let res = client.get(
         format!(
-            "https://api.github.com/repos/{}/git/refs/master",
+            "https://api.github.com/repos/{}/git/refs/heads/master",
             crate::config::CONFIG.github_repo,
         )
     )
-    .bearer_auth(&crate::config::CONFIG.github_pat)
+    .basic_auth(&crate::config::CONFIG.github_username, Some(&crate::config::CONFIG.github_pat))
+    .header("User-Agent", &crate::config::CONFIG.github_username)
     .send()
     .await?;
 
     if res.status() != 200 {
-        ctx.say("Failed to get master branch").await?;
+        ctx.say(
+            format!(
+                "Failed to fetch master branch. Got status code: {} and resp: {}",
+                res.status(),
+                res.text().await?
+        )).await?;
         return Ok(());
     }
 
@@ -365,7 +379,8 @@ pub async fn updprod(
             crate::config::CONFIG.github_repo,
         )
     )
-    .bearer_auth(&crate::config::CONFIG.github_pat)
+    .basic_auth(&crate::config::CONFIG.github_username, Some(&crate::config::CONFIG.github_pat))
+    .header("User-Agent", &crate::config::CONFIG.github_username)
     .json(&serde_json::json!({
         "ref": "refs/heads/production",
         "sha": sha

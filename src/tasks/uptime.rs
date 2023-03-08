@@ -77,7 +77,6 @@ pub async fn uptime_checker(
                 }
             },
             None => {
-                log::warn!("Bot {} is not in cache, possibly not on main server?", row.bot_id);
                 continue;
             }
         }

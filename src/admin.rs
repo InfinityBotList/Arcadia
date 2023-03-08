@@ -203,7 +203,14 @@ pub async fn resetonboard(
 }
 
 /// Unlocks RPC for a 10 minutes, is logged
-#[poise::command(category = "Admin", track_edits, prefix_command, slash_command)]
+#[poise::command(
+    category = "Admin", 
+    track_edits, 
+    prefix_command, 
+    slash_command,
+    check = "checks::staff_server",
+    check = "checks::is_staff"
+)]
 pub async fn rpcunlock(
     ctx: crate::Context<'_>,
     #[description = "Purpose"] purpose: String,
@@ -290,6 +297,88 @@ pub async fn rpclock(ctx: crate::Context<'_>) -> Result<(), Error> {
     .await?;
 
     ctx.say("RPC has been locked").await?;
+
+    Ok(())
+}
+
+/// Updates the production build of the site. Owner only
+#[poise::command(
+    category = "Admin", 
+    track_edits, 
+    prefix_command, 
+    slash_command,
+)]
+pub async fn updprod(
+    ctx: crate::Context<'_>,
+) -> Result<(), Error> {
+    if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
+        ctx.say("Only owners can update the main site").await?;
+        return Ok(());
+    }
+
+    ctx.say("Deleting old `production` branch").await?;
+
+    // Delete the production branch using github api and github_pat
+    let client = reqwest::Client::new();
+
+    let res = client.delete(
+        format!(
+            "https://api.github.com/repos/{}/git/refs/heads/production",
+            crate::config::CONFIG.github_repo,
+        )
+    )
+    .bearer_auth(&crate::config::CONFIG.github_pat)
+    .send()
+    .await?;
+
+    if res.status() != 204 {
+        ctx.say("Failed to delete production branch").await?;
+        return Ok(());
+    }
+
+    ctx.say("Creating new `production` branch").await?;
+
+    // Get SHA of master branch
+    let res = client.get(
+        format!(
+            "https://api.github.com/repos/{}/git/refs/master",
+            crate::config::CONFIG.github_repo,
+        )
+    )
+    .bearer_auth(&crate::config::CONFIG.github_pat)
+    .send()
+    .await?;
+
+    if res.status() != 200 {
+        ctx.say("Failed to get master branch").await?;
+        return Ok(());
+    }
+
+    let sha = res.json::<serde_json::Value>().await?;
+    let object = sha.get("object").ok_or("Failed to get object")?;
+    let sha = object.get("sha").ok_or("Failed to get sha")?.as_str().ok_or("Failed to parse SHA as str")?;
+
+    // Create production branch using github api and github_pat
+    let res = client.post(
+        format!(
+            "https://api.github.com/repos/{}/git/refs",
+            crate::config::CONFIG.github_repo,
+        )
+    )
+    .bearer_auth(&crate::config::CONFIG.github_pat)
+    .json(&serde_json::json!({
+        "ref": "refs/heads/production",
+        "sha": sha
+    }))
+    .send()
+    .await?;
+
+    if res.status() != 201 {
+        ctx.say("Failed to create production branch").await?;
+        return Ok(());
+    }
+
+    ctx.say("Done!").await?;
 
     Ok(())
 }

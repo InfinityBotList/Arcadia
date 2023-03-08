@@ -99,6 +99,8 @@ pub struct Config {
     pub rpc_allowed_urls: Vec<String>,
     pub owners: Vec<NonZeroU64>,
     pub protected_bots: Vec<NonZeroU64>,
+    pub github_pat: String,
+    pub github_repo: String,
 }
 
 impl Default for Config {
@@ -118,6 +120,8 @@ impl Default for Config {
             protected_bots: vec![
                 NonZeroU64::new(1019662370278228028).unwrap(), // Reedwhisker (PTB) - Main Bot
             ],
+            github_pat: String::from(""),
+            github_repo: String::from("InfinityBotList/Infinity-Next"),
         }
     }
 }

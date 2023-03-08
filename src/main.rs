@@ -311,6 +311,7 @@ async fn main() {
                 admin::onboardman(),
                 admin::rpcunlock(),
                 admin::rpclock(),
+                admin::updprod(),
                 stats::stats(),
                 botowners::getbotroles(),
                 rpc::command::rpc(),

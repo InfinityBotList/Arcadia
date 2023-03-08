@@ -275,7 +275,7 @@ pub async fn approve_bot(
             .title("Bot Approved!")
             .description(format!("<@!{}> has approved <@!{}>", staff_id, bot_id))
             .field("Feedback", reason, true)
-            .field("Moderator", "<!@".to_string() + staff_id + ">", true)
+            .field("Moderator", "<@!".to_string() + staff_id + ">", true)
             .field("Bot", "<@".to_string() + bot_id + ">", true)
             .footer(CreateEmbedFooter::new("Well done, young traveller!"))
             .color(0x00ff00),
@@ -395,6 +395,7 @@ pub async fn deny_bot(
             .title("Bot Denied!")
             .description(format!("<@{}> has denied <@{}>", staff_id, bot_id))
             .field("Reason", reason, true)
+            .field("Moderator", "<@!".to_string() + staff_id + ">", true)
             .footer(CreateEmbedFooter::new(
                 "Well done, young traveller at getting denied from the club!",
             ))

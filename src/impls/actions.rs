@@ -376,6 +376,8 @@ pub async fn deny_bot(
         return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
     }
 
+    let ping = super::utils::resolve_ping_user(bot_id, pool).await?;
+
     // Add action logs
     add_action_log(pool, bot_id, staff_id, reason, "deny").await?;
 
@@ -386,7 +388,9 @@ pub async fn deny_bot(
     .execute(pool)
     .await?;
 
-    let msg = CreateMessage::new().embed(
+    let msg = CreateMessage::new()
+    .content(format!("<@!{}>", ping))
+    .embed(
         CreateEmbed::default()
             .title("Bot Denied!")
             .description(format!("<@{}> has denied <@{}>", staff_id, bot_id))

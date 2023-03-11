@@ -376,10 +376,50 @@ pub async fn updprod(ctx: crate::Context<'_>) -> Result<(), Error> {
         return Ok(());
     }
 
-    ctx.say("Deleting old `production` branch").await?;
-
     // Delete the production branch using github api and github_pat
     let client = reqwest::Client::new();
+
+    ctx.say("Deleting old `production` branch").await?;
+
+    // Disable enforce_admin
+    let res = client
+        .delete(format!(
+            "https://api.github.com/repos/{}/branches/production/protection/enforce_admins",
+            crate::config::CONFIG.github_repo,
+        ))
+        .basic_auth(
+            &crate::config::CONFIG.github_username,
+            Some(&crate::config::CONFIG.github_pat),
+        )
+        .header("User-Agent", &crate::config::CONFIG.github_username)
+        .send()
+        .await?;
+
+    if res.status() != 204 && res.status() != 404 {
+        let body = res.text().await?;
+        ctx.say(format!("Failed to remove enforce production branch protection rule: {}.", body)).await?;
+        return Ok(());
+    }        
+
+    // Remove branch protection
+    let res = client
+    .delete(format!(
+        "https://api.github.com/repos/{}/branches/production/protection",
+        crate::config::CONFIG.github_repo,
+    ))
+    .basic_auth(
+        &crate::config::CONFIG.github_username,
+        Some(&crate::config::CONFIG.github_pat),
+    )
+    .header("User-Agent", &crate::config::CONFIG.github_username)
+    .send()
+    .await?;
+
+    if res.status() != 204 && res.status() != 404 {
+        let body = res.text().await?;
+        ctx.say(format!("Failed to remove production branch protection: {}", body)).await?;
+        return Ok(());
+    }
 
     let res = client
         .delete(format!(
@@ -395,7 +435,8 @@ pub async fn updprod(ctx: crate::Context<'_>) -> Result<(), Error> {
         .await?;
 
     if res.status() == 422 {
-        ctx.say("Ignoring error 422 (branch not found)").await?;
+        let body = res.text().await?;
+        ctx.say(format!("Ignoring error 422 (branch not found): {}", body)).await?;
     } else if res.status() != 204 {
         ctx.say(format!(
             "Failed to delete production branch. Got status code: {} and resp: {}",
@@ -462,6 +503,67 @@ pub async fn updprod(ctx: crate::Context<'_>) -> Result<(), Error> {
         ctx.say("Failed to create production branch").await?;
         return Ok(());
     }
+
+    // Create branch protection rule to lock writes
+    let res = client
+        .put(format!(
+            "https://api.github.com/repos/{}/branches/production/protection",
+            crate::config::CONFIG.github_repo,
+        ))
+        .basic_auth(
+            &crate::config::CONFIG.github_username,
+            Some(&crate::config::CONFIG.github_pat),
+        )
+        .header("User-Agent", &crate::config::CONFIG.github_username)
+        .json(&serde_json::json!({
+            "required_status_checks": null,
+            "enforce_admins": true,
+            "required_pull_request_reviews": {
+                "dismissal_restrictions": {
+                    "users": [],
+                    "teams": []
+                },
+                "dismiss_stale_reviews": true,
+                "require_code_owner_reviews": true,
+                "required_approving_review_count": 1
+            },
+            "restrictions": {
+                "users": [],
+                "teams": [],
+                "apps": []
+            },
+            "allow_deletions": false,
+            "block_creations": false,
+            "lock_branch": true,
+        }))
+        .send()
+        .await?;
+
+    if res.status() != 200 {
+        let body = res.text().await?;
+        ctx.say(format!("Failed to create production branch protection rule: {}", body)).await?;
+        return Ok(());
+    }
+
+    // Admin enforce
+    let res = client
+        .post(format!(
+            "https://api.github.com/repos/{}/branches/production/protection/enforce_admins",
+            crate::config::CONFIG.github_repo,
+        ))
+        .basic_auth(
+            &crate::config::CONFIG.github_username,
+            Some(&crate::config::CONFIG.github_pat),
+        )
+        .header("User-Agent", &crate::config::CONFIG.github_username)
+        .send()
+        .await?;
+
+    if res.status() != 200 {
+        let body = res.text().await?;
+        ctx.say(format!("Failed to enforce production branch protection rule: {}", body)).await?;
+        return Ok(());
+    }    
 
     ctx.say("Done!").await?;
 

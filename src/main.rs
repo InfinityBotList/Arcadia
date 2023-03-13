@@ -190,7 +190,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                     .await?;
             }
 
-            if !new_member.user.bot {
+            if new_member.guild_id.0 == config::CONFIG.servers.main && !new_member.user.bot {
                 // Send member join message
                 ChannelId(config::CONFIG.channels.system)
                 .send_message(

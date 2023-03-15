@@ -10,7 +10,7 @@ You can find a seed of the Infinity Bot List database at https://reedwhisker.inf
 
 ## Contributing
 
-- Always run ``fmt.sh`` before making a Pull Request!
+- Always run ``cargo fmt`` before making a Pull Request!
 - Always increment version during big changes
 
 ## MacOS cross compile

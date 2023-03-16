@@ -255,8 +255,12 @@ pub async fn queue(
     Ok(())
 }
 
-/// Implementation of the claim command
-pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
+/// Claims a bot
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
+pub async fn claim(
+    ctx: Context<'_>,
+    #[description = "The bot you wish to claim"] bot: User,
+) -> Result<(), Error> {
     if !crate::onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
         return Ok(());
     }
@@ -440,40 +444,19 @@ pub async fn claim_impl(ctx: Context<'_>, bot: &User) -> Result<(), Error> {
                 ))
                 .await?;
             }
-        } else {
-            return Ok(());
         }
-
-        return Ok(());
     }
 
     Ok(())
 }
 
-/// Claims a bot
+/// Unclaims a bot
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
-pub async fn claim(
+pub async fn unclaim(
     ctx: Context<'_>,
-    #[description = "The bot you wish to claim"] bot: User,
+    #[description = "The bot you wish to unclaim"] bot: serenity::User,
+    #[description = "Reason for unclaiming"] reason: String,
 ) -> Result<(), Error> {
-    claim_impl(ctx, &bot).await?;
-
-    Ok(())
-}
-
-#[poise::command(
-    context_menu_command = "Claim Bot",
-    user_cooldown = 3,
-    category = "Testing"
-)]
-pub async fn claim_context(
-    ctx: Context<'_>,
-    #[description = "User"] user: serenity::User,
-) -> Result<(), Error> {
-    claim_impl(ctx, &user).await
-}
-
-pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), Error> {
     if !crate::onboarding::handle_onboarding(ctx, false, None).await? {
         return Ok(());
     }
@@ -486,7 +469,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
     let discord = ctx.discord();
 
     if bot.id.0 == config::CONFIG.test_bot {
-        return Err("You cannot claim the test bot!".into());
+        return Err("You cannot unclaim the test bot!".into());
     }
 
     if !checks::testing_server(ctx).await? {
@@ -522,7 +505,7 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
             &data.pool,
             &bot.id.to_string(),
             &ctx.author().id.to_string(),
-            "Unclaimed bot",
+            &reason,
             "unclaim",
         )
         .await?;
@@ -551,27 +534,6 @@ pub async fn unclaim_impl(ctx: Context<'_>, bot: serenity::User) -> Result<(), E
     }
 
     Ok(())
-}
-
-/// Unclaims a bot
-#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
-pub async fn unclaim(
-    ctx: Context<'_>,
-    #[description = "The bot you wish to unclaim"] bot: serenity::Member,
-) -> Result<(), Error> {
-    unclaim_impl(ctx, bot.user).await
-}
-
-#[poise::command(
-    context_menu_command = "Unclaim Bot",
-    user_cooldown = 3,
-    category = "Testing"
-)]
-pub async fn unclaim_context(
-    ctx: Context<'_>,
-    #[description = "User"] user: serenity::User,
-) -> Result<(), Error> {
-    unclaim_impl(ctx, user).await
 }
 
 /// Approves a bot

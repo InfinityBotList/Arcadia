@@ -155,7 +155,7 @@ pub async fn staff_resync(
     // Reset old onboards
     sqlx::query!(
         "UPDATE users SET staff_onboard_state = $1, staff_onboard_guild = NULL WHERE staff = true AND NOW() - staff_onboard_last_start_time > interval '1 month'",
-        crate::onboarding::OnboardState::Pending.as_str()
+        crate::impls::onboard_states::OnboardState::Pending.to_string()
     )
     .execute(&mut tx)
     .await

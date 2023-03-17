@@ -35,16 +35,6 @@ pub async fn invite(
     Ok(())
 }
 
-/// Starts the onboarding process in the newly created server
-#[poise::command(prefix_command, user_cooldown = 10, category = "Testing")]
-pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::onboarding::handle_onboarding(ctx, false, None).await? {
-        return Ok(());
-    }
-
-    Ok(())
-}
-
 /// Sends the staff guide link
 #[poise::command(
     prefix_command,
@@ -53,10 +43,6 @@ pub async fn onboard(ctx: Context<'_>) -> Result<(), Error> {
     category = "Testing"
 )]
 pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::onboarding::handle_onboarding(ctx, false, None).await? {
-        return Ok(());
-    }
-
     ctx.say(
         format!(
             "The staff guide can be found at {}/staff/guide. Please **do not** bookmark this page as the URL may change in the future",
@@ -148,10 +134,6 @@ pub async fn queue(
     #[description = "Whether to embed or not"] embed: Option<bool>,
 ) -> Result<(), Error> {
     let embed = embed.unwrap_or(true);
-
-    if !crate::onboarding::handle_onboarding(ctx, embed, None).await? {
-        return Ok(());
-    }
 
     let data = ctx.data();
 
@@ -256,19 +238,11 @@ pub async fn queue(
 }
 
 /// Claims a bot
-#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing", check = "checks::is_staff")]
 pub async fn claim(
     ctx: Context<'_>,
     #[description = "The bot you wish to claim"] bot: User,
 ) -> Result<(), Error> {
-    if !crate::onboarding::handle_onboarding(ctx, false, Some(&bot.id.to_string())).await? {
-        return Ok(());
-    }
-
-    if !checks::is_staff(ctx).await? {
-        return Err("Only staff members can claim bots!".into());
-    }
-
     if bot.id.0 == config::CONFIG.test_bot {
         return Err("You cannot claim the test bot!".into());
     }
@@ -451,20 +425,12 @@ pub async fn claim(
 }
 
 /// Unclaims a bot
-#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing", check = "checks::is_staff")]
 pub async fn unclaim(
     ctx: Context<'_>,
     #[description = "The bot you wish to unclaim"] bot: serenity::User,
     #[description = "Reason for unclaiming"] reason: String,
 ) -> Result<(), Error> {
-    if !crate::onboarding::handle_onboarding(ctx, false, None).await? {
-        return Ok(());
-    }
-
-    if !checks::is_staff(ctx).await? {
-        return Err("Only staff members can unclaim bots!".into());
-    }
-
     let data = ctx.data();
     let discord = ctx.discord();
 
@@ -520,6 +486,7 @@ pub async fn unclaim(
                         ctx.author().id.0,
                         bot.id.0
                     ))
+                    .field("Reason", reason, false)
                     .footer(CreateEmbedFooter::new(
                         "This is completely normal, don't worry!",
                     )),
@@ -537,20 +504,12 @@ pub async fn unclaim(
 }
 
 /// Approves a bot
-#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing", check = "checks::is_staff")]
 pub async fn approve(
     ctx: Context<'_>,
     #[description = "The bot you wish to approve"] bot: serenity::Member,
     #[description = "The reason for approval"] reason: String,
 ) -> Result<(), Error> {
-    if !crate::onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
-        return Ok(());
-    }
-
-    if !checks::is_staff(ctx).await? {
-        return Err("Only staff members can approve bots!".into());
-    }
-
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }
@@ -577,21 +536,14 @@ pub async fn approve(
     prefix_command,
     slash_command,
     user_cooldown = 10,
-    category = "Testing"
+    category = "Testing",
+    check = "checks::is_staff"
 )]
 pub async fn deny(
     ctx: Context<'_>,
     #[description = "The bot you wish to deny"] bot: serenity::User,
     #[description = "The reason for denial"] reason: String,
 ) -> Result<(), Error> {
-    if !crate::onboarding::handle_onboarding(ctx, false, Some(&reason)).await? {
-        return Ok(());
-    }
-
-    if !checks::is_staff(ctx).await? {
-        return Err("Only staff members can deny bots!".into());
-    }
-
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }

@@ -13,7 +13,6 @@ mod config;
 mod explain;
 mod help;
 mod impls;
-mod onboarding;
 mod rpc;
 mod staff;
 mod stats;
@@ -253,7 +252,6 @@ async fn main() {
                 help::help(),
                 explain::explainme(),
                 staff::staff(),
-                testing::onboard(),
                 testing::invite(),
                 testing::claim(),
                 testing::unclaim(),

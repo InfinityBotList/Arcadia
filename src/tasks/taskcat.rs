@@ -9,7 +9,6 @@ use tokio::task::JoinSet;
 pub enum Task {
     Bans,
     AutoUnclaim,
-    DeadGuilds,
     StaffResync,
     PremiumRemove,
     SpecRoleSync,
@@ -52,7 +51,6 @@ async fn taskcat(
     let duration = match task {
         Task::Bans => Duration::from_secs(300),
         Task::AutoUnclaim => Duration::from_secs(60),
-        Task::DeadGuilds => Duration::from_secs(60),
         Task::StaffResync => Duration::from_secs(45),
         Task::PremiumRemove => Duration::from_secs(75),
         Task::SpecRoleSync => Duration::from_secs(50),
@@ -62,7 +60,6 @@ async fn taskcat(
     let task_desc = match task {
         Task::Bans => "Syncing bans",
         Task::AutoUnclaim => "Checking for claimed bots greater than 1 hour claim interval",
-        Task::DeadGuilds => "Checking for dead guilds",
         Task::StaffResync => "Resyncing staff permissions",
         Task::PremiumRemove => "Removing expired subscriptions",
         Task::SpecRoleSync => "Syncing special roles",
@@ -84,7 +81,6 @@ async fn taskcat(
         if let Err(e) = match task {
             Task::Bans => crate::tasks::bans::bans_sync(&pool, &cache_http).await,
             Task::AutoUnclaim => crate::tasks::autounclaim::auto_unclaim(&pool, &cache_http).await,
-            Task::DeadGuilds => crate::tasks::deadguilds::dead_guilds(&pool, &cache_http).await,
             Task::StaffResync => crate::tasks::staffresync::staff_resync(&pool, &cache_http).await,
             Task::PremiumRemove => crate::tasks::premium::premium_remove(&pool, &cache_http).await,
             Task::SpecRoleSync => crate::tasks::specrolesync::spec_role_sync(&pool, &cache_http).await,

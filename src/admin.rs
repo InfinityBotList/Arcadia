@@ -55,8 +55,8 @@ pub async fn approveonboard(
     .await?;
 
     if onboard_state.staff_onboard_state
-        != crate::onboarding::OnboardState::PendingManagerReview.as_str()
-        && onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Denied.as_str()
+        != crate::impls::onboard_states::OnboardState::PendingManagerReview.to_string()
+        && onboard_state.staff_onboard_state != crate::impls::onboard_states::OnboardState::Denied.to_string()
     {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",
@@ -68,7 +68,7 @@ pub async fn approveonboard(
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_state = $1 WHERE user_id = $2",
-        crate::onboarding::OnboardState::Completed.as_str(),
+        crate::impls::onboard_states::OnboardState::Completed.to_string(),
         member.id.to_string()
     )
     .execute(&data.pool)
@@ -111,7 +111,8 @@ pub async fn denyonboard(
     .await?;
 
     if onboard_state.staff_onboard_state
-        != crate::onboarding::OnboardState::PendingManagerReview.as_str()
+        != crate::impls::onboard_states::OnboardState::PendingManagerReview.to_string()
+        && onboard_state.staff_onboard_state != crate::impls::onboard_states::OnboardState::Completed.to_string()
     {
         return Err(format!(
             "User is not pending manager review and currently has state of: {}",
@@ -123,7 +124,7 @@ pub async fn denyonboard(
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_state = $1 WHERE user_id = $2",
-        crate::onboarding::OnboardState::Denied.as_str(),
+        crate::impls::onboard_states::OnboardState::Denied.to_string(),
         user.id.to_string()
     )
     .execute(&data.pool)
@@ -192,7 +193,7 @@ pub async fn resetonboard(
     // Update onboard state of user
     sqlx::query!(
         "UPDATE users SET staff_onboard_guild = NULL, staff_onboard_state = $1, staff_onboard_last_start_time = NOW() WHERE user_id = $2",
-        crate::onboarding::OnboardState::Pending.as_str(),
+        crate::impls::onboard_states::OnboardState::Pending.to_string(),
         user.id.to_string()
     )
     .execute(&data.pool)

@@ -4,7 +4,7 @@ use crate::config;
 use poise::serenity_prelude::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
     model::id::ChannelId,
-    GuildId, UserId,
+    GuildId, UserId, RoleId,
 };
 use serde::Serialize;
 use sqlx::PgPool;
@@ -200,7 +200,7 @@ pub async fn approve_bot(
     }
 
     // We should never get this on bot, but maybe on website
-    if onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Completed.as_str() {
+    if onboard_state.staff_onboard_state != crate::impls::onboard_states::OnboardState::Completed.to_string() {
         return Err("onboarding_required".into());
     }
 
@@ -264,6 +264,22 @@ pub async fn approve_bot(
     .execute(pool)
     .await?;
 
+    let bot_owners = super::utils::get_bot_members(bot_id, pool).await?;
+
+    for owner in bot_owners {
+        let owner_snow = UserId(owner.parse()?);
+
+        // Add role to user
+        discord.http
+        .add_member_role(
+            GuildId(config::CONFIG.servers.main),
+            owner_snow,
+            RoleId(config::CONFIG.roles.bot_developer),
+            Some("Autorole due to bots owned"),
+        )
+        .await?;
+    }
+
     let msg = CreateMessage::default()
         .content(format!("<@!{}>", ping))
         .embed(
@@ -309,8 +325,7 @@ pub async fn deny_bot(
         return Err("Only staff members may deny bots".into());
     }
 
-    // We should never get this on bot, but maybe on website
-    if onboard_state.staff_onboard_state != crate::onboarding::OnboardState::Completed.as_str() {
+    if onboard_state.staff_onboard_state != crate::impls::onboard_states::OnboardState::Completed.to_string() {
         return Err("You need to complete onboarding to continue!".into());
     }
 

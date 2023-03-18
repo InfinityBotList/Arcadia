@@ -44,5 +44,5 @@ remote:
 up:
 	git submodule foreach git pull
 run:
-	-mv -vf bot/bot.new bot/bot # If it exists
-	./bot/bot
+	-mv -vf bot.new bot # If it exists
+	./bot

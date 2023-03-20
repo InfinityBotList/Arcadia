@@ -1,5 +1,6 @@
 use std::num::NonZeroU64;
 
+use log::info;
 use poise::serenity_prelude::{GuildId, CreateEmbed, CreateEmbedFooter, CreateMessage, ChannelId};
 
 pub async fn uptime_checker(
@@ -61,6 +62,8 @@ pub async fn uptime_checker(
 
                     let uptime_rate = ((row.uptime + 1) / (row.total_uptime + 1)) * 100;
 
+                    info!("Uptime rate: {} for bot {}", uptime_rate, row.bot_id);
+
                     if uptime_rate < 50 && row.total_uptime > 25 {
                         // Send message to mod logs
                         let msg = CreateMessage::default()
@@ -74,7 +77,7 @@ pub async fn uptime_checker(
                                 .color(0x00ff00),
                         );  
 
-                        ChannelId(crate::config::CONFIG.channels.mod_logs)
+                        ChannelId(crate::config::CONFIG.channels.uptime)
                         .send_message(&cache_http, msg)
                         .await?;                              
                     }

@@ -107,7 +107,7 @@ pub async fn vote_reset_all_bot(
     }
 
     // If bot_id is "all", reset all votes
-    add_action_log(pool, "all", staff_id, reason, "vote_reset").await?;
+    add_action_log(pool, &config::CONFIG.test_bot.to_string(), staff_id, reason, "vote_reset").await?;
 
     sqlx::query!("UPDATE bots SET votes = 0")
         .execute(pool)

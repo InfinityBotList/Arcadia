@@ -1,6 +1,7 @@
 use std::num::NonZeroU64;
 
 use crate::config;
+use log::error;
 use poise::serenity_prelude::{
     builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
     model::id::ChannelId,
@@ -264,22 +265,6 @@ pub async fn approve_bot(
     .execute(pool)
     .await?;
 
-    let bot_owners = super::utils::get_bot_members(bot_id, pool).await?;
-
-    for owner in bot_owners {
-        let owner_snow = UserId(owner.parse()?);
-
-        // Add role to user
-        discord.http
-        .add_member_role(
-            GuildId(config::CONFIG.servers.main),
-            owner_snow,
-            RoleId(config::CONFIG.roles.bot_developer),
-            Some("Autorole due to bots owned"),
-        )
-        .await?;
-    }
-
     let msg = CreateMessage::default()
         .content(format!("<@!{}>", ping))
         .embed(
@@ -297,6 +282,28 @@ pub async fn approve_bot(
     ChannelId(crate::config::CONFIG.channels.mod_logs)
         .send_message(&discord, msg)
         .await?;
+
+    let bot_owners = super::utils::get_bot_members(bot_id, pool).await?;
+
+    for owner in bot_owners {
+        let owner_snow = UserId(owner.parse()?);
+
+        let guild_id = GuildId(config::CONFIG.servers.main);
+
+        if discord.cache.member_field(guild_id, owner_snow,|m| m.user.id).is_some() {
+            // Add role to user
+            if let Err(e) = discord.http
+            .add_member_role(
+                GuildId(config::CONFIG.servers.main),
+                owner_snow,
+                RoleId(config::CONFIG.roles.bot_developer),
+                Some("Autorole due to bots owned"),
+            )
+            .await {
+                error!("Failed to add role to user: {}", e);
+            }
+        }
+    }
 
     let invite_data = sqlx::query!("SELECT invite FROM bots WHERE bot_id = $1", bot_id)
         .fetch_one(pool)

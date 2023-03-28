@@ -159,7 +159,7 @@ pub async fn unverify_bot(
 
     add_action_log(pool, bot_id, staff_id, reason, "unverify").await?;
 
-    sqlx::query!("UPDATE bots SET type = 'pending' WHERE bot_id = $1", bot_id)
+    sqlx::query!("UPDATE bots SET type = 'pending', claimed_by = NULL WHERE bot_id = $1", bot_id)
         .execute(pool)
         .await?;
 

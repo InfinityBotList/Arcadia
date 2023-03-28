@@ -431,15 +431,19 @@ pub async fn unclaim(
     }
 
     let claimed = sqlx::query!(
-        "SELECT claimed_by, owner FROM bots WHERE bot_id = $1",
+        "SELECT type, claimed_by, owner FROM bots WHERE bot_id = $1",
         bot.id.to_string()
     )
     .fetch_one(&data.pool)
     .await?;
 
+    if claimed.r#type != "pending" {
+        return Err("This bot is not pending review".into());
+    }
+
     let bot_owner = crate::impls::utils::resolve_ping_user(&bot.id.to_string(), &data.pool).await?;
 
-    if claimed.claimed_by.is_none() || claimed.claimed_by.as_ref().unwrap().is_empty() {
+    if claimed.claimed_by.is_none() {
         ctx.say(format!("<@{}> is not claimed", bot.id.0)).await?;
     } else {
         sqlx::query!(

@@ -8,7 +8,7 @@ pub async fn auto_unclaim(
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
     let bots = sqlx::query!(
-        "SELECT bot_id, claimed_by, last_claimed FROM bots WHERE type = 'claimed' AND NOW() - last_claimed > INTERVAL '1 hour'",
+        "SELECT bot_id, claimed_by, last_claimed FROM bots WHERE claimed_by IS NOT NULL AND NOW() - last_claimed > INTERVAL '1 hour'",
     )
     .fetch_all(pool)
     .await

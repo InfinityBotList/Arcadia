@@ -205,12 +205,6 @@ pub async fn approve_bot(
         return Err("onboarding_required".into());
     }
 
-    sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
-    )
-    .execute(pool)
-    .await?;
-
     let claimed = sqlx::query!(
         "SELECT type, claimed_by, last_claimed FROM bots WHERE bot_id = $1",
         bot_id
@@ -218,8 +212,12 @@ pub async fn approve_bot(
     .fetch_one(pool)
     .await?;
 
-    if claimed.r#type != "claimed" {
+    if claimed.r#type != "pending" {
         return Err("Bot is not pending review?".into());
+    }
+
+    if claimed.claimed_by.is_none() {
+        return Err("Bot is not claimed?".into());
     }
 
     if claimed.claimed_by.is_none()
@@ -336,12 +334,6 @@ pub async fn deny_bot(
         return Err("You need to complete onboarding to continue!".into());
     }
 
-    sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
-    )
-    .execute(pool)
-    .await?;
-
     let claimed = sqlx::query!(
         "SELECT type, claimed_by, owner, last_claimed FROM bots WHERE bot_id = $1",
         bot_id
@@ -349,8 +341,12 @@ pub async fn deny_bot(
     .fetch_one(pool)
     .await?;
 
-    if claimed.r#type != "claimed" {
+    if claimed.r#type != "pending" {
         return Err("Bot is not pending review?".into());
+    }
+
+    if claimed.claimed_by.is_none() {
+        return Err("Bot is not claimed?".into());
     }
 
     if claimed.claimed_by.is_none()

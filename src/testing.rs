@@ -137,14 +137,8 @@ pub async fn queue(
 
     let data = ctx.data();
 
-    sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
-    )
-    .execute(&data.pool)
-    .await?;
-
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note, short, queue_name, invite FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at ASC",
+        "SELECT claimed_by, bot_id, approval_note, short, queue_name, invite FROM bots WHERE type = 'pending' ORDER BY created_at ASC",
     )
     .fetch_all(&data.pool)
     .await?;
@@ -243,10 +237,6 @@ pub async fn claim(
     ctx: Context<'_>,
     #[description = "The bot you wish to claim"] bot: User,
 ) -> Result<(), Error> {
-    if bot.id.0 == config::CONFIG.test_bot {
-        return Err("You cannot claim the test bot!".into());
-    }
-
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }
@@ -255,12 +245,6 @@ pub async fn claim(
     let data = ctx.data();
     let discord = ctx.discord();
 
-    sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
-    )
-    .execute(&data.pool)
-    .await?;
-
     let claimed = sqlx::query!(
         "SELECT type, claimed_by FROM bots WHERE bot_id = $1",
         bot.id.to_string()
@@ -268,16 +252,20 @@ pub async fn claim(
     .fetch_one(&data.pool)
     .await?;
 
-    if claimed.r#type != "pending" && claimed.r#type != "claimed" {
+    if claimed.r#type != "pending" {
         return Err("This bot is not pending review".into());
+    }
+
+    if claimed.r#type == "testbot" {
+        return Err("This bot is a test bot".into());
     }
 
     let bot_owner = crate::impls::utils::resolve_ping_user(&bot.id.to_string(), &data.pool).await?;
 
-    if claimed.r#type == "pending" {
+    if claimed.claimed_by.is_none() {
         // Claim it
         sqlx::query!(
-            "UPDATE bots SET type = 'claimed', last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
+            "UPDATE bots SET last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
             ctx.author().id.0.to_string(),
             bot.id.to_string()
         )
@@ -329,7 +317,7 @@ pub async fn claim(
                     .title("Bot Already Claimed")
                     .description(format!(
                         "This bot is already claimed by <@{}>",
-                        claimed.claimed_by.as_ref().unwrap()
+                        claimed.claimed_by.as_ref().ok_or("No claimed_by")?
                     ))
                     .color(0xFF0000),
             )
@@ -376,7 +364,7 @@ pub async fn claim(
             } else {
                 // Force claim
                 sqlx::query!(
-                    "UPDATE bots SET type = 'claimed', last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
+                    "UPDATE bots SET last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
                     ctx.author().id.0.to_string(),
                     bot.id.to_string()
                 )
@@ -441,12 +429,6 @@ pub async fn unclaim(
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }
-
-    sqlx::query!(
-        "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE LOWER(claimed_by) = 'none'",
-    )
-    .execute(&data.pool)
-    .await?;
 
     let claimed = sqlx::query!(
         "SELECT claimed_by, owner FROM bots WHERE bot_id = $1",

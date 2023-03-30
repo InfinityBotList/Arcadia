@@ -59,6 +59,10 @@ pub enum RPCMethod {
         reason: String,
         kick: bool,
     },
+    BotCertifyAdd {
+        bot_id: String,
+        reason: String,
+    },
     BotCertifyRemove {
         bot_id: String,
         reason: String,
@@ -203,6 +207,18 @@ impl RPCMethod {
                     &state.user_id,
                     reason,
                     *kick,
+                )
+                .await?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+            RPCMethod::BotCertifyAdd { bot_id, reason } => {
+                impls::actions::certify_add_bot(
+                    &state.cache_http,
+                    &state.pool,
+                    bot_id,
+                    &state.user_id,
+                    reason,
                 )
                 .await?;
 

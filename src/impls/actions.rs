@@ -526,6 +526,57 @@ pub async fn certify_remove_bot(
     Ok(())
 }
 
+pub async fn certify_add_bot(
+    discord: &CacheHttpImpl,
+    pool: &PgPool,
+    bot_id: &str,
+    staff_id: &str,
+    reason: &str,
+) -> Result<(), Error> {
+    let staff_id_snow = UserId(staff_id.parse::<NonZeroU64>()?);
+
+    if !config::CONFIG.owners.contains(&staff_id_snow.0) {
+        return Err("You cannot force-certify bots unless you are owner".into());
+    }
+
+    // Ensure the bot actually exists
+    let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
+        .fetch_one(pool)
+        .await?;
+
+    if bot.count.unwrap_or_default() == 0 {
+        return Err("Bot does not exist".into());
+    }
+
+    add_action_log(pool, bot_id, staff_id, reason, "certify_add_bot").await?;
+
+    // Set premium_period_length which is a postgres interval
+    sqlx::query!(
+        "UPDATE bots SET type = 'certified' WHERE bot_id = $1",
+        bot_id
+    )
+    .execute(pool)
+    .await?;
+
+    let msg = CreateMessage::new().embed(
+        CreateEmbed::default()
+            .title("Bot Force Certified!")
+            .description(format!("<@{}> has force-certified <@{}>", staff_id, bot_id))
+            .field("Reason", reason, true)
+            .footer(CreateEmbedFooter::new(
+                "Neat",
+            ))
+            .color(0xff0000),
+    );
+
+    ChannelId(crate::config::CONFIG.channels.mod_logs)
+        .send_message(&discord, msg)
+        .await?;
+
+    Ok(())
+}
+
+
 pub async fn premium_remove_bot(
     discord: &CacheHttpImpl,
     pool: &PgPool,

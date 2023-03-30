@@ -434,6 +434,34 @@ pub async fn rpc(
                         return Err("No response".into());
                     }
                 }
+                super::core::RPCMethod::BotCertifyAdd { .. } => {
+                    let qm = CreateQuickModal::new("Certify Bot (not recommended)")
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Bot ID",
+                            "bot_id",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Paragraph,
+                            "Reason",
+                            "reason",
+                        ));
+
+                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                        let inputs = resp.inputs;
+                        let (bot_id, reason) = (&inputs[0], &inputs[1]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::BotCertifyAdd {
+                                bot_id: bot_id.to_string(),
+                                reason: reason.to_string(),
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
+                },
                 super::core::RPCMethod::BotCertifyRemove { .. } => {
                     let qm = CreateQuickModal::new("Uncertify Bot")
                         .field(CreateInputText::new(

@@ -7,6 +7,7 @@ CARGO_TARGET_GNU_LINKER="x86_64-unknown-linux-gnu-gcc"
 BINS ?= bot
 PROJ_NAME ?= arcadia
 HOST ?= 100.86.85.125
+BINDINGS_URL ?= /iblcdn/dev/public/apiBindings
 
 all: 
 	@make cross
@@ -30,11 +31,11 @@ push:
 
 	DATABASE_URL=$(DATABASE_URL) cargo test ${ARGS}
 
-	ssh root@$(HOST) "mkdir -p /iblseeds/apiBindings"
+	ssh root@$(HOST) "mkdir -p ${BINDINGS_URL}"
 
-	scp -r .generated root@${HOST}:/iblseeds/apiBindings/
+	scp -r .generated root@${HOST}:${BINDINGS_URL}
 
-	ssh root@$(HOST) "rm /iblseeds/apiBindings/*.ts && cp /iblseeds/apiBindings/.generated/*.ts /iblseeds/apiBindings/ && rm -rf /iblseeds/apiBindings/.generated"
+	ssh root@$(HOST) "rm ${BINDINGS_URL}/*.ts && cp ${BINDINGS_URL}/.generated/*.ts ${BINDINGS_URL}/ && rm -rf ${BINDINGS_URL}/.generated"
 
 	@# Remove the .generated folder
 	rm -rf .generated

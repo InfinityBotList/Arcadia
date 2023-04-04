@@ -35,7 +35,7 @@ push:
 
 	scp -r .generated root@${HOST}:${BINDINGS_URL}
 
-	ssh root@$(HOST) "rm ${BINDINGS_URL}/*.ts && cp ${BINDINGS_URL}/.generated/*.ts ${BINDINGS_URL}/ && rm -rf ${BINDINGS_URL}/.generated"
+	ssh root@$(HOST) "rm -rf ${BINDINGS_URL}/*.ts && cp ${BINDINGS_URL}/.generated/*.ts ${BINDINGS_URL}/ && rm -rf ${BINDINGS_URL}/.generated"
 
 	@# Remove the .generated folder
 	rm -rf .generated

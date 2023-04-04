@@ -232,7 +232,14 @@ pub async fn queue(
 }
 
 /// Claims a bot
-#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing", check = "checks::is_staff")]
+#[poise::command(
+    prefix_command, 
+    slash_command, 
+    user_cooldown = 3, 
+    category = "Testing", 
+    check = "checks::is_staff",
+    check = "checks::needs_onboarding"
+)]
 pub async fn claim(
     ctx: Context<'_>,
     #[description = "The bot you wish to claim"] bot: User,
@@ -413,7 +420,14 @@ pub async fn claim(
 }
 
 /// Unclaims a bot
-#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing", check = "checks::is_staff")]
+#[poise::command(
+    prefix_command, 
+    slash_command, 
+    user_cooldown = 3, 
+    category = "Testing", 
+    check = "checks::is_staff",
+    check = "checks::needs_onboarding"
+)]
 pub async fn unclaim(
     ctx: Context<'_>,
     #[description = "The bot you wish to unclaim"] bot: serenity::User,
@@ -490,7 +504,14 @@ pub async fn unclaim(
 }
 
 /// Approves a bot
-#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing", check = "checks::is_staff")]
+#[poise::command(
+    prefix_command, 
+    slash_command, 
+    user_cooldown = 3, 
+    category = "Testing", 
+    check = "checks::is_staff",
+    check = "checks::needs_onboarding"
+)]
 pub async fn approve(
     ctx: Context<'_>,
     #[description = "The bot you wish to approve"] bot: serenity::Member,
@@ -523,7 +544,8 @@ pub async fn approve(
     slash_command,
     user_cooldown = 10,
     category = "Testing",
-    check = "checks::is_staff"
+    check = "checks::is_staff",
+    check = "checks::needs_onboarding"
 )]
 pub async fn deny(
     ctx: Context<'_>,

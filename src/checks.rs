@@ -35,7 +35,7 @@ pub async fn testing_server(ctx: Context<'_>) -> Result<bool, Error> {
 
 pub async fn is_staff(ctx: Context<'_>) -> Result<bool, Error> {
     let staff = sqlx::query!(
-        "SELECT staff, staff_onboard_state FROM users WHERE user_id = $1",
+        "SELECT staff FROM users WHERE user_id = $1",
         ctx.author().id.to_string()
     )
     .fetch_one(&ctx.data().pool)
@@ -44,6 +44,17 @@ pub async fn is_staff(ctx: Context<'_>) -> Result<bool, Error> {
     if !staff.staff {
         return Err("You are not staff".into());
     }
+
+    Ok(true)
+}
+
+pub async fn needs_onboarding(ctx: Context<'_>) -> Result<bool, Error> {
+    let staff = sqlx::query!(
+        "SELECT staff_onboard_state FROM users WHERE user_id = $1",
+        ctx.author().id.to_string()
+    )
+    .fetch_one(&ctx.data().pool)
+    .await?;
 
     if staff.staff_onboard_state != crate::impls::onboard_states::OnboardState::Completed.to_string() {
         return Err("You need to complete onboarding to use this command!".into());

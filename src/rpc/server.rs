@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use crate::{config, impls};
+use crate::impls;
 use axum::{
     extract::State,
-    http::{self, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
     routing::post,
     Json, Router,
@@ -11,7 +11,7 @@ use axum::{
 use log::info;
 use reqwest::Method;
 use sqlx::PgPool;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{CorsLayer, Any};
 
 use super::core::{RPCHandle, RPCMethod, RPCRequest, RPCSuccess};
 use chrono::Utc;
@@ -96,20 +96,14 @@ pub struct AppState {
 pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     let shared_state = Arc::new(AppState { pool, cache_http });
 
-    let mut origins = vec![];
-
-    for origin in config::CONFIG.rpc_allowed_urls.iter() {
-        origins.push(origin.parse().unwrap());
-    }
-
     let app = Router::new()
         .route("/", post(web_rpc_api))
         .with_state(shared_state)
         .layer(
             CorsLayer::new()
-                .allow_origin(origins)
-                .allow_methods([Method::POST])
-                .allow_headers([http::header::CONTENT_TYPE]),
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
         );
 
     let addr = "127.0.0.1:3010"

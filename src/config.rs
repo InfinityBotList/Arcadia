@@ -91,7 +91,6 @@ pub struct Config {
     pub test_bot: NonZeroU64,
     pub frontend_url: String,
     pub proxy_url: String,
-    pub rpc_allowed_urls: Vec<String>,
     pub owners: Vec<NonZeroU64>,
     pub protected_bots: Vec<NonZeroU64>,
     pub github_pat: String,
@@ -110,7 +109,6 @@ impl Default for Config {
             test_bot: NonZeroU64::new(990885577979224104).unwrap(),
             frontend_url: String::from("https://infinitybots.gg"),
             proxy_url: String::from("http://127.0.0.1:3219"),
-            rpc_allowed_urls: vec![],
             owners: vec![NonZeroU64::new(510065483693817867).unwrap()],
             protected_bots: vec![
                 NonZeroU64::new(1019662370278228028).unwrap(), // Reedwhisker (PTB) - Main Bot

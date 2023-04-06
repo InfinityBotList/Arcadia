@@ -9,7 +9,6 @@ use axum::{
     Json, Router,
 };
 use log::info;
-use reqwest::Method;
 use sqlx::PgPool;
 use tower_http::cors::{CorsLayer, Any};
 

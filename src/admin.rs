@@ -451,7 +451,7 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
             .send()
             .await?;
 
-        if res.status() != 200 {
+        if res.status().is_success() {
             let body = res.text().await?;
             ctx.say(format!("WARNING: Failed to trigger Vercel deploy: {}", body)).await?;
         }

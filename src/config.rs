@@ -96,6 +96,7 @@ pub struct Config {
     pub github_pat: String,
     pub github_username: String,
     pub github_repo: String,
+    pub optional_vercel_deploy_hook: Option<String>,
 }
 
 impl Default for Config {
@@ -116,6 +117,7 @@ impl Default for Config {
             github_pat: String::from(""),
             github_username: String::from(""),
             github_repo: String::from("InfinityBotList/Infinity-Next"),
+            optional_vercel_deploy_hook: None
         }
     }
 }

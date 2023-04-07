@@ -442,6 +442,21 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
         return Ok(());
     }    
 
+    if let Some(ref hook) = crate::config::CONFIG.optional_vercel_deploy_hook {
+        ctx.say("Triggering Vercel deploy").await?;
+
+        let res = client
+            .post(hook)
+            .header("User-Agent", &crate::config::CONFIG.github_username)
+            .send()
+            .await?;
+
+        if res.status() != 200 {
+            let body = res.text().await?;
+            ctx.say(format!("WARNING: Failed to trigger Vercel deploy: {}", body)).await?;
+        }
+    }
+
     ctx.say("Done!").await?;
 
     Ok(())

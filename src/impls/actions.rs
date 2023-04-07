@@ -139,13 +139,20 @@ pub async fn unverify_bot(
     staff_id: &str,
     reason: &str,
 ) -> Result<(), Error> {
-    // Ensure user has iblhdev or hadmin
-    let check = sqlx::query!("SELECT staff FROM users WHERE user_id = $1", staff_id)
-        .fetch_one(pool)
-        .await?;
+    // The bot has way better onboarding, but this is a generic impl function so we need it
+    let onboard_state = sqlx::query!(
+        "SELECT staff, staff_onboard_state FROM users WHERE user_id = $1",
+        staff_id
+    )
+    .fetch_one(pool)
+    .await?;
 
-    if !(check.staff) {
-        return Err("You need to be a staff member to unverify bots".into());
+    if !onboard_state.staff {
+        return Err("Only staff members may unverify bots".into());
+    }
+
+    if onboard_state.staff_onboard_state != "completed" {
+        return Err("You need to complete onboarding to continue!".into());
     }
 
     // Ensure the bot actually exists
@@ -188,7 +195,7 @@ pub async fn approve_bot(
     staff_id: &str,
     reason: &str,
 ) -> Result<String, Error> {
-    // The bot has way better onboarding, block in RPC
+    // The bot has way better onboarding, but this is a generic impl function so we need it
     let onboard_state = sqlx::query!(
         "SELECT staff, staff_onboard_state FROM users WHERE user_id = $1",
         staff_id
@@ -200,9 +207,8 @@ pub async fn approve_bot(
         return Err("Only staff members may approve bots".into());
     }
 
-    // We should never get this on bot, but maybe on website
-    if onboard_state.staff_onboard_state != crate::impls::onboard_states::OnboardState::Completed.to_string() {
-        return Err("onboarding_required".into());
+    if onboard_state.staff_onboard_state != "completed" {
+        return Err("You need to complete onboarding to continue!".into());
     }
 
     let claimed = sqlx::query!(
@@ -330,7 +336,7 @@ pub async fn deny_bot(
         return Err("Only staff members may deny bots".into());
     }
 
-    if onboard_state.staff_onboard_state != crate::impls::onboard_states::OnboardState::Completed.to_string() {
+    if onboard_state.staff_onboard_state != "completed" {
         return Err("You need to complete onboarding to continue!".into());
     }
 

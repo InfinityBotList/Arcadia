@@ -259,7 +259,6 @@ async fn main() {
                 testing::approve(),
                 testing::deny(),
                 testing::staffguide(),
-                admin::onboardman(),
                 admin::rpcunlock(),
                 admin::rpclock(),
                 admin::updprod(),

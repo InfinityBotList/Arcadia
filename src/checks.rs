@@ -56,7 +56,7 @@ pub async fn needs_onboarding(ctx: Context<'_>) -> Result<bool, Error> {
     .fetch_one(&ctx.data().pool)
     .await?;
 
-    if staff.staff_onboard_state != crate::impls::onboard_states::OnboardState::Completed.to_string() {
+    if staff.staff_onboard_state != "completed" {
         return Err("You need to complete onboarding to use this command!".into());
     }
 
@@ -73,21 +73,6 @@ pub async fn is_admin_hdev(ctx: Context<'_>) -> Result<bool, Error> {
 
     if !(staff.admin || staff.iblhdev) {
         return Err("You are not admin (manager) or a head developer".into());
-    }
-
-    Ok(true)
-}
-
-pub async fn is_hdev_hadmin(ctx: Context<'_>) -> Result<bool, Error> {
-    let staff = sqlx::query!(
-        "SELECT hadmin, iblhdev FROM users WHERE user_id = $1",
-        ctx.author().id.to_string()
-    )
-    .fetch_one(&ctx.data().pool)
-    .await?;
-
-    if !(staff.hadmin || staff.iblhdev) {
-        return Err("You are not hadmin (head manager) or a iblhdev (head developer)".into());
     }
 
     Ok(true)

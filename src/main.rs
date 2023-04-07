@@ -261,6 +261,8 @@ async fn main() {
                 testing::staffguide(),
                 admin::rpcunlock(),
                 admin::rpclock(),
+                admin::protectdeploy(),
+                admin::unprotectdeploy(),
                 admin::updprod(),
                 admin::uninvitedbots(),
                 stats::stats(),

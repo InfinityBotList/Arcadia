@@ -1,3 +1,5 @@
+use std::io::Read;
+use std::io::Write;
 use std::num::NonZeroU64;
 
 use crate::checks;
@@ -170,6 +172,59 @@ pub async fn uninvitedbots(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
+/// Protects a deploy
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::staff_server",
+    check = "checks::is_staff"
+)]
+pub async fn protectdeploy(
+    ctx: Context<'_>,
+    #[description = "Reason"] reason: String,
+) -> Result<(), Error> {
+    if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
+        ctx.say("Only owners can update the main site").await?;
+        return Ok(());
+    }
+
+    let mut admin_meta_file = std::fs::File::create(".protect-deploy")?;
+
+    admin_meta_file.write_all(reason.as_bytes())?;
+
+    ctx.say("Deploy protected").await?;
+
+    Ok(())
+}
+
+/// Unprotects a deploy
+#[poise::command(
+    category = "Admin",
+    track_edits,
+    prefix_command,
+    slash_command,
+    check = "checks::staff_server",
+    check = "checks::is_staff"
+)]
+pub async fn unprotectdeploy(ctx: Context<'_>) -> Result<(), Error> {
+    if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
+        ctx.say("Only owners can update the main site").await?;
+        return Ok(());
+    }
+
+    let file_exists = std::path::Path::new(".protect-deploy").exists();
+
+    if file_exists {
+        std::fs::remove_file(".protect-deploy")?;
+    }
+
+    ctx.say("Deploy unprotected").await?;
+
+    Ok(())
+}
+
 /// Updates the production build of the site. Owner only
 #[poise::command(
     category = "Admin",
@@ -183,6 +238,17 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
     if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
         ctx.say("Only owners can update the main site").await?;
         return Ok(());
+    }
+
+    let file_exists = std::path::Path::new(".protect-deploy").exists();
+
+    if file_exists {
+        let mut admin_meta_file = std::fs::File::open(".protect-deploy")?;
+
+        let mut protect_reason = String::new();
+        admin_meta_file.read_to_string(&mut protect_reason)?;
+
+        ctx.say(format!("The production branch cannot be updated right now\n\n``{}``\n\n**Please do not attempt to manually override this. The protection is most likely for a reason!**", protect_reason)).await?;
     }
 
     // Delete the production branch using github api and github_pat

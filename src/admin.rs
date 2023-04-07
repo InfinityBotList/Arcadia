@@ -249,6 +249,8 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
         admin_meta_file.read_to_string(&mut protect_reason)?;
 
         ctx.say(format!("The production branch cannot be updated right now\n\n``{}``\n\n**Please do not attempt to manually override this. The protection is most likely for a reason!**", protect_reason)).await?;
+    
+        return Ok(());
     }
 
     // Delete the production branch using github api and github_pat

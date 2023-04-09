@@ -18,7 +18,6 @@ mod staff;
 mod stats;
 mod tasks;
 mod testing;
-mod todo;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -268,7 +267,6 @@ async fn main() {
                 stats::stats(),
                 botowners::getbotroles(),
                 rpc::command::rpc(),
-                todo::todo(),
             ],
             /// This code is run before every command
             pre_command: |ctx| {

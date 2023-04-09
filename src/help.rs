@@ -242,7 +242,31 @@ async fn _help_send_index(
 }
 
 #[poise::command(track_edits, prefix_command, slash_command)]
-pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error> {
+    if let Some(cmd) = command {
+        // They just want the parameters for a specific command
+        for botcmd in &ctx.framework().options().commands {
+            if botcmd.name == cmd {
+                let params_str = botcmd.parameters.iter().map(
+                    |p| 
+                    format!("{} - {}", p.name, p.description.as_deref().unwrap_or("No description available yet"))
+                ).collect::<Vec<String>>().join("\n");
+
+                let embed = CreateEmbed::default()
+                    .title(format!("Help for {}", botcmd.name))
+                    .description(botcmd.description.as_deref().unwrap_or("No description available yet"))
+                    .field("Parameters", params_str, false);
+
+                ctx.send(CreateReply::new().embed(embed)).await?;
+
+                return Ok(());
+            }
+        }
+
+        ctx.say("Command not found!").await?;
+        return Ok(());
+    }
+
     let eh = _embed_help(ctx, ctx.framework()).await?;
 
     let msg = _help_send_index(Some(ctx), None, &ctx.discord().http, &eh, 0, None).await?;

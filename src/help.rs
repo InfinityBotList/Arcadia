@@ -261,17 +261,17 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                     embed = embed.field(
                         subcmd.name.clone(),
                         format!(
-                            "{}\n\n**Parameters**: {}",
+                            "{}\n{}",
                             subcmd.description.as_deref().unwrap_or("No description available yet"),
                             subcmd.parameters.iter().map(
                                 |p| 
-                                format!("{} - {}", p.name, p.description.as_deref().unwrap_or("No description available yet"))
+                                format!("*{}* - {}", p.name, p.description.as_deref().unwrap_or("No description available yet"))
                             ).collect::<Vec<String>>().join("\n")
                         ),
                         false
                     );
                 }
-                    
+                        
                 ctx.send(CreateReply::new().embed(embed)).await?;
 
                 return Ok(());

@@ -252,11 +252,26 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                     format!("{} - {}", p.name, p.description.as_deref().unwrap_or("No description available yet"))
                 ).collect::<Vec<String>>().join("\n");
 
-                let embed = CreateEmbed::default()
+                let mut embed = CreateEmbed::default()
                     .title(format!("Help for {}", botcmd.name))
                     .description(botcmd.description.as_deref().unwrap_or("No description available yet"))
                     .field("Parameters", params_str, false);
 
+                for subcmd in botcmd.subcommands.iter() {
+                    embed = embed.field(
+                        subcmd.name.clone(),
+                        format!(
+                            "{}\n\n**Parameters**: {}",
+                            subcmd.description.as_deref().unwrap_or("No description available yet"),
+                            subcmd.parameters.iter().map(
+                                |p| 
+                                format!("{} - {}", p.name, p.description.as_deref().unwrap_or("No description available yet"))
+                            ).collect::<Vec<String>>().join("\n")
+                        ),
+                        false
+                    );
+                }
+                    
                 ctx.send(CreateReply::new().embed(embed)).await?;
 
                 return Ok(());

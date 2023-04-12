@@ -8,7 +8,7 @@ pub async fn uptime_checker(
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
     let subject_rows = sqlx::query!(
-        "SELECT bot_id, uptime, total_uptime FROM bots WHERE type = 'approved' OR type = 'certified' AND NOW() - uptime_last_checked > interval '30 minutes'"
+        "SELECT bot_id, uptime, total_uptime FROM bots WHERE (type = 'approved' OR type = 'certified') AND (NOW() - uptime_last_checked > interval '30 minutes')"
     )
     .fetch_all(pool)
     .await?;

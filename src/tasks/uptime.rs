@@ -8,7 +8,7 @@ pub async fn uptime_checker(
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
     let subject_rows = sqlx::query!(
-        "SELECT bot_id, uptime, total_uptime FROM bots WHERE type = 'approved' OR type = 'certified'"
+        "SELECT bot_id, uptime, total_uptime FROM bots WHERE type = 'approved' OR type = 'certified' AND NOW() - uptime_last_checked > interval '30 minutes'"
     )
     .fetch_all(pool)
     .await?;
@@ -70,7 +70,7 @@ pub async fn uptime_checker(
                         .embed(
                             CreateEmbed::default()
                                 .title("Bot Uptime Warning!")
-                                .url(format!("{}/bots/{}", crate::config::CONFIG.channels.uptime, row.bot_id))
+                                .url(format!("{}/bots/{}", crate::config::CONFIG.frontend_url, row.bot_id))
                                 .description(format!("<@!{}> a lower uptime than 50% with over 25 uptime checks", row.bot_id))
                                 .field("Bot", "<@!".to_string() + &row.bot_id + ">", true)
                                 .footer(CreateEmbedFooter::new("Please check this bot and ensure its actually alive!"))
@@ -81,6 +81,13 @@ pub async fn uptime_checker(
                         .send_message(&cache_http, msg)
                         .await?;                              
                     }
+
+                    sqlx::query!(
+                        "UPDATE bots SET uptime_last_checked = NOW() WHERE bot_id = $1",
+                        row.bot_id
+                    )
+                    .execute(pool)
+                    .await?;
                 }
             },
             None => {

@@ -64,7 +64,7 @@ pub async fn uptime_checker(
 
                     info!("Uptime rate: {} for bot {}", uptime_rate, row.bot_id);
 
-                    if uptime_rate < 50 && row.total_uptime > 25 {
+                    if (uptime_rate > 0 && uptime_rate < 50) && row.total_uptime > 25 {
                         // Send message to mod logs
                         let msg = CreateMessage::default()
                         .embed(

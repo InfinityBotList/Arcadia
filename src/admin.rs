@@ -3,7 +3,7 @@ use std::io::Write;
 use std::num::NonZeroU64;
 
 use crate::checks;
-use crate::impls::actions::add_action_log;
+use serde_json::json;
 use crate::Context;
 use crate::Error;
 use poise::serenity_prelude::ButtonStyle;
@@ -75,13 +75,15 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
         if custom_id == "a:cancel" {
             item.delete_response(ctx.discord()).await?;
         } else if custom_id == "a:unlock" {
-            add_action_log(
-                &ctx.data().pool,
-                &crate::config::CONFIG.test_bot.to_string(),
-                &ctx.author().id.to_string(),
-                &purpose,
+            sqlx::query!(
+                "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
+                ctx.author().id.to_string(),
                 "rpc_unlock",
+                json!({
+                    "reason": purpose
+                })
             )
+            .execute(&ctx.data().pool)
             .await?;
 
             sqlx::query!(
@@ -139,25 +141,31 @@ pub async fn uninvitedbots(ctx: Context<'_>) -> Result<(), Error> {
     for row in subject_rows {
         match row.bot_id.parse::<NonZeroU64>() {
             Ok(id) => {
-                match ctx.cache_and_http().cache().ok_or("Error finding main server")?.member_field(GuildId(crate::config::CONFIG.servers.main), id, |m| m.user.id) {
-                    Some(_) => {
-                        continue
-                    }
+                match ctx
+                    .cache_and_http()
+                    .cache()
+                    .ok_or("Error finding main server")?
+                    .member_field(GuildId(crate::config::CONFIG.servers.main), id, |m| {
+                        m.user.id
+                    }) {
+                    Some(_) => continue,
                     None => {
                         bad_ids.push(id.to_string());
                     }
                 }
             }
-            Err(_) => {
-                continue
-            }
+            Err(_) => continue,
         }
     }
-    
+
     log::error!("Bad ids: {:?}", bad_ids);
 
     // Get the first 10 bots
-    let first_bots = bad_ids.iter().take(10).map(|x| x.to_string()).collect::<Vec<String>>();
+    let first_bots = bad_ids
+        .iter()
+        .take(10)
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>();
 
     let mut msg = "".to_string();
 
@@ -249,7 +257,7 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
         admin_meta_file.read_to_string(&mut protect_reason)?;
 
         ctx.say(format!("The production branch cannot be updated right now\n\n``{}``\n\n**Please do not attempt to manually override this. The protection is most likely for a reason!**", protect_reason)).await?;
-    
+
         return Ok(());
     }
 
@@ -274,27 +282,35 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
 
     if res.status() != 204 && res.status() != 404 {
         let body = res.text().await?;
-        ctx.say(format!("Failed to remove enforce production branch protection rule: {}.", body)).await?;
+        ctx.say(format!(
+            "Failed to remove enforce production branch protection rule: {}.",
+            body
+        ))
+        .await?;
         return Ok(());
-    }        
+    }
 
     // Remove branch protection
     let res = client
-    .delete(format!(
-        "https://api.github.com/repos/{}/branches/production/protection",
-        crate::config::CONFIG.github_repo,
-    ))
-    .basic_auth(
-        &crate::config::CONFIG.github_username,
-        Some(&crate::config::CONFIG.github_pat),
-    )
-    .header("User-Agent", &crate::config::CONFIG.github_username)
-    .send()
-    .await?;
+        .delete(format!(
+            "https://api.github.com/repos/{}/branches/production/protection",
+            crate::config::CONFIG.github_repo,
+        ))
+        .basic_auth(
+            &crate::config::CONFIG.github_username,
+            Some(&crate::config::CONFIG.github_pat),
+        )
+        .header("User-Agent", &crate::config::CONFIG.github_username)
+        .send()
+        .await?;
 
     if res.status() != 204 && res.status() != 404 {
         let body = res.text().await?;
-        ctx.say(format!("Failed to remove production branch protection: {}", body)).await?;
+        ctx.say(format!(
+            "Failed to remove production branch protection: {}",
+            body
+        ))
+        .await?;
         return Ok(());
     }
 
@@ -313,7 +329,8 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
 
     if res.status() == 422 {
         let body = res.text().await?;
-        ctx.say(format!("Ignoring error 422 (branch not found): {}", body)).await?;
+        ctx.say(format!("Ignoring error 422 (branch not found): {}", body))
+            .await?;
     } else if res.status() != 204 {
         ctx.say(format!(
             "Failed to delete production branch. Got status code: {} and resp: {}",
@@ -418,7 +435,11 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
 
     if res.status() != 200 {
         let body = res.text().await?;
-        ctx.say(format!("Failed to create production branch protection rule: {}", body)).await?;
+        ctx.say(format!(
+            "Failed to create production branch protection rule: {}",
+            body
+        ))
+        .await?;
         return Ok(());
     }
 
@@ -438,9 +459,13 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
 
     if res.status() != 200 {
         let body = res.text().await?;
-        ctx.say(format!("Failed to enforce production branch protection rule: {}", body)).await?;
+        ctx.say(format!(
+            "Failed to enforce production branch protection rule: {}",
+            body
+        ))
+        .await?;
         return Ok(());
-    }    
+    }
 
     if let Some(ref hook) = crate::config::CONFIG.optional_vercel_deploy_hook {
         ctx.say("Triggering Vercel deploy").await?;
@@ -453,7 +478,11 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
 
         if res.status().is_success() {
             let body = res.text().await?;
-            ctx.say(format!("WARNING: Failed to trigger Vercel deploy: {}", body)).await?;
+            ctx.say(format!(
+                "WARNING: Failed to trigger Vercel deploy: {}",
+                body
+            ))
+            .await?;
         }
     }
 

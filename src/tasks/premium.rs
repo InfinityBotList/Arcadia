@@ -66,14 +66,14 @@ pub async fn premium_remove(
             if row.r#type != "approved" && row.r#type != "certified" {
                 format!(
                     "<@{}> ({}) by <@{}> has been removed from the premium list because it is not/no longer approved or certified [v4].", 
-                    bot_id, 
+                    bot_id,
                     bot_username,
                     bot_owner,
                 )
             } else {
                 format!(
                     "<@{}> ({}) by <@{}> has been removed from the premium list as their subscription has expired [v4].", 
-                    bot_id, 
+                    bot_id,
                     bot_username,
                     bot_owner,
                 )

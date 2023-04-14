@@ -1,7 +1,7 @@
 use log::{error, info};
 use std::time::Duration;
-use strum::{IntoEnumIterator};
-use strum_macros::{EnumIter, Display};
+use strum::IntoEnumIterator;
+use strum_macros::{Display, EnumIter};
 use tokio::task::JoinSet;
 
 #[derive(EnumIter, Display)]
@@ -13,6 +13,7 @@ pub enum Task {
     PremiumRemove,
     SpecRoleSync,
     Uptime,
+    TeamCleaner,
 }
 
 pub async fn start_all_tasks(
@@ -55,6 +56,7 @@ async fn taskcat(
         Task::PremiumRemove => Duration::from_secs(75),
         Task::SpecRoleSync => Duration::from_secs(50),
         Task::Uptime => Duration::from_secs(90),
+        Task::TeamCleaner => Duration::from_secs(100),
     };
 
     let task_desc = match task {
@@ -64,6 +66,7 @@ async fn taskcat(
         Task::PremiumRemove => "Removing expired subscriptions",
         Task::SpecRoleSync => "Syncing special roles",
         Task::Uptime => "Uptime Checking",
+        Task::TeamCleaner => "Cleaning up empty teams",
     };
 
     let mut interval = tokio::time::interval(duration);
@@ -83,9 +86,11 @@ async fn taskcat(
             Task::AutoUnclaim => crate::tasks::autounclaim::auto_unclaim(&pool, &cache_http).await,
             Task::StaffResync => crate::tasks::staffresync::staff_resync(&pool, &cache_http).await,
             Task::PremiumRemove => crate::tasks::premium::premium_remove(&pool, &cache_http).await,
-            Task::SpecRoleSync => crate::tasks::specrolesync::spec_role_sync(&pool, &cache_http).await,
+            Task::SpecRoleSync => {
+                crate::tasks::specrolesync::spec_role_sync(&pool, &cache_http).await
+            }
             Task::Uptime => crate::tasks::uptime::uptime_checker(&pool, &cache_http).await,
-
+            Task::TeamCleaner => crate::tasks::teamcleaner::team_cleaner(&pool).await,
         } {
             log::error!("TASK {} ERROR'd: {:?}", task.to_string(), e);
         }

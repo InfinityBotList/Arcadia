@@ -43,9 +43,9 @@ pub async fn spec_role_sync(
         .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
     sqlx::query!("UPDATE users SET bug_hunters = false")
-    .execute(&mut tx)
-    .await
-    .map_err(|e| format!("Error updating users: {:?}", e))?;
+        .execute(&mut tx)
+        .await
+        .map_err(|e| format!("Error updating users: {:?}", e))?;
 
     for user in resync {
         match user.col {

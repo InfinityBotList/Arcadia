@@ -310,12 +310,7 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
 }
 
 /// Get guild list, this is intentionally public
-#[poise::command(
-    rename = "guildlist",
-    track_edits,
-    prefix_command,
-    slash_command,
-)]
+#[poise::command(rename = "guildlist", track_edits, prefix_command, slash_command)]
 pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
     let guilds = ctx.discord().cache.guilds();
 

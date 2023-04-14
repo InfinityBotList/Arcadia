@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 
 use log::info;
-use poise::serenity_prelude::{GuildId, CreateEmbed, CreateEmbedFooter, CreateMessage, ChannelId};
+use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateEmbedFooter, CreateMessage, GuildId};
 
 pub async fn uptime_checker(
     pool: &sqlx::PgPool,
@@ -14,7 +14,10 @@ pub async fn uptime_checker(
     .await?;
 
     let presences = {
-        if let Some(guild) = cache_http.cache.guild(GuildId(crate::config::CONFIG.servers.main)) {
+        if let Some(guild) = cache_http
+            .cache
+            .guild(GuildId(crate::config::CONFIG.servers.main))
+        {
             Some(guild.presences.clone())
         } else {
             None
@@ -33,15 +36,17 @@ pub async fn uptime_checker(
         };
 
         // Find user in precense cache
-        match cache_http.cache.member_field(GuildId(crate::config::CONFIG.servers.main), bot_snow, |m| m.user.id) {
+        match cache_http.cache.member_field(
+            GuildId(crate::config::CONFIG.servers.main),
+            bot_snow,
+            |m| m.user.id,
+        ) {
             Some(precense) => {
                 let uptime = match presences.get(&precense) {
                     Some(precense) => {
                         precense.status != poise::serenity_prelude::OnlineStatus::Offline
-                    },
-                    None => {
-                        false
                     }
+                    None => false,
                 };
 
                 if uptime {
@@ -64,22 +69,32 @@ pub async fn uptime_checker(
 
                     info!("Uptime rate: {} for bot {}", uptime_rate, row.bot_id);
 
-                    if (uptime_rate > 0 && uptime_rate < 50) && (row.uptime > 0 && row.total_uptime > 25) {
+                    if (uptime_rate > 0 && uptime_rate < 50)
+                        && (row.uptime > 0 && row.total_uptime > 25)
+                    {
                         // Send message to mod logs
-                        let msg = CreateMessage::default()
-                        .embed(
+                        let msg = CreateMessage::default().embed(
                             CreateEmbed::default()
                                 .title("Bot Uptime Warning!")
-                                .url(format!("{}/bots/{}", crate::config::CONFIG.frontend_url, row.bot_id))
-                                .description(format!("<@!{}> a lower uptime than 50% with over 25 uptime checks", row.bot_id))
+                                .url(format!(
+                                    "{}/bots/{}",
+                                    crate::config::CONFIG.frontend_url,
+                                    row.bot_id
+                                ))
+                                .description(format!(
+                                    "<@!{}> a lower uptime than 50% with over 25 uptime checks",
+                                    row.bot_id
+                                ))
                                 .field("Bot", "<@!".to_string() + &row.bot_id + ">", true)
-                                .footer(CreateEmbedFooter::new("Please check this bot and ensure its actually alive!"))
+                                .footer(CreateEmbedFooter::new(
+                                    "Please check this bot and ensure its actually alive!",
+                                ))
                                 .color(0x00ff00),
-                        );  
+                        );
 
                         ChannelId(crate::config::CONFIG.channels.uptime)
-                        .send_message(&cache_http, msg)
-                        .await?;                              
+                            .send_message(&cache_http, msg)
+                            .await?;
                     }
 
                     sqlx::query!(
@@ -89,7 +104,7 @@ pub async fn uptime_checker(
                     .execute(pool)
                     .await?;
                 }
-            },
+            }
             None => {
                 log::warn!("Could not find bot {} in cache", row.bot_id);
                 continue;

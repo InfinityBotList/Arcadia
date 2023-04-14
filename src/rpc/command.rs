@@ -461,7 +461,7 @@ pub async fn rpc(
                     } else {
                         return Err("No response".into());
                     }
-                },
+                }
                 super::core::RPCMethod::BotCertifyRemove { .. } => {
                     let qm = CreateQuickModal::new("Uncertify Bot")
                         .field(CreateInputText::new(

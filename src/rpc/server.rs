@@ -10,7 +10,7 @@ use axum::{
 };
 use log::info;
 use sqlx::PgPool;
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{Any, CorsLayer};
 
 use super::core::{RPCHandle, RPCMethod, RPCRequest, RPCSuccess};
 use chrono::Utc;
@@ -19,10 +19,6 @@ pub enum RPCResponse {
     Err(String),
     InvalidProtocol,
     RPCLocked,
-    RatelimitReqFindFail,
-    RatelimitAddFail,
-    RatelimitUserTokenResetFail,
-    Ratelimited,
     UserNotFound,
     InvalidAuth,
     StaffOnly,
@@ -43,26 +39,6 @@ impl IntoResponse for RPCResponse {
             Self::RPCLocked => (
                 StatusCode::PRECONDITION_FAILED,
                 "RPC is locked. Use `rpcunlock` to unlock it for 1 hour",
-            )
-                .into_response(),
-            Self::RatelimitAddFail => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to add request to rpc_requests table",
-            )
-                .into_response(),
-            Self::RatelimitReqFindFail => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to get number of requests in the last 7 minutes",
-            )
-                .into_response(),
-            Self::RatelimitUserTokenResetFail => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to reset user token (caused by ratelimit)",
-            )
-                .into_response(),
-            Self::Ratelimited => (
-                StatusCode::TOO_MANY_REQUESTS,
-                "Rate limit exceeded. Wait 5-10 minutes, You will need to login/logout as well.",
             )
                 .into_response(),
             Self::UserNotFound => {
@@ -151,40 +127,6 @@ async fn web_rpc_api(
                 return Err(RPCResponse::RPCLocked);
             }
         }
-    }
-
-    // Add request to rpc_requests table
-    sqlx::query!(
-        "INSERT INTO rpc_requests (user_id, method) VALUES ($1, $2)",
-        &req.user_id,
-        &req.method.to_string()
-    )
-    .execute(&state.pool)
-    .await
-    .map_err(|_| RPCResponse::RatelimitAddFail)?;
-
-    // Get number of requests in the last 7 minutes
-    let res = sqlx::query!(
-        "SELECT COUNT(*) FROM rpc_requests WHERE user_id = $1 AND NOW() - created_at < INTERVAL '7 minutes'",
-        &req.user_id
-    )
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|_| RPCResponse::RatelimitReqFindFail)?;
-
-    let count = res.count.unwrap_or_default();
-
-    if count > 5 {
-        sqlx::query!(
-            "UPDATE users SET api_token = $2 WHERE user_id = $1",
-            &req.user_id,
-            impls::crypto::gen_random(136)
-        )
-        .execute(&state.pool)
-        .await
-        .map_err(|_| RPCResponse::RatelimitUserTokenResetFail)?;
-
-        return Err(RPCResponse::Ratelimited);
     }
 
     match req

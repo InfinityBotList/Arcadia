@@ -76,7 +76,7 @@ impl Default for Channels {
             mod_logs: NonZeroU64::new(911907978926493716).unwrap(),
             onboarding_channel: NonZeroU64::new(990716921475375114).unwrap(),
             system: NonZeroU64::new(762958420277067786).unwrap(),
-            uptime: NonZeroU64::new(1083108330442076292).unwrap()
+            uptime: NonZeroU64::new(1083108330442076292).unwrap(),
         }
     }
 }
@@ -117,7 +117,7 @@ impl Default for Config {
             github_pat: String::from(""),
             github_username: String::from(""),
             github_repo: String::from("InfinityBotList/Infinity-Next"),
-            optional_vercel_deploy_hook: None
+            optional_vercel_deploy_hook: None,
         }
     }
 }

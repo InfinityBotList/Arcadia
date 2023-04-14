@@ -1,4 +1,5 @@
-use crate::{checks, config, impls};
+use crate::{checks, config};
+use serde_json::json;
 use futures_util::StreamExt;
 use log::info;
 use poise::serenity_prelude::{
@@ -233,10 +234,10 @@ pub async fn queue(
 
 /// Claims a bot
 #[poise::command(
-    prefix_command, 
-    slash_command, 
-    user_cooldown = 3, 
-    category = "Testing", 
+    prefix_command,
+    slash_command,
+    user_cooldown = 3,
+    category = "Testing",
     check = "checks::is_staff",
     check = "checks::needs_onboarding"
 )]
@@ -279,13 +280,16 @@ pub async fn claim(
         .execute(&data.pool)
         .await?;
 
-        impls::actions::add_action_log(
-            &data.pool,
-            &bot.id.to_string(),
-            &ctx.author().id.0.to_string(),
-            "Claimed",
-            "claim",
+        sqlx::query!(
+            "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
+            ctx.author().id.to_string(),
+            "claimed",
+            json!({
+                "bot_id": bot.id.to_string(),
+                "claimed_by_prev": claimed.claimed_by,
+            })
         )
+        .execute(&ctx.data().pool)
         .await?;
 
         let msg = CreateReply::default().embed(
@@ -353,14 +357,18 @@ pub async fn claim(
             let claimed_by = claimed.claimed_by.unwrap();
 
             if id == "remind" {
-                impls::actions::add_action_log(
-                    &data.pool,
-                    &bot.id.to_string(),
-                    &claimed_by,
-                    "User reminder",
-                    "reminder",
+                sqlx::query!(
+                    "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
+                    ctx.author().id.to_string(),
+                    "claim_reminder",
+                    json!({
+                        "bot_id": bot.id.to_string(),
+                        "claimed_by": claimed_by,
+                    })
                 )
-                .await?;
+                .execute(&ctx.data().pool)
+                .await?;        
+
                 ctx.say(
                     format!(
                         "<@{claimed_by}>, did you forgot to finish testing <@{bot_id}>? This reminder has been recorded internally for staff activity tracking purposes!", 
@@ -378,14 +386,17 @@ pub async fn claim(
                 .execute(&data.pool)
                 .await?;
 
-                impls::actions::add_action_log(
-                    &data.pool,
-                    &bot.id.to_string(),
-                    &ctx.author().id.0.to_string(),
-                    "Force claim since previous staff did not finish reviewing bot",
-                    "claim",
+                sqlx::query!(
+                    "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
+                    ctx.author().id.to_string(),
+                    "claimed",
+                    json!({
+                        "bot_id": bot.id.to_string(),
+                        "claimed_by_prev": claimed_by,
+                    })
                 )
-                .await?;
+                .execute(&ctx.data().pool)
+                .await?;        
 
                 let msg = CreateMessage::default()
                     .content(format!("<@{}>", bot_owner))
@@ -421,10 +432,10 @@ pub async fn claim(
 
 /// Unclaims a bot
 #[poise::command(
-    prefix_command, 
-    slash_command, 
-    user_cooldown = 3, 
-    category = "Testing", 
+    prefix_command,
+    slash_command,
+    user_cooldown = 3,
+    category = "Testing",
     check = "checks::is_staff",
     check = "checks::needs_onboarding"
 )]
@@ -467,13 +478,15 @@ pub async fn unclaim(
         .execute(&data.pool)
         .await?;
 
-        impls::actions::add_action_log(
-            &data.pool,
-            &bot.id.to_string(),
-            &ctx.author().id.to_string(),
-            &reason,
-            "unclaim",
+        sqlx::query!(
+            "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
+            ctx.author().id.to_string(),
+            "unclaimed",
+            json!({
+                "bot_id": bot.id.to_string(),
+            })
         )
+        .execute(&ctx.data().pool)
         .await?;
 
         let msg = CreateMessage::new()
@@ -505,10 +518,10 @@ pub async fn unclaim(
 
 /// Approves a bot
 #[poise::command(
-    prefix_command, 
-    slash_command, 
-    user_cooldown = 3, 
-    category = "Testing", 
+    prefix_command,
+    slash_command,
+    user_cooldown = 3,
+    category = "Testing",
     check = "checks::is_staff",
     check = "checks::needs_onboarding"
 )]
@@ -522,17 +535,23 @@ pub async fn approve(
     }
 
     let data = ctx.data();
-    let resp = impls::actions::approve_bot(
-        &data.cache_http,
-        &data.pool,
-        &bot.user.id.to_string(),
-        &ctx.author().id.to_string(),
-        &reason,
-    )
+
+    // Create a rpc call
+    let res = crate::rpc::core::RPCMethod::BotApprove {
+        bot_id: bot.user.id.to_string(),
+        reason: reason.clone(),
+    }
+    .handle(crate::rpc::core::RPCHandle {
+        pool: data.pool.clone(),
+        cache_http: data.cache_http.clone(),
+        user_id: ctx.author().id.to_string(),
+    })
     .await?;
 
+    let content = res.content().ok_or("RPC did not return as expected???")?;
+
     ctx.say(
-        format!("Approved bot\nNext invite it to the main server and it should be removed from this server: {}", resp)
+        format!("Approved bot\nNext invite it to the main server and it should be removed from this server: {}", content)
     ).await?;
 
     Ok(())
@@ -557,13 +576,15 @@ pub async fn deny(
     }
 
     let data = ctx.data();
-    impls::actions::deny_bot(
-        &data.cache_http,
-        &data.pool,
-        &bot.id.to_string(),
-        &ctx.author().id.to_string(),
-        &reason,
-    )
+    crate::rpc::core::RPCMethod::BotDeny {
+        bot_id: bot.id.to_string(),
+        reason: reason.clone(),
+    }
+    .handle(crate::rpc::core::RPCHandle {
+        pool: data.pool.clone(),
+        cache_http: data.cache_http.clone(),
+        user_id: ctx.author().id.to_string(),
+    })
     .await?;
 
     ctx.say("Denied bot").await?;

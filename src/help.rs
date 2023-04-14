@@ -247,14 +247,29 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
         // They just want the parameters for a specific command
         for botcmd in &ctx.framework().options().commands {
             if botcmd.name == cmd {
-                let params_str = botcmd.parameters.iter().map(
-                    |p| 
-                    format!("{} - {}", p.name, p.description.as_deref().unwrap_or("No description available yet"))
-                ).collect::<Vec<String>>().join("\n");
+                let params_str = botcmd
+                    .parameters
+                    .iter()
+                    .map(|p| {
+                        format!(
+                            "{} - {}",
+                            p.name,
+                            p.description
+                                .as_deref()
+                                .unwrap_or("No description available yet")
+                        )
+                    })
+                    .collect::<Vec<String>>()
+                    .join("\n");
 
                 let mut embed = CreateEmbed::default()
                     .title(format!("Help for {}", botcmd.name))
-                    .description(botcmd.description.as_deref().unwrap_or("No description available yet"))
+                    .description(
+                        botcmd
+                            .description
+                            .as_deref()
+                            .unwrap_or("No description available yet"),
+                    )
                     .field("Parameters", params_str, false);
 
                 for subcmd in botcmd.subcommands.iter() {
@@ -262,16 +277,27 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                         subcmd.name.clone(),
                         format!(
                             "{}\n{}",
-                            subcmd.description.as_deref().unwrap_or("No description available yet"),
-                            subcmd.parameters.iter().map(
-                                |p| 
-                                format!("*{}* - {}", p.name, p.description.as_deref().unwrap_or("No description available yet"))
-                            ).collect::<Vec<String>>().join("\n")
+                            subcmd
+                                .description
+                                .as_deref()
+                                .unwrap_or("No description available yet"),
+                            subcmd
+                                .parameters
+                                .iter()
+                                .map(|p| format!(
+                                    "*{}* - {}",
+                                    p.name,
+                                    p.description
+                                        .as_deref()
+                                        .unwrap_or("No description available yet")
+                                ))
+                                .collect::<Vec<String>>()
+                                .join("\n")
                         ),
-                        false
+                        false,
                     );
                 }
-                        
+
                 ctx.send(CreateReply::new().embed(embed)).await?;
 
                 return Ok(());

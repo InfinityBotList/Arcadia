@@ -1,5 +1,4 @@
 use crate::{checks, config};
-use serde_json::json;
 use futures_util::StreamExt;
 use log::info;
 use poise::serenity_prelude::{
@@ -7,6 +6,7 @@ use poise::serenity_prelude::{
 };
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde::Serialize;
+use serde_json::json;
 use std::time::Duration;
 
 type Error = crate::Error;
@@ -367,7 +367,7 @@ pub async fn claim(
                     })
                 )
                 .execute(&ctx.data().pool)
-                .await?;        
+                .await?;
 
                 ctx.say(
                     format!(
@@ -396,7 +396,7 @@ pub async fn claim(
                     })
                 )
                 .execute(&ctx.data().pool)
-                .await?;        
+                .await?;
 
                 let msg = CreateMessage::default()
                     .content(format!("<@{}>", bot_owner))

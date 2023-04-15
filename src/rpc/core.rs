@@ -6,7 +6,7 @@ use poise::serenity_prelude::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::PgPool;
+use sqlx::{PgPool, types::Uuid};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
@@ -79,6 +79,16 @@ pub enum RPCMethod {
         count: i32,
         reason: String,
     },
+    BotTransferOwnership {
+        bot_id: String,
+        new_owner: String,
+        reason: String,
+    },
+    BotTransferOwnershipTeam {
+        bot_id: String,
+        new_team: String,
+        reason: String,
+    },
 }
 
 pub struct RPCHandle {
@@ -110,6 +120,8 @@ impl RPCMethod {
             RPCMethod::BotCertifyAdd { .. } => RPCPerms::Owner,
             RPCMethod::BotCertifyRemove { .. } => RPCPerms::Owner,
             RPCMethod::BotVoteCountSet { .. } => RPCPerms::Owner,
+            RPCMethod::BotTransferOwnership { .. } => RPCPerms::Admin,
+            RPCMethod::BotTransferOwnershipTeam { .. } => RPCPerms::Head,
         }
     }
 
@@ -827,6 +839,106 @@ impl RPCMethod {
                         .field("New Vote Count", count.to_string(), true)
                         .footer(CreateEmbedFooter::new(
                             "Remember: don't abuse our services!",
+                        ))
+                        .color(0xFF0000),
+                );
+
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(&state.cache_http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            },
+            RPCMethod::BotTransferOwnership { bot_id, new_owner, reason } => {
+                // Ensure the bot actually exists
+                let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
+                    .fetch_one(&state.pool)
+                    .await?;
+
+                if bot.count.unwrap_or_default() == 0 {
+                    return Err("Bot does not exist".into());
+                }
+
+                // Check that the bot is not in a team
+                let team_owner = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
+                    .fetch_one(&state.pool)
+                    .await?;
+
+                if team_owner.team_owner.is_some() {
+                    return Err("Bot is in a team. Please use BotTransferOwnershipTeam".into());
+                }
+
+                sqlx::query!(
+                    "UPDATE bots SET owner = $2 WHERE bot_id = $1",
+                    bot_id,
+                    new_owner
+                )
+                .execute(&state.pool)
+                .await?;
+
+                let msg = CreateMessage::new().embed(
+                    CreateEmbed::default()
+                        .title("Bot Ownership Force Update!")
+                        .description(format!(
+                            "<@{}> has force-updated the ownership of <@{}> to <@{}>",
+                            state.user_id, bot_id, new_owner
+                        ))
+                        .field("Reason", reason, true)
+                        .footer(CreateEmbedFooter::new(
+                            "Contact support if you think this is a mistake",
+                        ))
+                        .color(0xFF0000),
+                );
+
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(&state.cache_http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            },
+            RPCMethod::BotTransferOwnershipTeam { bot_id, new_team, reason } => {
+                // Ensure the bot actually exists
+                let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
+                    .fetch_one(&state.pool)
+                    .await?;
+
+                if bot.count.unwrap_or_default() == 0 {
+                    return Err("Bot does not exist".into());
+                }
+
+                // Parse the team ID
+                let team_id = match new_team.parse::<Uuid>() {
+                    Ok(id) => id,
+                    Err(_) => return Err("Invalid team ID".into()),
+                };
+
+                // Check that the bot is not in a team
+                let team_owner = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
+                    .fetch_one(&state.pool)
+                    .await?;
+
+                if team_owner.team_owner.is_none() {
+                    return Err("Bot is not in a team. Please use BotTransferOwnership".into());
+                }
+
+                sqlx::query!(
+                    "UPDATE bots SET team_owner = $2 WHERE bot_id = $1",
+                    bot_id,
+                    team_id
+                )
+                .execute(&state.pool)
+                .await?;
+
+                let msg = CreateMessage::new().embed(
+                    CreateEmbed::default()
+                        .title("Bot Ownership Force Update!")
+                        .description(format!(
+                            "<@{}> has force-updated the ownership of <@{}> to team {}",
+                            state.user_id, bot_id, team_id
+                        ))
+                        .field("Reason", reason, true)
+                        .footer(CreateEmbedFooter::new(
+                            "Contact support if you think this is a mistake",
                         ))
                         .color(0xFF0000),
                 );

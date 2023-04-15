@@ -4,5 +4,5 @@ pub mod premium;
 pub mod specrolesync;
 pub mod staffresync;
 pub mod taskcat;
-pub mod uptime;
 pub mod teamcleaner;
+pub mod uptime;

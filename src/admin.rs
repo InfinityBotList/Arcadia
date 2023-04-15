@@ -3,7 +3,6 @@ use std::io::Write;
 use std::num::NonZeroU64;
 
 use crate::checks;
-use serde_json::json;
 use crate::Context;
 use crate::Error;
 use poise::serenity_prelude::ButtonStyle;
@@ -13,6 +12,7 @@ use poise::serenity_prelude::CreateButton;
 use poise::serenity_prelude::CreateEmbed;
 use poise::serenity_prelude::CreateInteractionResponseMessage;
 use poise::CreateReply;
+use serde_json::json;
 
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::GuildId;
@@ -79,9 +79,7 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
                 "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
                 ctx.author().id.to_string(),
                 "rpc_unlock",
-                json!({
-                    "reason": purpose
-                })
+                json!({ "reason": purpose })
             )
             .execute(&ctx.data().pool)
             .await?;

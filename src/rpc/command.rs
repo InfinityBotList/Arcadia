@@ -541,7 +541,75 @@ pub async fn rpc(
                     } else {
                         return Err("No response".into());
                     }
-                }
+                },
+                super::core::RPCMethod::BotTransferOwnership { .. } => {
+                    let qm = CreateQuickModal::new("Transfer Bot Ownership")
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Bot ID",
+                            "bot_id",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Paragraph,
+                            "Reason",
+                            "reason",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "New Owner ID",
+                            "new_owner",
+                        ));
+
+                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                        let inputs = resp.inputs;
+                        let (bot_id, reason, new_owner) = (&inputs[0], &inputs[1], &inputs[2]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::BotTransferOwnership {
+                                bot_id: bot_id.to_string(),
+                                reason: reason.to_string(),
+                                new_owner: new_owner.to_string(),
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
+                },
+                super::core::RPCMethod::BotTransferOwnershipTeam { .. } => { 
+                    let qm = CreateQuickModal::new("Transfer Bot Ownership to Team")
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Bot ID",
+                            "bot_id",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Paragraph,
+                            "Reason",
+                            "reason",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "New Team ID",
+                            "team_id",
+                        ));
+
+                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                        let inputs = resp.inputs;
+                        let (bot_id, reason, team_id) = (&inputs[0], &inputs[1], &inputs[2]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::BotTransferOwnershipTeam {
+                                bot_id: bot_id.to_string(),
+                                reason: reason.to_string(),
+                                new_team: team_id.to_string(),
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
+                },
             }
         } else {
             msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))

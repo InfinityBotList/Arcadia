@@ -129,7 +129,7 @@ pub async fn rpc(
                             "reason",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -157,7 +157,7 @@ pub async fn rpc(
                             "reason",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -185,7 +185,7 @@ pub async fn rpc(
                             "reason",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -205,7 +205,7 @@ pub async fn rpc(
                         CreateInputText::new(InputTextStyle::Paragraph, "Reason", "reason"),
                     );
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let reason = &inputs[0];
 
@@ -231,7 +231,7 @@ pub async fn rpc(
                                 .placeholder("You must give proof"),
                         );
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -268,7 +268,7 @@ pub async fn rpc(
                             ),
                         );
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason, time_period_str) =
                             (&inputs[0], &inputs[1], &inputs[2]);
@@ -312,7 +312,7 @@ pub async fn rpc(
                                 .placeholder("You must give proof"),
                         );
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -340,7 +340,7 @@ pub async fn rpc(
                             "reason",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -368,7 +368,7 @@ pub async fn rpc(
                             "reason",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -400,7 +400,7 @@ pub async fn rpc(
                                 .placeholder("T/F"),
                         );
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason, kick) = (&inputs[0], &inputs[1], &inputs[2]);
 
@@ -447,7 +447,7 @@ pub async fn rpc(
                             "reason",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -475,7 +475,7 @@ pub async fn rpc(
                             "reason",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason) = (&inputs[0], &inputs[1]);
 
@@ -508,7 +508,7 @@ pub async fn rpc(
                             "count",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason, count_str) = (&inputs[0], &inputs[1], &inputs[2]);
 
@@ -560,7 +560,7 @@ pub async fn rpc(
                             "new_owner",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason, new_owner) = (&inputs[0], &inputs[1], &inputs[2]);
 
@@ -594,7 +594,7 @@ pub async fn rpc(
                             "team_id",
                         ));
 
-                    if let Some(resp) = qm.execute(discord, m.id, &m.token).await? {
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
                         let inputs = resp.inputs;
                         let (bot_id, reason, team_id) = (&inputs[0], &inputs[1], &inputs[2]);
 

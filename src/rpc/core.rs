@@ -12,16 +12,7 @@ use ts_rs::TS;
 
 use crate::{impls, Error};
 
-#[derive(Deserialize, TS)]
-#[ts(export, export_to = ".generated/RPCRequest.ts")]
-pub struct RPCRequest {
-    pub user_id: String,
-    pub token: String,
-    pub method: RPCMethod,
-    pub protocol: u8,
-}
-
-#[derive(Serialize, Deserialize, TS, EnumString, EnumVariantNames, Display)]
+#[derive(Serialize, Deserialize, TS, EnumString, EnumVariantNames, Display, Clone)]
 #[ts(export, export_to = ".generated/RPCMethod.ts")]
 #[allow(clippy::enum_variant_names)]
 pub enum RPCMethod {
@@ -76,17 +67,22 @@ pub enum RPCMethod {
     },
     BotVoteCountSet {
         bot_id: String,
+        reason: String,
         count: i32,
-        reason: String,
     },
-    BotTransferOwnership {
+    BotTransferOwnershipUser {
         bot_id: String,
-        new_owner: String,
         reason: String,
+        new_owner: String,
     },
     BotTransferOwnershipTeam {
         bot_id: String,
+        reason: String,
         new_team: String,
+    },
+    TeamNameEdit {
+        team_id: String,
+        new_name: String,
         reason: String,
     },
 }
@@ -97,6 +93,8 @@ pub struct RPCHandle {
     pub user_id: String,
 }
 
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export, export_to = ".generated/RPCPerms.ts")]
 pub enum RPCPerms {
     Owner,
     Head,  // Either hadmin/hdev
@@ -105,7 +103,7 @@ pub enum RPCPerms {
 }
 
 impl RPCMethod {
-    fn needs_perms(&self) -> RPCPerms {
+    pub fn needs_perms(&self) -> RPCPerms {
         match self {
             RPCMethod::BotApprove { .. } => RPCPerms::Staff,
             RPCMethod::BotDeny { .. } => RPCPerms::Staff,
@@ -120,9 +118,31 @@ impl RPCMethod {
             RPCMethod::BotCertifyAdd { .. } => RPCPerms::Owner,
             RPCMethod::BotCertifyRemove { .. } => RPCPerms::Owner,
             RPCMethod::BotVoteCountSet { .. } => RPCPerms::Owner,
-            RPCMethod::BotTransferOwnership { .. } => RPCPerms::Admin,
+            RPCMethod::BotTransferOwnershipUser { .. } => RPCPerms::Admin,
             RPCMethod::BotTransferOwnershipTeam { .. } => RPCPerms::Head,
+            RPCMethod::TeamNameEdit { .. } => RPCPerms::Head,
         }
+    }
+    
+    pub fn description(&self) -> String {
+        match self {
+            Self::BotApprove { .. } => "Approve a bot. Needs to be claimed first.",
+            Self::BotDeny { .. } => "Deny a bot. Needs to be claimed first.",
+            Self::BotVoteReset { .. } => "Reset the votes of a bot",
+            Self::BotVoteResetAll { .. } => "Reset the votes of all bots",
+            Self::BotUnverify { .. } => "Unverifies a bot on the list",
+            Self::BotPremiumAdd { .. } => "Adds premium to a bot for a given time period",
+            Self::BotPremiumRemove { .. } => "Removes premium from a bot",
+            Self::BotVoteBanAdd { .. } => "Vote-bans the bot in question",
+            Self::BotVoteBanRemove { .. } => "Removes the vote-ban from the bot in question",
+            Self::BotForceRemove { .. } => "Forcefully removes a bot from the list",
+            Self::BotCertifyAdd { .. } => "Certifies a bot. Recommended to use apps instead however",
+            Self::BotCertifyRemove { .. } => "Uncertifies a bot",
+            Self::BotVoteCountSet { .. } => "Sets the vote count of a bot",
+            Self::BotTransferOwnershipUser { .. } => "Transfers the ownership of a bot to a new user",
+            Self::BotTransferOwnershipTeam { .. } => "Transfers the ownership of a bot to a new team",
+            Self::TeamNameEdit { .. } => "Edits the name of a team",
+        }.to_string()
     }
 
     pub async fn handle(&self, state: RPCHandle) -> Result<RPCSuccess, Error> {
@@ -849,7 +869,7 @@ impl RPCMethod {
 
                 Ok(RPCSuccess::NoContent)
             },
-            RPCMethod::BotTransferOwnership { bot_id, new_owner, reason } => {
+            RPCMethod::BotTransferOwnershipUser { bot_id, new_owner, reason } => {
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
                     .fetch_one(&state.pool)
@@ -936,6 +956,60 @@ impl RPCMethod {
                             "<@{}> has force-updated the ownership of <@{}> to team {}",
                             state.user_id, bot_id, team_id
                         ))
+                        .field("Reason", reason, true)
+                        .footer(CreateEmbedFooter::new(
+                            "Contact support if you think this is a mistake",
+                        ))
+                        .color(0xFF0000),
+                );
+
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(&state.cache_http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            },
+            RPCMethod::TeamNameEdit { team_id, new_name, reason } => {
+                if new_name.len() > 32 {
+                    return Err("Team name is too long".into());
+                }
+
+                if new_name.len() < 3 {
+                    return Err("Team name is too short".into());
+                }
+
+                // Parse the team ID
+                let team_id = match team_id.parse::<Uuid>() {
+                    Ok(id) => id,
+                    Err(_) => return Err("Invalid team ID".into()),
+                };
+
+                // Ensure the team actually exists
+                let team = sqlx::query!("SELECT COUNT(*) FROM teams WHERE id = $1", team_id)
+                    .fetch_one(&state.pool)
+                    .await?;
+
+                if team.count.unwrap_or_default() == 0 {
+                    return Err("Team does not exist".into());
+                }
+
+                sqlx::query!(
+                    "UPDATE teams SET name = $2 WHERE id = $1",
+                    team_id,
+                    new_name
+                )
+                .execute(&state.pool)
+                .await?;
+
+                let msg = CreateMessage::new().embed(
+                    CreateEmbed::default()
+                        .title("Bot Ownership Force Update!")
+                        .description(format!(
+                            "<@{}> has force-updated the name of a team",
+                            state.user_id
+                        ))
+                        .field("Team ID", team_id.to_string(), true)
+                        .field("New Name", new_name, true)
                         .field("Reason", reason, true)
                         .footer(CreateEmbedFooter::new(
                             "Contact support if you think this is a mistake",

@@ -542,7 +542,7 @@ pub async fn rpc(
                         return Err("No response".into());
                     }
                 },
-                super::core::RPCMethod::BotTransferOwnership { .. } => {
+                super::core::RPCMethod::BotTransferOwnershipUser { .. } => {
                     let qm = CreateQuickModal::new("Transfer Bot Ownership")
                         .field(CreateInputText::new(
                             InputTextStyle::Short,
@@ -565,7 +565,7 @@ pub async fn rpc(
                         let (bot_id, reason, new_owner) = (&inputs[0], &inputs[1], &inputs[2]);
 
                         GetResp {
-                            method: super::core::RPCMethod::BotTransferOwnership {
+                            method: super::core::RPCMethod::BotTransferOwnershipUser {
                                 bot_id: bot_id.to_string(),
                                 reason: reason.to_string(),
                                 new_owner: new_owner.to_string(),
@@ -610,6 +610,40 @@ pub async fn rpc(
                         return Err("No response".into());
                     }
                 },
+                super::core::RPCMethod::TeamNameEdit { .. } => { 
+                    let qm = CreateQuickModal::new("Team Name Edit")
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Team ID",
+                            "team_id",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "New Team Name",
+                            "new_name",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Paragraph,
+                            "Reason",
+                            "reason",
+                        ));
+
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
+                        let inputs = resp.inputs;
+                        let (team_id, new_name, reason) = (&inputs[0], &inputs[1], &inputs[2]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::TeamNameEdit {
+                                team_id: team_id.to_string(),
+                                new_name: new_name.to_string(),
+                                reason: reason.to_string(),
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
+                }
             }
         } else {
             msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))

@@ -279,16 +279,26 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
         RPCMethod::BotTransferOwnershipUser { .. } => vec![
             WebField::bot_id(),
             WebField {
-                id: "user_id".to_string(),
+                id: "new_owner".to_string(),
                 label: "User ID".to_string(),
                 field_type: FieldType::Text,
                 icon: "material-symbols:timer".to_string(),
-                placeholder: "User ID".to_string(),
+                placeholder: "New Owner".to_string(),
             },
             WebField::reason(),
         ],
         RPCMethod::BotTransferOwnershipTeam { .. } => vec![
             WebField::bot_id(),
+            WebField {
+                id: "new_team".to_string(),
+                label: "Team ID".to_string(),
+                field_type: FieldType::Text,
+                icon: "material-symbols:timer".to_string(),
+                placeholder: "New Team".to_string(),
+            },
+            WebField::reason(),
+        ],
+        RPCMethod::TeamNameEdit { .. } => vec![
             WebField {
                 id: "team_id".to_string(),
                 label: "Team ID".to_string(),
@@ -296,12 +306,8 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
                 icon: "material-symbols:timer".to_string(),
                 placeholder: "Team ID".to_string(),
             },
-            WebField::reason(),
-        ],
-        RPCMethod::TeamNameEdit { .. } => vec![
-            WebField::bot_id(),
             WebField {
-                id: "name".to_string(),
+                id: "new_name".to_string(),
                 label: "New team name".to_string(),
                 field_type: FieldType::Text,
                 icon: "material-symbols:timer".to_string(),

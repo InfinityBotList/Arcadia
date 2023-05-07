@@ -137,6 +137,7 @@ async fn web_rpc_api(
 
     match &req.method {
         RPCMethod::BotClaim { .. } => {}
+        RPCMethod::BotUnclaim { .. } => {}
         RPCMethod::BotApprove { .. } => {}
         RPCMethod::BotDeny { .. } => {}
         _ => {

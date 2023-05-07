@@ -1,9 +1,9 @@
-use std::sync::Arc;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::impls;
 use axum::{
-    extract::{State, Query},
+    extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -14,11 +14,10 @@ use sqlx::PgPool;
 use strum::VariantNames;
 use tower_http::cors::{Any, CorsLayer};
 
-use super::core::{RPCHandle, RPCMethod, RPCSuccess, RPCPerms};
+use super::core::{RPCHandle, RPCMethod, RPCPerms, RPCSuccess};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-
 
 #[derive(Deserialize, TS)]
 #[ts(export, export_to = ".generated/RPCRequest.ts")]
@@ -47,9 +46,11 @@ impl IntoResponse for RPCResponse {
     fn into_response(self) -> Response {
         match self {
             Self::Err(err) => (StatusCode::BAD_REQUEST, err).into_response(),
-            Self::InvalidProtocol => {
-                (StatusCode::PRECONDITION_FAILED, "Out of date client. Please use the bot until this is fixed").into_response()
-            },
+            Self::InvalidProtocol => (
+                StatusCode::PRECONDITION_FAILED,
+                "Out of date client. Please use the bot until this is fixed",
+            )
+                .into_response(),
             Self::RPCLocked => (
                 StatusCode::PRECONDITION_FAILED,
                 "RPC is locked. Use `rpcunlock` to unlock it for 1 hour",
@@ -135,6 +136,7 @@ async fn web_rpc_api(
     }
 
     match &req.method {
+        RPCMethod::BotClaim { .. } => {}
         RPCMethod::BotApprove { .. } => {}
         RPCMethod::BotDeny { .. } => {}
         _ => {
@@ -162,8 +164,8 @@ async fn web_rpc_api(
 #[derive(Serialize, TS)]
 #[ts(export, export_to = ".generated/RPCWebField.ts")]
 struct WebField {
-    id: String, 
-    label: String, 
+    id: String,
+    label: String,
     field_type: FieldType,
     icon: String,
     placeholder: String,
@@ -198,31 +200,28 @@ enum FieldType {
     Textarea,
     Number,
     Hour, // Time expressed as a number of hours
-    Boolean 
+    Boolean,
 }
 
 // Returns a set of WebField's for a given enum variant
 fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
     match method {
-        RPCMethod::BotApprove { .. } => vec![
+        RPCMethod::BotClaim { .. } => vec![
             WebField::bot_id(),
-            WebField::reason()
+            WebField {
+                id: "force".to_string(),
+                label: "Force claim bot?".to_string(),
+                field_type: FieldType::Boolean,
+                icon: "fa-solid:sign-out-alt".to_string(),
+                placeholder: "Yes/No".to_string(),
+            },
         ],
-        RPCMethod::BotDeny { .. } => vec![
-            WebField::bot_id(),
-            WebField::reason()
-        ],
-        RPCMethod::BotVoteReset { .. } => vec![
-            WebField::bot_id(),
-            WebField::reason()
-        ],
-        RPCMethod::BotVoteResetAll { .. } => vec![
-            WebField::reason()
-        ],
-        RPCMethod::BotUnverify { .. } => vec![
-            WebField::bot_id(),
-            WebField::reason()
-        ],
+        RPCMethod::BotUnclaim { .. } => vec![WebField::bot_id(), WebField::reason()],
+        RPCMethod::BotApprove { .. } => vec![WebField::bot_id(), WebField::reason()],
+        RPCMethod::BotDeny { .. } => vec![WebField::bot_id(), WebField::reason()],
+        RPCMethod::BotVoteReset { .. } => vec![WebField::bot_id(), WebField::reason()],
+        RPCMethod::BotVoteResetAll { .. } => vec![WebField::reason()],
+        RPCMethod::BotUnverify { .. } => vec![WebField::bot_id(), WebField::reason()],
         RPCMethod::BotPremiumAdd { .. } => vec![
             WebField::bot_id(),
             WebField {
@@ -234,18 +233,9 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
             },
             WebField::reason(),
         ],
-        RPCMethod::BotPremiumRemove { .. } => vec![
-            WebField::bot_id(),
-            WebField::reason()
-        ],
-        RPCMethod::BotVoteBanAdd { .. } => vec![
-            WebField::bot_id(),
-            WebField::reason(),
-        ],
-        RPCMethod::BotVoteBanRemove { .. } => vec![
-            WebField::bot_id(),
-            WebField::reason(),
-        ],
+        RPCMethod::BotPremiumRemove { .. } => vec![WebField::bot_id(), WebField::reason()],
+        RPCMethod::BotVoteBanAdd { .. } => vec![WebField::bot_id(), WebField::reason()],
+        RPCMethod::BotVoteBanRemove { .. } => vec![WebField::bot_id(), WebField::reason()],
         RPCMethod::BotForceRemove { .. } => vec![
             WebField::bot_id(),
             WebField {
@@ -257,14 +247,8 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
             },
             WebField::reason(),
         ],
-        RPCMethod::BotCertifyAdd { .. } => vec![
-            WebField::bot_id(),
-            WebField::reason(),
-        ],
-        RPCMethod::BotCertifyRemove { .. } => vec![
-            WebField::bot_id(),
-            WebField::reason(),
-        ],
+        RPCMethod::BotCertifyAdd { .. } => vec![WebField::bot_id(), WebField::reason()],
+        RPCMethod::BotCertifyRemove { .. } => vec![WebField::bot_id(), WebField::reason()],
         RPCMethod::BotVoteCountSet { .. } => vec![
             WebField::bot_id(),
             WebField {
@@ -331,28 +315,18 @@ struct WebAction {
 
 #[derive(Deserialize)]
 struct WebActionQuery {
-    user_id: Option<String>
+    user_id: Option<String>,
 }
 
 async fn available_actions(
     State(state): State<Arc<AppState>>,
     Query(query): Query<WebActionQuery>,
-) -> Result<Json<Vec<WebAction>>, RPCResponse> {    
-    let (
-        owner,
-        head,
-        admin,
-        staff
-    ) = if let Some(id) = query.user_id {
-        let count = sqlx::query!(
-            "SELECT COUNT(*) FROM users WHERE user_id = $1",
-            id
-        )
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|e| {
-            RPCResponse::Err(e.to_string())
-        })?;
+) -> Result<Json<Vec<WebAction>>, RPCResponse> {
+    let (owner, head, admin, staff) = if let Some(id) = query.user_id {
+        let count = sqlx::query!("SELECT COUNT(*) FROM users WHERE user_id = $1", id)
+            .fetch_one(&state.pool)
+            .await
+            .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
         if count.count.unwrap_or_default() == 0 {
             return Err(RPCResponse::UserNotFound);
@@ -364,32 +338,23 @@ async fn available_actions(
         )
         .fetch_one(&state.pool)
         .await
-        .map_err(|e| {
-            RPCResponse::Err(e.to_string())
-        })?;
+        .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
         (
             perms.owner,
             perms.hadmin || perms.iblhdev,
             perms.admin,
-            perms.staff
+            perms.staff,
         )
     } else {
-        (
-            true,
-            true,
-            true,
-            true
-        )
+        (true, true, true, true)
     };
 
     let mut actions = Vec::new();
 
     for variant in super::core::RPCMethod::VARIANTS {
         let method = super::core::RPCMethod::from_str(variant)
-        .map_err(|e| {
-            RPCResponse::Err(e.to_string())
-        })?;
+            .map_err(|e| RPCResponse::Err(e.to_string()))?;
 
         let action = WebAction {
             id: variant.to_string(),
@@ -405,22 +370,22 @@ async fn available_actions(
                 if owner {
                     actions.push(action);
                 }
-            },
+            }
             RPCPerms::Head => {
                 if head {
                     actions.push(action);
                 }
-            },
+            }
             RPCPerms::Admin => {
                 if admin {
                     actions.push(action);
                 }
-            },
+            }
             RPCPerms::Staff => {
                 if staff {
                     actions.push(action);
                 }
-            },
+            }
         }
     }
 

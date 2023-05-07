@@ -6,7 +6,8 @@ use poise::serenity_prelude::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{PgPool, types::Uuid};
+use serenity::model::Color;
+use sqlx::{types::Uuid, PgPool};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
@@ -16,6 +17,14 @@ use crate::{impls, Error};
 #[ts(export, export_to = ".generated/RPCMethod.ts")]
 #[allow(clippy::enum_variant_names)]
 pub enum RPCMethod {
+    BotClaim {
+        bot_id: String,
+        force: bool,
+    },
+    BotUnclaim {
+        bot_id: String,
+        reason: String,
+    },
     BotApprove {
         bot_id: String,
         reason: String,
@@ -105,6 +114,8 @@ pub enum RPCPerms {
 impl RPCMethod {
     pub fn needs_perms(&self) -> RPCPerms {
         match self {
+            RPCMethod::BotClaim { .. } => RPCPerms::Staff,
+            RPCMethod::BotUnclaim { .. } => RPCPerms::Staff,
             RPCMethod::BotApprove { .. } => RPCPerms::Staff,
             RPCMethod::BotDeny { .. } => RPCPerms::Staff,
             RPCMethod::BotVoteReset { .. } => RPCPerms::Owner,
@@ -123,9 +134,15 @@ impl RPCMethod {
             RPCMethod::TeamNameEdit { .. } => RPCPerms::Head,
         }
     }
-    
+
     pub fn description(&self) -> String {
         match self {
+            Self::BotClaim { .. } => {
+                "Claim a bot. Be sure to claim bots that you are going to review!"
+            }
+            Self::BotUnclaim { .. } => {
+                "Unclaim a bot. Be sure to use this if you can't review the bot!"
+            }
             Self::BotApprove { .. } => "Approve a bot. Needs to be claimed first.",
             Self::BotDeny { .. } => "Deny a bot. Needs to be claimed first.",
             Self::BotVoteReset { .. } => "Reset the votes of a bot",
@@ -136,17 +153,26 @@ impl RPCMethod {
             Self::BotVoteBanAdd { .. } => "Vote-bans the bot in question",
             Self::BotVoteBanRemove { .. } => "Removes the vote-ban from the bot in question",
             Self::BotForceRemove { .. } => "Forcefully removes a bot from the list",
-            Self::BotCertifyAdd { .. } => "Certifies a bot. Recommended to use apps instead however",
+            Self::BotCertifyAdd { .. } => {
+                "Certifies a bot. Recommended to use apps instead however"
+            }
             Self::BotCertifyRemove { .. } => "Uncertifies a bot",
             Self::BotVoteCountSet { .. } => "Sets the vote count of a bot",
-            Self::BotTransferOwnershipUser { .. } => "Transfers the ownership of a bot to a new user",
-            Self::BotTransferOwnershipTeam { .. } => "Transfers the ownership of a bot to a new team",
+            Self::BotTransferOwnershipUser { .. } => {
+                "Transfers the ownership of a bot to a new user"
+            }
+            Self::BotTransferOwnershipTeam { .. } => {
+                "Transfers the ownership of a bot to a new team"
+            }
             Self::TeamNameEdit { .. } => "Edits the name of a team",
-        }.to_string()
+        }
+        .to_string()
     }
 
     pub fn label(&self) -> String {
         match self {
+            Self::BotClaim { .. } => "Claim Bot",
+            Self::BotUnclaim { .. } => "Unclaim Bot",
             Self::BotApprove { .. } => "Approve Bot",
             Self::BotDeny { .. } => "Deny Bot",
             Self::BotVoteReset { .. } => "Reset Bot Votes",
@@ -163,7 +189,8 @@ impl RPCMethod {
             Self::BotTransferOwnershipUser { .. } => "Set Bot Owner [User]",
             Self::BotTransferOwnershipTeam { .. } => "Set Bot Owner [Team]",
             Self::TeamNameEdit { .. } => "Edit Team Name",
-        }.to_string()
+        }
+        .to_string()
     }
 
     pub async fn handle(&self, state: RPCHandle) -> Result<RPCSuccess, Error> {
@@ -291,6 +318,137 @@ impl RPCMethod {
     /// The low-level method handler
     async fn handle_method(&self, state: &RPCHandle) -> Result<RPCSuccess, Error> {
         match self {
+            RPCMethod::BotClaim { bot_id, force } => {
+                // Check if its claimed by someone
+                let claimed = sqlx::query!(
+                    "SELECT type, claimed_by FROM bots WHERE bot_id = $1",
+                    bot_id
+                )
+                .fetch_one(&state.pool)
+                .await?;
+
+                if claimed.r#type != "pending" {
+                    return Err("This bot is not pending review".into());
+                }
+
+                if claimed.r#type == "testbot" {
+                    return Err("This bot is a test bot".into());
+                }
+
+                let bot_owner = crate::impls::utils::resolve_ping_user(bot_id, &state.pool).await?;
+
+                if !force {
+                    if let Some(claimed_by) = claimed.claimed_by {
+                        return Err(
+                            format!("This bot is already claimed by <@{}>", claimed_by).into()
+                        );
+                    }
+                }
+
+                // Claim it
+                sqlx::query!(
+                    "UPDATE bots SET last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
+                    &state.user_id,
+                    bot_id
+                )
+                .execute(&state.pool)
+                .await?;
+
+                sqlx::query!(
+                    "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
+                    &state.user_id,
+                    "claimed",
+                    json!({
+                        "bot_id": bot_id,
+                        "claimed_by_prev": claimed.claimed_by,
+                    })
+                )
+                .execute(&state.pool)
+                .await?;
+
+                // Send a message to the bot owner
+                let msg = CreateMessage::default()
+                    .content(format!("<@{}>", bot_owner))
+                    .embed(
+                        CreateEmbed::default()
+                            .title("Bot Claimed!")
+                            .description(format!("<@{}> has claimed <@{}>", &state.user_id, bot_id))
+                            .color(Color::BLURPLE)
+                            .field("Force Claim", force.to_string(), false)
+                            .footer(CreateEmbedFooter::new(
+                                "This is completely normal, don't worry!",
+                            )),
+                    );
+
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(&state.cache_http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+            RPCMethod::BotUnclaim { bot_id, reason } => {
+                // Check if its claimed by someone
+                let claimed = sqlx::query!(
+                    "SELECT type, claimed_by, owner FROM bots WHERE bot_id = $1",
+                    bot_id
+                )
+                .fetch_one(&state.pool)
+                .await?;
+
+                if claimed.r#type == "testbot" {
+                    return Err("This bot is a test bot".into());
+                }
+
+                if claimed.r#type != "pending" {
+                    return Err("This bot is not pending review".into());
+                }
+
+                let bot_owner = crate::impls::utils::resolve_ping_user(bot_id, &state.pool).await?;
+
+                if claimed.claimed_by.is_none() {
+                    return Err(format!("<@{}> is not claimed", bot_id).into());
+                }
+
+                sqlx::query!(
+                    "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
+                    bot_id
+                )
+                .execute(&state.pool)
+                .await?;
+
+                sqlx::query!(
+                    "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
+                    &state.user_id,
+                    "unclaimed",
+                    json!({
+                        "bot_id": bot_id,
+                        "claimed_by_prev": claimed.claimed_by,
+                    })
+                )
+                .execute(&state.pool)
+                .await?;
+
+                let msg = CreateMessage::new()
+                    .content(format!("<@{}>", bot_owner))
+                    .embed(
+                        CreateEmbed::new()
+                            .title("Bot Unclaimed!")
+                            .description(format!(
+                                "<@{}> has unclaimed <@{}>",
+                                &state.user_id, bot_id
+                            ))
+                            .field("Reason", reason, false)
+                            .footer(CreateEmbedFooter::new(
+                                "This is completely normal, don't worry!",
+                            )),
+                    );
+
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(&state.cache_http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            }
             RPCMethod::BotApprove { bot_id, reason } => {
                 let claimed = sqlx::query!(
                     "SELECT type, claimed_by, last_claimed FROM bots WHERE bot_id = $1",
@@ -889,8 +1047,12 @@ impl RPCMethod {
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
-            },
-            RPCMethod::BotTransferOwnershipUser { bot_id, new_owner, reason } => {
+            }
+            RPCMethod::BotTransferOwnershipUser {
+                bot_id,
+                new_owner,
+                reason,
+            } => {
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
                     .fetch_one(&state.pool)
@@ -901,9 +1063,10 @@ impl RPCMethod {
                 }
 
                 // Check that the bot is not in a team
-                let team_owner = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
-                    .fetch_one(&state.pool)
-                    .await?;
+                let team_owner =
+                    sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
+                        .fetch_one(&state.pool)
+                        .await?;
 
                 if team_owner.team_owner.is_some() {
                     return Err("Bot is in a team. Please use BotTransferOwnershipTeam".into());
@@ -936,8 +1099,12 @@ impl RPCMethod {
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
-            },
-            RPCMethod::BotTransferOwnershipTeam { bot_id, new_team, reason } => {
+            }
+            RPCMethod::BotTransferOwnershipTeam {
+                bot_id,
+                new_team,
+                reason,
+            } => {
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
                     .fetch_one(&state.pool)
@@ -954,9 +1121,10 @@ impl RPCMethod {
                 };
 
                 // Check that the bot is not in a team
-                let team_owner = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
-                    .fetch_one(&state.pool)
-                    .await?;
+                let team_owner =
+                    sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
+                        .fetch_one(&state.pool)
+                        .await?;
 
                 if team_owner.team_owner.is_none() {
                     return Err("Bot is not in a team. Please use BotTransferOwnership".into());
@@ -989,8 +1157,12 @@ impl RPCMethod {
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
-            },
-            RPCMethod::TeamNameEdit { team_id, new_name, reason } => {
+            }
+            RPCMethod::TeamNameEdit {
+                team_id,
+                new_name,
+                reason,
+            } => {
                 if new_name.len() > 32 {
                     return Err("Team name is too long".into());
                 }

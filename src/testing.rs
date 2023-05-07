@@ -1,9 +1,7 @@
 use crate::{checks, config};
 use futures_util::StreamExt;
 use log::info;
-use poise::serenity_prelude::{
-    ChannelId, CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter, CreateMessage, User,
-};
+use poise::serenity_prelude::{CreateActionRow, CreateButton, CreateEmbed, User};
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde::Serialize;
 use serde_json::json;
@@ -251,7 +249,6 @@ pub async fn claim(
 
     // Check if its claimed by someone
     let data = ctx.data();
-    let discord = ctx.discord();
 
     let claimed = sqlx::query!(
         "SELECT type, claimed_by FROM bots WHERE bot_id = $1",
@@ -264,72 +261,14 @@ pub async fn claim(
         return Err("This bot is not pending review".into());
     }
 
-    if claimed.r#type == "testbot" {
-        return Err("This bot is a test bot".into());
-    }
+    let mut force = false;
 
-    let bot_owner = crate::impls::utils::resolve_ping_user(&bot.id.to_string(), &data.pool).await?;
-
-    if claimed.claimed_by.is_none() {
-        // Claim it
-        sqlx::query!(
-            "UPDATE bots SET last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
-            ctx.author().id.0.to_string(),
-            bot.id.to_string()
-        )
-        .execute(&data.pool)
-        .await?;
-
-        sqlx::query!(
-            "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
-            ctx.author().id.to_string(),
-            "claimed",
-            json!({
-                "bot_id": bot.id.to_string(),
-                "claimed_by_prev": claimed.claimed_by,
-            })
-        )
-        .execute(&ctx.data().pool)
-        .await?;
-
-        let msg = CreateReply::default().embed(
-            CreateEmbed::default()
-                .title("Bot Claimed")
-                .description(format!("You have claimed <@{}>", bot.id))
-                .footer(CreateEmbedFooter::new(
-                    "Use ibb!invite or /invite to get the bots invite",
-                )),
-        );
-
-        ctx.send(msg).await?;
-
-        let msg = CreateMessage::default()
-            .content(format!("<@{}>", bot_owner))
-            .embed(
-                CreateEmbed::default()
-                    .title("Bot Claimed!")
-                    .description(format!(
-                        "<@{}> has claimed <@{}>",
-                        ctx.author().id.0,
-                        bot.id
-                    ))
-                    .footer(CreateEmbedFooter::new(
-                        "This is completely normal, don't worry!",
-                    )),
-            );
-
-        ChannelId(crate::config::CONFIG.channels.mod_logs)
-            .send_message(discord, msg)
-            .await?;
-    } else {
+    if let Some(claimed_by) = claimed.claimed_by {
         let builder = CreateReply::default()
             .embed(
                 CreateEmbed::default()
                     .title("Bot Already Claimed")
-                    .description(format!(
-                        "This bot is already claimed by <@{}>",
-                        claimed.claimed_by.as_ref().ok_or("No claimed_by")?
-                    ))
+                    .description(format!("This bot is already claimed by <@{}>", &claimed_by,))
                     .color(0xFF0000),
             )
             .components(vec![CreateActionRow::Buttons(vec![
@@ -354,8 +293,6 @@ pub async fn claim(
         if let Some(m) = &interaction {
             let id = &m.data.custom_id;
 
-            let claimed_by = claimed.claimed_by.unwrap();
-
             if id == "remind" {
                 sqlx::query!(
                     "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
@@ -376,56 +313,28 @@ pub async fn claim(
                         bot_id = bot.id
                     )
                 ).await?;
+
+                return Ok(());
             } else {
-                // Force claim
-                sqlx::query!(
-                    "UPDATE bots SET last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
-                    ctx.author().id.0.to_string(),
-                    bot.id.to_string()
-                )
-                .execute(&data.pool)
-                .await?;
-
-                sqlx::query!(
-                    "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
-                    ctx.author().id.to_string(),
-                    "claimed",
-                    json!({
-                        "bot_id": bot.id.to_string(),
-                        "claimed_by_prev": claimed_by,
-                    })
-                )
-                .execute(&ctx.data().pool)
-                .await?;
-
-                let msg = CreateMessage::default()
-                    .content(format!("<@{}>", bot_owner))
-                    .embed(
-                        CreateEmbed::default()
-                            .title("Bot Reclaimed!")
-                            .description(format!(
-                                "<@{}> has reclaimed <@{}> from <@{}>",
-                                ctx.author().id.0,
-                                bot.id,
-                                claimed_by
-                            ))
-                            .footer(CreateEmbedFooter::new(
-                                "This is completely normal, don't worry!",
-                            )),
-                    );
-
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
-                    .send_message(discord, msg)
-                    .await?;
-
-                ctx.say(format!(
-                    "You have claimed <@{bot_id}> and the bot owner has been notified!",
-                    bot_id = bot.id
-                ))
-                .await?;
+                force = true;
             }
         }
     }
+
+    // Create a rpc call
+    crate::rpc::core::RPCMethod::BotClaim {
+        bot_id: bot.id.to_string(),
+        force,
+    }
+    .handle(crate::rpc::core::RPCHandle {
+        pool: data.pool.clone(),
+        cache_http: data.cache_http.clone(),
+        user_id: ctx.author().id.to_string(),
+    })
+    .await?;
+
+    ctx.say("Claimed bot successfully, the bot owner has been informed")
+        .await?;
 
     Ok(())
 }
@@ -444,74 +353,23 @@ pub async fn unclaim(
     #[description = "The bot you wish to unclaim"] bot: serenity::User,
     #[description = "Reason for unclaiming"] reason: String,
 ) -> Result<(), Error> {
-    let data = ctx.data();
-    let discord = ctx.discord();
-
-    if bot.id.0 == config::CONFIG.test_bot {
-        return Err("You cannot unclaim the test bot!".into());
-    }
-
     if !checks::testing_server(ctx).await? {
         return Err("You are not in the testing server".into());
     }
 
-    let claimed = sqlx::query!(
-        "SELECT type, claimed_by, owner FROM bots WHERE bot_id = $1",
-        bot.id.to_string()
-    )
-    .fetch_one(&data.pool)
+    let data = ctx.data();
+    crate::rpc::core::RPCMethod::BotUnclaim {
+        bot_id: bot.id.to_string(),
+        reason: reason.clone(),
+    }
+    .handle(crate::rpc::core::RPCHandle {
+        pool: data.pool.clone(),
+        cache_http: data.cache_http.clone(),
+        user_id: ctx.author().id.to_string(),
+    })
     .await?;
 
-    if claimed.r#type != "pending" {
-        return Err("This bot is not pending review".into());
-    }
-
-    let bot_owner = crate::impls::utils::resolve_ping_user(&bot.id.to_string(), &data.pool).await?;
-
-    if claimed.claimed_by.is_none() {
-        ctx.say(format!("<@{}> is not claimed", bot.id.0)).await?;
-    } else {
-        sqlx::query!(
-            "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
-            bot.id.0.to_string()
-        )
-        .execute(&data.pool)
-        .await?;
-
-        sqlx::query!(
-            "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",
-            ctx.author().id.to_string(),
-            "unclaimed",
-            json!({
-                "bot_id": bot.id.to_string(),
-            })
-        )
-        .execute(&ctx.data().pool)
-        .await?;
-
-        let msg = CreateMessage::new()
-            .content(format!("<@{}>", bot_owner))
-            .embed(
-                CreateEmbed::new()
-                    .title("Bot Unclaimed!")
-                    .description(format!(
-                        "<@{}> has unclaimed <@{}>",
-                        ctx.author().id.0,
-                        bot.id.0
-                    ))
-                    .field("Reason", reason, false)
-                    .footer(CreateEmbedFooter::new(
-                        "This is completely normal, don't worry!",
-                    )),
-            );
-
-        ChannelId(crate::config::CONFIG.channels.mod_logs)
-            .send_message(discord, msg)
-            .await?;
-
-        ctx.say(format!("You have unclaimed <@{}>", bot.id.0))
-            .await?;
-    }
+    ctx.say("Unclaimed bot successfully!").await?;
 
     Ok(())
 }

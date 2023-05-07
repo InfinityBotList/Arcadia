@@ -116,6 +116,62 @@ pub async fn rpc(
             }
 
             match variant {
+                super::core::RPCMethod::BotClaim { .. } => {
+                    let qm = CreateQuickModal::new("Claim Bot")
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Bot ID",
+                            "bot_id",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Force Claim [Y/N]",
+                            "fclaim",
+                        ));
+
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
+                        let inputs = resp.inputs;
+                        let (bot_id, force) = (&inputs[0], &inputs[1]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::BotClaim {
+                                bot_id: bot_id.to_string(),
+                                force: parse_bool(force)?,
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
+                }
+                super::core::RPCMethod::BotUnclaim { .. } => {
+                    let qm = CreateQuickModal::new("Unclaim Bot")
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Bot ID",
+                            "bot_id",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Paragraph,
+                            "Reason",
+                            "reason",
+                        ));
+
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
+                        let inputs = resp.inputs;
+                        let (bot_id, reason) = (&inputs[0], &inputs[1]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::BotUnclaim {
+                                bot_id: bot_id.to_string(),
+                                reason: reason.to_string(),
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
+                }
                 super::core::RPCMethod::BotApprove { .. } => {
                     let qm = CreateQuickModal::new("Approve Bot")
                         .field(CreateInputText::new(
@@ -541,7 +597,7 @@ pub async fn rpc(
                     } else {
                         return Err("No response".into());
                     }
-                },
+                }
                 super::core::RPCMethod::BotTransferOwnershipUser { .. } => {
                     let qm = CreateQuickModal::new("Transfer Bot Ownership")
                         .field(CreateInputText::new(
@@ -575,8 +631,8 @@ pub async fn rpc(
                     } else {
                         return Err("No response".into());
                     }
-                },
-                super::core::RPCMethod::BotTransferOwnershipTeam { .. } => { 
+                }
+                super::core::RPCMethod::BotTransferOwnershipTeam { .. } => {
                     let qm = CreateQuickModal::new("Transfer Bot Ownership to Team")
                         .field(CreateInputText::new(
                             InputTextStyle::Short,
@@ -609,8 +665,8 @@ pub async fn rpc(
                     } else {
                         return Err("No response".into());
                     }
-                },
-                super::core::RPCMethod::TeamNameEdit { .. } => { 
+                }
+                super::core::RPCMethod::TeamNameEdit { .. } => {
                     let qm = CreateQuickModal::new("Team Name Edit")
                         .field(CreateInputText::new(
                             InputTextStyle::Short,

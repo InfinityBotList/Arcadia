@@ -145,6 +145,27 @@ impl RPCMethod {
         }.to_string()
     }
 
+    pub fn label(&self) -> String {
+        match self {
+            Self::BotApprove { .. } => "Approve Bot",
+            Self::BotDeny { .. } => "Deny Bot",
+            Self::BotVoteReset { .. } => "Reset Bot Votes",
+            Self::BotVoteResetAll { .. } => "Reset All Bot Votes",
+            Self::BotUnverify { .. } => "Unverify Bot",
+            Self::BotPremiumAdd { .. } => "Add Premium To Bot",
+            Self::BotPremiumRemove { .. } => "Remove Premium From Bot",
+            Self::BotVoteBanAdd { .. } => "Vote Ban Bot",
+            Self::BotVoteBanRemove { .. } => "Unvote Ban Bot",
+            Self::BotForceRemove { .. } => "Force Remove Bot",
+            Self::BotCertifyAdd { .. } => "Certify Bot",
+            Self::BotCertifyRemove { .. } => "Uncertify Bot",
+            Self::BotVoteCountSet { .. } => "Set Bot Vote Count",
+            Self::BotTransferOwnershipUser { .. } => "Transfer Bot Ownership To User",
+            Self::BotTransferOwnershipTeam { .. } => "Transfer Bot Ownership To Team",
+            Self::TeamNameEdit { .. } => "Edit Team Name",
+        }.to_string()
+    }
+
     pub async fn handle(&self, state: RPCHandle) -> Result<RPCSuccess, Error> {
         // First ensure we have the permissions needed
         match self.needs_perms() {

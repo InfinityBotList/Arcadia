@@ -393,7 +393,7 @@ async fn available_actions(
 
         let action = WebAction {
             id: variant.to_string(),
-            label: variant.to_string(),
+            label: method.label(),
             description: method.description(),
             needed_perms: method.needs_perms(),
             method_example: method.clone(),

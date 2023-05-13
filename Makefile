@@ -7,7 +7,7 @@ CARGO_TARGET_GNU_LINKER="x86_64-unknown-linux-gnu-gcc"
 BINS ?= bot
 PROJ_NAME ?= arcadia
 HOST ?= 100.71.175.17
-BINDINGS_URL ?= /iblcdn/public/dev/apiBindings
+BINDINGS_URL ?= /iblcdn/public/dev/bindings/arcadia
 
 all: 
 	@make cross

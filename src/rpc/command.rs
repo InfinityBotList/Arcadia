@@ -27,8 +27,8 @@ async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<poise::Autocomple
 
 fn parse_bool(v: &str) -> Result<bool, Error> {
     match v.to_lowercase().as_str() {
-        "true" | "t" => Ok(true),
-        "false" | "f" => Ok(false),
+        "true" | "t" | "y" => Ok(true),
+        "false" | "f" | "n" => Ok(false),
         _ => Err("Invalid boolean".into()),
     }
 }
@@ -66,8 +66,6 @@ struct GetResp {
 #[poise::command(
     prefix_command,
     slash_command,
-    track_edits,
-    broadcast_typing,
     check = "crate::checks::is_staff"
 )]
 pub async fn rpc(

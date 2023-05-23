@@ -9,7 +9,7 @@ use poise::{
 
 use std::{fmt::Write as _, num::NonZeroU64, time::Duration};
 // import without risk of name clashing
-use poise::serenity_prelude::id::UserId;
+use poise::serenity_prelude::UserId;
 
 use crate::checks;
 

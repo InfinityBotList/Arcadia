@@ -62,8 +62,6 @@ pub struct Channels {
     /// The testing lounge channel where autounclaims are sent
     pub testing_lounge: NonZeroU64,
     pub mod_logs: NonZeroU64,
-    /// Where onboardings are sent to for staff managers to moderate
-    pub onboarding_channel: NonZeroU64,
     // System channel
     pub system: NonZeroU64,
     pub uptime: NonZeroU64,
@@ -74,7 +72,6 @@ impl Default for Channels {
         Self {
             testing_lounge: NonZeroU64::new(891611731699335209).unwrap(),
             mod_logs: NonZeroU64::new(911907978926493716).unwrap(),
-            onboarding_channel: NonZeroU64::new(990716921475375114).unwrap(),
             system: NonZeroU64::new(762958420277067786).unwrap(),
             uptime: NonZeroU64::new(1083108330442076292).unwrap(),
         }

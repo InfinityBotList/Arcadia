@@ -1,0 +1,8 @@
+language: rust
+project: "arcadia"
+binary: "bot"
+service: "arcadia"
+lang_opts:
+  bindings: "/iblcdn/public/dev/bindings/arcadia"
+env:
+  DATABASE_URL: postgres://localhost/infinity  

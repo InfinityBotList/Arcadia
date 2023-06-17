@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 use std::sync::Arc;
 
 use crate::impls;
@@ -15,25 +15,46 @@ use strum::VariantNames;
 use tower_http::cors::{Any, CorsLayer};
 
 use super::core::{RPCHandle, RPCMethod, RPCPerms, RPCSuccess};
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use once_cell::sync::Lazy;
+use moka::future::Cache;
+
+pub static RPC_KEYCHAIN: Lazy<Cache<String, KeychainData>> = Lazy::new(|| {
+    info!("RPCKeychain initialized");
+
+    Cache::builder()
+        // Time to live (TTL): 15 minutes
+        .time_to_live(Duration::from_secs(5 * 60))        // Create the cache.
+        .build()
+});
+
+#[derive(Clone)]
+pub struct KeychainData {
+    pub user_id: String,
+    pub allowed_methods: Vec<String>,
+    pub max_uses: u8,
+    pub used: u8,
+    pub reason: String,
+}
 
 #[derive(Deserialize, TS)]
 #[ts(export, export_to = ".generated/RPCRequest.ts")]
 pub struct RPCRequest {
     pub user_id: String,
-    pub token: String,
     pub method: RPCMethod,
+    pub api_token: String,
+    pub rpc_identity: String,
     pub protocol: u8,
 }
 
 pub enum RPCResponse {
     Err(String),
     InvalidProtocol,
-    RPCLocked,
+    InvalidIdentity,
+    UsageQuoteExceeded,
+    MethodNotAllowed,
     UserNotFound,
-    InvalidAuth,
     StaffOnly,
 }
 
@@ -51,19 +72,16 @@ impl IntoResponse for RPCResponse {
                 "Out of date client. Please use the bot until this is fixed",
             )
                 .into_response(),
-            Self::RPCLocked => (
-                StatusCode::PRECONDITION_FAILED,
-                "RPC is locked. Use `rpcunlock` to unlock it for 1 hour",
-            )
-                .into_response(),
             Self::UserNotFound => {
-                (StatusCode::NOT_FOUND, "This user could not be found").into_response()
+                (StatusCode::NOT_FOUND, "This user could not be found. Try logging out and logging in again?").into_response()
             }
-            Self::InvalidAuth => (
+            Self::InvalidIdentity => (
                 StatusCode::UNAUTHORIZED,
-                "Invalid auth. Logout and login again to get a new token.",
+                "Invalid RPC identity. Generate a new one?",
             )
                 .into_response(),
+            Self::UsageQuoteExceeded => (StatusCode::METHOD_NOT_ALLOWED, "Usage quotas exceeded for this RPC identity, generate another one?").into_response(),
+            Self::MethodNotAllowed => (StatusCode::METHOD_NOT_ALLOWED, "Method not allowed for this RPC identity").into_response(),
             Self::StaffOnly => (StatusCode::FORBIDDEN, "Staff-only endpoint").into_response(),
         }
     }
@@ -115,36 +133,51 @@ async fn web_rpc_api(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RPCRequest>,
 ) -> Result<Success, RPCResponse> {
-    if req.protocol != 4 {
+    if req.protocol != 5 {
         return Err(RPCResponse::InvalidProtocol);
     }
 
+    // Check RPC key
+    let keychain = RPC_KEYCHAIN.get(&req.rpc_identity);
+
+    if keychain.is_none() {
+        return Err(RPCResponse::InvalidIdentity);
+    }
+
+    let keychain = keychain.unwrap();
+
+    // Ensure it matches user
+    if keychain.user_id != req.user_id {
+        return Err(RPCResponse::InvalidIdentity);
+    }
+
+    // Check usage limits
+    if keychain.max_uses > keychain.used {
+        return Err(RPCResponse::UsageQuoteExceeded);
+    }
+
+    // Get name of method
+    if !keychain.allowed_methods.contains(&req.method.to_string()) {
+        return Err(RPCResponse::MethodNotAllowed);
+    }
+
+    // Increment used
+    RPC_KEYCHAIN.insert(req.rpc_identity,  KeychainData {
+        used: keychain.used + 1,
+        ..keychain
+    }).await;
+
     let check = sqlx::query!(
-        "SELECT staff, api_token, staff_rpc_last_verify FROM users WHERE user_id = $1",
-        &req.user_id
+        "SELECT staff FROM users WHERE user_id = $1 AND api_token = $2",
+        &req.user_id,
+        &req.api_token
     )
     .fetch_one(&state.pool)
     .await
     .map_err(|_| RPCResponse::UserNotFound)?;
 
-    if check.api_token != req.token {
-        return Err(RPCResponse::InvalidAuth);
-    }
-
     if !check.staff {
         return Err(RPCResponse::StaffOnly);
-    }
-
-    match &req.method {
-        RPCMethod::BotClaim { .. } => {}
-        RPCMethod::BotUnclaim { .. } => {}
-        RPCMethod::BotApprove { .. } => {}
-        RPCMethod::BotDeny { .. } => {}
-        _ => {
-            if Utc::now().timestamp() - check.staff_rpc_last_verify.timestamp() > 600 {
-                return Err(RPCResponse::RPCLocked);
-            }
-        }
     }
 
     match req

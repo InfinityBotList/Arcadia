@@ -223,7 +223,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 async fn main() {
     const MAX_CONNECTIONS: u32 = 3; // max connections to the database, we don't need too many here
 
-    std::env::set_var("RUST_LOG", "bot=info");
+    std::env::set_var("RUST_LOG", "bot=info, moka=error");
 
     env_logger::init();
 
@@ -259,7 +259,7 @@ async fn main() {
                 testing::approve(),
                 testing::deny(),
                 testing::staffguide(),
-                admin::rpcunlock(),
+                admin::rpcidentify(),
                 admin::rpclock(),
                 admin::protectdeploy(),
                 admin::unprotectdeploy(),

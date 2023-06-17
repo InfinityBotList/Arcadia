@@ -283,7 +283,7 @@ impl RPCMethod {
             .map_err(|_| "Failed to reset user token")?;
 
             return Err(
-                "Rate limit exceeded. Wait 5-10 minutes, You will need to login/logout as well."
+                "Rate limit exceeded. Wait 5-10 minutes and try again?"
                     .into(),
             );
         }

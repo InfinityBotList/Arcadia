@@ -60,6 +60,12 @@ pub async fn rpcidentify(
 
     let max_uses = max_uses.unwrap_or(3);
 
+    if max_uses > 10 {
+        return Err(
+            "Maximum uses cannot be greater than 10".into()
+        );
+    }
+
     let warn_embed = {
         CreateEmbed::new()
         .title(":warning: Warning")
@@ -126,7 +132,7 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
             }
 
             // Create a RPC identity
-            let rpc_identity = crate::impls::crypto::gen_random(65535);
+            let rpc_identity = "Bluejay$V1:".to_string()+&crate::impls::crypto::gen_random(65535);
 
             sqlx::query!(
                 "INSERT INTO staff_general_logs (user_id, action, data) VALUES ($1, $2, $3)",

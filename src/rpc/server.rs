@@ -152,7 +152,7 @@ async fn web_rpc_api(
     }
 
     // Check usage limits
-    if keychain.max_uses > keychain.used {
+    if keychain.used > keychain.max_uses {
         return Err(RPCResponse::UsageQuoteExceeded);
     }
 

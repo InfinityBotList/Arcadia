@@ -695,6 +695,17 @@ impl RPCMethod {
                     return Err("Bot does not exist".into());
                 }
 
+                let bot_type_rec = sqlx::query!(
+                    "SELECT type FROM bots WHERE bot_id = $1",
+                    bot_id
+                )
+                .fetch_one(&state.pool)
+                .await?;
+
+                if bot_type_rec.r#type == "certified" {
+                    return Err("Certified bots cannot be unverified".into());
+                }
+
                 sqlx::query!(
                     "UPDATE bots SET type = 'pending', claimed_by = NULL WHERE bot_id = $1",
                     bot_id

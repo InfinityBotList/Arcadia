@@ -157,7 +157,7 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
                 .add_file(
                     CreateAttachment::bytes(
                         rpc_identity.as_bytes().to_vec(),
-                        "rpc_identity:".to_string()+&filehash,
+                        "rpc_identity.".to_string()+&filehash,
                     )
                 )
             )

@@ -24,7 +24,7 @@ pub async fn invite(
     let data = ctx.data();
 
     let invite_data = sqlx::query!(
-        "SELECT invite FROM bots WHERE bot_id = $1 OR queue_name ILIKE $1 OR vanity = $1 ORDER BY created_at DESC LIMIT 1",
+        "SELECT invite FROM bots WHERE bot_id = $1 OR vanity = $1 ORDER BY created_at DESC LIMIT 1",
         bot
     )
     .fetch_one(&data.pool)
@@ -137,7 +137,7 @@ pub async fn queue(
     let data = ctx.data();
 
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note, short, queue_name, invite FROM bots WHERE type = 'pending' ORDER BY created_at ASC",
+        "SELECT claimed_by, bot_id, approval_note, short, invite FROM bots WHERE type = 'pending' ORDER BY created_at ASC",
     )
     .fetch_all(&data.pool)
     .await?;
@@ -155,12 +155,14 @@ pub async fn queue(
 
     let bot_owner = crate::impls::utils::resolve_ping_user(&bot.bot_id, &data.pool).await?;
 
+    let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
+
     let mut msg = ctx
         .send(_queue_bot(InternalQueueBot {
             index: current_bot,
             total_bots: bot_len,
             bot_id: bot.bot_id.clone(),
-            queue_name: bot.queue_name.clone(),
+            queue_name: bot_partial.display_name.clone(),
             text_msg: !embed,
             claimed_by: bot.claimed_by.clone(),
             approval_note: bot.approval_note.clone(),
@@ -214,7 +216,7 @@ pub async fn queue(
                 index: current_bot,
                 total_bots: bot_len,
                 bot_id: bot.bot_id.clone(),
-                queue_name: bot.queue_name.clone(),
+                queue_name: bot_partial.display_name.clone(),
                 text_msg: !embed,
                 claimed_by: bot.claimed_by.clone(),
                 approval_note: bot.approval_note.clone(),

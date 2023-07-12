@@ -1,6 +1,0 @@
-/target
-.vscode
-.env
-config.yaml
-config.yaml.sample
-.generated

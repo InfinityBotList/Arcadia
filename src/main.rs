@@ -253,6 +253,7 @@ async fn main() {
                 explain::explainme(),
                 staff::staff(),
                 testing::invite(),
+                testing::invitesafe(),
                 testing::claim(),
                 testing::unclaim(),
                 testing::queue(),

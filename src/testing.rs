@@ -34,6 +34,28 @@ pub async fn invite(
     Ok(())
 }
 
+/// Gets a safe invite to a bot
+#[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
+pub async fn invitesafe(
+    ctx: Context<'_>,
+    #[description = "The invite to the bot"] bot: String,
+) -> Result<(), Error> {
+    let data = ctx.data();
+
+    let invite_data = sqlx::query!("SELECT client_id FROM bots WHERE bot_id = $1", bot)
+    .fetch_one(&data.pool)
+    .await?;
+
+    ctx.say(
+        format!(
+            "https://discord.com/api/v10/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot%20applications.commands&guild_id={guild_id}", 
+            client_id = invite_data.client_id,
+            guild_id = crate::config::CONFIG.servers.main
+        )        
+    ).await?;
+    Ok(())
+}
+
 /// Sends the staff guide link
 #[poise::command(
     prefix_command,

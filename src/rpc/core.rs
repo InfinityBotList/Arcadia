@@ -558,11 +558,19 @@ impl RPCMethod {
                     }
                 }
 
-                let invite_data = sqlx::query!("SELECT invite FROM bots WHERE bot_id = $1", bot_id)
+                let invite_data = sqlx::query!("SELECT client_id FROM bots WHERE bot_id = $1", bot_id)
                     .fetch_one(&state.pool)
                     .await?;
 
-                Ok(RPCSuccess::Content(invite_data.invite))
+                Ok(
+                    RPCSuccess::Content(
+                        format!(
+                            "https://discord.com/api/v10/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot%20applications.commands&guild_id={guild_id}", 
+                            client_id = invite_data.client_id,
+                            guild_id = crate::config::CONFIG.servers.main
+                        )
+                    )
+                )
             }
             RPCMethod::BotDeny { bot_id, reason } => {
                 let claimed = sqlx::query!(

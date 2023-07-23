@@ -333,6 +333,23 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
             },
             WebField::reason(),
         ],
+        RPCMethod::TeamAvatarEdit { .. } => vec![
+            WebField {
+                id: "team_id".to_string(),
+                label: "Team ID".to_string(),
+                field_type: FieldType::Text,
+                icon: "material-symbols:timer".to_string(),
+                placeholder: "Team ID".to_string(),
+            },
+            WebField {
+                id: "new_avatar".to_string(),
+                label: "New team avatar".to_string(),
+                field_type: FieldType::Text,
+                icon: "material-symbols:timer".to_string(),
+                placeholder: "Team avatar (must be https)".to_string(),
+            },
+            WebField::reason(),
+        ],
     }
 }
 

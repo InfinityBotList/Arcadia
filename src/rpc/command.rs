@@ -697,6 +697,40 @@ pub async fn rpc(
                     } else {
                         return Err("No response".into());
                     }
+                },
+                super::core::RPCMethod::TeamAvatarEdit { .. } => {
+                    let qm = CreateQuickModal::new("Team Name Edit")
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Team ID",
+                            "team_id",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "New Team Avatar",
+                            "new_avatar",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Paragraph,
+                            "Reason",
+                            "reason",
+                        ));
+
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
+                        let inputs = resp.inputs;
+                        let (team_id, new_avatar, reason) = (&inputs[0], &inputs[1], &inputs[2]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::TeamAvatarEdit {
+                                team_id: team_id.to_string(),
+                                new_avatar: new_avatar.to_string(),
+                                reason: reason.to_string(),
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
                 }
             }
         } else {

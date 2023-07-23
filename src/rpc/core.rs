@@ -94,6 +94,11 @@ pub enum RPCMethod {
         new_name: String,
         reason: String,
     },
+    TeamAvatarEdit {
+        team_id: String,
+        new_avatar: String,
+        reason: String,
+    }
 }
 
 pub struct RPCHandle {
@@ -131,7 +136,8 @@ impl RPCMethod {
             RPCMethod::BotVoteCountSet { .. } => RPCPerms::Owner,
             RPCMethod::BotTransferOwnershipUser { .. } => RPCPerms::Admin,
             RPCMethod::BotTransferOwnershipTeam { .. } => RPCPerms::Head,
-            RPCMethod::TeamNameEdit { .. } => RPCPerms::Head,
+            RPCMethod::TeamNameEdit { .. } => RPCPerms::Admin,
+            RPCMethod::TeamAvatarEdit { .. } => RPCPerms::Admin,
         }
     }
 
@@ -165,6 +171,7 @@ impl RPCMethod {
                 "Transfers the ownership of a bot to a new team"
             }
             Self::TeamNameEdit { .. } => "Edits the name of a team",
+            Self::TeamAvatarEdit { .. } => "Edits the avatar of a team",
         }
         .to_string()
     }
@@ -189,6 +196,7 @@ impl RPCMethod {
             Self::BotTransferOwnershipUser { .. } => "Set Bot Owner [User]",
             Self::BotTransferOwnershipTeam { .. } => "Set Bot Owner [Team]",
             Self::TeamNameEdit { .. } => "Edit Team Name",
+            Self::TeamAvatarEdit { .. } => "Edit Team Avatar",
         }
         .to_string()
     }
@@ -1215,13 +1223,67 @@ impl RPCMethod {
 
                 let msg = CreateMessage::new().embed(
                     CreateEmbed::default()
-                        .title("Bot Ownership Force Update!")
+                        .title("Team Name Force Update!")
                         .description(format!(
                             "<@{}> has force-updated the name of a team",
                             state.user_id
                         ))
                         .field("Team ID", team_id.to_string(), true)
                         .field("New Name", new_name, true)
+                        .field("Reason", reason, true)
+                        .footer(CreateEmbedFooter::new(
+                            "Contact support if you think this is a mistake",
+                        ))
+                        .color(0xFF0000),
+                );
+
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(&state.cache_http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+            RPCMethod::TeamAvatarEdit {
+                team_id,
+                new_avatar,
+                reason,
+            } => {
+                if !new_avatar.starts_with("https://") {
+                    return Err("Avatars must be HTTPS only".into());
+                }
+
+                // Parse the team ID
+                let team_id = match team_id.parse::<Uuid>() {
+                    Ok(id) => id,
+                    Err(_) => return Err("Invalid team ID".into()),
+                };
+
+                // Ensure the team actually exists
+                let team = sqlx::query!("SELECT COUNT(*) FROM teams WHERE id = $1", team_id)
+                    .fetch_one(&state.pool)
+                    .await?;
+
+                if team.count.unwrap_or_default() == 0 {
+                    return Err("Team does not exist".into());
+                }
+
+                sqlx::query!(
+                    "UPDATE teams SET avatar = $2 WHERE id = $1",
+                    team_id,
+                    new_avatar
+                )
+                .execute(&state.pool)
+                .await?;
+
+                let msg = CreateMessage::new().embed(
+                    CreateEmbed::default()
+                        .title("Team Avatar Force Update!")
+                        .description(format!(
+                            "<@{}> has force-updated the name of a team",
+                            state.user_id
+                        ))
+                        .field("Team ID", team_id.to_string(), true)
+                        .field("New Avatar", new_avatar, true)
                         .field("Reason", reason, true)
                         .footer(CreateEmbedFooter::new(
                             "Contact support if you think this is a mistake",

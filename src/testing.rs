@@ -184,7 +184,7 @@ pub async fn queue(
             index: current_bot,
             total_bots: bot_len,
             bot_id: bot.bot_id.clone(),
-            queue_name: bot_partial.display_name.clone(),
+            queue_name: bot_partial.display_name,
             text_msg: !embed,
             claimed_by: bot.claimed_by.clone(),
             approval_note: bot.approval_note.clone(),
@@ -232,13 +232,15 @@ pub async fn queue(
 
         let bot_owner = crate::impls::utils::resolve_ping_user(&bot.bot_id, &data.pool).await?;
 
+	let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
+
         msg.edit(
             ctx,
             _queue_bot(InternalQueueBot {
                 index: current_bot,
                 total_bots: bot_len,
                 bot_id: bot.bot_id.clone(),
-                queue_name: bot_partial.display_name.clone(),
+                queue_name: bot_partial.display_name,
                 text_msg: !embed,
                 claimed_by: bot.claimed_by.clone(),
                 approval_note: bot.approval_note.clone(),

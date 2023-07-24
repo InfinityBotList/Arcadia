@@ -2,6 +2,7 @@ use std::{str::FromStr, time::Duration};
 use std::sync::Arc;
 
 use crate::impls;
+use axum::http::HeaderMap;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -19,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use once_cell::sync::Lazy;
 use moka::future::Cache;
+use utoipa::ToSchema;
 
 pub static RPC_KEYCHAIN: Lazy<Cache<String, KeychainData>> = Lazy::new(|| {
     info!("RPCKeychain initialized");
@@ -38,7 +40,7 @@ pub struct KeychainData {
     pub reason: String,
 }
 
-#[derive(Deserialize, TS)]
+#[derive(Deserialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCRequest.ts")]
 pub struct RPCRequest {
     pub user_id: String,
@@ -80,7 +82,7 @@ impl IntoResponse for RPCResponse {
                 "Invalid RPC identity. Generate a new one?",
             )
                 .into_response(),
-            Self::UsageQuoteExceeded => (StatusCode::METHOD_NOT_ALLOWED, "Usage quotas exceeded for this RPC identity, generate another one?").into_response(),
+            Self::UsageQuoteExceeded => (StatusCode::TOO_MANY_REQUESTS, "Usage quotas exceeded for this RPC identity, generate another one?").into_response(),
             Self::MethodNotAllowed => (StatusCode::METHOD_NOT_ALLOWED, "Method not allowed for this RPC identity").into_response(),
             Self::StaffOnly => (StatusCode::FORBIDDEN, "Staff-only endpoint").into_response(),
         }
@@ -102,9 +104,27 @@ pub struct AppState {
 }
 
 pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
+    use utoipa::OpenApi;
+    #[derive(OpenApi)]
+    #[openapi(paths(web_rpc_api, available_actions), components(schemas(RPCRequest, WebAction)))]
+    struct ApiDoc;  
+
+    async fn docs() -> impl IntoResponse {
+        let mut headers = HeaderMap::new();
+        headers.insert("Content-Type", "application/json".parse().unwrap());
+        let data = ApiDoc::openapi().to_json();
+
+        if let Ok(data) = data {
+            return (headers, data).into_response();
+        }
+
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to generate docs".to_string()).into_response()
+    }  
+    
     let shared_state = Arc::new(AppState { pool, cache_http });
 
     let app = Router::new()
+        .route("/openapi", get(docs))
         .route("/", post(web_rpc_api))
         .route("/actions", get(available_actions))
         .with_state(shared_state)
@@ -129,6 +149,22 @@ pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     }
 }
 
+/// RPC Post API
+///
+/// This is the main API exposed by RPC. It is used to perform staff actions
+#[utoipa::path(
+    post,
+    request_body = RPCRequest,
+    path = "/",
+    responses(
+        (status = 200, description = "Content", body = String),
+        (status = 204, description = "No content"),
+        (status = PRECONDITION_FAILED, description = "Out of date client. Please use the bot until this is fixed", body = String),
+        (status = TOO_MANY_REQUESTS, description = "Usage quotas exceeded for this RPC identity, generate another one?", body = String),
+        (status = BAD_REQUEST, description = "An error occured", body = String),
+        (status = NOT_FOUND, description = "Not Found Error", body = String)
+    ),
+)]
 async fn web_rpc_api(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RPCRequest>,
@@ -195,7 +231,7 @@ async fn web_rpc_api(
     }
 }
 
-#[derive(Serialize, TS)]
+#[derive(Serialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCWebField.ts")]
 struct WebField {
     id: String,
@@ -227,7 +263,7 @@ impl WebField {
     }
 }
 
-#[derive(Serialize, TS)]
+#[derive(Serialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCFieldType.ts")]
 enum FieldType {
     Text,
@@ -353,7 +389,7 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
     }
 }
 
-#[derive(Serialize, TS)]
+#[derive(Serialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCWebAction.ts")]
 struct WebAction {
     id: String,
@@ -369,6 +405,18 @@ struct WebActionQuery {
     user_id: Option<String>,
 }
 
+/// Returns a set of openapi data
+/// 
+/// This is used to render the list of fields to display for a given RPC method
+#[utoipa::path(
+    get,
+    path = "/actions",
+    responses(
+        (status = 200, description = "RPC WebField Data", body = Vec<WebAction>),
+        (status = BAD_REQUEST, description = "An error occured", body = String),
+        (status = NOT_FOUND, description = "Not Found Error", body = String)
+    ),
+)]
 async fn available_actions(
     State(state): State<Arc<AppState>>,
     Query(query): Query<WebActionQuery>,

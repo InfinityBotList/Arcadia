@@ -12,8 +12,9 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
 use crate::{impls, Error};
+use utoipa::ToSchema;
 
-#[derive(Serialize, Deserialize, TS, EnumString, EnumVariantNames, Display, Clone)]
+#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
 #[ts(export, export_to = ".generated/RPCMethod.ts")]
 #[allow(clippy::enum_variant_names)]
 pub enum RPCMethod {
@@ -107,7 +108,7 @@ pub struct RPCHandle {
     pub user_id: String,
 }
 
-#[derive(Serialize, Deserialize, TS)]
+#[derive(Serialize, Deserialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCPerms.ts")]
 pub enum RPCPerms {
     Owner,

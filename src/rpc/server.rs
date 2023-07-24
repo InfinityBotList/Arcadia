@@ -106,7 +106,7 @@ pub struct AppState {
 pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
     #[derive(OpenApi)]
-    #[openapi(paths(web_rpc_api, available_actions), components(schemas(RPCRequest, WebAction, WebField, RPCMethod, RPCPerms)))]
+    #[openapi(paths(web_rpc_api, available_actions), components(schemas(RPCRequest, WebAction, WebField, RPCMethod, RPCPerms, FieldType)))]
     struct ApiDoc;  
 
     async fn docs() -> impl IntoResponse {

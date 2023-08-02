@@ -32,7 +32,7 @@ pub async fn spec_role_sync(
                 }
             }
         } else {
-            log::warn!("Failed to get guild");
+            return Err("Failed to get guild".into());
         }
     }
 

@@ -118,7 +118,7 @@ pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
             return (headers, data).into_response();
         }
 
-        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to generate docs".to_string()).into_response()
+        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to generate docs".to_string()).into_response()
     }  
     
     let shared_state = Arc::new(AppState { pool, cache_http });
@@ -242,6 +242,26 @@ struct WebField {
 }
 
 impl WebField {
+    fn target_type() -> Self {
+        WebField {
+            id: "target_type".to_string(),
+            label: "Target Type".to_string(),
+            field_type: FieldType::Text,
+            icon: "ic:twotone-access-time-filled".to_string(),
+            placeholder: "The Target Type (bot/pack/server etc.) to perform the action on".to_string(),
+        }  
+    }
+
+    fn target_id() -> Self {
+        WebField {
+            id: "target_id".to_string(),
+            label: "Target ID".to_string(),
+            field_type: FieldType::Text,
+            icon: "ic:twotone-access-time-filled".to_string(),
+            placeholder: "The Target ID to perform the action on".to_string(),
+        }  
+    }
+
     fn bot_id() -> Self {
         WebField {
             id: "bot_id".to_string(),
@@ -289,8 +309,6 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
         RPCMethod::BotUnclaim { .. } => vec![WebField::bot_id(), WebField::reason()],
         RPCMethod::BotApprove { .. } => vec![WebField::bot_id(), WebField::reason()],
         RPCMethod::BotDeny { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotVoteReset { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotVoteResetAll { .. } => vec![WebField::reason()],
         RPCMethod::BotUnverify { .. } => vec![WebField::bot_id(), WebField::reason()],
         RPCMethod::BotPremiumAdd { .. } => vec![
             WebField::bot_id(),
@@ -319,17 +337,6 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
         ],
         RPCMethod::BotCertifyAdd { .. } => vec![WebField::bot_id(), WebField::reason()],
         RPCMethod::BotCertifyRemove { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotVoteCountSet { .. } => vec![
-            WebField::bot_id(),
-            WebField {
-                id: "count".to_string(),
-                label: "Vote count".to_string(),
-                field_type: FieldType::Number,
-                icon: "material-symbols:timer".to_string(),
-                placeholder: "Vote count".to_string(),
-            },
-            WebField::reason(),
-        ],
         RPCMethod::BotTransferOwnershipUser { .. } => vec![
             WebField::bot_id(),
             WebField {
@@ -386,6 +393,8 @@ fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
             },
             WebField::reason(),
         ],
+        RPCMethod::VoteReset { .. } => vec![WebField::target_type(), WebField::target_id(), WebField::reason()],
+        RPCMethod::VoteResetAll { .. } => vec![WebField::target_type(), WebField::reason()],
     }
 }
 
@@ -396,7 +405,6 @@ struct WebAction {
     label: String,
     description: String,
     needed_perms: RPCPerms,
-    method_example: RPCMethod,
     fields: Vec<WebField>,
 }
 
@@ -460,7 +468,6 @@ async fn available_actions(
             label: method.label(),
             description: method.description(),
             needed_perms: method.needs_perms(),
-            method_example: method.clone(),
             fields: method_web_fields(method),
         };
 

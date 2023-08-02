@@ -38,12 +38,12 @@ pub async fn rpcidentify(
     let methods = methods.unwrap_or("BotClaim,BotUnclaim,BotApprove,BotDeny".into());
 
     let methods = methods.replace(' ', ",");
-    let methods = methods.split(",");
+    let methods = methods.split(',');
 
     let mut allowed_methods = vec![];
 
     for method in methods {
-        if method == "" {
+        if method.is_empty() {
             continue
         }
 
@@ -78,7 +78,7 @@ To continue, please click the `Unlock` button OR instead, (PREFERRED) just use b
 
 **Given Reason:** {}
 **Allowed Methods:** {:?}
-**Maximum Uses:** {}
+**Maximum Uses Of Identity:** {}
             ", 
             purpose,
             allowed_methods,

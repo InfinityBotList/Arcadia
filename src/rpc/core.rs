@@ -34,13 +34,6 @@ pub enum RPCMethod {
         bot_id: String,
         reason: String,
     },
-    BotVoteReset {
-        bot_id: String,
-        reason: String,
-    },
-    BotVoteResetAll {
-        reason: String,
-    },
     BotUnverify {
         bot_id: String,
         reason: String,
@@ -75,11 +68,6 @@ pub enum RPCMethod {
         bot_id: String,
         reason: String,
     },
-    BotVoteCountSet {
-        bot_id: String,
-        reason: String,
-        count: i32,
-    },
     BotTransferOwnershipUser {
         bot_id: String,
         reason: String,
@@ -99,7 +87,16 @@ pub enum RPCMethod {
         team_id: String,
         new_avatar: String,
         reason: String,
-    }
+    },
+    VoteReset {
+        target_type: String,
+        target_id: String,
+        reason: String,
+    },
+    VoteResetAll {
+        target_type: String,
+        reason: String,
+    },
 }
 
 pub struct RPCHandle {
@@ -124,8 +121,6 @@ impl RPCMethod {
             RPCMethod::BotUnclaim { .. } => RPCPerms::Staff,
             RPCMethod::BotApprove { .. } => RPCPerms::Staff,
             RPCMethod::BotDeny { .. } => RPCPerms::Staff,
-            RPCMethod::BotVoteReset { .. } => RPCPerms::Owner,
-            RPCMethod::BotVoteResetAll { .. } => RPCPerms::Owner,
             RPCMethod::BotUnverify { .. } => RPCPerms::Staff,
             RPCMethod::BotPremiumAdd { .. } => RPCPerms::Head,
             RPCMethod::BotPremiumRemove { .. } => RPCPerms::Head,
@@ -134,11 +129,12 @@ impl RPCMethod {
             RPCMethod::BotForceRemove { .. } => RPCPerms::Admin,
             RPCMethod::BotCertifyAdd { .. } => RPCPerms::Owner,
             RPCMethod::BotCertifyRemove { .. } => RPCPerms::Owner,
-            RPCMethod::BotVoteCountSet { .. } => RPCPerms::Owner,
             RPCMethod::BotTransferOwnershipUser { .. } => RPCPerms::Admin,
             RPCMethod::BotTransferOwnershipTeam { .. } => RPCPerms::Head,
             RPCMethod::TeamNameEdit { .. } => RPCPerms::Admin,
             RPCMethod::TeamAvatarEdit { .. } => RPCPerms::Admin,
+            RPCMethod::VoteReset { .. } => RPCPerms::Owner,
+            RPCMethod::VoteResetAll { .. } => RPCPerms::Owner,
         }
     }
 
@@ -152,8 +148,6 @@ impl RPCMethod {
             }
             Self::BotApprove { .. } => "Approve a bot. Needs to be claimed first.",
             Self::BotDeny { .. } => "Deny a bot. Needs to be claimed first.",
-            Self::BotVoteReset { .. } => "Reset the votes of a bot",
-            Self::BotVoteResetAll { .. } => "Reset the votes of all bots",
             Self::BotUnverify { .. } => "Unverifies a bot on the list",
             Self::BotPremiumAdd { .. } => "Adds premium to a bot for a given time period",
             Self::BotPremiumRemove { .. } => "Removes premium from a bot",
@@ -164,7 +158,6 @@ impl RPCMethod {
                 "Certifies a bot. Recommended to use apps instead however"
             }
             Self::BotCertifyRemove { .. } => "Uncertifies a bot",
-            Self::BotVoteCountSet { .. } => "Sets the vote count of a bot",
             Self::BotTransferOwnershipUser { .. } => {
                 "Transfers the ownership of a bot to a new user"
             }
@@ -173,6 +166,8 @@ impl RPCMethod {
             }
             Self::TeamNameEdit { .. } => "Edits the name of a team",
             Self::TeamAvatarEdit { .. } => "Edits the avatar of a team",
+            Self::VoteReset { .. } => "Reset the votes of a given entity (bot/pack/server etc.",
+            Self::VoteResetAll { .. } => "Reset the votes of a given entity (bot/pack/server etc.",
         }
         .to_string()
     }
@@ -183,8 +178,6 @@ impl RPCMethod {
             Self::BotUnclaim { .. } => "Unclaim Bot",
             Self::BotApprove { .. } => "Approve Bot",
             Self::BotDeny { .. } => "Deny Bot",
-            Self::BotVoteReset { .. } => "Reset Bot Votes",
-            Self::BotVoteResetAll { .. } => "Reset All Bot Votes",
             Self::BotUnverify { .. } => "Unverify Bot",
             Self::BotPremiumAdd { .. } => "Add Premium [Bot]",
             Self::BotPremiumRemove { .. } => "Remove Premium [Bot]",
@@ -193,11 +186,12 @@ impl RPCMethod {
             Self::BotForceRemove { .. } => "Force Remove Bot",
             Self::BotCertifyAdd { .. } => "Certify Bot",
             Self::BotCertifyRemove { .. } => "Uncertify Bot",
-            Self::BotVoteCountSet { .. } => "Set Bot Vote Count",
             Self::BotTransferOwnershipUser { .. } => "Set Bot Owner [User]",
             Self::BotTransferOwnershipTeam { .. } => "Set Bot Owner [Team]",
             Self::TeamNameEdit { .. } => "Edit Team Name",
             Self::TeamAvatarEdit { .. } => "Edit Team Avatar",
+            Self::VoteReset { .. } => "Vote Reset Entity",
+            Self::VoteResetAll { .. } => "Vote Reset All Entities",
         }
         .to_string()
     }
@@ -644,64 +638,6 @@ impl RPCMethod {
 
                 Ok(RPCSuccess::NoContent)
             }
-            RPCMethod::BotVoteReset { bot_id, reason } => {
-                // Ensure the bot actually exists
-                let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
-                    .fetch_one(&state.pool)
-                    .await?;
-
-                if bot.count.unwrap_or_default() == 0 {
-                    return Err("Bot does not exist".into());
-                }
-
-                sqlx::query!("UPDATE bots SET votes = 0 WHERE bot_id = $1", bot_id)
-                    .execute(&state.pool)
-                    .await?;
-
-                sqlx::query!("DELETE FROM votes WHERE bot_id = $1", bot_id)
-                    .execute(&state.pool)
-                    .await?;
-
-                let msg = CreateMessage::default().embed(
-                    CreateEmbed::default()
-                        .title("__Bot Vote Reset!__")
-                        .field("Reason", reason, true)
-                        .field("Moderator", "<@".to_string() + &state.user_id + ">", true)
-                        .field("Bot", "<@!".to_string() + bot_id + ">", true)
-                        .footer(CreateEmbedFooter::new("Sad life :("))
-                        .color(0xFF0000),
-                );
-
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
-                    .send_message(&state.cache_http, msg)
-                    .await?;
-
-                Ok(RPCSuccess::NoContent)
-            }
-            RPCMethod::BotVoteResetAll { reason } => {
-                sqlx::query!("UPDATE bots SET votes = 0")
-                    .execute(&state.pool)
-                    .await?;
-
-                sqlx::query!("DELETE FROM votes")
-                    .execute(&state.pool)
-                    .await?;
-
-                let msg = CreateMessage::default().embed(
-                    CreateEmbed::default()
-                        .title("__All Votes Reset!__")
-                        .field("Reason", reason, true)
-                        .field("Moderator", "<@".to_string() + &state.user_id + ">", true)
-                        .footer(CreateEmbedFooter::new("Sad life :("))
-                        .color(0xFF0000),
-                );
-
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
-                    .send_message(&state.cache_http, msg)
-                    .await?;
-
-                Ok(RPCSuccess::NoContent)
-            }
             RPCMethod::BotUnverify { bot_id, reason } => {
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
@@ -1033,49 +969,6 @@ impl RPCMethod {
 
                 Ok(RPCSuccess::NoContent)
             }
-            RPCMethod::BotVoteCountSet {
-                bot_id,
-                count,
-                reason,
-            } => {
-                // Ensure the bot actually exists
-                let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", bot_id)
-                    .fetch_one(&state.pool)
-                    .await?;
-
-                if bot.count.unwrap_or_default() == 0 {
-                    return Err("Bot does not exist".into());
-                }
-
-                sqlx::query!(
-                    "UPDATE bots SET votes = $2 WHERE bot_id = $1",
-                    bot_id,
-                    count
-                )
-                .execute(&state.pool)
-                .await?;
-
-                let msg = CreateMessage::new().embed(
-                    CreateEmbed::default()
-                        .title("Vote Count Updated!")
-                        .description(format!(
-                            "<@{}> has force-updated the vote count of <@{}>",
-                            state.user_id, bot_id,
-                        ))
-                        .field("Reason", reason, true)
-                        .field("New Vote Count", count.to_string(), true)
-                        .footer(CreateEmbedFooter::new(
-                            "Remember: don't abuse our services!",
-                        ))
-                        .color(0xFF0000),
-                );
-
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
-                    .send_message(&state.cache_http, msg)
-                    .await?;
-
-                Ok(RPCSuccess::NoContent)
-            }
             RPCMethod::BotTransferOwnershipUser {
                 bot_id,
                 new_owner,
@@ -1289,6 +1182,87 @@ impl RPCMethod {
                         .footer(CreateEmbedFooter::new(
                             "Contact support if you think this is a mistake",
                         ))
+                        .color(0xFF0000),
+                );
+
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(&state.cache_http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+            RPCMethod::VoteReset { target_type, target_id, reason } => {
+                let mut tx = state.pool.begin().await?;
+
+                // Clear any entity specific caches
+                match target_type.as_str() {
+                    "bot" => {
+                        sqlx::query!("UPDATE bots SET votes = 0 WHERE bot_id = $1", target_id)
+                        .execute(&mut tx)
+                        .await?;
+                    },
+                    "pack" => {
+                        sqlx::query!("UPDATE packs SET votes = 0 WHERE url = $1", target_id)
+                        .execute(&mut tx)
+                        .await?;
+                    },
+                    _ => ()
+                };
+
+                sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (single entity) reset', voided_at = NOW() WHERE target_type = $1 AND target_id = $2", target_type, target_id)
+                    .execute(&mut tx)
+                    .await?;
+
+                tx.commit().await?;
+
+                let msg = CreateMessage::default().embed(
+                    CreateEmbed::default()
+                        .title("__Entity Vote Reset!__")
+                        .field("Reason", reason, true)
+                        .field("Moderator", "<@".to_string() + &state.user_id + ">", true)
+                        .field("Target ID", target_id, true)
+                        .field("Target Type", target_type, true)
+                        .footer(CreateEmbedFooter::new("Sad life :("))
+                        .color(0xFF0000),
+                );
+
+                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                    .send_message(&state.cache_http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+            RPCMethod::VoteResetAll { target_type, reason } => {
+                let mut tx = state.pool.begin().await?;
+
+                // Clear any entity specific caches
+                match target_type.as_str() {
+                    "bot" => {
+                        sqlx::query!("UPDATE bots SET votes = 0")
+                        .execute(&mut tx)
+                        .await?;
+                    },
+                    "pack" => {
+                        sqlx::query!("UPDATE packs SET votes = 0")
+                        .execute(&mut tx)
+                        .await?;
+                    },
+                    _ => ()
+                };
+
+                sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (all entities) reset', voided_at = NOW() WHERE target_type = $1", target_type)
+                    .execute(&mut tx)
+                    .await?;
+
+                tx.commit().await?;
+
+                let msg = CreateMessage::default().embed(
+                    CreateEmbed::default()
+                        .title("__All Entity Votes Reset!__")
+                        .field("Reason", reason, true)
+                        .field("Moderator", "<@".to_string() + &state.user_id + ">", true)
+                        .field("Target Type", target_type, true)
+                        .footer(CreateEmbedFooter::new("Sad life :("))
                         .color(0xFF0000),
                 );
 

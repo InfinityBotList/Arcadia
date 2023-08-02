@@ -24,7 +24,7 @@ pub async fn invite(
     let data = ctx.data();
 
     let invite_data = sqlx::query!(
-        "SELECT invite FROM bots WHERE bot_id = $1 OR vanity = $1 ORDER BY created_at DESC LIMIT 1",
+        "SELECT invite FROM bots WHERE bot_id = $1 ORDER BY created_at DESC LIMIT 1",
         bot
     )
     .fetch_one(&data.pool)

@@ -20,7 +20,7 @@ pub async fn modaltest(
         poise::structs::Context::Application(a) =>  {
             match a.interaction {
                 CommandOrAutocompleteInteraction::Command(c) => {
-                    if let Some(resp) = c.quick_modal(&ctx.discord(), qm).await? {
+                    if let Some(resp) = c.quick_modal(ctx.discord(), qm).await? {
                         let inputs = resp.inputs;
                         let h = &inputs[0];
 

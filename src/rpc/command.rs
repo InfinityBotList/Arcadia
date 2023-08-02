@@ -226,53 +226,6 @@ pub async fn rpc(
                         return Err("No response".into());
                     }
                 }
-                super::core::RPCMethod::BotVoteReset { .. } => {
-                    let qm = CreateQuickModal::new("Vote Reset Bot")
-                        .field(CreateInputText::new(
-                            InputTextStyle::Short,
-                            "Bot ID",
-                            "bot_id",
-                        ))
-                        .field(CreateInputText::new(
-                            InputTextStyle::Paragraph,
-                            "Reason",
-                            "reason",
-                        ));
-
-                    if let Some(resp) = m.quick_modal(discord, qm).await? {
-                        let inputs = resp.inputs;
-                        let (bot_id, reason) = (&inputs[0], &inputs[1]);
-
-                        GetResp {
-                            method: super::core::RPCMethod::BotVoteReset {
-                                bot_id: bot_id.to_string(),
-                                reason: reason.to_string(),
-                            },
-                            interaction: resp.interaction,
-                        }
-                    } else {
-                        return Err("No response".into());
-                    }
-                }
-                super::core::RPCMethod::BotVoteResetAll { .. } => {
-                    let qm = CreateQuickModal::new("Vote Reset All Bots").field(
-                        CreateInputText::new(InputTextStyle::Paragraph, "Reason", "reason"),
-                    );
-
-                    if let Some(resp) = m.quick_modal(discord, qm).await? {
-                        let inputs = resp.inputs;
-                        let reason = &inputs[0];
-
-                        GetResp {
-                            method: super::core::RPCMethod::BotVoteResetAll {
-                                reason: reason.to_string(),
-                            },
-                            interaction: resp.interaction,
-                        }
-                    } else {
-                        return Err("No response".into());
-                    }
-                }
                 super::core::RPCMethod::BotUnverify { .. } => {
                     let qm = CreateQuickModal::new("Unverify Bot")
                         .field(CreateInputText::new(
@@ -544,58 +497,6 @@ pub async fn rpc(
                         return Err("No response".into());
                     }
                 }
-                super::core::RPCMethod::BotVoteCountSet { .. } => {
-                    let qm = CreateQuickModal::new("Set Bot Vote Count")
-                        .field(CreateInputText::new(
-                            InputTextStyle::Short,
-                            "Bot ID",
-                            "bot_id",
-                        ))
-                        .field(CreateInputText::new(
-                            InputTextStyle::Paragraph,
-                            "Reason",
-                            "reason",
-                        ))
-                        .field(CreateInputText::new(
-                            InputTextStyle::Short,
-                            "Count",
-                            "count",
-                        ));
-
-                    if let Some(resp) = m.quick_modal(discord, qm).await? {
-                        let inputs = resp.inputs;
-                        let (bot_id, reason, count_str) = (&inputs[0], &inputs[1], &inputs[2]);
-
-                        GetResp {
-                            method: super::core::RPCMethod::BotVoteCountSet {
-                                bot_id: bot_id.to_string(),
-                                reason: reason.to_string(),
-                                count: match count_str.parse::<i32>() {
-                                    Ok(c) => c,
-                                    Err(e) => {
-                                        resp.interaction
-                                            .create_response(
-                                                ctx,
-                                                CreateInteractionResponse::Message(
-                                                    CreateInteractionResponseMessage::default()
-                                                        .content(format!(
-                                                            "**Error parsing `count`: {}**",
-                                                            e
-                                                        )),
-                                                ),
-                                            )
-                                            .await?;
-
-                                        return Ok(());
-                                    }
-                                },
-                            },
-                            interaction: resp.interaction,
-                        }
-                    } else {
-                        return Err("No response".into());
-                    }
-                }
                 super::core::RPCMethod::BotTransferOwnershipUser { .. } => {
                     let qm = CreateQuickModal::new("Transfer Bot Ownership")
                         .field(CreateInputText::new(
@@ -724,6 +625,66 @@ pub async fn rpc(
                             method: super::core::RPCMethod::TeamAvatarEdit {
                                 team_id: team_id.to_string(),
                                 new_avatar: new_avatar.to_string(),
+                                reason: reason.to_string(),
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
+                }
+                super::core::RPCMethod::VoteReset { .. } => {
+                    let qm = CreateQuickModal::new("Vote Reset Entity")
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Target Type",
+                            "target_type",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Short,
+                            "Target ID",
+                            "target_id",
+                        ))
+                        .field(CreateInputText::new(
+                            InputTextStyle::Paragraph,
+                            "Reason",
+                            "reason",
+                        ));
+
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
+                        let inputs = resp.inputs;
+                        let (target_type, target_id, reason) = (&inputs[0], &inputs[1], &inputs[2]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::VoteReset {
+                                target_type: target_type.to_string(),
+                                target_id: target_id.to_string(),
+                                reason: reason.to_string(),
+                            },
+                            interaction: resp.interaction,
+                        }
+                    } else {
+                        return Err("No response".into());
+                    }
+                }
+                super::core::RPCMethod::VoteResetAll { .. } => {
+                    let qm = CreateQuickModal::new("Vote Reset All Entities")
+                    .field(CreateInputText::new(
+                        InputTextStyle::Short,
+                        "Target Type",
+                        "target_type",
+                    ))
+                    .field(
+                        CreateInputText::new(InputTextStyle::Paragraph, "Reason", "reason"),
+                    );
+
+                    if let Some(resp) = m.quick_modal(discord, qm).await? {
+                        let inputs = resp.inputs;
+                        let (target_type, reason) = (&inputs[0], &inputs[1]);
+
+                        GetResp {
+                            method: super::core::RPCMethod::VoteResetAll {
+                                target_type: target_type.to_string(),
                                 reason: reason.to_string(),
                             },
                             interaction: resp.interaction,

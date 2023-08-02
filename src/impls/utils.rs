@@ -1,5 +1,7 @@
 use sqlx::PgPool;
 
+/// DEPRECATED
+/// TODO: Fix this function with Mentionable once added
 pub async fn resolve_ping_user(bot_id: &str, pool: &PgPool) -> Result<String, crate::Error> {
     // Check for owner first
     let owner_rec = sqlx::query!("SELECT owner FROM bots WHERE bot_id = $1", bot_id)
@@ -24,7 +26,7 @@ pub async fn resolve_ping_user(bot_id: &str, pool: &PgPool) -> Result<String, cr
             // Get all team members first
 
             let team_members = sqlx::query!(
-                "SELECT user_id, perms FROM team_members WHERE team_id = $1",
+                "SELECT user_id, flags FROM team_members WHERE team_id = $1",
                 team_id
             )
             .fetch_all(pool)
@@ -40,7 +42,7 @@ pub async fn resolve_ping_user(bot_id: &str, pool: &PgPool) -> Result<String, cr
 
             // Try to find owner
             for member in &team_members {
-                if member.perms.contains(&"OWNER".to_string()) {
+                if member.flags.contains(&"global.*".to_string()) {
                     owner = Some(member.user_id.clone());
                     break;
                 }

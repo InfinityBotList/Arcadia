@@ -29,8 +29,8 @@ pub async fn team_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
         let count = res.count.unwrap_or(0);
 
         if count == 1 {
-            // Ensure team_members perm array has OWNER in it
-            let tm = sqlx::query!("SELECT perms FROM team_members WHERE team_id = $1", team_id,)
+            // Ensure team_members perm array has Global Owner in it
+            let tm = sqlx::query!("SELECT flags FROM team_members WHERE team_id = $1", team_id,)
                 .fetch_one(pool)
                 .await
                 .map_err(|e| {
@@ -40,23 +40,23 @@ pub async fn team_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
                     )
                 })?;
 
-            let mut perms: Vec<String> = tm.perms;
+            let mut flags: Vec<String> = tm.flags;
 
-            if !perms.contains(&"OWNER".to_string()) {
-                // Give them owner, and add
-                perms.push("OWNER".to_string());
+            if !flags.contains(&"global.*".to_string()) {
+                // Give them global owner, and add
+                flags.push("global.*".to_string());
 
                 sqlx::query!(
-                    "UPDATE team_members SET perms = $1 WHERE team_id = $2",
-                    &perms,
+                    "UPDATE team_members SET flags = $1 WHERE team_id = $2",
+                    &flags,
                     team_id,
                 )
                 .execute(pool)
                 .await
-                .map_err(|e| format!("Error while updating perms for team {}: {}", team_id, e))?;
+                .map_err(|e| format!("Error while updating flags for team {}: {}", team_id, e))?;
 
                 info!(
-                    "Added OWNER to perms for team {} due to havingonly 1 member AND WITHOUT owner",
+                    "Added global.* to flags for team {} due to having only 1 member WITHOUT a Global Owner",
                     team_id
                 );
             }

@@ -42,7 +42,7 @@ impl EntityManagers {
 
         for manager in &self.users {
             if manager.mentionable {
-                mentionable.push("<@".to_string() + &manager.user + "@>");
+                mentionable.push("<@".to_string() + &manager.user + ">");
             }
         }
 

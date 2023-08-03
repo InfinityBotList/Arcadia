@@ -149,7 +149,7 @@ pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     }
 }
 
-/// RPC Post API
+/// Create Staff RPC
 ///
 /// This is the main API exposed by RPC. It is used to perform staff actions
 #[utoipa::path(
@@ -285,6 +285,9 @@ impl WebField {
 
 #[derive(Serialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCFieldType.ts")]
+// Allow dead code
+#[allow(dead_code)]
+/// Represents a field type
 enum FieldType {
     Text,
     Textarea,
@@ -413,7 +416,7 @@ struct WebActionQuery {
     user_id: Option<String>,
 }
 
-/// Returns a set of openapi data
+/// Get Available Actions
 /// 
 /// This is used to render the list of fields to display for a given RPC method
 #[utoipa::path(

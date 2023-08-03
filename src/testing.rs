@@ -1,3 +1,4 @@
+use crate::impls::utils::TargetType;
 use crate::{checks, config};
 use futures_util::StreamExt;
 use log::info;
@@ -175,7 +176,7 @@ pub async fn queue(
     // Send message with buttons
     let bot = &bots[current_bot];
 
-    let bot_owner = crate::impls::utils::resolve_ping_user(&bot.bot_id, &data.pool).await?;
+    let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool).await?;
 
     let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
 
@@ -189,7 +190,7 @@ pub async fn queue(
             claimed_by: bot.claimed_by.clone(),
             approval_note: bot.approval_note.clone(),
             short: bot.short.clone(),
-            owner: bot_owner,
+            owner: owners.mention_users(),
             invite: bot.invite.clone(),
         }))
         .await?
@@ -230,9 +231,9 @@ pub async fn queue(
 
         let bot = &bots[current_bot];
 
-        let bot_owner = crate::impls::utils::resolve_ping_user(&bot.bot_id, &data.pool).await?;
+        let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool).await?;
 
-	let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
+	    let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
 
         msg.edit(
             ctx,
@@ -245,7 +246,7 @@ pub async fn queue(
                 claimed_by: bot.claimed_by.clone(),
                 approval_note: bot.approval_note.clone(),
                 short: bot.short.clone(),
-                owner: bot_owner,
+                owner: owners.mention_users(),
                 invite: bot.invite.clone(),
             })
             .to_prefix_edit(),

@@ -1,7 +1,6 @@
-use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateEmbedFooter, CreateMessage, UserId};
-use std::num::NonZeroU64;
+use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateEmbedFooter, CreateMessage};
 
-use crate::config;
+use crate::{config, impls::utils::TargetType};
 
 pub async fn auto_unclaim(
     pool: &sqlx::PgPool,
@@ -84,29 +83,19 @@ pub async fn auto_unclaim(
                     .await
                     .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
 
-                let bot_owner = crate::impls::utils::resolve_ping_user(&bot.bot_id, pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, pool).await?;
 
-                if let Ok(owner) = bot_owner.parse::<NonZeroU64>() {
-                    // Check that owner is in the server
-
-                    if cache_http
-                        .cache
-                        .member_field(config::CONFIG.servers.main, owner, |m| m.user.id)
-                        .is_none()
-                    {
-                        log::warn!("Bot owner is not in the server. Not sending DM");
-                        continue;
-                    }
-
-                    match UserId(owner).create_dm_channel(&cache_http).await {
-                        Ok(dm) => {
-                            let msg = CreateMessage::default()
-                            .embed(
-                                CreateEmbed::default()
-                                    .title("Bot Unclaimed!")
-                                    .description(
-                                        format!(
-                                            r#"
+                ChannelId(config::CONFIG.channels.mod_logs)
+                .send_message(
+                    &cache_http,
+                    CreateMessage::default()
+                    .content(owners.mention_users())
+                    .embed(
+                        CreateEmbed::default()
+                            .title("Bot Unclaimed!")
+                            .description(
+                                format!(
+                                    r#"
 <@{}> has been unclaimed as it was not being actively reviewed. 
 
 Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
@@ -114,23 +103,16 @@ Don't worry, this is normal, could just be our staff looking more into your bots
 For more information, you can contact the current reviewer <@{}>
 
 *This bot was claimed <t:{}:R>. This is a automated message letting you know about whats going on...*
-                                            "#, 
-                                            bot.bot_id,
-                                            claimed_by,
-                                            last_claimed.timestamp()
-                                        ))
-                                    .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
-                            );
-
-                            dm.send_message(&cache_http, msg)
-                                .await
-                                .map_err(|e| format!("Error while sending message in DM: {}", e))?;
-                        }
-                        Err(e) => {
-                            log::warn!("Error while creating DM channel with bot owner: {:?}", e);
-                        }
-                    }
-                }
+                                    "#, 
+                                    bot.bot_id,
+                                    claimed_by,
+                                    last_claimed.timestamp()
+                                ))
+                            .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
+                    )
+                )
+                .await
+                .map_err(|e| format!("Error while sending message in #mod-logs: {}", e))?;
             }
         }
     }

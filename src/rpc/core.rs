@@ -11,7 +11,7 @@ use sqlx::{types::Uuid, PgPool};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
-use crate::{impls, Error};
+use crate::{impls::{self, utils::TargetType}, Error};
 use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
@@ -338,8 +338,6 @@ impl RPCMethod {
                     return Err("This bot is a test bot".into());
                 }
 
-                let bot_owner = crate::impls::utils::resolve_ping_user(bot_id, &state.pool).await?;
-
                 if !force {
                     if let Some(claimed_by) = claimed.claimed_by {
                         return Err(
@@ -347,6 +345,8 @@ impl RPCMethod {
                         );
                     }
                 }
+
+                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, bot_id, &state.pool).await?;
 
                 // Claim it
                 sqlx::query!(
@@ -371,7 +371,7 @@ impl RPCMethod {
 
                 // Send a message to the bot owner
                 let msg = CreateMessage::default()
-                    .content(format!("<@{}>", bot_owner))
+                    .content(owners.mention_users())
                     .embed(
                         CreateEmbed::default()
                             .title("Bot Claimed!")
@@ -406,7 +406,7 @@ impl RPCMethod {
                     return Err("This bot is not pending review".into());
                 }
 
-                let bot_owner = crate::impls::utils::resolve_ping_user(bot_id, &state.pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, bot_id, &state.pool).await?;
 
                 if claimed.claimed_by.is_none() {
                     return Err(format!("<@{}> is not claimed", bot_id).into());
@@ -432,7 +432,7 @@ impl RPCMethod {
                 .await?;
 
                 let msg = CreateMessage::new()
-                    .content(format!("<@{}>", bot_owner))
+                    .content(owners.mention_users())
                     .embed(
                         CreateEmbed::new()
                             .title("Bot Unclaimed!")
@@ -497,7 +497,7 @@ impl RPCMethod {
                     }
                 }
 
-                let ping = crate::impls::utils::resolve_ping_user(bot_id, &state.pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, bot_id, &state.pool).await?;
 
                 sqlx::query!(
                     "UPDATE bots SET type = 'approved', claimed_by = NULL WHERE bot_id = $1",
@@ -507,7 +507,7 @@ impl RPCMethod {
                 .await?;
 
                 let msg = CreateMessage::default()
-                    .content(format!("<@!{}>", ping))
+                    .content(owners.mention_users())
                     .embed(
                         CreateEmbed::default()
                             .title("Bot Approved!")
@@ -531,9 +531,9 @@ impl RPCMethod {
                     .send_message(&state.cache_http, msg)
                     .await?;
 
-                let bot_owners = crate::impls::utils::get_bot_members(bot_id, &state.pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, bot_id, &state.pool).await?.all();
 
-                for owner in bot_owners {
+                for owner in owners {
                     let owner_snow = UserId(owner.parse()?);
 
                     let guild_id = GuildId(crate::config::CONFIG.servers.main);
@@ -605,7 +605,7 @@ impl RPCMethod {
                     return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
                 }
 
-                let ping = crate::impls::utils::resolve_ping_user(bot_id, &state.pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, bot_id, &state.pool).await?;
 
                 sqlx::query!(
                     "UPDATE bots SET type = 'denied', claimed_by = NULL WHERE bot_id = $1",
@@ -614,7 +614,7 @@ impl RPCMethod {
                 .execute(&state.pool)
                 .await?;
 
-                let msg = CreateMessage::new().content(format!("<@!{}>", ping)).embed(
+                let msg = CreateMessage::new().content(owners.mention_users()).embed(
                     CreateEmbed::default()
                         .title("Bot Denied!")
                         .url(format!(

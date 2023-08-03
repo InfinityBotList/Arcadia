@@ -1,5 +1,7 @@
 use poise::serenity_prelude::{ChannelId, CreateMessage};
 
+use crate::impls::utils::TargetType;
+
 pub async fn premium_remove(
     pool: &sqlx::PgPool,
     cache_http: &crate::impls::cache::CacheHttpImpl,
@@ -60,22 +62,22 @@ pub async fn premium_remove(
             }
         };
 
-        let bot_owner = crate::impls::utils::resolve_ping_user(&bot_id.to_string(), pool).await?;
+        let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot_id.to_string(), pool).await?;
 
         let msg = {
             if row.r#type != "approved" && row.r#type != "certified" {
                 format!(
-                    "<@{}> ({}) by <@{}> has been removed from the premium list because it is not/no longer approved or certified [v4].", 
+                    "<@{}> ({}) by {} has been removed from the premium list because it is not/no longer approved or certified [v4].", 
                     bot_id,
                     bot_username,
-                    bot_owner,
+                    owners.mention_users(),
                 )
             } else {
                 format!(
-                    "<@{}> ({}) by <@{}> has been removed from the premium list as their subscription has expired [v4].", 
+                    "<@{}> ({}) by {} has been removed from the premium list as their subscription has expired [v4].", 
                     bot_id,
                     bot_username,
-                    bot_owner,
+                    owners.mention_users(),
                 )
             }
         };

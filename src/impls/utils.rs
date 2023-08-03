@@ -1,77 +1,130 @@
 use sqlx::PgPool;
 
-/// DEPRECATED
-/// TODO: Fix this function with Mentionable once added
-pub async fn resolve_ping_user(bot_id: &str, pool: &PgPool) -> Result<String, crate::Error> {
-    // Check for owner first
-    let owner_rec = sqlx::query!("SELECT owner FROM bots WHERE bot_id = $1", bot_id)
-        .fetch_one(pool)
-        .await
-        .map_err(|e| format!("Error while checking for owner of bot {}: {}", bot_id, e))?;
+pub enum TargetType {
+    Bot,
+}
 
-    if let Some(owner) = owner_rec.owner {
-        Ok(owner)
-    } else {
-        let team_id = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
-            .fetch_one(pool)
-            .await
-            .map_err(|e| {
-                format!(
-                    "Error while checking for team owner of bot {}: {}",
-                    bot_id, e
-                )
-            })?;
+pub struct EntityManagers {
+    users: Vec<Manager>
+}
 
-        if let Some(team_id) = team_id.team_owner {
-            // Get all team members first
+struct Manager {
+    mentionable: bool,
+    user: String
+}
 
-            let team_members = sqlx::query!(
-                "SELECT user_id, flags FROM team_members WHERE team_id = $1",
-                team_id
-            )
-            .fetch_all(pool)
-            .await
-            .map_err(|e| {
-                format!(
-                    "Error while getting team members of team {}: {}",
-                    team_id, e
-                )
-            })?;
+impl EntityManagers {
+    pub fn all(&self) -> Vec<String> {
+        let mut all = Vec::new();
 
-            let mut owner = None;
-
-            // Try to find owner
-            for member in &team_members {
-                if member.flags.contains(&"global.*".to_string()) {
-                    owner = Some(member.user_id.clone());
-                    break;
-                }
-            }
-
-            if let Some(owner) = owner {
-                Ok(owner)
-            } else if !team_members.is_empty() {
-                Ok(team_members[0].user_id.clone())
-            } else {
-                Err(format!(
-                    "Bot {} is on a team no owner or team members. Please contact a dev right now!",
-                    bot_id
-                )
-                .into())
-            }
-        } else {
-            Err(format!(
-                "Bot {} has no owner or team owner. Please contact a dev right now!",
-                bot_id
-            )
-            .into())
+        for manager in &self.users {
+            all.push(manager.user.clone());
         }
+
+        all
+    }
+
+    #[allow(dead_code)]
+    pub fn mentionables(&self) -> Vec<String> {
+        let mut mentionable = Vec::new();
+
+        for manager in &self.users {
+            if manager.mentionable {
+                mentionable.push(manager.user.clone());
+            }
+        }
+
+        mentionable
+    }
+
+    pub fn mention_users(&self) -> String {
+        let mut mentionable = Vec::new();
+
+        for manager in &self.users {
+            if manager.mentionable {
+                mentionable.push("<@".to_string() + &manager.user + "@>");
+            }
+        }
+
+        mentionable.join(", ")
     }
 }
 
+pub async fn get_entity_managers(target_type: TargetType, target_id: &str, pool: &PgPool) -> Result<EntityManagers, crate::Error> {
+    let team_id = match target_type {
+        TargetType::Bot => {
+            // Check for owner first
+            let owner_rec = sqlx::query!("SELECT owner FROM bots WHERE bot_id = $1", target_id)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| format!("Error while checking for owner of bot {}: {}", target_id, e))?;
+
+            if let Some(owner) = owner_rec.owner {
+                return Ok(EntityManagers {
+                    users: vec![Manager {
+                        mentionable: true,
+                        user: owner
+                    }]
+                });
+            } else {
+                let team_id = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", target_id)
+                    .fetch_one(pool)
+                    .await
+                    .map_err(|e| {
+                        format!(
+                            "Error while checking for team owner of bot {}: {}",
+                            target_id, e
+                        )
+                    })?;
+
+                if let Some(team_id) = team_id.team_owner {
+                    // Get all team members first
+                    team_id
+                } else {
+                    return Err(format!(
+                        "Bot {} is not owned by a team or a user. Please contact a dev right now!",
+                        target_id
+                    )
+                    .into());
+                }
+            }
+        }
+    };
+
+    let team_members = sqlx::query!(
+        "SELECT user_id, mentionable FROM team_members WHERE team_id = $1",
+        team_id
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        format!(
+            "Error while getting team members of team {}: {}",
+            team_id, e
+        )
+    })?;
+
+    if team_members.is_empty() {
+        return Err(format!(
+            "Entity {} is on a team with no members. Please contact a dev right now!",
+            target_id
+        )
+        .into());
+    }
+
+    // Return all members
+    Ok(EntityManagers { 
+        users: team_members.iter().map(|m| Manager {
+            mentionable: m.mentionable,
+            user: m.user_id.clone()
+        }).collect()
+    })
+}
+
 pub struct OwnedBy {
-    pub id: String,
-    pub bot_type: String,
+    pub target_type: String,
+    pub target_id: String,
+    pub entity_state: String,
 }
 
 pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, crate::Error> {
@@ -90,8 +143,9 @@ pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, 
 
     for bot in owned {
         owned_by.push(OwnedBy {
-            id: bot.bot_id,
-            bot_type: bot.r#type,
+            target_type: "bot".to_string(),
+            target_id: bot.bot_id,
+            entity_state: bot.r#type,
         });
     }
 
@@ -120,63 +174,12 @@ pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, 
 
         for bot in team_bots {
             owned_by.push(OwnedBy {
-                id: bot.bot_id,
-                bot_type: bot.r#type,
+                target_type: "bot".to_string(),
+                target_id: bot.bot_id,
+                entity_state: bot.r#type,
             });
         }
     }
 
     Ok(owned_by)
-}
-
-#[allow(dead_code)]
-pub async fn get_bot_members(bot_id: &str, pool: &PgPool) -> Result<Vec<String>, crate::Error> {
-    // Check for owner first
-    let owner_rec = sqlx::query!("SELECT owner FROM bots WHERE bot_id = $1", bot_id)
-        .fetch_one(pool)
-        .await
-        .map_err(|e| format!("Error while checking for owner of bot {}: {}", bot_id, e))?;
-
-    if let Some(owner) = owner_rec.owner {
-        Ok(vec![owner])
-    } else {
-        let team_id = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", bot_id)
-            .fetch_one(pool)
-            .await
-            .map_err(|e| {
-                format!(
-                    "Error while checking for team owner of bot {}: {}",
-                    bot_id, e
-                )
-            })?;
-
-        if let Some(team_id) = team_id.team_owner {
-            let team_members = sqlx::query!(
-                "SELECT user_id FROM team_members WHERE team_id = $1",
-                team_id
-            )
-            .fetch_all(pool)
-            .await
-            .map_err(|e| {
-                format!(
-                    "Error while getting team members of team {}: {}",
-                    team_id, e
-                )
-            })?;
-
-            let mut members = Vec::new();
-
-            for member in &team_members {
-                members.push(member.user_id.clone());
-            }
-
-            Ok(members)
-        } else {
-            Err(format!(
-                "Bot {} has no owner or team owner. Please contact a dev right now!",
-                bot_id
-            )
-            .into())
-        }
-    }
 }

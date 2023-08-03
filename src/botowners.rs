@@ -29,12 +29,12 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
         let mut certified = false;
 
         for bot in owned_bots {
-            if bot.bot_type == "approved" {
+            if bot.entity_state == "approved" {
                 approved = true; // We need to check for certified as well
                 continue;
             }
 
-            if bot.bot_type == "certified" {
+            if bot.entity_state == "certified" {
                 approved = true;
                 certified = true;
                 break; // No need to check for more

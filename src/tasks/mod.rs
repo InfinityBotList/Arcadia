@@ -6,3 +6,4 @@ pub mod staffresync;
 pub mod taskcat;
 pub mod teamcleaner;
 pub mod uptime;
+pub mod genericcleaner;

@@ -14,6 +14,7 @@ pub enum Task {
     SpecRoleSync,
     Uptime,
     TeamCleaner,
+    GenericCleaner,
 }
 
 pub async fn start_all_tasks(
@@ -57,6 +58,7 @@ async fn taskcat(
         Task::SpecRoleSync => Duration::from_secs(50),
         Task::Uptime => Duration::from_secs(90),
         Task::TeamCleaner => Duration::from_secs(600),
+        Task::GenericCleaner => Duration::from_secs(600),
     };
 
     let task_desc = match task {
@@ -67,6 +69,7 @@ async fn taskcat(
         Task::SpecRoleSync => "Syncing special roles",
         Task::Uptime => "Uptime Checking",
         Task::TeamCleaner => "Cleaning up empty teams",
+        Task::GenericCleaner => "Cleaning up orphaned generic entities",
     };
 
     let mut interval = tokio::time::interval(duration);
@@ -91,6 +94,7 @@ async fn taskcat(
             }
             Task::Uptime => crate::tasks::uptime::uptime_checker(&pool, &cache_http).await,
             Task::TeamCleaner => crate::tasks::teamcleaner::team_cleaner(&pool).await,
+            Task::GenericCleaner => crate::tasks::genericcleaner::generic_cleaner(&pool).await,
         } {
             log::error!("TASK {} ERROR'd: {:?}", task.to_string(), e);
         }

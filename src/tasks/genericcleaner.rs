@@ -9,6 +9,7 @@ use strum_macros::{EnumVariantNames, EnumString};
 #[derive(EnumVariantNames, EnumString)]
 enum Entity {
     Bot,
+    Server,
     Team,
     Pack,
 }
@@ -17,6 +18,7 @@ impl Entity {
     fn table_name(&self) -> &'static str {
         match self {
             Entity::Bot => "bots",
+	    Entity::Server => "servers",
             Entity::Team => "teams",
             Entity::Pack => "packs",
         }
@@ -25,6 +27,7 @@ impl Entity {
     fn id_column(&self) -> &'static str {
         match self {
             Entity::Bot => "bot_id",
+	    Entity::Server => "server_id",
             Entity::Team => "id",
             Entity::Pack => "url",
         }
@@ -33,6 +36,7 @@ impl Entity {
     fn target_type(&self) -> &'static str {
         match self {
             Entity::Bot => "bot",
+	    Entity::Server => "server",
             Entity::Team => "team",
             Entity::Pack => "pack",
         }

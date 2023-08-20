@@ -22,6 +22,8 @@ use once_cell::sync::Lazy;
 use moka::future::Cache;
 use utoipa::ToSchema;
 
+pub const PROTOCOL_VERSION : u8 = 6;
+
 pub static RPC_KEYCHAIN: Lazy<Cache<String, KeychainData>> = Lazy::new(|| {
     info!("RPCKeychain initialized");
 
@@ -169,7 +171,7 @@ async fn web_rpc_api(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RPCRequest>,
 ) -> Result<Success, RPCResponse> {
-    if req.protocol != 5 {
+    if req.protocol != PROTOCOL_VERSION {
         return Err(RPCResponse::InvalidProtocol);
     }
 

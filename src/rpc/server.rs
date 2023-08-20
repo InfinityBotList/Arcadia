@@ -1,5 +1,6 @@
-use std::{str::FromStr, time::Duration};
+use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::impls;
 use axum::http::HeaderMap;
@@ -15,32 +16,27 @@ use sqlx::PgPool;
 use strum::VariantNames;
 use tower_http::cors::{Any, CorsLayer};
 
-use super::core::{RPCHandle, RPCMethod, RPCPerms, RPCSuccess};
+use super::core::{RPCMethod, RPCPerms};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use utoipa::ToSchema;
 use once_cell::sync::Lazy;
 use moka::future::Cache;
-use utoipa::ToSchema;
 
-pub const PROTOCOL_VERSION : u8 = 6;
+#[derive(Clone)]
+pub struct KeychainData {
+    pub user_id: String,
+    pub method: RPCMethod,
+}
 
-pub static RPC_KEYCHAIN: Lazy<Cache<String, KeychainData>> = Lazy::new(|| {
-    info!("RPCKeychain initialized");
+pub static RPC_WEB_CHAIN: Lazy<Cache<String, KeychainData>> = Lazy::new(|| {
+    info!("RPC_WEB_CHAIN initialized");
 
     Cache::builder()
         // Time to live (TTL): 15 minutes
         .time_to_live(Duration::from_secs(5 * 60))        // Create the cache.
         .build()
 });
-
-#[derive(Clone)]
-pub struct KeychainData {
-    pub user_id: String,
-    pub allowed_methods: Vec<String>,
-    pub max_uses: u8,
-    pub used: u8,
-    pub reason: String,
-}
 
 #[derive(Deserialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCRequest.ts")]
@@ -171,10 +167,9 @@ async fn web_rpc_api(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RPCRequest>,
 ) -> Result<Success, RPCResponse> {
-    if req.protocol != PROTOCOL_VERSION {
-        return Err(RPCResponse::InvalidProtocol);
-    }
+    Err(RPCResponse::Err("RPC is currently disabled".to_string()))
 
+    /*
     // Check RPC key
     let keychain = RPC_KEYCHAIN.get(&req.rpc_identity);
 
@@ -230,7 +225,7 @@ async fn web_rpc_api(
     {
         RPCSuccess::Content(content) => Ok(Success::Content(content)),
         RPCSuccess::NoContent => Ok(Success::NoContent),
-    }
+    }*/
 }
 
 #[derive(Serialize, ToSchema, TS)]

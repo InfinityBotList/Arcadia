@@ -14,6 +14,7 @@ mod explain;
 mod help;
 mod impls;
 mod rpc;
+mod rpc_command;
 mod staff;
 mod stats;
 mod tasks;
@@ -266,7 +267,7 @@ async fn main() {
                 admin::uninvitedbots(),
                 stats::stats(),
                 botowners::getbotroles(),
-                rpc::command::rpc(),
+                rpc_command::rpc(),
                 test::modaltest(),
             ],
             /// This code is run before every command

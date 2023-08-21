@@ -1,4 +1,4 @@
-use crate::impls::utils::TargetType;
+use crate::impls::target_types::TargetType;
 use crate::{checks, config};
 use futures_util::StreamExt;
 use log::info;
@@ -349,14 +349,15 @@ pub async fn claim(
     }
 
     // Create a rpc call
-    crate::rpc::core::RPCMethod::BotClaim {
-        bot_id: bot.id.to_string(),
+    crate::rpc::core::RPCMethod::Claim {
+        target_id: bot.id.to_string(),
         force,
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
         cache_http: data.cache_http.clone(),
         user_id: ctx.author().id.to_string(),
+        target_type: TargetType::Bot,
     })
     .await?;
 
@@ -385,14 +386,15 @@ pub async fn unclaim(
     }
 
     let data = ctx.data();
-    crate::rpc::core::RPCMethod::BotUnclaim {
-        bot_id: bot.id.to_string(),
+    crate::rpc::core::RPCMethod::Unclaim {
+        target_id: bot.id.to_string(),
         reason: reason.clone(),
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
         cache_http: data.cache_http.clone(),
         user_id: ctx.author().id.to_string(),
+        target_type: TargetType::Bot,
     })
     .await?;
 
@@ -422,14 +424,15 @@ pub async fn approve(
     let data = ctx.data();
 
     // Create a rpc call
-    let res = crate::rpc::core::RPCMethod::BotApprove {
-        bot_id: bot.user.id.to_string(),
+    let res = crate::rpc::core::RPCMethod::Approve {
+        target_id: bot.user.id.to_string(),
         reason: reason.clone(),
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
         cache_http: data.cache_http.clone(),
         user_id: ctx.author().id.to_string(),
+        target_type: TargetType::Bot,
     })
     .await?;
 
@@ -461,14 +464,15 @@ pub async fn deny(
     }
 
     let data = ctx.data();
-    crate::rpc::core::RPCMethod::BotDeny {
-        bot_id: bot.id.to_string(),
+    crate::rpc::core::RPCMethod::Deny {
+        target_id: bot.id.to_string(),
         reason: reason.clone(),
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
         cache_http: data.cache_http.clone(),
         user_id: ctx.author().id.to_string(),
+        target_type: TargetType::Bot,
     })
     .await?;
 

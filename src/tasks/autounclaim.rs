@@ -1,6 +1,6 @@
 use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateEmbedFooter, CreateMessage};
 
-use crate::{config, impls::utils::TargetType};
+use crate::{config, impls::target_types::TargetType};
 
 pub async fn auto_unclaim(
     pool: &sqlx::PgPool,

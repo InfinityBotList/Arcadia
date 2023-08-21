@@ -1,6 +1,6 @@
 use poise::serenity_prelude::{ChannelId, CreateMessage};
 
-use crate::impls::utils::TargetType;
+use crate::impls::target_types::TargetType;
 
 pub async fn premium_remove(
     pool: &sqlx::PgPool,

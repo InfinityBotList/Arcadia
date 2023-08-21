@@ -1,8 +1,6 @@
 use sqlx::PgPool;
 
-pub enum TargetType {
-    Bot,
-}
+use super::target_types::TargetType;
 
 pub struct EntityManagers {
     users: Vec<Manager>
@@ -88,6 +86,26 @@ pub async fn get_entity_managers(target_type: TargetType, target_id: &str, pool:
                     .into());
                 }
             }
+        },
+        TargetType::Server => {
+            let team_owner = sqlx::query!("SELECT team_owner FROM servers WHERE server_id = $1", target_id)
+                .fetch_one(pool)
+                .await
+                .map_err(|e| {
+                    format!(
+                        "Error while checking for team owner of server {}: {}",
+                        target_id, e
+                    )
+                })?;
+            
+            team_owner.team_owner
+        },
+        TargetType::Team => {
+            sqlx::types::Uuid::parse_str(target_id)
+                .map_err(|e| format!("Error while parsing team id {}: {}", target_id, e))?
+        },
+        TargetType::Pack => {
+            return Err("Packs are not supported yet!".into());
         }
     };
 

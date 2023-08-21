@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::impls;
+use crate::rpc::core::{RPCField, FieldType};
 use axum::http::HeaderMap;
 use axum::{
     extract::{Query, State},
@@ -26,7 +27,6 @@ use moka::future::Cache;
 #[derive(Clone)]
 pub struct KeychainData {
     pub user_id: String,
-    pub method: RPCMethod,
 }
 
 pub static RPC_WEB_CHAIN: Lazy<Cache<String, KeychainData>> = Lazy::new(|| {
@@ -104,7 +104,7 @@ pub struct AppState {
 pub async fn rpc_init(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
     #[derive(OpenApi)]
-    #[openapi(paths(web_rpc_api, available_actions), components(schemas(RPCRequest, WebAction, WebField, RPCMethod, RPCPerms, FieldType)))]
+    #[openapi(paths(web_rpc_api, available_actions), components(schemas(RPCRequest, WebAction, RPCField, RPCMethod, RPCPerms, FieldType)))]
     struct ApiDoc;  
 
     async fn docs() -> impl IntoResponse {
@@ -229,183 +229,13 @@ async fn web_rpc_api(
 }
 
 #[derive(Serialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/RPCWebField.ts")]
-struct WebField {
-    id: String,
-    label: String,
-    field_type: FieldType,
-    icon: String,
-    placeholder: String,
-}
-
-impl WebField {
-    fn target_type() -> Self {
-        WebField {
-            id: "target_type".to_string(),
-            label: "Target Type".to_string(),
-            field_type: FieldType::Text,
-            icon: "ic:twotone-access-time-filled".to_string(),
-            placeholder: "The Target Type (bot/pack/server etc.) to perform the action on".to_string(),
-        }  
-    }
-
-    fn target_id() -> Self {
-        WebField {
-            id: "target_id".to_string(),
-            label: "Target ID".to_string(),
-            field_type: FieldType::Text,
-            icon: "ic:twotone-access-time-filled".to_string(),
-            placeholder: "The Target ID to perform the action on".to_string(),
-        }  
-    }
-
-    fn bot_id() -> Self {
-        WebField {
-            id: "bot_id".to_string(),
-            label: "Bot ID".to_string(),
-            field_type: FieldType::Text,
-            icon: "ic:twotone-access-time-filled".to_string(),
-            placeholder: "The Bot ID to perform the action on".to_string(),
-        }
-    }
-
-    fn reason() -> Self {
-        WebField {
-            id: "reason".to_string(),
-            label: "Reason".to_string(),
-            field_type: FieldType::Textarea,
-            icon: "material-symbols:question-mark".to_string(),
-            placeholder: "Reason for performing this action".to_string(),
-        }
-    }
-}
-
-#[derive(Serialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/RPCFieldType.ts")]
-// Allow dead code
-#[allow(dead_code)]
-/// Represents a field type
-enum FieldType {
-    Text,
-    Textarea,
-    Number,
-    Hour, // Time expressed as a number of hours
-    Boolean,
-}
-
-// Returns a set of WebField's for a given enum variant
-fn method_web_fields(method: RPCMethod) -> Vec<WebField> {
-    match method {
-        RPCMethod::BotClaim { .. } => vec![
-            WebField::bot_id(),
-            WebField {
-                id: "force".to_string(),
-                label: "Force claim bot?".to_string(),
-                field_type: FieldType::Boolean,
-                icon: "fa-solid:sign-out-alt".to_string(),
-                placeholder: "Yes/No".to_string(),
-            },
-        ],
-        RPCMethod::BotUnclaim { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotApprove { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotDeny { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotUnverify { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotPremiumAdd { .. } => vec![
-            WebField::bot_id(),
-            WebField {
-                id: "time_period_hours".to_string(),
-                label: "Time [X unit(s)]".to_string(),
-                field_type: FieldType::Hour,
-                icon: "material-symbols:timer".to_string(),
-                placeholder: "Time period. Format: X years/days/hours".to_string(),
-            },
-            WebField::reason(),
-        ],
-        RPCMethod::BotPremiumRemove { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotVoteBanAdd { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotVoteBanRemove { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotForceRemove { .. } => vec![
-            WebField::bot_id(),
-            WebField {
-                id: "kick".to_string(),
-                label: "Kick the bot from the server".to_string(),
-                field_type: FieldType::Boolean,
-                icon: "fa-solid:sign-out-alt".to_string(),
-                placeholder: "Kick the bot from the server".to_string(),
-            },
-            WebField::reason(),
-        ],
-        RPCMethod::BotCertifyAdd { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotCertifyRemove { .. } => vec![WebField::bot_id(), WebField::reason()],
-        RPCMethod::BotTransferOwnershipUser { .. } => vec![
-            WebField::bot_id(),
-            WebField {
-                id: "new_owner".to_string(),
-                label: "User ID".to_string(),
-                field_type: FieldType::Text,
-                icon: "material-symbols:timer".to_string(),
-                placeholder: "New Owner".to_string(),
-            },
-            WebField::reason(),
-        ],
-        RPCMethod::BotTransferOwnershipTeam { .. } => vec![
-            WebField::bot_id(),
-            WebField {
-                id: "new_team".to_string(),
-                label: "Team ID".to_string(),
-                field_type: FieldType::Text,
-                icon: "material-symbols:timer".to_string(),
-                placeholder: "New Team".to_string(),
-            },
-            WebField::reason(),
-        ],
-        RPCMethod::TeamNameEdit { .. } => vec![
-            WebField {
-                id: "team_id".to_string(),
-                label: "Team ID".to_string(),
-                field_type: FieldType::Text,
-                icon: "material-symbols:timer".to_string(),
-                placeholder: "Team ID".to_string(),
-            },
-            WebField {
-                id: "new_name".to_string(),
-                label: "New team name".to_string(),
-                field_type: FieldType::Text,
-                icon: "material-symbols:timer".to_string(),
-                placeholder: "Team name".to_string(),
-            },
-            WebField::reason(),
-        ],
-        RPCMethod::TeamAvatarEdit { .. } => vec![
-            WebField {
-                id: "team_id".to_string(),
-                label: "Team ID".to_string(),
-                field_type: FieldType::Text,
-                icon: "material-symbols:timer".to_string(),
-                placeholder: "Team ID".to_string(),
-            },
-            WebField {
-                id: "new_avatar".to_string(),
-                label: "New team avatar".to_string(),
-                field_type: FieldType::Text,
-                icon: "material-symbols:timer".to_string(),
-                placeholder: "Team avatar (must be https)".to_string(),
-            },
-            WebField::reason(),
-        ],
-        RPCMethod::VoteReset { .. } => vec![WebField::target_type(), WebField::target_id(), WebField::reason()],
-        RPCMethod::VoteResetAll { .. } => vec![WebField::target_type(), WebField::reason()],
-    }
-}
-
-#[derive(Serialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCWebAction.ts")]
 struct WebAction {
     id: String,
     label: String,
     description: String,
     needed_perms: RPCPerms,
-    fields: Vec<WebField>,
+    fields: Vec<RPCField>,
 }
 
 #[derive(Deserialize)]
@@ -468,7 +298,7 @@ async fn available_actions(
             label: method.label(),
             description: method.description(),
             needed_perms: method.needs_perms(),
-            fields: method_web_fields(method),
+            fields: method.method_fields(),
         };
 
         match action.needed_perms {

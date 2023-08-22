@@ -20,6 +20,7 @@ mod stats;
 mod tasks;
 mod testing;
 mod test;
+mod panelapi;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -131,7 +132,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
             .await?;
 
             // Start RPC
-            tokio::task::spawn(rpc::server::rpc_init(
+            tokio::task::spawn(panelapi::server::init_panelapi(
                 user_data.pool.clone(),
                 user_data.cache_http.clone(),
             ));
@@ -268,6 +269,7 @@ async fn main() {
                 stats::stats(),
                 botowners::getbotroles(),
                 rpc_command::rpc(),
+                rpc_command::rpclist(),
                 test::modaltest(),
             ],
             /// This code is run before every command

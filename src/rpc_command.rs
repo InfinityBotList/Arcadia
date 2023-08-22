@@ -7,10 +7,11 @@ use poise::serenity_prelude::{
     CreateInteractionResponseMessage, CreateQuickModal, InputTextStyle, ModalInteraction,
 };
 use poise::CreateReply;
+use serenity::builder::CreateEmbed;
 use strum::VariantNames;
 
 use crate::impls::target_types::TargetType;
-use crate::rpc::core::RPCMethod;
+use crate::rpc::core::{RPCMethod, FieldType};
 use crate::{Context, Error};
 
 async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<poise::AutocompleteChoice<String>> {
@@ -26,39 +27,6 @@ async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<poise::Autocomple
     }
 
     choices
-}
-
-fn parse_bool(v: &str) -> Result<bool, Error> {
-    match v.to_lowercase().as_str() {
-        "true" | "t" | "y" => Ok(true),
-        "false" | "f" | "n" => Ok(false),
-        _ => Err("Invalid boolean".into()),
-    }
-}
-
-fn parse_hrs(v: &str) -> Result<i32, Error> {
-    // Split v into time and unit
-    let data = v.split(' ').collect::<Vec<&str>>();
-
-    if data.len() != 2 {
-        return Err(
-            "Invalid time format. Format must be WITH A SPACE BETWEEN THE NUMBER AND THE UNIT"
-                .into(),
-        );
-    }
-
-    let (time, unit) = (data[0], data[1]);
-
-    let time = time.parse::<i32>()?;
-
-    match unit {
-        "years" | "year" | "y" => Ok(time * 365 * 24),
-        "months" | "month" | "mo" | "m" => Ok(time * 30 * 24),
-        "weeks" | "week" | "w" => Ok(time * 7 * 24),
-        "days" | "day" | "d" => Ok(time * 24),
-        "hours" | "hour" | "hrs" | "hr" | "h" => Ok(time),
-        _ => Err("Invalid time format. Unit must be years, months, weeks, days or hours".into()),
-    }
 }
 
 struct GetResp {
@@ -86,6 +54,46 @@ impl From<TargetTypeChoice> for TargetType {
 }
 
 #[poise::command(
+    category = "RPC",
+    prefix_command,
+    slash_command,
+    check = "crate::checks::is_staff"
+)]
+pub async fn rpclist(ctx: Context<'_>) -> Result<(), Error> {
+    let mut commands = Vec::new();
+
+    for cmd in crate::rpc::core::RPCMethod::VARIANTS {
+        let variant = crate::rpc::core::RPCMethod::from_str(cmd)?;
+
+        let mut cmd = format!(
+            "**{}**\n{}\n**Needed permissions:** {:#?}\n**Fields:**\n",
+            variant.label(),
+            variant.description(),
+            variant.needs_perms(),  
+        );
+        
+        let method_fields = variant.method_fields();
+
+        for field in method_fields.iter() {
+            cmd.push_str(&format!("{}: {}\n", field.label, field.placeholder));
+        }
+
+        commands.push(cmd);
+    }
+
+    ctx.send(
+        CreateReply::new().embed(
+            CreateEmbed::new()
+                .title("RPC Commands")
+                .description(commands.join("\n\n"))
+        )
+    ).await?;
+
+    Ok(())
+}
+
+#[poise::command(
+    category = "RPC",
     prefix_command,
     slash_command,
     check = "crate::checks::is_staff"
@@ -162,7 +170,51 @@ pub async fn rpc(
                 for (i, inp) in resp.inputs.iter().enumerate() {
                     if let Some(field) = &method_fields.get(i) {
                         let id = &field.id;
-                        data.insert(id.clone(), inp.clone());
+
+                        match field.field_type {
+                            FieldType::Text | FieldType::Textarea => {
+                                data.insert(id.clone(), serde_json::json!(inp));
+                            },
+                            FieldType::Number => {
+                                let num = inp.parse::<u64>()?;
+                                data.insert(id.clone(), serde_json::json!(num));
+                            },
+                            FieldType::Hour => {
+                                // Split v into time and unit
+                                let timestamp = inp.split(' ').collect::<Vec<&str>>();
+
+                                if timestamp.len() != 2 {
+                                    return Err(
+                                        "Invalid time format. Format must be WITH A SPACE BETWEEN THE NUMBER AND THE UNIT"
+                                            .into(),
+                                    );
+                                }
+
+                                let (time, unit) = (timestamp[0], timestamp[1]);
+
+                                let time = time.parse::<i32>()?;
+
+                                let hours = match unit {
+                                    "years" | "year" | "y" => time * 365 * 24,
+                                    "months" | "month" | "mo" | "m" => time * 30 * 24,
+                                    "weeks" | "week" | "w" => time * 7 * 24,
+                                    "days" | "day" | "d" => time * 24,
+                                    "hours" | "hour" | "hrs" | "hr" | "h" => time,
+                                    _ => return Err("Invalid time format. Unit must be years, months, weeks, days or hours".into()),
+                                };
+
+                                data.insert(id.clone(), serde_json::json!(hours));
+                            },
+                            FieldType::Boolean => {
+                                let val = match inp.to_lowercase().as_str() {
+                                    "true" | "t" | "y" => true,
+                                    "false" | "f" | "n" => false,
+                                    _ => return Err("Invalid boolean".into()),
+                                };
+
+                                data.insert(id.clone(), serde_json::json!(val));                          
+                            }
+                        }
                     } else {
                         return Err("Internal error: field not found".into());
                     };

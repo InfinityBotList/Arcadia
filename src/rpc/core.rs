@@ -87,20 +87,80 @@ pub enum RPCMethod {
     },
 }
 
-pub struct RPCHandle {
-    pub pool: PgPool,
-    pub cache_http: impls::cache::CacheHttpImpl,
-    pub user_id: String,
-    pub target_type: TargetType,
+pub enum RPCSuccess {
+    NoContent,
+    Content(String),
 }
 
-#[derive(Serialize, Deserialize, ToSchema, TS)]
+impl RPCSuccess {
+    pub fn content(&self) -> Option<&str> {
+        match self {
+            RPCSuccess::Content(c) => Some(c),
+            _ => None,
+        }
+    }
+}
+
+/// Represents a single RPC field
+#[derive(Serialize, ToSchema, TS)]
+#[ts(export, export_to = ".generated/RPCRPCField.ts")]
+pub struct RPCField {
+    pub id: String,
+    pub label: String,
+    pub field_type: FieldType,
+    pub icon: String,
+    pub placeholder: String,
+}
+
+impl RPCField {
+    fn target_id() -> Self {
+        RPCField {
+            id: "target_id".to_string(),
+            label: "Target ID".to_string(),
+            field_type: FieldType::Text,
+            icon: "ic:twotone-access-time-filled".to_string(),
+            placeholder: "The Target ID to perform the action on".to_string(),
+        }  
+    }
+
+    fn reason() -> Self {
+        RPCField {
+            id: "reason".to_string(),
+            label: "Reason".to_string(),
+            field_type: FieldType::Textarea,
+            icon: "material-symbols:question-mark".to_string(),
+            placeholder: "Reason for performing this action".to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, ToSchema, TS)]
+#[ts(export, export_to = ".generated/RPCFieldType.ts")]
+// Allow dead code
+#[allow(dead_code)]
+/// Represents a field type
+pub enum FieldType {
+    Text,
+    Textarea,
+    Number,
+    Hour, // Time expressed as a number of hours
+    Boolean,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCPerms.ts")]
 pub enum RPCPerms {
     Owner,
     Head,  // Either hadmin/hdev
     Admin, //admin
     Staff,
+}
+
+pub struct RPCHandle {
+    pub pool: PgPool,
+    pub cache_http: impls::cache::CacheHttpImpl,
+    pub user_id: String,
+    pub target_type: TargetType,
 }
 
 impl RPCMethod {
@@ -1260,65 +1320,5 @@ impl RPCMethod {
             ],
         }
     }
-}
-
-pub enum RPCSuccess {
-    NoContent,
-    Content(String),
-}
-
-impl RPCSuccess {
-    pub fn content(&self) -> Option<&str> {
-        match self {
-            RPCSuccess::Content(c) => Some(c),
-            _ => None,
-        }
-    }
-}
-
-/// Represents a single RPC field
-#[derive(Serialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/RPCRPCField.ts")]
-pub struct RPCField {
-    pub id: String,
-    pub label: String,
-    pub field_type: FieldType,
-    pub icon: String,
-    pub placeholder: String,
-}
-
-impl RPCField {
-    fn target_id() -> Self {
-        RPCField {
-            id: "target_id".to_string(),
-            label: "Target ID".to_string(),
-            field_type: FieldType::Text,
-            icon: "ic:twotone-access-time-filled".to_string(),
-            placeholder: "The Target ID to perform the action on".to_string(),
-        }  
-    }
-
-    fn reason() -> Self {
-        RPCField {
-            id: "reason".to_string(),
-            label: "Reason".to_string(),
-            field_type: FieldType::Textarea,
-            icon: "material-symbols:question-mark".to_string(),
-            placeholder: "Reason for performing this action".to_string(),
-        }
-    }
-}
-
-#[derive(Serialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/RPCFieldType.ts")]
-// Allow dead code
-#[allow(dead_code)]
-/// Represents a field type
-pub enum FieldType {
-    Text,
-    Textarea,
-    Number,
-    Hour, // Time expressed as a number of hours
-    Boolean,
 }
 

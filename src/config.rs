@@ -81,7 +81,7 @@ impl Default for Channels {
 #[derive(Serialize, Deserialize, Default)]
 pub struct PanelLogin {
     pub client_id: String,
-    pub redirect_url: String,
+    pub redirect_url: Vec<String>,
     pub client_secret: String,
 }
 

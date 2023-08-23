@@ -113,6 +113,7 @@ pub enum LoginOp {
     },
     Login {
         code: String,
+        redirect_url: String,
     },
 }
 
@@ -149,7 +150,11 @@ async fn authenticate(
                 )
             )
         },
-        LoginOp::Login { code } => {
+        LoginOp::Login { code, redirect_url } => {
+            if !crate::config::CONFIG.panel_login.redirect_url.contains(&redirect_url) {
+                return Ok((StatusCode::BAD_REQUEST, "Invalid redirect url".to_string()));
+            }
+
             let client = reqwest::Client::builder().timeout(Duration::from_secs(10)).build().map_err(Error::new)?;
 
             let resp = client
@@ -161,7 +166,7 @@ async fn authenticate(
                     ("client_secret", crate::config::CONFIG.panel_login.client_secret.as_str()),
                     ("grant_type", "authorization_code"),
                     ("code", code.as_str()),
-                    ("redirect_uri", crate::config::CONFIG.panel_login.redirect_url.as_str()),
+                    ("redirect_uri", redirect_url.as_str()),
                     ("scope", "identify"),
                 ])
                 .send()

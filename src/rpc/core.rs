@@ -103,7 +103,7 @@ impl RPCSuccess {
 
 /// Represents a single RPC field
 #[derive(Serialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/RPCRPCField.ts")]
+#[ts(export, export_to = ".generated/RPCField.ts")]
 pub struct RPCField {
     pub id: String,
     pub label: String,

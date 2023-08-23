@@ -105,9 +105,11 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 }
 
 #[derive(Serialize, Deserialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/RPCRequest.ts")]
+#[ts(export, export_to = ".generated/LoginOp.ts")]
 pub enum LoginOp {
-    GetLoginUrl {},
+    GetLoginUrl {
+        version: u16,
+    },
     Login {
         code: String,
     },
@@ -130,7 +132,11 @@ async fn authenticate(
     Json(req): Json<LoginOp>,
 ) -> Result<impl IntoResponse, Error> {
     match req {
-        LoginOp::GetLoginUrl { } => {
+        LoginOp::GetLoginUrl { version } => {
+            if version != 0 {
+                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()));
+            }
+
             Ok(
                 (
                     StatusCode::OK, 

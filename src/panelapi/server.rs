@@ -69,7 +69,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     sqlx::query!(
         "CREATE TABLE IF NOT EXISTS rpc__panelauthchain (
             user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-            token TEXT NOT NULL UNIQUE,
+            token TEXT NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )"
     )

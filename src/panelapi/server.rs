@@ -14,6 +14,7 @@ use axum::{
     Router
 };
 use log::info;
+use serenity::all::User;
 use sqlx::PgPool;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -171,6 +172,8 @@ async fn authenticate(
                 ])
                 .send()
                 .await
+                .map_err(Error::new)?
+                .error_for_status()
                 .map_err(Error::new)?;
             
             #[derive(Deserialize)]
@@ -182,14 +185,16 @@ async fn authenticate(
 
             let user_resp = client
             .get("https://discord.com/api/users/@me")
-            .header("Authorization", "Bot ".to_string() + oauth2.access_token.as_str())
+            .header("Authorization", "Bearer ".to_string() + oauth2.access_token.as_str())
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("User-Agent", "DiscordBot (arcadia v1.0)")
             .send()
             .await
+            .map_err(Error::new)?
+            .error_for_status()
             .map_err(Error::new)?;
 
-            let user = user_resp.json::<serenity::model::user::User>().await.map_err(Error::new)?;
+            let user = user_resp.json::<User>().await.map_err(Error::new)?;
 
             let rec = sqlx::query!(
                 "SELECT staff FROM users WHERE user_id = $1",

@@ -109,6 +109,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 pub enum LoginOp {
     GetLoginUrl {
         version: u16,
+        redirect_url: String
     },
     Login {
         code: String,
@@ -132,7 +133,7 @@ async fn authenticate(
     Json(req): Json<LoginOp>,
 ) -> Result<impl IntoResponse, Error> {
     match req {
-        LoginOp::GetLoginUrl { version } => {
+        LoginOp::GetLoginUrl { version, redirect_url } => {
             if version != 0 {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()));
             }
@@ -143,7 +144,7 @@ async fn authenticate(
                     format!(
                         "https://discord.com/api/oauth2/authorize?client_id={client_id}&redirect_uri={redirect_url}&response_type=code&scope=identify",
                         client_id = crate::config::CONFIG.panel_login.client_id,
-                        redirect_url = crate::config::CONFIG.panel_login.redirect_url
+                        redirect_url = redirect_url
                     )
                 )
             )

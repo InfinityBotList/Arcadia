@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::impls;
+use crate::panelapi::types::InstanceConfig;
 use axum::Json;
 use axum::extract::Host;
 use axum::http::HeaderMap;
@@ -53,7 +54,7 @@ pub struct AppState {
 pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
     #[derive(OpenApi)]
-    #[openapi(paths(query), components(schemas(PanelQuery)))]
+    #[openapi(paths(get_instance_config, query), components(schemas(PanelQuery, InstanceConfig)))]
     struct ApiDoc;  
 
     async fn docs() -> impl IntoResponse {
@@ -110,20 +111,31 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 #[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
 #[ts(export, export_to = ".generated/PanelQuery.ts")]
 pub enum PanelQuery {
+    /// Get Login URL
     GetLoginUrl {
         version: u16,
         redirect_url: String
     },
+    /// Login, returning a login token
     Login {
         code: String,
         redirect_url: String,
     },
+    /// Get Identity (user_id/created_at) for a given login token
     GetIdentity {
         login_token: String,
     },
+    /// Returns user information given a user id, returning a dovewing PartialUser
     GetUserDetails {
         user_id: String,
-    }
+    },
+    /// Given a user ID, returns the permissions for that user
+    GetUserPerms {
+        user_id: String,
+    },
+    //GetCapabilities {
+    //    login_token: String,
+    //}
 }
 
 /// Make Panel Query
@@ -273,6 +285,14 @@ async fn query(
         PanelQuery::GetUserDetails { user_id } => {
             let user = crate::impls::dovewing::get_partial_user(&state.pool, &user_id).await.map_err(Error::new)?;
 
+            Ok(
+                (
+                    StatusCode::OK, 
+                    Json(user)
+                ).into_response()
+            )
+        },
+        PanelQuery::GetUserPerms { user_id } => {
             let perms = sqlx::query!(
                 "SELECT staff, admin, hadmin, ibldev, iblhdev, owner FROM users WHERE user_id = $1",
                 user_id
@@ -285,8 +305,7 @@ async fn query(
                 (
                     StatusCode::OK, 
                     Json(
-                        super::types::PanelUserDetails {
-                            user,
+                        super::types::PanelPerms {
                             staff: perms.staff,
                             admin: perms.admin,
                             hadmin: perms.hadmin,

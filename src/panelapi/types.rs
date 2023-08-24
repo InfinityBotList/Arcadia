@@ -1,12 +1,10 @@
-use crate::impls::dovewing::PartialUser;
 use ts_rs::TS;
 use serde::{Serialize, Deserialize};
+use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, TS, Clone)]
-#[ts(export, export_to = ".generated/PanelUserDetails.ts")]
-/// Represents a user
-pub struct PanelUserDetails {
-    pub user: PartialUser,
+#[ts(export, export_to = ".generated/PanelPerms.ts")]
+pub struct PanelPerms {
     pub staff: bool,
     pub admin: bool,
     pub hadmin: bool,
@@ -15,7 +13,7 @@ pub struct PanelUserDetails {
     pub owner: bool,
 }
 
-#[derive(Serialize, Deserialize, TS, Clone)]
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
 #[ts(export, export_to = ".generated/InstanceConfig.ts")]
 /// Represents a user
 pub struct InstanceConfig {

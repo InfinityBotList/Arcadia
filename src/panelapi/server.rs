@@ -182,11 +182,6 @@ async fn query(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PanelQuery>,
 ) -> Result<impl IntoResponse, Error> {
-    // NOTE: Server list and bot management capability not enabled right now
-    let capabilities = vec![
-        super::types::Capability::Rpc,
-    ];
-
     match req {
         PanelQuery::GetLoginUrl { version, redirect_url } => {
             if version != 0 {
@@ -323,14 +318,12 @@ async fn query(
             )
         },
         PanelQuery::GetCapabilities { login_token } => {
-            super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
-
-            // NOTE: in the future, capabilities can be limited based on user info/perms as well
+            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
 
             Ok(
                 (
                     StatusCode::OK, 
-                    Json(capabilities)
+                    Json(caps)
                 ).into_response()
             )
         }

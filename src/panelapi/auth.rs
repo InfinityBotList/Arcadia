@@ -3,6 +3,8 @@ use sqlx::PgPool;
 use crate::Error;
 use ts_rs::TS;
 
+use super::types::Capability;
+
 #[derive(Serialize, Deserialize, TS)]
 #[ts(export, export_to = ".generated/AuthData.ts")]
 pub struct AuthData {
@@ -42,4 +44,17 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
         user_id: rec.user_id,
         created_at: rec.created_at.timestamp(),
     })
+}
+
+/// Returns the capabilities of a user
+/// 
+/// NOTE 1: Server list and bot management capability not enabled right now
+/// 
+/// NOTE 2: in the future, capabilities can be limited based on user info/perms as well
+pub async fn get_capabilities(pool: &PgPool, token: &str) -> Result<Vec<Capability>, Error> {
+    check_auth(pool, token).await?;
+
+    Ok(vec![
+        Capability::Rpc,
+    ])
 }

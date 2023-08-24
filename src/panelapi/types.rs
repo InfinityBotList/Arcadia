@@ -16,7 +16,7 @@ pub struct PanelUserDetails {
 }
 
 #[derive(Serialize, Deserialize, TS, Clone)]
-#[ts(export, export_to = ".generated/PanelUserDetails.ts")]
+#[ts(export, export_to = ".generated/InstanceConfig.ts")]
 /// Represents a user
 pub struct InstanceConfig {
     /// Description of the instance

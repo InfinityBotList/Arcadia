@@ -3,6 +3,8 @@ use ts_rs::TS;
 use serde::{Serialize, Deserialize};
 use utoipa::ToSchema;
 
+use crate::impls::dovewing::PartialUser;
+
 #[derive(Serialize, Deserialize, TS, Clone)]
 #[ts(export, export_to = ".generated/PanelPerms.ts")]
 pub struct PanelPerms {
@@ -37,4 +39,16 @@ pub enum Capability {
     ServerList,
     /// Bot management capability
     BotManagement,
+}
+
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/QueueBot.ts")]
+pub struct QueueBot {
+    pub bot_id: String,
+    pub user: PartialUser,
+    pub claimed_by: Option<String>,
+    pub approval_note: String,
+    pub short: String,
+    pub mentionable: Vec<String>,
+    pub invite: String,
 }

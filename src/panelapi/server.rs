@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::impls;
+use crate::impls::target_types::TargetType;
 use crate::panelapi::types::InstanceConfig;
 use axum::Json;
 use axum::extract::Host;
@@ -136,7 +137,11 @@ pub enum PanelQuery {
     /// Given a login token, returns the capabilities for that user
     GetCapabilities {
         login_token: String,
-    }
+    },
+    /// Returns the bot queue
+    BotQueue {
+        login_token: String,
+    },
 }
 
 /// Make Panel Query
@@ -310,6 +315,43 @@ async fn query(
                 (
                     StatusCode::OK, 
                     Json(caps)
+                ).into_response()
+            )
+        },
+        PanelQuery::BotQueue { login_token } => {
+            super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            let queue = sqlx::query!(
+                "SELECT bot_id, claimed_by, approval_note, short, invite FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at"
+            )
+            .fetch_all(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            let mut bots = Vec::new();
+
+            for bot in queue {
+                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &state.pool).await.map_err(Error::new)?;
+
+                let user = crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id).await.map_err(Error::new)?;
+
+                bots.push(
+                    super::types::QueueBot {
+                        bot_id: bot.bot_id,
+                        user,
+                        claimed_by: bot.claimed_by,
+                        approval_note: bot.approval_note,
+                        short: bot.short,
+                        mentionable: owners.mentionables(),
+                        invite: bot.invite,
+                    }
+                );
+            }
+
+            Ok(
+                (
+                    StatusCode::OK, 
+                    Json(bots)
                 ).into_response()
             )
         }

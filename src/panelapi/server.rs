@@ -3,8 +3,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::impls;
-use crate::impls::dovewing::PartialUser;
 use axum::Json;
+use axum::extract::Host;
 use axum::http::HeaderMap;
 
 use axum::response::{Response, IntoResponse};
@@ -53,7 +53,7 @@ pub struct AppState {
 pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
     #[derive(OpenApi)]
-    #[openapi(paths(authenticate, query), components(schemas(LoginOp)))]
+    #[openapi(paths(query), components(schemas(PanelQuery)))]
     struct ApiDoc;  
 
     async fn docs() -> impl IntoResponse {
@@ -82,7 +82,6 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     let shared_state = Arc::new(AppState { pool, cache_http });
 
     let app = Router::new()
-        .route("/authorize", post(authenticate))
         .route("/openapi", get(docs))
         .route("/query", post(query))
         .with_state(shared_state)
@@ -107,9 +106,12 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/LoginOp.ts")]
-pub enum LoginOp {
+#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
+#[ts(export, export_to = ".generated/PanelQuery.ts")]
+pub enum PanelQuery {
+    InstanceConfig {
+        version: u16,
+    },
     GetLoginUrl {
         version: u16,
         redirect_url: String
@@ -118,12 +120,18 @@ pub enum LoginOp {
         code: String,
         redirect_url: String,
     },
+    GetIdentity {
+        login_token: String,
+    },
+    GetUserDetails {
+        user_id: String,
+    }
 }
 
-/// Authenticate User
+/// Make Panel Query
 #[utoipa::path(
     post,
-    request_body =  LoginOp,
+    request_body =  PanelQuery,
     path = "/",
     responses(
         (status = 200, description = "Content", body = String),
@@ -132,14 +140,33 @@ pub enum LoginOp {
     ),
 )]
 #[axum_macros::debug_handler]
-async fn authenticate(
+async fn query(
+    Host(host): Host,
     State(state): State<Arc<AppState>>,
-    Json(req): Json<LoginOp>,
+    Json(req): Json<PanelQuery>,
 ) -> Result<impl IntoResponse, Error> {
     match req {
-        LoginOp::GetLoginUrl { version, redirect_url } => {
+        PanelQuery::InstanceConfig { version } => {
             if version != 0 {
-                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()));
+                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
+            }
+
+            Ok(
+                (
+                    StatusCode::OK, 
+                    Json(
+                        super::types::InstanceConfig {
+                            description: "Arcadia Production Instance Config".to_string(),
+                            instance_url: host.clone(),
+                            query: "/query".to_string(),
+                        }
+                    )
+                ).into_response()
+            ) 
+        },
+        PanelQuery::GetLoginUrl { version, redirect_url } => {
+            if version != 0 {
+                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 
             Ok(
@@ -150,12 +177,12 @@ async fn authenticate(
                         client_id = crate::config::CONFIG.panel_login.client_id,
                         redirect_url = redirect_url
                     )
-                )
+                ).into_response()
             )
         },
-        LoginOp::Login { code, redirect_url } => {
+        PanelQuery::Login { code, redirect_url } => {
             if !crate::config::CONFIG.panel_login.redirect_url.contains(&redirect_url) {
-                return Ok((StatusCode::BAD_REQUEST, "Invalid redirect url".to_string()));
+                return Ok((StatusCode::BAD_REQUEST, "Invalid redirect url".to_string()).into_response());
             }
 
             let client = reqwest::Client::builder().timeout(Duration::from_secs(10)).build().map_err(Error::new)?;
@@ -207,7 +234,7 @@ async fn authenticate(
             .map_err(Error::new)?;
 
             if !rec.staff {
-                return Ok((StatusCode::FORBIDDEN, "You are not staff".to_string()));
+                return Ok((StatusCode::FORBIDDEN, "You are not staff".to_string()).into_response());
             }
 
             let token = crate::impls::crypto::gen_random(4196);
@@ -224,51 +251,8 @@ async fn authenticate(
             Ok((
                 StatusCode::OK, 
                 token
-            ))
+            ).into_response())
         }
-    }
-}
-
-#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
-#[ts(export, export_to = ".generated/PanelQuery.ts")]
-pub enum PanelQuery {
-    GetIdentity {
-        login_token: String,
-    },
-    GetUserDetails {
-        user_id: String,
-    }
-}
-
-#[derive(Serialize, Deserialize, TS, Clone)]
-#[ts(export, export_to = ".generated/PanelUserDetails.ts")]
-pub struct PanelUserDetails {
-    pub user: PartialUser,
-    pub staff: bool,
-    pub admin: bool,
-    pub hadmin: bool,
-    pub ibldev: bool,
-    pub iblhdev: bool,
-    pub owner: bool,
-}
-
-/// Make Panel Query
-#[utoipa::path(
-    post,
-    request_body =  PanelQuery,
-    path = "/",
-    responses(
-        (status = 200, description = "Content", body = String),
-        (status = 204, description = "No content"),
-        (status = BAD_REQUEST, description = "An error occured", body = String),
-    ),
-)]
-#[axum_macros::debug_handler]
-async fn query(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<PanelQuery>,
-) -> Result<impl IntoResponse, Error> {
-    match req {
         PanelQuery::GetIdentity { login_token } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
 
@@ -294,7 +278,7 @@ async fn query(
                 (
                     StatusCode::OK, 
                     Json(
-                        PanelUserDetails {
+                        super::types::PanelUserDetails {
                             user,
                             staff: perms.staff,
                             admin: perms.admin,

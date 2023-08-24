@@ -84,7 +84,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     let app = Router::new()
         .route("/openapi", get(docs))
         .route("/query", post(query))
-        .route("/", post(get_instance_config))
+        .route("/", get(get_instance_config))
         .with_state(shared_state)
         .layer(
             CorsLayer::new()

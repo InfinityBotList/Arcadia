@@ -133,9 +133,9 @@ pub enum PanelQuery {
     GetUserPerms {
         user_id: String,
     },
-    //GetCapabilities {
-    //    login_token: String,
-    //}
+    GetCapabilities {
+        login_token: String,
+    }
 }
 
 /// Make Panel Query
@@ -182,6 +182,11 @@ async fn query(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PanelQuery>,
 ) -> Result<impl IntoResponse, Error> {
+    // NOTE: Server list and bot management capability not enabled right now
+    let capabilities = vec![
+        super::types::Capability::Rpc,
+    ];
+
     match req {
         PanelQuery::GetLoginUrl { version, redirect_url } => {
             if version != 0 {
@@ -314,6 +319,18 @@ async fn query(
                             owner: perms.owner,
                         }
                     )
+                ).into_response()
+            )
+        },
+        PanelQuery::GetCapabilities { login_token } => {
+            super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            // NOTE: in the future, capabilities can be limited based on user info/perms as well
+
+            Ok(
+                (
+                    StatusCode::OK, 
+                    Json(capabilities)
                 ).into_response()
             )
         }

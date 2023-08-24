@@ -1,3 +1,4 @@
+use strum_macros::{EnumString, Display, EnumVariantNames};
 use ts_rs::TS;
 use serde::{Serialize, Deserialize};
 use utoipa::ToSchema;
@@ -23,4 +24,15 @@ pub struct InstanceConfig {
     pub instance_url: String,
     /// Path at which all queries can be made
     pub query: String,
+}
+
+#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
+#[ts(export, export_to = ".generated/Capability.ts")]
+pub enum Capability {
+    /// RPC capability
+    Rpc,
+    /// Server listing capability
+    ServerList,
+    /// Bot management capability
+    BotManagement,
 }

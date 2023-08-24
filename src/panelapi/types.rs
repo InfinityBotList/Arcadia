@@ -31,6 +31,8 @@ pub struct InstanceConfig {
 pub enum Capability {
     /// RPC capability
     Rpc,
+    /// View bot queue capability
+    ViewBotQueue,
     /// Server listing capability
     ServerList,
     /// Bot management capability

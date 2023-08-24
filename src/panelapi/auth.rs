@@ -1,13 +1,13 @@
-use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use sqlx::PgPool;
-
 use crate::Error;
+use ts_rs::TS;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export, export_to = ".generated/AuthData.ts")]
 pub struct AuthData {
     pub user_id: String,
-    pub created_at: DateTime<Utc>,
+    pub created_at: i64,
 }
 
 pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
@@ -27,6 +27,6 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
 
     Ok(AuthData {
         user_id: rec.user_id,
-        created_at: rec.created_at,
+        created_at: rec.created_at.timestamp(),
     })
 }

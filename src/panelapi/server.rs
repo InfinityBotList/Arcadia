@@ -21,6 +21,7 @@ use tower_http::cors::{Any, CorsLayer};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use utoipa::ToSchema;
+use strum_macros::{Display, EnumString, EnumVariantNames};
 
 struct Error {
     status: StatusCode,
@@ -51,7 +52,7 @@ pub struct AppState {
 pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
     #[derive(OpenApi)]
-    #[openapi(paths(authenticate), components(schemas()))]
+    #[openapi(paths(authenticate, query), components(schemas(LoginOp)))]
     struct ApiDoc;  
 
     async fn docs() -> impl IntoResponse {
@@ -76,13 +77,13 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     .execute(&pool)
     .await
     .expect("Failed to create rpc__panelauthchain table");
-
     
     let shared_state = Arc::new(AppState { pool, cache_http });
 
     let app = Router::new()
         .route("/authorize", post(authenticate))
         .route("/openapi", get(docs))
+        .route("/query", post(query))
         .with_state(shared_state)
         .layer(
             CorsLayer::new()
@@ -121,7 +122,7 @@ pub enum LoginOp {
 /// Authenticate User
 #[utoipa::path(
     post,
-    request_body = RPCRequest,
+    request_body =  LoginOp,
     path = "/",
     responses(
         (status = 200, description = "Content", body = String),
@@ -223,6 +224,44 @@ async fn authenticate(
                 StatusCode::OK, 
                 token
             ))
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
+#[ts(export, export_to = ".generated/PanelQuery.ts")]
+pub enum PanelQuery {
+    GetIdentity {
+        login_token: String,
+    }
+}
+
+/// Make Panel Query
+#[utoipa::path(
+    post,
+    request_body =  PanelQuery,
+    path = "/",
+    responses(
+        (status = 200, description = "Content", body = String),
+        (status = 204, description = "No content"),
+        (status = BAD_REQUEST, description = "An error occured", body = String),
+    ),
+)]
+#[axum_macros::debug_handler]
+async fn query(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<PanelQuery>,
+) -> Result<impl IntoResponse, Error> {
+    match req {
+        PanelQuery::GetIdentity { login_token } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            Ok(
+                (
+                    StatusCode::OK, 
+                    Json(auth_data)
+                )
+            )
         }
     }
 }

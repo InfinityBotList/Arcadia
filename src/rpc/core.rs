@@ -16,7 +16,6 @@ use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
 #[ts(export, export_to = ".generated/RPCMethod.ts")]
-#[allow(clippy::enum_variant_names)]
 pub enum RPCMethod {
     Claim {
         target_id: String,

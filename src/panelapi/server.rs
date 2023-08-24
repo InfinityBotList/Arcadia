@@ -84,6 +84,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     let app = Router::new()
         .route("/openapi", get(docs))
         .route("/query", post(query))
+        .route("/", post(get_instance_config))
         .with_state(shared_state)
         .layer(
             CorsLayer::new()
@@ -109,9 +110,6 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 #[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
 #[ts(export, export_to = ".generated/PanelQuery.ts")]
 pub enum PanelQuery {
-    InstanceConfig {
-        version: u16,
-    },
     GetLoginUrl {
         version: u16,
         redirect_url: String
@@ -131,6 +129,34 @@ pub enum PanelQuery {
 /// Make Panel Query
 #[utoipa::path(
     post,
+    path = "/",
+    responses(
+        (status = 200, description = "Content", body = InstanceConfig),
+        (status = 204, description = "No content"),
+        (status = BAD_REQUEST, description = "An error occured", body = String),
+    ),
+)]
+#[axum_macros::debug_handler]
+async fn get_instance_config(
+    Host(host): Host,
+) -> Result<impl IntoResponse, Error> {
+    Ok(
+        (
+            StatusCode::OK, 
+            Json(
+                super::types::InstanceConfig {
+                    description: "Arcadia Production Instance Config".to_string(),
+                    instance_url: host,
+                    query: "/query".to_string(),
+                }
+            )
+        ).into_response()
+    ) 
+}
+
+/// Make Panel Query
+#[utoipa::path(
+    post,
     request_body =  PanelQuery,
     path = "/",
     responses(
@@ -141,29 +167,10 @@ pub enum PanelQuery {
 )]
 #[axum_macros::debug_handler]
 async fn query(
-    Host(host): Host,
     State(state): State<Arc<AppState>>,
     Json(req): Json<PanelQuery>,
 ) -> Result<impl IntoResponse, Error> {
     match req {
-        PanelQuery::InstanceConfig { version } => {
-            if version != 0 {
-                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
-            }
-
-            Ok(
-                (
-                    StatusCode::OK, 
-                    Json(
-                        super::types::InstanceConfig {
-                            description: "Arcadia Production Instance Config".to_string(),
-                            instance_url: host.clone(),
-                            query: "/query".to_string(),
-                        }
-                    )
-                ).into_response()
-            ) 
-        },
         PanelQuery::GetLoginUrl { version, redirect_url } => {
             if version != 0 {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());

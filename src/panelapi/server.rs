@@ -133,6 +133,7 @@ pub enum PanelQuery {
     GetUserPerms {
         user_id: String,
     },
+    /// Given a login token, returns the capabilities for that user
     GetCapabilities {
         login_token: String,
     }

@@ -18,6 +18,19 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     .execute(pool)
     .await?;
 
+    let count = sqlx::query!(
+        "SELECT COUNT(*) FROM rpc__panelauthchain WHERE token = $1",
+        token
+    )
+    .fetch_one(pool)
+    .await?
+    .count
+    .unwrap_or(0);
+
+    if count == 0 {
+        return Err("identityExpired".into());
+    }
+
     let rec = sqlx::query!(
         "SELECT user_id, created_at FROM rpc__panelauthchain WHERE token = $1",
         token

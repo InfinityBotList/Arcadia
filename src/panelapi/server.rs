@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::impls;
+use crate::impls::dovewing::PartialUser;
 use axum::Json;
 use axum::http::HeaderMap;
 
@@ -233,7 +234,22 @@ async fn authenticate(
 pub enum PanelQuery {
     GetIdentity {
         login_token: String,
+    },
+    GetUserDetails {
+        user_id: String,
     }
+}
+
+#[derive(Serialize, Deserialize, TS, Clone)]
+#[ts(export, export_to = ".generated/PanelUserDetails.ts")]
+pub struct PanelUserDetails {
+    pub user: PartialUser,
+    pub staff: bool,
+    pub admin: bool,
+    pub hadmin: bool,
+    pub ibldev: bool,
+    pub iblhdev: bool,
+    pub owner: bool,
 }
 
 /// Make Panel Query
@@ -260,7 +276,35 @@ async fn query(
                 (
                     StatusCode::OK, 
                     Json(auth_data)
-                )
+                ).into_response()
+            )
+        },
+        PanelQuery::GetUserDetails { user_id } => {
+            let user = crate::impls::dovewing::get_partial_user(&state.pool, &user_id).await.map_err(Error::new)?;
+
+            let perms = sqlx::query!(
+                "SELECT staff, admin, hadmin, ibldev, iblhdev, owner FROM users WHERE user_id = $1",
+                user_id
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            Ok(
+                (
+                    StatusCode::OK, 
+                    Json(
+                        PanelUserDetails {
+                            user,
+                            staff: perms.staff,
+                            admin: perms.admin,
+                            hadmin: perms.hadmin,
+                            ibldev: perms.ibldev,
+                            iblhdev: perms.iblhdev,
+                            owner: perms.owner,
+                        }
+                    )
+                ).into_response()
             )
         }
     }

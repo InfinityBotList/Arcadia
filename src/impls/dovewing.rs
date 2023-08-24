@@ -1,7 +1,9 @@
 use serde::{Serialize, Deserialize};
 use sqlx::PgPool;
+use ts_rs::TS;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = ".generated/PartialUser.ts")]
 pub struct PartialUser {
     pub username: String,
     pub display_name: String,

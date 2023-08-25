@@ -3,7 +3,7 @@ use ts_rs::TS;
 use serde::{Serialize, Deserialize};
 use utoipa::ToSchema;
 
-use crate::impls::dovewing::PartialUser;
+use crate::{impls::dovewing::PartialUser, config::Servers};
 
 #[derive(Serialize, Deserialize, TS, Clone)]
 #[ts(export, export_to = ".generated/PanelPerms.ts")]
@@ -45,6 +45,7 @@ pub enum Capability {
 #[ts(export, export_to = ".generated/QueueBot.ts")]
 pub struct QueueBot {
     pub bot_id: String,
+    pub client_id: String,
     pub user: PartialUser,
     pub claimed_by: Option<String>,
     pub approval_note: String,
@@ -60,4 +61,6 @@ pub struct CoreConstants {
     pub frontend_url: String,
     /// Infernoplex URL
     pub infernoplex_url: String,
+    /// Servers
+    pub servers: Servers
 }

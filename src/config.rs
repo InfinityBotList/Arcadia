@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use std::{fs::File, io::Write, num::NonZeroU64};
 
 use crate::Error;
@@ -7,7 +8,8 @@ use crate::Error;
 /// Global config object
 pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load().expect("Failed to load config"));
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, TS)]
+#[ts(export, export_to = ".generated/Servers.ts")]
 pub struct Servers {
     pub main: NonZeroU64,
     pub staff: NonZeroU64,

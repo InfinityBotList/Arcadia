@@ -333,6 +333,7 @@ async fn query(
                         super::types::CoreConstants {
                             frontend_url: crate::config::CONFIG.frontend_url.clone(),
                             infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
+                            servers: crate::config::CONFIG.servers.clone(),
                         }
                     )
                 ).into_response()
@@ -342,7 +343,7 @@ async fn query(
             super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
 
             let queue = sqlx::query!(
-                "SELECT bot_id, claimed_by, approval_note, short, invite FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at"
+                "SELECT bot_id, client_id, claimed_by, approval_note, short, invite FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at"
             )
             .fetch_all(&state.pool)
             .await
@@ -358,6 +359,7 @@ async fn query(
                 bots.push(
                     super::types::QueueBot {
                         bot_id: bot.bot_id,
+                        client_id: bot.client_id,
                         user,
                         claimed_by: bot.claimed_by,
                         approval_note: bot.approval_note,

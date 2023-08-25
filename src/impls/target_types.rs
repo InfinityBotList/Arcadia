@@ -1,6 +1,12 @@
 use std::fmt::{Formatter, Display};
 
-#[derive(PartialEq)]
+use strum_macros::{EnumString, EnumVariantNames};
+use ts_rs::TS;
+use utoipa::ToSchema;
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, PartialEq, EnumString, ToSchema, TS, EnumVariantNames, Clone)]
+#[ts(export, export_to = ".generated/TargetType.ts")]
 pub enum TargetType {
     Bot,
     Server,

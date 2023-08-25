@@ -5,6 +5,7 @@ use std::time::Duration;
 use crate::impls;
 use crate::impls::target_types::TargetType;
 use crate::panelapi::types::InstanceConfig;
+use crate::rpc::core::{RPCMethod, RPCHandle};
 use axum::Json;
 use axum::extract::Host;
 use axum::http::HeaderMap;
@@ -24,7 +25,7 @@ use tower_http::cors::{Any, CorsLayer};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use strum_macros::{Display, EnumString, EnumVariantNames};
+use strum_macros::Display;
 
 struct Error {
     status: StatusCode,
@@ -109,43 +110,62 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
+#[derive(Serialize, Deserialize, ToSchema, TS, Display, Clone)]
 #[ts(export, export_to = ".generated/PanelQuery.ts")]
 pub enum PanelQuery {
     /// Get Login URL
     GetLoginUrl {
+        /// Panel protocol version
         version: u16,
+        /// Redirect URL
         redirect_url: String
     },
     /// Login, returning a login token
     Login {
+        /// Discord OAuth2 code
         code: String,
+        /// Redirect URL
         redirect_url: String,
     },
     /// Get Identity (user_id/created_at) for a given login token
     GetIdentity {
+        /// Login token
         login_token: String,
     },
     /// Returns user information given a user id, returning a dovewing PartialUser
     GetUserDetails {
+        /// User ID to fetch details for
         user_id: String,
     },
     /// Given a user ID, returns the permissions for that user
     GetUserPerms {
+        /// User ID to fetch perms for
         user_id: String,
     },
     /// Given a login token, returns the capabilities for that user
     GetCapabilities {
+        /// Login token
         login_token: String,
     },
-    /// Given a version, returns core constants for the panel
+    /// Given a login token, returns core constants for the panel for that user
     GetCoreConstants {
+        /// Login token
         login_token: String,
     },
     /// Returns the bot queue
     BotQueue {
+        /// Login token
         login_token: String,
     },
+    /// Executes an RPC on a target
+    ExecuteRpc {
+        /// Login token
+        login_token: String,
+        /// Target Type
+        target_type: TargetType,
+        /// RPC Method
+        method: RPCMethod
+    }
 }
 
 /// Make Panel Query
@@ -266,6 +286,16 @@ async fn query(
                 return Ok((StatusCode::FORBIDDEN, "You are not staff".to_string()).into_response());
             }
 
+            let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+            sqlx::query!(
+                "DELETE FROM rpc__panelauthchain WHERE user_id = $1",
+                user.id.to_string()
+            )
+            .execute(&mut tx)
+            .await
+            .map_err(Error::new)?;
+
             let token = crate::impls::crypto::gen_random(4196);
 
             sqlx::query!(
@@ -273,9 +303,11 @@ async fn query(
                 user.id.to_string(),
                 token
             )
-            .execute(&state.pool)
+            .execute(&mut tx)
             .await
             .map_err(Error::new)?;
+
+            tx.commit().await.map_err(Error::new)?;
 
             Ok((
                 StatusCode::OK, 
@@ -380,6 +412,42 @@ async fn query(
                     Json(bots)
                 ).into_response()
             )
+        },
+        PanelQuery::ExecuteRpc { login_token, target_type, method } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            let resp = method.handle(
+                RPCHandle {
+                    pool: state.pool.clone(),
+                    cache_http: state.cache_http.clone(),
+                    user_id: auth_data.user_id,
+                    target_type,
+                }
+            )
+            .await;
+
+            match resp {
+                Ok(r) => match r {
+                    crate::rpc::core::RPCSuccess::NoContent => {
+                        Ok((
+                            StatusCode::NO_CONTENT, 
+                            ""
+                        ).into_response())
+                    },
+                    crate::rpc::core::RPCSuccess::Content(c) => {
+                        Ok((
+                            StatusCode::OK, 
+                            c
+                        ).into_response())
+                    }
+                },
+                Err(e) => {
+                    Ok((
+                        StatusCode::BAD_REQUEST, 
+                        e.to_string()
+                    ).into_response())
+                }
+            }
         }
     }
 }

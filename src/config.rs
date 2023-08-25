@@ -94,6 +94,7 @@ pub struct Config {
     pub roles: Roles,
     pub channels: Channels,
     pub frontend_url: String,
+    pub infernoplex_url: String,
     pub proxy_url: String,
     pub owners: Vec<NonZeroU64>,
     pub protected_bots: Vec<NonZeroU64>,
@@ -109,6 +110,7 @@ impl Default for Config {
             roles: Roles::default(),
             channels: Channels::default(),
             frontend_url: String::from("https://infinitybots.gg"),
+            infernoplex_url: String::from("https://infernoplex.infinitybots.gg"),
             proxy_url: String::from("http://127.0.0.1:3219"),
             owners: vec![NonZeroU64::new(510065483693817867).unwrap()],
             protected_bots: vec![

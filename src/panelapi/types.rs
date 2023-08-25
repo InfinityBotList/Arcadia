@@ -52,3 +52,12 @@ pub struct QueueBot {
     pub mentionable: Vec<String>,
     pub invite: String,
 }
+
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/CoreConstants.ts")]
+pub struct CoreConstants {
+    /// URL to the main site (reed is used here currently)
+    pub frontend_url: String,
+    /// Infernoplex URL
+    pub infernoplex_url: String,
+}

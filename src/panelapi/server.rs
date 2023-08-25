@@ -138,6 +138,10 @@ pub enum PanelQuery {
     GetCapabilities {
         login_token: String,
     },
+    /// Given a version, returns core constants for the panel
+    GetCoreConstants {
+        login_token: String,
+    },
     /// Returns the bot queue
     BotQueue {
         login_token: String,
@@ -315,6 +319,22 @@ async fn query(
                 (
                     StatusCode::OK, 
                     Json(caps)
+                ).into_response()
+            )
+        },
+        PanelQuery::GetCoreConstants { login_token } => {
+            // Ensure auth is valid, that's all that matters here
+            super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            Ok(
+                (
+                    StatusCode::OK, 
+                    Json(
+                        super::types::CoreConstants {
+                            frontend_url: crate::config::CONFIG.frontend_url.clone(),
+                            infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
+                        }
+                    )
                 ).into_response()
             )
         },

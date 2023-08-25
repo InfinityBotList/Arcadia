@@ -3,7 +3,7 @@ use ts_rs::TS;
 use serde::{Serialize, Deserialize};
 use utoipa::ToSchema;
 
-use crate::{impls::dovewing::PartialUser, config::Servers};
+use crate::impls::dovewing::PartialUser;
 
 #[derive(Serialize, Deserialize, TS, Clone)]
 #[ts(export, export_to = ".generated/PanelPerms.ts")]
@@ -62,5 +62,14 @@ pub struct CoreConstants {
     /// Infernoplex URL
     pub infernoplex_url: String,
     /// Servers
-    pub servers: Servers
+    pub servers: PanelServers
+}
+
+/// Same as CONFIG.servers but using strings instead of NonZeroU64s
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/PanelServers.ts")]
+pub struct PanelServers {
+    pub main: String,
+    pub staff: String,
+    pub testing: String,
 }

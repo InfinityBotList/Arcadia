@@ -333,7 +333,11 @@ async fn query(
                         super::types::CoreConstants {
                             frontend_url: crate::config::CONFIG.frontend_url.clone(),
                             infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
-                            servers: crate::config::CONFIG.servers.clone(),
+                            servers: super::types::PanelServers {
+                                main: crate::config::CONFIG.servers.main.to_string(),
+                                staff: crate::config::CONFIG.servers.staff.to_string(),
+                                testing: crate::config::CONFIG.servers.testing.to_string(),
+                            }
                         }
                     )
                 ).into_response()

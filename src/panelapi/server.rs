@@ -56,7 +56,7 @@ pub struct AppState {
 pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
     #[derive(OpenApi)]
-    #[openapi(paths(get_instance_config, query), components(schemas(PanelQuery, InstanceConfig)))]
+    #[openapi(paths(get_instance_config, query), components(schemas(PanelQuery, InstanceConfig, RPCMethod, TargetType)))]
     struct ApiDoc;  
 
     async fn docs() -> impl IntoResponse {

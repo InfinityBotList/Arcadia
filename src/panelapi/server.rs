@@ -520,7 +520,7 @@ async fn query(
                         message: "mfaNotSetup".to_string(),
                     }
                 )
-            }       
+            }      
 
             let secret = sqlx::query!(
                 "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",

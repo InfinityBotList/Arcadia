@@ -338,7 +338,7 @@ async fn query(
 
             let count = sqlx::query!(
                 "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
-                token
+                user.id.to_string()
             )
             .fetch_one(&mut tx)
             .await
@@ -413,42 +413,32 @@ async fn query(
             .count
             .unwrap_or(0);
 
-            let mut setup_mfa = false;
-
             if count == 0 {
-                // User does not have MFA setup, generate a secret
-                setup_mfa = true;
-            } else {
-                // User has MFA setup, check if it's verified
-                let mrec = sqlx::query!(
-                    "SELECT mfa_verified FROM staffpanel__paneldata WHERE user_id = $1",
-                    auth_data.user_id
-                )
-                .fetch_one(&mut tx)
-                .await
-                .map_err(Error::new)?;
-
-                if !mrec.mfa_verified {
-                    // Delete old MFA setup
-                    sqlx::query!(
-                        "DELETE FROM staffpanel__paneldata WHERE user_id = $1",
-                        auth_data.user_id
-                    )
-                    .execute(&mut tx)
-                    .await
-                    .map_err(Error::new)?;
-
-                    setup_mfa = true;
-                }
+                // This should never happen, as Login creates a dummy MFA setup
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "invalidPanelData".to_string(),
+                    }
+                );
             }
+            
+            // Check if user has MFA setup
+            let mrec = sqlx::query!(
+                "SELECT mfa_verified FROM staffpanel__paneldata WHERE user_id = $1",
+                auth_data.user_id
+            )
+            .fetch_one(&mut tx)
+            .await
+            .map_err(Error::new)?;
 
-            if setup_mfa {
+            if !mrec.mfa_verified {
                 // User does not have MFA setup, generate a secret
                 let secret_vec = thotp::generate_secret(160);
                 let secret = thotp::encoding::encode(&secret_vec, data_encoding::BASE32);
 
                 sqlx::query!(
-                    "INSERT INTO staffpanel__paneldata (user_id, mfa_secret) VALUES ($1, $2)",
+                    "UPDATE staffpanel__paneldata SET mfa_secret = $2 WHERE user_id = $1",
                     auth_data.user_id,
                     secret
                 )

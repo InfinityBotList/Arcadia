@@ -72,7 +72,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     }  
 
     sqlx::query!(
-        "CREATE TABLE IF NOT EXISTS rpc__panelauthchain (
+        "CREATE TABLE IF NOT EXISTS staffpanel__authchain (
             user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
             token TEXT NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -80,7 +80,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     )
     .execute(&pool)
     .await
-    .expect("Failed to create rpc__panelauthchain table");
+    .expect("Failed to create staffpanel__authchain table");
     
     let shared_state = Arc::new(AppState { pool, cache_http });
 
@@ -289,7 +289,7 @@ async fn query(
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
             sqlx::query!(
-                "DELETE FROM rpc__panelauthchain WHERE user_id = $1",
+                "DELETE FROM staffpanel__authchain WHERE user_id = $1",
                 user.id.to_string()
             )
             .execute(&mut tx)
@@ -299,7 +299,7 @@ async fn query(
             let token = crate::impls::crypto::gen_random(4196);
 
             sqlx::query!(
-                "INSERT INTO rpc__panelauthchain (user_id, token) VALUES ($1, $2)",
+                "INSERT INTO staffpanel__authchain (user_id, token) VALUES ($1, $2)",
                 user.id.to_string(),
                 token
             )

@@ -15,13 +15,13 @@ pub struct AuthData {
 pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     // Delete expired auths
     sqlx::query!(
-        "DELETE FROM rpc__panelauthchain WHERE created_at < NOW() - INTERVAL '1 hour'"
+        "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '30 minutes'"
     )
     .execute(pool)
     .await?;
 
     let count = sqlx::query!(
-        "SELECT COUNT(*) FROM rpc__panelauthchain WHERE token = $1",
+        "SELECT COUNT(*) FROM staffpanel__authchain WHERE token = $1",
         token
     )
     .fetch_one(pool)
@@ -34,7 +34,7 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     }
 
     let rec = sqlx::query!(
-        "SELECT user_id, created_at FROM rpc__panelauthchain WHERE token = $1",
+        "SELECT user_id, created_at FROM staffpanel__authchain WHERE token = $1",
         token
     )
     .fetch_one(pool)

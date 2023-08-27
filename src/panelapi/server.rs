@@ -243,7 +243,7 @@ async fn query(
 ) -> Result<impl IntoResponse, Error> {
     match req {
         PanelQuery::GetLoginUrl { version, redirect_url } => {
-            if version != 0 {
+            if version != 1 {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 

@@ -79,6 +79,7 @@ pub struct PanelServers {
 #[ts(export, export_to = ".generated/MfaLoginSecret.ts")]
 pub struct MfaLoginSecret {
     pub secret: String,
+    pub otp_url: String,
     pub qr_code: String,
 }
 

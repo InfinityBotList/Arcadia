@@ -444,6 +444,7 @@ async fn query(
                         super::types::MfaLogin {
                             info: Some(super::types::MfaLoginSecret {
                                 qr_code: qr,
+                                otp_url: qr_code_uri,
                                 secret,
                             }),
                         }

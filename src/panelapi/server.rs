@@ -156,6 +156,12 @@ pub enum PanelQuery {
         /// MFA code
         otp: String,
     },
+    LoginResetMfa {
+        /// Login token
+        login_token: String,
+        /// Old MFA code
+        otp: String,
+    },
     /// Get Identity (user_id/created_at) for a given login token
     GetIdentity {
         /// Login token
@@ -531,6 +537,76 @@ async fn query(
                 StatusCode::NO_CONTENT, 
                 ""
             ).into_response())
+        },
+        PanelQuery::LoginResetMfa { login_token, otp } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+            let count = sqlx::query!(
+                "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
+                auth_data.user_id
+            )
+            .fetch_one(&mut tx)
+            .await
+            .map_err(Error::new)?
+            .count
+            .unwrap_or(0);     
+
+            if count == 0 {
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "mfaNotSetup".to_string(),
+                    }
+                )
+            } 
+
+            let secret = sqlx::query!(
+                "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
+                auth_data.user_id
+            )
+            .fetch_one(&mut tx)
+            .await
+            .map_err(Error::new)?
+            .mfa_secret;
+            
+            let secret = thotp::encoding::decode(&secret, data_encoding::BASE32).map_err(Error::new)?;
+
+            let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
+
+            if !result {
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "mfaInvalidCode".to_string(),
+                    }
+                )
+            }
+
+            sqlx::query!(
+                "UPDATE staffpanel__paneldata SET mfa_verified = FALSE WHERE user_id = $1",
+                auth_data.user_id
+            )
+            .execute(&mut tx)
+            .await
+            .map_err(Error::new)?;
+
+            // Revoke existing session
+            sqlx::query!(
+                "DELETE FROM staffpanel__authchain WHERE user_id = $1",
+                auth_data.user_id
+            )
+            .execute(&mut tx)
+            .await
+            .map_err(Error::new)?;
+
+            Ok(
+                (
+                    StatusCode::NO_CONTENT, 
+                    ""
+                ).into_response()
+            )
         },
         PanelQuery::GetIdentity { login_token } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;

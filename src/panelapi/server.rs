@@ -77,6 +77,8 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 
     sqlx::query!(
         "CREATE TABLE IF NOT EXISTS staffpanel__authchain (
+            itag UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4(),
+            paneldata_ref UUID NOT NULL REFERENCES staffpanel__paneldata(itag) ON DELETE CASCADE,
             user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
             token TEXT NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -89,7 +91,8 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 
     sqlx::query!(
         "CREATE TABLE IF NOT EXISTS staffpanel__paneldata (
-            user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+            itag UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4(),
+            user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
             mfa_secret TEXT NOT NULL,
             mfa_verified BOOLEAN NOT NULL DEFAULT FALSE,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -333,10 +336,46 @@ async fn query(
 
             let token = crate::impls::crypto::gen_random(4196);
 
-            sqlx::query!(
-                "INSERT INTO staffpanel__authchain (user_id, token) VALUES ($1, $2)",
-                user.id.to_string(),
+            let count = sqlx::query!(
+                "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
                 token
+            )
+            .fetch_one(&mut tx)
+            .await
+            .map_err(Error::new)?
+            .count
+            .unwrap_or(0);
+
+            let itag = if count == 0 {
+                let temp_secret = thotp::generate_secret(160);
+
+                let temp_secret_enc = thotp::encoding::encode(&temp_secret, data_encoding::BASE32);
+
+                sqlx::query!(
+                    "INSERT INTO staffpanel__paneldata (user_id, mfa_secret) VALUES ($1, $2) RETURNING itag",
+                    user.id.to_string(),
+                    temp_secret_enc
+                )
+                .fetch_one(&mut tx)
+                .await
+                .map_err(Error::new)?
+                .itag
+            } else {
+                sqlx::query!(
+                    "SELECT itag FROM staffpanel__paneldata WHERE user_id = $1",
+                    user.id.to_string()
+                )
+                .fetch_one(&mut tx)
+                .await
+                .map_err(Error::new)?
+                .itag
+            };
+
+            sqlx::query!(
+                "INSERT INTO staffpanel__authchain (user_id, paneldata_ref, token) VALUES ($1, $2, $3)",
+                user.id.to_string(),
+                itag,
+                token,
             )
             .execute(&mut tx)
             .await

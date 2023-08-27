@@ -10,15 +10,24 @@ use super::types::{Capability, PanelPerms};
 pub struct AuthData {
     pub user_id: String,
     pub created_at: i64,
+    pub state: String,
 }
 
-pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
+/// Checks auth, but does not ensure active sessions
+pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     // Delete expired auths
     sqlx::query!(
         "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '30 minutes'"
     )
     .execute(pool)
     .await?;
+
+    // Delete expired auths that are inactive
+    sqlx::query!(
+        "DELETE FROM staffpanel__authchain WHERE state = 'pending' AND created_at < NOW() - INTERVAL '5 minutes'"
+    )
+    .execute(pool)
+    .await?;    
 
     let count = sqlx::query!(
         "SELECT COUNT(*) FROM staffpanel__authchain WHERE token = $1",
@@ -40,14 +49,24 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     .fetch_one(pool)
     .await?;
 
+    Ok(AuthData {
+        user_id: rec.user_id,
+        created_at: rec.created_at.timestamp(),
+        state: rec.state,
+    })
+}
+
+/// Checks auth, and ensures active sessions
+/// 
+/// Equivalent to `check_auth_insecure`, and rec.status != "active"
+pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
+    let rec = check_auth_insecure(pool, token).await?;
+
     if rec.state != "active" {
         return Err("sessionNotActive".into());
     }
 
-    Ok(AuthData {
-        user_id: rec.user_id,
-        created_at: rec.created_at.timestamp(),
-    })
+    Ok(rec)
 }
 
 pub async fn get_user_perms(pool: &PgPool, user_id: &str) -> Result<PanelPerms, Error> {

@@ -345,42 +345,8 @@ async fn query(
             ).into_response())
         },
         PanelQuery::LoginMfaCheckStatus { login_token } => {
-            // Delete expired auths
-            sqlx::query!(
-                "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '30 minutes'"
-            )
-            .execute(&state.pool)
-            .await
-            .map_err(Error::new)?;
-
-            let count = sqlx::query!(
-                "SELECT COUNT(*) FROM staffpanel__authchain WHERE token = $1",
-                login_token
-            )
-            .fetch_one(&state.pool)
-            .await
-            .map_err(Error::new)?
-            .count
-            .unwrap_or(0);
-
-            if count == 0 {
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "identityExpired".to_string(),
-                    }
-                )
-            }
-
-            let rec = sqlx::query!(
-                "SELECT user_id, created_at, state FROM staffpanel__authchain WHERE token = $1",
-                login_token
-            )
-            .fetch_one(&state.pool)
-            .await
-            .map_err(Error::new)?;
-
-            if rec.state != "pending" {
+            let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token).await.map_err(Error::new)?;
+            if auth_data.state != "pending" {
                 return Err(
                     Error {
                         status: StatusCode::BAD_REQUEST,
@@ -394,7 +360,7 @@ async fn query(
             // Check if user already has MFA setup
             let count = sqlx::query!(
                 "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
-                rec.user_id
+                auth_data.user_id
             )
             .fetch_one(&mut tx)
             .await
@@ -411,7 +377,7 @@ async fn query(
                 // User has MFA setup, check if it's verified
                 let mrec = sqlx::query!(
                     "SELECT mfa_verified FROM staffpanel__paneldata WHERE user_id = $1",
-                    rec.user_id
+                    auth_data.user_id
                 )
                 .fetch_one(&mut tx)
                 .await
@@ -421,7 +387,7 @@ async fn query(
                     // Delete old MFA setup
                     sqlx::query!(
                         "DELETE FROM staffpanel__paneldata WHERE user_id = $1",
-                        rec.user_id
+                        auth_data.user_id
                     )
                     .execute(&mut tx)
                     .await
@@ -438,7 +404,7 @@ async fn query(
 
                 sqlx::query!(
                     "INSERT INTO staffpanel__paneldata (user_id, mfa_secret) VALUES ($1, $2)",
-                    rec.user_id,
+                    auth_data.user_id,
                     secret
                 )
                 .execute(&mut tx)
@@ -497,56 +463,13 @@ async fn query(
             }
         },
         PanelQuery::LoginActivateSession { login_token, otp } => {
-            // Check if user already has MFA setup
-            // Delete expired auths
-            sqlx::query!(
-                "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '30 minutes'"
-            )
-            .execute(&state.pool)
-            .await
-            .map_err(Error::new)?;
-
-            let count = sqlx::query!(
-                "SELECT COUNT(*) FROM staffpanel__authchain WHERE token = $1",
-                login_token
-            )
-            .fetch_one(&state.pool)
-            .await
-            .map_err(Error::new)?
-            .count
-            .unwrap_or(0);
-
-            if count == 0 {
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "identityExpired".to_string(),
-                    }
-                )
-            }
-
-            let rec = sqlx::query!(
-                "SELECT user_id, created_at, state FROM staffpanel__authchain WHERE token = $1",
-                login_token
-            )
-            .fetch_one(&state.pool)
-            .await
-            .map_err(Error::new)?;
-
-            if rec.state != "pending" {
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "sessionAlreadyActive".to_string(),
-                    }
-                )
-            }
+            let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token).await.map_err(Error::new)?;
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
             let count = sqlx::query!(
                 "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
-                rec.user_id
+                auth_data.user_id
             )
             .fetch_one(&mut tx)
             .await
@@ -565,7 +488,7 @@ async fn query(
 
             let secret = sqlx::query!(
                 "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
-                rec.user_id
+                auth_data.user_id
             )
             .fetch_one(&mut tx)
             .await
@@ -595,7 +518,7 @@ async fn query(
 
             sqlx::query!(
                 "UPDATE staffpanel__paneldata SET mfa_verified = TRUE WHERE user_id = $1",
-                rec.user_id
+                auth_data.user_id
             )
             .execute(&mut tx)
             .await

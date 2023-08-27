@@ -34,11 +34,15 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     }
 
     let rec = sqlx::query!(
-        "SELECT user_id, created_at FROM staffpanel__authchain WHERE token = $1",
+        "SELECT user_id, created_at, state FROM staffpanel__authchain WHERE token = $1",
         token
     )
     .fetch_one(pool)
     .await?;
+
+    if rec.state != "active" {
+        return Err("sessionNotActive".into());
+    }
 
     Ok(AuthData {
         user_id: rec.user_id,

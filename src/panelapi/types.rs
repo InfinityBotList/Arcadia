@@ -73,3 +73,18 @@ pub struct PanelServers {
     pub staff: String,
     pub testing: String,
 }
+
+/// MFA Login Secret Data
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/MfaLoginSecret.ts")]
+pub struct MfaLoginSecret {
+    pub secret: String,
+    pub qr_code: String,
+}
+
+/// MFA Login Data
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/MfaLogin.ts")]
+pub struct MfaLogin {
+    pub info: Option<MfaLoginSecret>,
+}

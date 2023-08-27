@@ -33,6 +33,7 @@ strum = "0.24"
 strum_macros = "0.24"
 axum-macros = "0.3.8"
 moka = { version = "0.11", default-features = true, features = ["future", "logging"] }
+thotp = "0.1.11"
 
 [dependencies.tokio]
 version = "1"

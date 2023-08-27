@@ -26,6 +26,10 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use utoipa::ToSchema;
 use strum_macros::Display;
+//use std::time::{SystemTime, UNIX_EPOCH};
+
+// The default time step used by this module internally
+//const THOTP_TIME_STEP: u8 = 30;
 
 struct Error {
     status: StatusCode,
@@ -75,12 +79,25 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
         "CREATE TABLE IF NOT EXISTS staffpanel__authchain (
             user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
             token TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            state TEXT NOT NULL DEFAULT 'pending'
         )"
     )
     .execute(&pool)
     .await
     .expect("Failed to create staffpanel__authchain table");
+
+    sqlx::query!(
+        "CREATE TABLE IF NOT EXISTS staffpanel__paneldata (
+            user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+            mfa_secret TEXT NOT NULL,
+            mfa_verified BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )"
+    )
+    .execute(&pool)
+    .await
+    .expect("Failed to create staffpanel__paneldata table");
     
     let shared_state = Arc::new(AppState { pool, cache_http });
 
@@ -126,6 +143,18 @@ pub enum PanelQuery {
         code: String,
         /// Redirect URL
         redirect_url: String,
+    },
+    /// Check MFA status for a given login token
+    LoginMfaCheckStatus {
+        /// Login token
+        login_token: String,
+    },
+    /// Activates a session for a given login token
+    LoginActivateSession {
+        /// Login token
+        login_token: String,
+        /// MFA code
+        otp: String,
     },
     /// Get Identity (user_id/created_at) for a given login token
     GetIdentity {
@@ -207,7 +236,7 @@ async fn get_instance_config(
         (status = BAD_REQUEST, description = "An error occured", body = String),
     ),
 )]
-#[axum_macros::debug_handler]
+//#[axum_macros::debug_handler]
 async fn query(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PanelQuery>,
@@ -309,11 +338,276 @@ async fn query(
 
             tx.commit().await.map_err(Error::new)?;
 
+            // Stage 1 of login is done, panel will handle MFA next
             Ok((
                 StatusCode::OK, 
                 token
             ).into_response())
-        }
+        },
+        PanelQuery::LoginMfaCheckStatus { login_token } => {
+            // Delete expired auths
+            sqlx::query!(
+                "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '30 minutes'"
+            )
+            .execute(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            let count = sqlx::query!(
+                "SELECT COUNT(*) FROM staffpanel__authchain WHERE token = $1",
+                login_token
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?
+            .count
+            .unwrap_or(0);
+
+            if count == 0 {
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "identityExpired".to_string(),
+                    }
+                )
+            }
+
+            let rec = sqlx::query!(
+                "SELECT user_id, created_at, state FROM staffpanel__authchain WHERE token = $1",
+                login_token
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            if rec.state != "pending" {
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "sessionAlreadyActive".to_string(),
+                    }
+                )
+            }
+
+            let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+            // Check if user already has MFA setup
+            let count = sqlx::query!(
+                "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
+                rec.user_id
+            )
+            .fetch_one(&mut tx)
+            .await
+            .map_err(Error::new)?
+            .count
+            .unwrap_or(0);
+
+            let mut setup_mfa = false;
+
+            if count == 0 {
+                // User does not have MFA setup, generate a secret
+                setup_mfa = true;
+            } else {
+                // User has MFA setup, check if it's verified
+                let mrec = sqlx::query!(
+                    "SELECT mfa_verified FROM staffpanel__paneldata WHERE user_id = $1",
+                    rec.user_id
+                )
+                .fetch_one(&mut tx)
+                .await
+                .map_err(Error::new)?;
+
+                if !mrec.mfa_verified {
+                    // Delete old MFA setup
+                    sqlx::query!(
+                        "DELETE FROM staffpanel__paneldata WHERE user_id = $1",
+                        rec.user_id
+                    )
+                    .execute(&mut tx)
+                    .await
+                    .map_err(Error::new)?;
+
+                    setup_mfa = true;
+                }
+            }
+
+            if setup_mfa {
+                // User does not have MFA setup, generate a secret
+                let secret_vec = thotp::generate_secret(420);
+                let secret = thotp::encoding::encode(&secret_vec, data_encoding::BASE32);
+
+                sqlx::query!(
+                    "INSERT INTO staffpanel__paneldata (user_id, mfa_secret) VALUES ($1, $2)",
+                    rec.user_id,
+                    secret
+                )
+                .execute(&mut tx)
+                .await
+                .map_err(Error::new)?;
+
+                let qr_code_uri = thotp::qr::otp_uri(
+                    // Type of otp
+                    "totp",
+                    // The encoded secret
+                    &secret,
+                    // Your big corp title
+                    "Infinity Bot List:staff@infinitybots.gg",
+                    // Your big corp issuer
+                    "Infinity Bot List",
+                    // The counter (Only HOTP)
+                    None,
+                )
+                .map_err(Error::new)?;    
+
+                let qr = thotp::qr::generate_code_svg(
+                    &qr_code_uri,
+                    // The qr code width (None defaults to 200)
+                    None,
+                    // The qr code height (None defaults to 200)
+                    None,
+                    // Correction level, M is the default
+                    thotp::qr::EcLevel::M,
+                )        
+                .map_err(Error::new)?;  
+
+                tx.commit().await.map_err(Error::new)?;   
+
+                Ok((
+                    StatusCode::OK, 
+                    Json(
+                        super::types::MfaLogin {
+                            info: Some(super::types::MfaLoginSecret {
+                                qr_code: qr,
+                                secret,
+                            }),
+                        }
+                    )
+                ).into_response())
+            } else {
+                tx.rollback().await.map_err(Error::new)?;
+
+                Ok((
+                    StatusCode::OK, 
+                    Json(
+                        super::types::MfaLogin {
+                            info: None,
+                        }
+                    )
+                ).into_response())
+            }
+        },
+        PanelQuery::LoginActivateSession { login_token, otp } => {
+            // Check if user already has MFA setup
+            // Delete expired auths
+            sqlx::query!(
+                "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '30 minutes'"
+            )
+            .execute(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            let count = sqlx::query!(
+                "SELECT COUNT(*) FROM staffpanel__authchain WHERE token = $1",
+                login_token
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?
+            .count
+            .unwrap_or(0);
+
+            if count == 0 {
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "identityExpired".to_string(),
+                    }
+                )
+            }
+
+            let rec = sqlx::query!(
+                "SELECT user_id, created_at, state FROM staffpanel__authchain WHERE token = $1",
+                login_token
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            if rec.state != "pending" {
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "sessionAlreadyActive".to_string(),
+                    }
+                )
+            }
+
+            let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+            let count = sqlx::query!(
+                "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
+                rec.user_id
+            )
+            .fetch_one(&mut tx)
+            .await
+            .map_err(Error::new)?
+            .count
+            .unwrap_or(0);     
+
+            if count == 0 {
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "mfaNotSetup".to_string(),
+                    }
+                )
+            }       
+
+            let secret = sqlx::query!(
+                "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
+                rec.user_id
+            )
+            .fetch_one(&mut tx)
+            .await
+            .map_err(Error::new)?
+            .mfa_secret;
+            
+            let secret = thotp::encoding::decode(&secret, data_encoding::BASE32).map_err(Error::new)?;
+
+            let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
+
+            if !result {
+                return Err(
+                    Error {
+                        status: StatusCode::BAD_REQUEST,
+                        message: "mfaInvalidCode".to_string(),
+                    }
+                )
+            }
+
+            sqlx::query!(
+                "UPDATE staffpanel__authchain SET state = 'active' WHERE token = $1",
+                login_token
+            )
+            .execute(&mut tx)
+            .await
+            .map_err(Error::new)?;
+
+            sqlx::query!(
+                "UPDATE staffpanel__paneldata SET mfa_verified = TRUE WHERE user_id = $1",
+                rec.user_id
+            )
+            .execute(&mut tx)
+            .await
+            .map_err(Error::new)?;
+
+            tx.commit().await.map_err(Error::new)?;
+
+            Ok((
+                StatusCode::NO_CONTENT, 
+                ""
+            ).into_response())
+        },
         PanelQuery::GetIdentity { login_token } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
 

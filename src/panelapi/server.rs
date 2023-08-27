@@ -433,7 +433,7 @@ async fn query(
 
             if setup_mfa {
                 // User does not have MFA setup, generate a secret
-                let secret_vec = thotp::generate_secret(420);
+                let secret_vec = thotp::generate_secret(160);
                 let secret = thotp::encoding::encode(&secret_vec, data_encoding::BASE32);
 
                 sqlx::query!(

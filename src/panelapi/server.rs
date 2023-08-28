@@ -169,6 +169,11 @@ pub enum PanelQuery {
         /// Old MFA code
         otp: String,
     },
+    /// Logs out a session. Should be called when the user logs out of the panel
+    Logout {
+        /// Login token
+        login_token: String,
+    },
     /// Get Identity (user_id/created_at) for a given login token
     GetIdentity {
         /// Login token
@@ -647,6 +652,23 @@ async fn query(
                 (
                     StatusCode::NO_CONTENT, 
                     ""
+                ).into_response()
+            )
+        },
+        PanelQuery::Logout { login_token } => {
+            // Just delete the auth, no point in even erroring if it doesn't exist
+            let row = sqlx::query!(
+                "DELETE FROM staffpanel__authchain WHERE token = $1",
+                login_token
+            )
+            .execute(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            Ok(
+                (
+                    StatusCode::OK,
+                    row.rows_affected().to_string()
                 ).into_response()
             )
         },

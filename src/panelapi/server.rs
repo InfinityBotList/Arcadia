@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -24,10 +25,9 @@ use tower_http::cors::{Any, CorsLayer};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-use utoipa::{ToSchema, IntoResponses};
+use utoipa::ToSchema;
 use strum_macros::{Display, EnumVariantNames, EnumString};
 use strum::VariantNames;
-use std::str::FromStr;
 
 //use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -162,6 +162,7 @@ pub enum PanelQuery {
         /// MFA code
         otp: String,
     },
+    /// Resets MFA for a user identified by login token
     LoginResetMfa {
         /// Login token
         login_token: String,
@@ -206,74 +207,15 @@ pub enum PanelQuery {
         target_type: TargetType,
         /// RPC Method
         method: RPCMethod
-    }
-}
-
-impl PanelQuery {
-    fn to_response(&self) -> (StatusCode, utoipa::openapi::ResponseBuilder) {
-        match self {
-            Self::GetLoginUrl { .. } => {
-                (
-                    StatusCode::OK,
-                    utoipa::openapi::ResponseBuilder::new()
-                    .description("The login URL".to_string())
-                    .content(
-                        "text/plain", 
-                        utoipa::openapi::ContentBuilder::new()
-                        .build()
-                    )
-                )
-            },
-            Self::Login { .. } => {
-                (
-                    StatusCode::OK,
-                    utoipa::openapi::ResponseBuilder::new()
-                    .description("The login token".to_string())
-                    .content(
-                        "text/plain", 
-                        utoipa::openapi::ContentBuilder::new()
-                        .build()
-                    )
-                )
-            },
-            Self::LoginMfaCheckStatus { .. } => {
-                (
-                    StatusCode::OK,
-                    utoipa::openapi::ResponseBuilder::new()
-                    .description("The login URL".to_string())
-                    .content(
-                        "text/plain", 
-                        utoipa::openapi::ContentBuilder::new()
-                        .schema(
-                            super::types::MfaLogin {
-                                info: None
-                            }
-                        )
-                        .build()
-                    )
-                )
-            },
-            _ => unimplemented!()
-        }
-    } 
-}
-
-impl IntoResponses for PanelQuery {
-    fn responses() -> std::collections::BTreeMap<String, utoipa::openapi::RefOr<utoipa::openapi::response::Response>> {
-        let mut btreemap = std::collections::BTreeMap::new();
-        
-        for variant in Self::VARIANTS {
-            let var = Self::from_str(variant).unwrap();
-
-            let (status, response) = var.to_response();
-
-            btreemap.insert(
-                status.to_string(), 
-                utoipa::openapi::RefOr::T(response.build())
-            );
-        }
-
-        btreemap
+    },
+    /// Returns all RPC actions available
+    /// 
+    /// Setting filtered will filter RPC actions to that what the user has access to
+    GetRpcMethods {
+        /// Login token
+        login_token: String,
+        /// Filtered
+        filtered: bool,
     }
 }
 
@@ -308,9 +250,13 @@ async fn get_instance_config(
 /// Make Panel Query
 #[utoipa::path(
     post,
-    request_body =  PanelQuery,
+    request_body = PanelQuery,
     path = "/",
-    responses(PanelQuery),
+    responses(
+        (status = 200, description = "Content", body = String),
+        (status = 204, description = "No content"),
+        (status = BAD_REQUEST, description = "An error occured", body = String),
+    ),
 )]
 //#[axum_macros::debug_handler]
 async fn query(
@@ -838,108 +784,73 @@ async fn query(
                     ).into_response())
                 }
             }
+        },
+        PanelQuery::GetRpcMethods { login_token, filtered } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            let (owner, head, admin, staff) = {
+                let perms = sqlx::query!(
+                    "SELECT owner, hadmin, iblhdev, admin, staff FROM users WHERE user_id = $1",
+                    auth_data.user_id
+                )
+                .fetch_one(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+                (
+                    perms.owner,
+                    perms.hadmin || perms.iblhdev,
+                    perms.admin,
+                    perms.staff,
+                )
+            };
+
+            let mut rpc_methods = Vec::new();
+
+            for method in crate::rpc::core::RPCMethod::VARIANTS {
+                let variant = crate::rpc::core::RPCMethod::from_str(method).map_err(Error::new)?;
+
+                if filtered {
+                    match variant.needs_perms() {
+                        crate::rpc::core::RPCPerms::Owner => {
+                            if !owner {
+                                continue;
+                            }
+                        }
+                        crate::rpc::core::RPCPerms::Head => {
+                            if !head {
+                                continue;
+                            }
+                        }
+                        crate::rpc::core::RPCPerms::Admin => {
+                            if !admin {
+                                continue;
+                            }
+                        }
+                        crate::rpc::core::RPCPerms::Staff => {
+                            if !staff {
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                let action = super::types::RPCWebAction {
+                    id: method.to_string(),
+                    label: variant.label(),
+                    description: variant.description(),
+                    needs_perms: variant.needs_perms(),
+                    supported_target_types: variant.supported_target_types(),
+                    fields: variant.method_fields(),
+                };
+
+                rpc_methods.push(action);
+            }        
+
+            Ok((
+                StatusCode::OK, 
+                Json(rpc_methods)
+            ).into_response())
         }
     }
 }
-
-/*
-#[derive(Serialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/RPCWebAction.ts")]
-struct WebAction {
-    id: String,
-    label: String,
-    description: String,
-    needed_perms: RPCPerms,
-    fields: Vec<RPCField>,
-}
-
-#[derive(Deserialize)]
-struct WebActionQuery {
-    user_id: Option<String>,
-}
-
-/// Get Available Actions
-/// 
-/// This is used to render the list of fields to display for a given RPC method
-#[utoipa::path(
-    get,
-    path = "/actions",
-    responses(
-        (status = 200, description = "RPC WebField Data", body = Vec<WebAction>),
-        (status = BAD_REQUEST, description = "An error occured", body = String),
-        (status = NOT_FOUND, description = "Not Found Error", body = String)
-    ),
-)]
-async fn available_actions(
-    State(state): State<Arc<AppState>>,
-    Query(query): Query<WebActionQuery>,
-) -> Result<Json<Vec<WebAction>>, RPCResponse> {
-    let (owner, head, admin, staff) = if let Some(id) = query.user_id {
-        let count = sqlx::query!("SELECT COUNT(*) FROM users WHERE user_id = $1", id)
-            .fetch_one(&state.pool)
-            .await
-            .map_err(|e| RPCResponse::Err(e.to_string()))?;
-
-        if count.count.unwrap_or_default() == 0 {
-            return Err(RPCResponse::UserNotFound);
-        }
-
-        let perms = sqlx::query!(
-            "SELECT owner, hadmin, iblhdev, admin, staff FROM users WHERE user_id = $1",
-            id
-        )
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|e| RPCResponse::Err(e.to_string()))?;
-
-        (
-            perms.owner,
-            perms.hadmin || perms.iblhdev,
-            perms.admin,
-            perms.staff,
-        )
-    } else {
-        (true, true, true, true)
-    };
-
-    let mut actions = Vec::new();
-
-    for variant in super::core::RPCMethod::VARIANTS {
-        let method = super::core::RPCMethod::from_str(variant)
-            .map_err(|e| RPCResponse::Err(e.to_string()))?;
-
-        let action = WebAction {
-            id: variant.to_string(),
-            label: method.label(),
-            description: method.description(),
-            needed_perms: method.needs_perms(),
-            fields: method.method_fields(),
-        };
-
-        match action.needed_perms {
-            RPCPerms::Owner => {
-                if owner {
-                    actions.push(action);
-                }
-            }
-            RPCPerms::Head => {
-                if head {
-                    actions.push(action);
-                }
-            }
-            RPCPerms::Admin => {
-                if admin {
-                    actions.push(action);
-                }
-            }
-            RPCPerms::Staff => {
-                if staff {
-                    actions.push(action);
-                }
-            }
-        }
-    }
-
-    Ok(Json(actions))
-}
-*/

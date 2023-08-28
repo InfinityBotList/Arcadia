@@ -3,7 +3,7 @@ use ts_rs::TS;
 use serde::{Serialize, Deserialize};
 use utoipa::ToSchema;
 
-use crate::impls::dovewing::PartialUser;
+use crate::{impls::{dovewing::PartialUser, target_types::TargetType}, rpc::core::{RPCField, RPCPerms}};
 
 #[derive(Serialize, Deserialize, TS, Clone)]
 #[ts(export, export_to = ".generated/PanelPerms.ts")]
@@ -88,4 +88,21 @@ pub struct MfaLoginSecret {
 #[ts(export, export_to = ".generated/MfaLogin.ts")]
 pub struct MfaLogin {
     pub info: Option<MfaLoginSecret>,
+}
+
+#[derive(Serialize, Deserialize, ToSchema, TS)]
+#[ts(export, export_to = ".generated/RPCWebAction.ts")]
+pub struct RPCWebAction {
+    /// ID of the RPC action
+    pub id: String,
+    /// Label of the RPC action
+    pub label: String,
+    /// Description of the RPC action
+    pub description: String,
+    /// Fields of the RPC action
+    pub fields: Vec<RPCField>,
+    /// Target types supported by the RPC action 
+    pub supported_target_types: Vec<TargetType>,
+    /// Permissions required to use the RPC action
+    pub needs_perms: RPCPerms,
 }

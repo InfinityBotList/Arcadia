@@ -110,7 +110,7 @@ impl RPCSuccess {
 }
 
 /// Represents a single RPC field
-#[derive(Serialize, ToSchema, TS)]
+#[derive(Serialize, Deserialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCField.ts")]
 pub struct RPCField {
     pub id: String,
@@ -142,7 +142,7 @@ impl RPCField {
     }
 }
 
-#[derive(Serialize, ToSchema, TS)]
+#[derive(Serialize, Deserialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCFieldType.ts")]
 // Allow dead code
 #[allow(dead_code)]

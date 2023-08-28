@@ -712,7 +712,11 @@ async fn query(
             )
         },
         PanelQuery::BotQueue { login_token } => {
-            super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::ViewBotQueue) {
+                return Ok((StatusCode::FORBIDDEN, "You do not have permission to access the bot queue right now".to_string()).into_response());
+            }
 
             let queue = sqlx::query!(
                 "SELECT bot_id, client_id, claimed_by, approval_note, short, invite FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at"
@@ -750,6 +754,12 @@ async fn query(
             )
         },
         PanelQuery::ExecuteRpc { login_token, target_type, method } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::Rpc) {
+                return Ok((StatusCode::FORBIDDEN, "You do not have permission to use RPC right now".to_string()).into_response());
+            }
+
             let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
 
             let resp = method.handle(
@@ -786,6 +796,12 @@ async fn query(
             }
         },
         PanelQuery::GetRpcMethods { login_token, filtered } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::Rpc) {
+                return Ok((StatusCode::FORBIDDEN, "You do not have permission to use RPC right now".to_string()).into_response());
+            }
+
             let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
 
             let (owner, head, admin, staff) = {

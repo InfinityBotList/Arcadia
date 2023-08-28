@@ -28,7 +28,7 @@ pub struct InstanceConfig {
     pub query: String,
 }
 
-#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
+#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone, PartialEq)]
 #[ts(export, export_to = ".generated/Capability.ts")]
 pub enum Capability {
     /// RPC capability

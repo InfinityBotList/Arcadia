@@ -86,6 +86,15 @@ pub enum RPCMethod {
     },
 }
 
+impl Default for RPCMethod {
+    fn default() -> Self {
+        RPCMethod::Claim {
+            target_id: "bot_id".to_string(),
+            force: false,
+        }
+    }
+}
+
 pub enum RPCSuccess {
     NoContent,
     Content(String),

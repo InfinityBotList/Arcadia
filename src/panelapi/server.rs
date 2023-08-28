@@ -24,8 +24,11 @@ use tower_http::cors::{Any, CorsLayer};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-use utoipa::ToSchema;
-use strum_macros::Display;
+use utoipa::{ToSchema, IntoResponses};
+use strum_macros::{Display, EnumVariantNames, EnumString};
+use strum::VariantNames;
+use std::str::FromStr;
+
 //use std::time::{SystemTime, UNIX_EPOCH};
 
 // The default time step used by this module internally
@@ -130,7 +133,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema, TS, Display, Clone)]
+#[derive(Serialize, Deserialize, ToSchema, TS, Display, Clone, EnumString, EnumVariantNames)]
 #[ts(export, export_to = ".generated/PanelQuery.ts")]
 pub enum PanelQuery {
     /// Get Login URL
@@ -206,6 +209,74 @@ pub enum PanelQuery {
     }
 }
 
+impl PanelQuery {
+    fn to_response(&self) -> (StatusCode, utoipa::openapi::ResponseBuilder) {
+        match self {
+            Self::GetLoginUrl { .. } => {
+                (
+                    StatusCode::OK,
+                    utoipa::openapi::ResponseBuilder::new()
+                    .description("The login URL".to_string())
+                    .content(
+                        "text/plain", 
+                        utoipa::openapi::ContentBuilder::new()
+                        .build()
+                    )
+                )
+            },
+            Self::Login { .. } => {
+                (
+                    StatusCode::OK,
+                    utoipa::openapi::ResponseBuilder::new()
+                    .description("The login token".to_string())
+                    .content(
+                        "text/plain", 
+                        utoipa::openapi::ContentBuilder::new()
+                        .build()
+                    )
+                )
+            },
+            Self::LoginMfaCheckStatus { .. } => {
+                (
+                    StatusCode::OK,
+                    utoipa::openapi::ResponseBuilder::new()
+                    .description("The login URL".to_string())
+                    .content(
+                        "text/plain", 
+                        utoipa::openapi::ContentBuilder::new()
+                        .schema(
+                            super::types::MfaLogin {
+                                info: None
+                            }
+                        )
+                        .build()
+                    )
+                )
+            },
+            _ => unimplemented!()
+        }
+    } 
+}
+
+impl IntoResponses for PanelQuery {
+    fn responses() -> std::collections::BTreeMap<String, utoipa::openapi::RefOr<utoipa::openapi::response::Response>> {
+        let mut btreemap = std::collections::BTreeMap::new();
+        
+        for variant in Self::VARIANTS {
+            let var = Self::from_str(variant).unwrap();
+
+            let (status, response) = var.to_response();
+
+            btreemap.insert(
+                status.to_string(), 
+                utoipa::openapi::RefOr::T(response.build())
+            );
+        }
+
+        btreemap
+    }
+}
+
 /// Make Panel Query
 #[utoipa::path(
     post,
@@ -239,11 +310,7 @@ async fn get_instance_config(
     post,
     request_body =  PanelQuery,
     path = "/",
-    responses(
-        (status = 200, description = "Content", body = String),
-        (status = 204, description = "No content"),
-        (status = BAD_REQUEST, description = "An error occured", body = String),
-    ),
+    responses(PanelQuery),
 )]
 //#[axum_macros::debug_handler]
 async fn query(

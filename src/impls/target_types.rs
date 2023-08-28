@@ -5,9 +5,10 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, PartialEq, EnumString, ToSchema, TS, EnumVariantNames, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, EnumString, ToSchema, TS, EnumVariantNames, Clone, Default)]
 #[ts(export, export_to = ".generated/TargetType.ts")]
 pub enum TargetType {
+    #[default]
     Bot,
     Server,
     Team,

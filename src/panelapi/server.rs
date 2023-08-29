@@ -19,6 +19,7 @@ use axum::{
     Router
 };
 use log::info;
+use rand::Rng;
 use serenity::all::User;
 use sqlx::PgPool;
 use tower_http::cors::{Any, CorsLayer};
@@ -352,7 +353,10 @@ async fn query(
             .await
             .map_err(Error::new)?;
 
-            let token = crate::impls::crypto::gen_random(4196);
+            // Create a random number between 4196 and 8192 for the token
+            let tlength = rand::thread_rng().gen_range(4196..8192);
+
+            let token = crate::impls::crypto::gen_random(tlength as usize);
 
             let count = sqlx::query!(
                 "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",

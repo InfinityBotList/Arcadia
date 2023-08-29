@@ -652,6 +652,8 @@ async fn query(
             .await
             .map_err(Error::new)?;
 
+            tx.commit().await.map_err(Error::new)?;
+
             Ok(
                 (
                     StatusCode::NO_CONTENT, 

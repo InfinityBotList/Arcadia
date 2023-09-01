@@ -538,7 +538,7 @@ impl RPCMethod {
                 .await?;
 
                 if claimed.r#type != "pending" {
-                    return Err(" is not pending review?".into());
+                    return Err("Entity is not pending review?".into());
                 }
 
                 if claimed.claimed_by.is_none()
@@ -570,7 +570,7 @@ impl RPCMethod {
                     let member = guild.members.contains_key(&UserId(target_id.parse()?));
 
                     if !member {
-                        return Err(" is not in testing server. Please ensure this bot is in the testing server when approving. It will then be kicked by Arcadia when added to main server".into());
+                        return Err("Entity is not in testing server. Please ensure this bot is in the testing server when approving. It will then be kicked by Arcadia when added to main server".into());
                     }
                 }
 

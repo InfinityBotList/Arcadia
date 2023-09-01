@@ -386,6 +386,9 @@ pub async fn unclaim(
     }
 
     let data = ctx.data();
+
+    ctx.defer_or_broadcast().await?;
+
     crate::rpc::core::RPCMethod::Unclaim {
         target_id: bot.id.to_string(),
         reason: reason.clone(),
@@ -422,6 +425,8 @@ pub async fn approve(
     }
 
     let data = ctx.data();
+
+    ctx.defer_or_broadcast().await?;
 
     // Create a rpc call
     let res = crate::rpc::core::RPCMethod::Approve {
@@ -464,6 +469,9 @@ pub async fn deny(
     }
 
     let data = ctx.data();
+
+    ctx.defer_or_broadcast().await?;
+
     crate::rpc::core::RPCMethod::Deny {
         target_id: bot.id.to_string(),
         reason: reason.clone(),

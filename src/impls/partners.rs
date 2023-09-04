@@ -8,6 +8,7 @@ use crate::Error;
 use super::link::Link;
 
 #[derive(Serialize, Deserialize, PartialEq, TS, Clone, Default, ToSchema)]
+#[ts(export, export_to = ".generated/Partner.ts")]
 pub struct Partner {
     pub id: String,
     pub name: String,
@@ -20,6 +21,7 @@ pub struct Partner {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, TS, Clone, Default, ToSchema)]
+#[ts(export, export_to = ".generated/Partners.ts")]
 pub struct Partners {
     pub partners: Vec<Partner>
 }

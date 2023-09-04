@@ -29,11 +29,7 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 use strum_macros::{Display, EnumVariantNames, EnumString};
 use strum::VariantNames;
-
-//use std::time::{SystemTime, UNIX_EPOCH};
-
-// The default time step used by this module internally
-//const THOTP_TIME_STEP: u8 = 30;
+use crate::impls::partners::Partners;
 
 struct Error {
     status: StatusCode,
@@ -222,7 +218,12 @@ pub enum PanelQuery {
         login_token: String,
         /// Filtered
         filtered: bool,
-    }
+    },
+    /// Returns the list of all partners on the list
+    GetPartnerList {
+        /// Login token
+        login_token: String,
+    },
 }
 
 /// Make Panel Query
@@ -894,6 +895,20 @@ async fn query(
             Ok((
                 StatusCode::OK, 
                 Json(rpc_methods)
+            ).into_response())
+        },
+        PanelQuery::GetPartnerList { login_token } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::ManagePartners) {
+                return Ok((StatusCode::FORBIDDEN, "You do not have permission to manage partners right now?".to_string()).into_response());
+            }
+
+            let partners = Partners::fetch(&state.pool).await.map_err(Error::new)?;
+
+            Ok((
+                StatusCode::OK, 
+                Json(partners)
             ).into_response())
         }
     }

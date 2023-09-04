@@ -2848,6 +2848,7 @@ version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1ff1f8c90369bc172200013ac17ae86e7b5def580687df4e6127883454ff2b0"
 dependencies = [
+ "chrono",
  "thiserror",
  "ts-rs-macros",
 ]

@@ -106,5 +106,9 @@ pub async fn get_capabilities(pool: &PgPool, token: &str) -> Result<Vec<Capabili
         capabilities.push(Capability::Rpc);
     }
 
+    if perms.hadmin {
+        capabilities.push(Capability::ManagePartners);
+    }
+
     Ok(capabilities)
 }

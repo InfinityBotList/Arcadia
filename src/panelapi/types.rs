@@ -39,6 +39,8 @@ pub enum Capability {
     ServerList,
     /// Bot management capability
     BotManagement,
+    /// Ability to manage partners
+    ManagePartners
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]

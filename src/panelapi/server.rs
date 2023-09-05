@@ -354,8 +354,8 @@ async fn query(
             .await
             .map_err(Error::new)?;
 
-            // Create a random number between 4196 and 8192 for the token
-            let tlength = rand::thread_rng().gen_range(4196..8192);
+            // Create a random number between 4196 and 6000 for the token
+            let tlength = rand::thread_rng().gen_range(4196..6000);
 
             let token = crate::impls::crypto::gen_random(tlength as usize);
 

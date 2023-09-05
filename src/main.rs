@@ -223,7 +223,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
 
 #[tokio::main]
 async fn main() {
-    const MAX_CONNECTIONS: u32 = 3; // max connections to the database, we don't need too many here
+    const MAX_CONNECTIONS: u32 = 6; // max connections to the database, we don't need too many here
 
     std::env::set_var("RUST_LOG", "bot=info, moka=error");
 

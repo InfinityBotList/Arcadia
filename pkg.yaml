@@ -1,3 +1,4 @@
+user: ibl
 language: rust
 project: "arcadia"
 binary: "bot"

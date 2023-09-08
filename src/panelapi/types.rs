@@ -57,6 +57,19 @@ pub struct QueueBot {
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/SearchBot.ts")]
+pub struct SearchBot {
+    pub bot_id: String,
+    pub client_id: String,
+    pub user: PartialUser,
+    pub claimed_by: Option<String>,
+    pub approval_note: String,
+    pub short: String,
+    pub mentionable: Vec<String>,
+    pub invite: String,
+}
+
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
 #[ts(export, export_to = ".generated/CoreConstants.ts")]
 pub struct CoreConstants {
     /// URL to the main site (reed is used here currently)

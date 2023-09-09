@@ -1,4 +1,4 @@
-use log::{warn, info};
+use log::{warn, info, error};
 use serenity::{all::ChannelId, builder::{CreateMessage, CreateEmbed, CreateEmbedFooter}};
 
 use crate::impls::target_types::TargetType;
@@ -22,7 +22,21 @@ pub async fn deleted_bots(
         )
         .fetch_one(pool)
         .await else {
-            warn!("Bot {} is not in internal_user_cache__discord, skipping", bot_id);
+            warn!("Bot {} is not in internal_user_cache__discord, forcing indexing of bot", bot_id);
+
+            let Ok(req) = reqwest::get(
+                format!("{}/platform/user/{}?platform=discord", crate::config::CONFIG.popplio_url, bot_id)
+            )
+            .await else {
+                error!("Failed to fetch bot {} from Popplio", bot_id);
+                continue;
+            };
+
+            if !req.status().is_success() {
+                error!("Failed to fetch bot {} from Popplio", bot_id);
+                continue;
+            }
+
             continue;
         };
 

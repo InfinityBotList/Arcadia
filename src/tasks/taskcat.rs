@@ -40,9 +40,9 @@ impl Task {
             Task::StaffResync => Duration::from_secs(45),
             Task::PremiumRemove => Duration::from_secs(75),
             Task::SpecRoleSync => Duration::from_secs(50),
-            Task::TeamCleaner => Duration::from_secs(600),
-            Task::GenericCleaner => Duration::from_secs(600),
-            Task::DeletedBots => Duration::from_secs(600),
+            Task::TeamCleaner => Duration::from_secs(300),
+            Task::GenericCleaner => Duration::from_secs(400),
+            Task::DeletedBots => Duration::from_secs(500),
         }
     }
 
@@ -120,6 +120,9 @@ async fn taskcat(
     let description = task.description();
 
     let mut interval = tokio::time::interval(duration);
+
+    // Ensure multiple tx's are not created at the same time
+    tokio::time::sleep(duration).await;
 
     loop {
         interval.tick().await;

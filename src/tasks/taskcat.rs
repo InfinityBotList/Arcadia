@@ -119,10 +119,10 @@ async fn taskcat(
     let duration = task.duration();
     let description = task.description();
 
-    let mut interval = tokio::time::interval(duration);
-
     // Ensure multiple tx's are not created at the same time
     tokio::time::sleep(duration).await;
+
+    let mut interval = tokio::time::interval(duration);
 
     loop {
         interval.tick().await;

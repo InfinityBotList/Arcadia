@@ -1,9 +1,9 @@
 pub mod autounclaim;
 pub mod bans;
+pub mod deletedbots;
+pub mod genericcleaner;
 pub mod premium;
 pub mod specrolesync;
 pub mod staffresync;
 pub mod taskcat;
 pub mod teamcleaner;
-pub mod uptime;
-pub mod genericcleaner;

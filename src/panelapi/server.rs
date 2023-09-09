@@ -913,7 +913,7 @@ async fn query(
 
             let queue = sqlx::query!(
                 "
-                SELECT bot_id, client_id, claimed_by, approval_note, short, invite FROM bots 
+                SELECT bot_id, client_id, type, claimed_by, approval_note, short, invite FROM bots 
                 INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id
                 WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at
                 ",
@@ -936,6 +936,7 @@ async fn query(
                         bot_id: bot.bot_id,
                         client_id: bot.client_id,
                         user,
+                        r#type: bot.r#type,
                         claimed_by: bot.claimed_by,
                         approval_note: bot.approval_note,
                         short: bot.short,

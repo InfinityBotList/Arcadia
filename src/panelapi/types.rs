@@ -63,6 +63,7 @@ pub struct SearchBot {
     pub client_id: String,
     pub user: PartialUser,
     pub claimed_by: Option<String>,
+    pub r#type: String,
     pub approval_note: String,
     pub short: String,
     pub mentionable: Vec<String>,

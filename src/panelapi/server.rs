@@ -219,10 +219,17 @@ pub enum PanelQuery {
         /// Filtered
         filtered: bool,
     },
-    /// Searches for a bot based on a query
-    SearchBots {
+    /// Returns a list of the supported RPC entity types
+    GetRpcTargetTypes {
         /// Login token
         login_token: String,
+    },
+    /// Searches for a bot based on a query
+    SearchEntitys {
+        /// Login token
+        login_token: String,
+        /// Target type
+        target_type: TargetType,
         /// Query
         query: String,
     },
@@ -904,54 +911,73 @@ async fn query(
                 Json(rpc_methods)
             ).into_response())
         },
-        PanelQuery::SearchBots { login_token, query } => {
+        PanelQuery::GetRpcTargetTypes { login_token } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::BotManagement) {
-                return Ok((StatusCode::FORBIDDEN, "You do not have permission to manage bots right now?".to_string()).into_response());
+            if !caps.contains(&super::types::Capability::Rpc) {
+                return Ok((StatusCode::FORBIDDEN, "You do not have permission to use RPC right now?".to_string()).into_response());
             }
 
-            let queue = sqlx::query!(
-                "
-                SELECT bot_id, client_id, type, claimed_by, approval_note, short, invite FROM bots 
-                INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id
-                WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at
-                ",
-                query,
-                format!("%{}%", query)
-            )
-            .fetch_all(&state.pool)
-            .await
-            .map_err(Error::new)?;
+            Ok((
+                StatusCode::OK,
+                Json(
+                    TargetType::VARIANTS
+                )
+            ).into_response())
+        },
+        PanelQuery::SearchEntitys { login_token, target_type, query } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
 
-            let mut bots = Vec::new();
-
-            for bot in queue {
-                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &state.pool).await.map_err(Error::new)?;
-
-                let user = crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id).await.map_err(Error::new)?;
-
-                bots.push(
-                    super::types::SearchBot {
-                        bot_id: bot.bot_id,
-                        client_id: bot.client_id,
-                        user,
-                        r#type: bot.r#type,
-                        claimed_by: bot.claimed_by,
-                        approval_note: bot.approval_note,
-                        short: bot.short,
-                        mentionable: owners.mentionables(),
-                        invite: bot.invite,
+            match target_type {
+                TargetType::Bot => {
+                    if !caps.contains(&super::types::Capability::BotManagement) {
+                        return Ok((StatusCode::FORBIDDEN, "You do not have permission to manage bots right now?".to_string()).into_response());
                     }
-                );
+        
+                    let queue = sqlx::query!(
+                        "
+                        SELECT bot_id, client_id, type, claimed_by, approval_note, short, invite FROM bots 
+                        INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id
+                        WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at
+                        ",
+                        query,
+                        format!("%{}%", query)
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+        
+                    let mut bots = Vec::new();
+        
+                    for bot in queue {
+                        let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &state.pool).await.map_err(Error::new)?;
+        
+                        let user = crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id).await.map_err(Error::new)?;
+        
+                        bots.push(
+                            super::types::SearchBot {
+                                bot_id: bot.bot_id,
+                                client_id: bot.client_id,
+                                user,
+                                r#type: bot.r#type,
+                                claimed_by: bot.claimed_by,
+                                approval_note: bot.approval_note,
+                                short: bot.short,
+                                mentionable: owners.mentionables(),
+                                invite: bot.invite,
+                            }
+                        );
+                    }
+        
+                    Ok(
+                        (
+                            StatusCode::OK, 
+                            Json(bots)
+                        ).into_response()
+                    )   
+                },
+                _ => Ok((StatusCode::FORBIDDEN, "You do not have permission to manage partners right now?".to_string()).into_response())
             }
-
-            Ok(
-                (
-                    StatusCode::OK, 
-                    Json(bots)
-                ).into_response()
-            )
         },
         PanelQuery::GetPartnerList { login_token } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;

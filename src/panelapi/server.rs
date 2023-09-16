@@ -722,6 +722,8 @@ async fn query(
                 Json(super::types::CoreConstants {
                     frontend_url: crate::config::CONFIG.frontend_url.clone(),
                     infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
+                    popplio_url: crate::config::CONFIG.popplio_url.clone(),
+                    cdn_url: crate::config::CONFIG.cdn_url.clone(),
                     servers: super::types::PanelServers {
                         main: crate::config::CONFIG.servers.main.to_string(),
                         staff: crate::config::CONFIG.servers.staff.to_string(),

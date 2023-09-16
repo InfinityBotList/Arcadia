@@ -102,6 +102,7 @@ pub async fn get_capabilities(pool: &PgPool, token: &str) -> Result<Vec<Capabili
     if perms.staff {
         capabilities.push(Capability::ViewBotQueue);
         capabilities.push(Capability::BotManagement);
+        capabilities.push(Capability::ServerManagement);
         capabilities.push(Capability::Rpc);
     }
 

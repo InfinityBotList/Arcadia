@@ -40,8 +40,8 @@ pub enum Capability {
     Rpc,
     /// View bot queue capability
     ViewBotQueue,
-    /// Server listing capability
-    ServerList,
+    /// Server management capability
+    ServerManagement,
     /// Bot management capability
     BotManagement,
     /// Ability to manage partners
@@ -82,6 +82,10 @@ pub struct CoreConstants {
     pub frontend_url: String,
     /// Infernoplex URL
     pub infernoplex_url: String,
+    /// CDN URL
+    pub cdn_url: String,
+    /// Popplio URL
+    pub popplio_url: String,
     /// Servers
     pub servers: PanelServers,
 }

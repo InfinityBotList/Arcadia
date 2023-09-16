@@ -95,6 +95,7 @@ pub struct Config {
     pub frontend_url: String,
     pub infernoplex_url: String,
     pub popplio_url: String,
+    pub cdn_url: String,
     pub proxy_url: String,
     pub owners: Vec<NonZeroU64>,
     pub protected_bots: Vec<NonZeroU64>,
@@ -112,6 +113,7 @@ impl Default for Config {
             frontend_url: String::from("https://infinitybots.gg"),
             infernoplex_url: String::from("https://infernoplex.infinitybots.gg"),
             popplio_url: String::from("https://spider.infinitybots.gg"),
+            cdn_url: String::from("https://cdn.infinitybots.gg"),
             proxy_url: String::from("http://127.0.0.1:3219"),
             owners: vec![NonZeroU64::new(510065483693817867).unwrap()],
             protected_bots: vec![

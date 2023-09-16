@@ -11,7 +11,10 @@ use sqlx::{types::Uuid, PgPool};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
-use crate::{impls::{self, target_types::TargetType}, Error};
+use crate::{
+    impls::{self, target_types::TargetType},
+    Error,
+};
 use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
@@ -128,7 +131,7 @@ impl RPCField {
             field_type: FieldType::Text,
             icon: "ic:twotone-access-time-filled".to_string(),
             placeholder: "The Target ID to perform the action on".to_string(),
-        }  
+        }
     }
 
     fn reason() -> Self {
@@ -204,8 +207,18 @@ impl RPCMethod {
             RPCMethod::PremiumRemove { .. } => vec![TargetType::Bot],
             RPCMethod::VoteBanAdd { .. } => vec![TargetType::Bot],
             RPCMethod::VoteBanRemove { .. } => vec![TargetType::Bot],
-            RPCMethod::VoteReset { .. } => vec![TargetType::Bot, TargetType::Server, TargetType::Team, TargetType::Pack],
-            RPCMethod::VoteResetAll { .. } => vec![TargetType::Bot, TargetType::Server, TargetType::Team, TargetType::Pack],
+            RPCMethod::VoteReset { .. } => vec![
+                TargetType::Bot,
+                TargetType::Server,
+                TargetType::Team,
+                TargetType::Pack,
+            ],
+            RPCMethod::VoteResetAll { .. } => vec![
+                TargetType::Bot,
+                TargetType::Server,
+                TargetType::Team,
+                TargetType::Pack,
+            ],
             RPCMethod::ForceRemove { .. } => vec![TargetType::Bot],
             RPCMethod::CertifyAdd { .. } => vec![TargetType::Bot],
             RPCMethod::CertifyRemove { .. } => vec![TargetType::Bot],
@@ -362,10 +375,7 @@ impl RPCMethod {
             .await
             .map_err(|_| "Failed to reset user token")?;
 
-            return Err(
-                "Rate limit exceeded. Wait 5-10 minutes and try again?"
-                    .into(),
-            );
+            return Err("Rate limit exceeded. Wait 5-10 minutes and try again?".into());
         }
 
         // Now we can handle the method
@@ -423,7 +433,12 @@ impl RPCMethod {
                     }
                 }
 
-                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, target_id, &state.pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(
+                    TargetType::Bot,
+                    target_id,
+                    &state.pool,
+                )
+                .await?;
 
                 // Claim it
                 sqlx::query!(
@@ -452,7 +467,10 @@ impl RPCMethod {
                     .embed(
                         CreateEmbed::default()
                             .title(" Claimed!")
-                            .description(format!("<@{}> has claimed <@{}>", &state.user_id, target_id))
+                            .description(format!(
+                                "<@{}> has claimed <@{}>",
+                                &state.user_id, target_id
+                            ))
                             .color(Color::BLURPLE)
                             .field("Force Claim", force.to_string(), false)
                             .footer(CreateEmbedFooter::new(
@@ -483,7 +501,12 @@ impl RPCMethod {
                     return Err("This bot is not pending review".into());
                 }
 
-                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, target_id, &state.pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(
+                    TargetType::Bot,
+                    target_id,
+                    &state.pool,
+                )
+                .await?;
 
                 if claimed.claimed_by.is_none() {
                     return Err(format!("<@{}> is not claimed", target_id).into());
@@ -508,20 +531,18 @@ impl RPCMethod {
                 .execute(&state.pool)
                 .await?;
 
-                let msg = CreateMessage::new()
-                    .content(owners.mention_users())
-                    .embed(
-                        CreateEmbed::new()
-                            .title(" Unclaimed!")
-                            .description(format!(
-                                "<@{}> has unclaimed <@{}>",
-                                &state.user_id, target_id
-                            ))
-                            .field("Reason", reason, false)
-                            .footer(CreateEmbedFooter::new(
-                                "This is completely normal, don't worry!",
-                            )),
-                    );
+                let msg = CreateMessage::new().content(owners.mention_users()).embed(
+                    CreateEmbed::new()
+                        .title(" Unclaimed!")
+                        .description(format!(
+                            "<@{}> has unclaimed <@{}>",
+                            &state.user_id, target_id
+                        ))
+                        .field("Reason", reason, false)
+                        .footer(CreateEmbedFooter::new(
+                            "This is completely normal, don't worry!",
+                        )),
+                );
 
                 ChannelId(crate::config::CONFIG.channels.mod_logs)
                     .send_message(&state.cache_http, msg)
@@ -574,7 +595,12 @@ impl RPCMethod {
                     }
                 }
 
-                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, target_id, &state.pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(
+                    TargetType::Bot,
+                    target_id,
+                    &state.pool,
+                )
+                .await?;
 
                 sqlx::query!(
                     "UPDATE bots SET type = 'approved', claimed_by = NULL WHERE bot_id = $1",
@@ -608,7 +634,13 @@ impl RPCMethod {
                     .send_message(&state.cache_http, msg)
                     .await?;
 
-                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, target_id, &state.pool).await?.all();
+                let owners = crate::impls::utils::get_entity_managers(
+                    TargetType::Bot,
+                    target_id,
+                    &state.pool,
+                )
+                .await?
+                .all();
 
                 for owner in owners {
                     let owner_snow = UserId(owner.parse()?);
@@ -638,9 +670,10 @@ impl RPCMethod {
                     }
                 }
 
-                let invite_data = sqlx::query!("SELECT client_id FROM bots WHERE bot_id = $1", target_id)
-                    .fetch_one(&state.pool)
-                    .await?;
+                let invite_data =
+                    sqlx::query!("SELECT client_id FROM bots WHERE bot_id = $1", target_id)
+                        .fetch_one(&state.pool)
+                        .await?;
 
                 Ok(
                     RPCSuccess::Content(
@@ -682,7 +715,12 @@ impl RPCMethod {
                     return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
                 }
 
-                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, target_id, &state.pool).await?;
+                let owners = crate::impls::utils::get_entity_managers(
+                    TargetType::Bot,
+                    target_id,
+                    &state.pool,
+                )
+                .await?;
 
                 sqlx::query!(
                     "UPDATE bots SET type = 'denied', claimed_by = NULL WHERE bot_id = $1",
@@ -725,12 +763,10 @@ impl RPCMethod {
                     return Err(" does not exist".into());
                 }
 
-                let bot_type_rec = sqlx::query!(
-                    "SELECT type FROM bots WHERE bot_id = $1",
-                    target_id
-                )
-                .fetch_one(&state.pool)
-                .await?;
+                let bot_type_rec =
+                    sqlx::query!("SELECT type FROM bots WHERE bot_id = $1", target_id)
+                        .fetch_one(&state.pool)
+                        .await?;
 
                 if bot_type_rec.r#type == "certified" {
                     return Err("Certified bots cannot be unverified".into());
@@ -812,9 +848,12 @@ impl RPCMethod {
                 }
 
                 // Set premium_period_length which is a postgres interval
-                sqlx::query!("UPDATE bots SET premium = false WHERE bot_id = $1", target_id)
-                    .execute(&state.pool)
-                    .await?;
+                sqlx::query!(
+                    "UPDATE bots SET premium = false WHERE bot_id = $1",
+                    target_id
+                )
+                .execute(&state.pool)
+                .await?;
 
                 let msg = CreateMessage::new().embed(
                     CreateEmbed::default()
@@ -917,24 +956,30 @@ impl RPCMethod {
                 match state.target_type {
                     TargetType::Bot => {
                         sqlx::query!("UPDATE bots SET votes = 0 WHERE bot_id = $1", target_id)
-                        .execute(&mut tx)
-                        .await?;
-                    },
+                            .execute(&mut tx)
+                            .await?;
+                    }
                     TargetType::Server => {
-                        sqlx::query!("UPDATE servers SET votes = 0 WHERE server_id = $1", target_id)
+                        sqlx::query!(
+                            "UPDATE servers SET votes = 0 WHERE server_id = $1",
+                            target_id
+                        )
                         .execute(&mut tx)
                         .await?;
-                    },
+                    }
                     TargetType::Team => {
-                        sqlx::query!("UPDATE teams SET votes = 0 WHERE id = $1", sqlx::types::Uuid::parse_str(target_id)?)
+                        sqlx::query!(
+                            "UPDATE teams SET votes = 0 WHERE id = $1",
+                            sqlx::types::Uuid::parse_str(target_id)?
+                        )
                         .execute(&mut tx)
                         .await?;
-                    },
+                    }
                     TargetType::Pack => {
                         sqlx::query!("UPDATE packs SET votes = 0 WHERE url = $1", target_id)
-                        .execute(&mut tx)
-                        .await?;
-                    },
+                            .execute(&mut tx)
+                            .await?;
+                    }
                 };
 
                 sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (single entity) reset', voided_at = NOW() WHERE target_type = $1 AND target_id = $2", state.target_type.to_string(), target_id)
@@ -967,24 +1012,24 @@ impl RPCMethod {
                 match state.target_type {
                     TargetType::Bot => {
                         sqlx::query!("UPDATE bots SET votes = 0")
-                        .execute(&mut tx)
-                        .await?;
-                    },
+                            .execute(&mut tx)
+                            .await?;
+                    }
                     TargetType::Server => {
                         sqlx::query!("UPDATE servers SET votes = 0")
-                        .execute(&mut tx)
-                        .await?;
-                    },
+                            .execute(&mut tx)
+                            .await?;
+                    }
                     TargetType::Team => {
                         sqlx::query!("UPDATE teams SET votes = 0")
-                        .execute(&mut tx)
-                        .await?;
-                    },
+                            .execute(&mut tx)
+                            .await?;
+                    }
                     TargetType::Pack => {
                         sqlx::query!("UPDATE packs SET votes = 0")
-                        .execute(&mut tx)
-                        .await?;
-                    },
+                            .execute(&mut tx)
+                            .await?;
+                    }
                 };
 
                 sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (all entities) reset', voided_at = NOW() WHERE target_type = $1", state.target_type.to_string())
@@ -1025,7 +1070,11 @@ impl RPCMethod {
 
                 let target_id_snow = target_id.parse::<NonZeroU64>()?;
 
-                if crate::config::CONFIG.protected_bots.contains(&target_id_snow) && *kick {
+                if crate::config::CONFIG
+                    .protected_bots
+                    .contains(&target_id_snow)
+                    && *kick
+                {
                     return Err("You can't force delete this bot with 'kick' enabled!".into());
                 }
 
@@ -1329,4 +1378,3 @@ impl RPCMethod {
         }
     }
 }
-

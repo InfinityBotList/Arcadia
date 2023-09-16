@@ -391,12 +391,7 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
     Ok(())
 }
 
-#[poise::command(
-    category = "Help", 
-    prefix_command, 
-    slash_command, 
-    user_cooldown = 1,
-)]
+#[poise::command(category = "Help", prefix_command, slash_command, user_cooldown = 1)]
 pub async fn simplehelp(
     ctx: Context<'_>,
     #[description = "Specific command to show help about"]

@@ -83,7 +83,9 @@ pub async fn auto_unclaim(
                     .await
                     .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
 
-                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, pool).await?;
+                let owners =
+                    crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, pool)
+                        .await?;
 
                 ChannelId(config::CONFIG.channels.mod_logs)
                 .send_message(

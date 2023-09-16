@@ -14,7 +14,7 @@ pub enum Task {
     SpecRoleSync,
     TeamCleaner,
     GenericCleaner,
-    DeletedBots
+    DeletedBots,
 }
 
 impl Task {
@@ -61,7 +61,11 @@ impl Task {
     }
 
     /// Function to run the task
-    pub async fn run(&self, pool: &sqlx::PgPool, cache_http: &crate::impls::cache::CacheHttpImpl) -> Result<(), crate::Error> {
+    pub async fn run(
+        &self,
+        pool: &sqlx::PgPool,
+        cache_http: &crate::impls::cache::CacheHttpImpl,
+    ) -> Result<(), crate::Error> {
         match self {
             Task::Bans => crate::tasks::bans::bans_sync(pool, cache_http).await,
             Task::AutoUnclaim => crate::tasks::autounclaim::auto_unclaim(pool, cache_http).await,

@@ -11,7 +11,7 @@ use serenity::builder::CreateEmbed;
 use strum::VariantNames;
 
 use crate::impls::target_types::TargetType;
-use crate::rpc::core::{RPCMethod, FieldType};
+use crate::rpc::core::{FieldType, RPCMethod};
 use crate::{Context, Error};
 
 async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<poise::AutocompleteChoice<String>> {
@@ -69,9 +69,9 @@ pub async fn rpclist(ctx: Context<'_>) -> Result<(), Error> {
             "**{}**\n{}\n**Needed permissions:** {:#?}\n**Fields:**\n",
             variant.label(),
             variant.description(),
-            variant.needs_perms(),  
+            variant.needs_perms(),
         );
-        
+
         let method_fields = variant.method_fields();
 
         for field in method_fields.iter() {
@@ -85,9 +85,10 @@ pub async fn rpclist(ctx: Context<'_>) -> Result<(), Error> {
         CreateReply::new().embed(
             CreateEmbed::new()
                 .title("RPC Commands")
-                .description(commands.join("\n\n"))
-        )
-    ).await?;
+                .description(commands.join("\n\n")),
+        ),
+    )
+    .await?;
 
     Ok(())
 }
@@ -148,23 +149,26 @@ pub async fn rpc(
 
             let qm = {
                 let mut qm = CreateQuickModal::new(variant.label());
-            
+
                 for field in method_fields.iter() {
-                    qm = qm.field(CreateInputText::new(
-                        match field.field_type {
-                            crate::rpc::core::FieldType::Text => InputTextStyle::Short,
-                            crate::rpc::core::FieldType::Textarea => InputTextStyle::Paragraph,
-                            _ => InputTextStyle::Short
-                        },
-                        field.label.clone(),
-                        field.id.clone(),
-                    ).placeholder(field.placeholder.clone()));
+                    qm = qm.field(
+                        CreateInputText::new(
+                            match field.field_type {
+                                crate::rpc::core::FieldType::Text => InputTextStyle::Short,
+                                crate::rpc::core::FieldType::Textarea => InputTextStyle::Paragraph,
+                                _ => InputTextStyle::Short,
+                            },
+                            field.label.clone(),
+                            field.id.clone(),
+                        )
+                        .placeholder(field.placeholder.clone()),
+                    );
                 }
-            
+
                 qm
             };
-                        
-            if let Some(resp) = m.quick_modal(discord, qm).await? { 
+
+            if let Some(resp) = m.quick_modal(discord, qm).await? {
                 let mut data = HashMap::new();
 
                 for (i, inp) in resp.inputs.iter().enumerate() {
@@ -174,11 +178,11 @@ pub async fn rpc(
                         match field.field_type {
                             FieldType::Text | FieldType::Textarea => {
                                 data.insert(id.clone(), serde_json::json!(inp));
-                            },
+                            }
                             FieldType::Number => {
                                 let num = inp.parse::<u64>()?;
                                 data.insert(id.clone(), serde_json::json!(num));
-                            },
+                            }
                             FieldType::Hour => {
                                 // Split v into time and unit
                                 let timestamp = inp.split(' ').collect::<Vec<&str>>();
@@ -204,7 +208,7 @@ pub async fn rpc(
                                 };
 
                                 data.insert(id.clone(), serde_json::json!(hours));
-                            },
+                            }
                             FieldType::Boolean => {
                                 let val = match inp.to_lowercase().as_str() {
                                     "true" | "t" | "y" => true,
@@ -212,7 +216,7 @@ pub async fn rpc(
                                     _ => return Err("Invalid boolean".into()),
                                 };
 
-                                data.insert(id.clone(), serde_json::json!(val));                          
+                                data.insert(id.clone(), serde_json::json!(val));
                             }
                         }
                     } else {

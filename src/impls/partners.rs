@@ -1,9 +1,9 @@
+use crate::Error;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use ts_rs::TS;
 use utoipa::ToSchema;
-use serde::{Serialize, Deserialize};
-use crate::Error;
 
 use super::link::Link;
 
@@ -39,25 +39,25 @@ pub struct Partners {
 
 impl Partners {
     pub async fn fetch(pool: &PgPool) -> Result<Self, Error> {
-        let prec = sqlx::query!("SELECT id, name, image, short, links, type, created_at, user_id FROM partners")
-            .fetch_all(pool)
-            .await?;
+        let prec = sqlx::query!(
+            "SELECT id, name, image, short, links, type, created_at, user_id FROM partners"
+        )
+        .fetch_all(pool)
+        .await?;
 
         let mut partners = Vec::new();
 
         for partner in prec {
-            partners.push(
-                Partner {
-                    id: partner.id,
-                    name: partner.name,
-                    image: partner.image,
-                    short: partner.short,
-                    links: serde_json::from_value(partner.links)?,
-                    r#type: partner.r#type,
-                    created_at: partner.created_at,
-                    user_id: partner.user_id,
-                }
-            )
+            partners.push(Partner {
+                id: partner.id,
+                name: partner.name,
+                image: partner.image,
+                short: partner.short,
+                links: serde_json::from_value(partner.links)?,
+                r#type: partner.r#type,
+                created_at: partner.created_at,
+                user_id: partner.user_id,
+            })
         }
 
         let ptrec = sqlx::query!("SELECT id, name, short, icon, created_at FROM partner_types")
@@ -65,17 +65,15 @@ impl Partners {
             .await?;
 
         let mut partner_types = Vec::new();
-        
+
         for partner_type in ptrec {
-            partner_types.push(
-                PartnerType {
-                    id: partner_type.id,
-                    name: partner_type.name,
-                    short: partner_type.short,
-                    icon: partner_type.icon,
-                    created_at: partner_type.created_at,
-                }
-            )
+            partner_types.push(PartnerType {
+                id: partner_type.id,
+                name: partner_type.name,
+                short: partner_type.short,
+                icon: partner_type.icon,
+                created_at: partner_type.created_at,
+            })
         }
 
         Ok(Self {

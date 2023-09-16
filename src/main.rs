@@ -13,14 +13,14 @@ mod config;
 mod explain;
 mod help;
 mod impls;
+mod panelapi;
 mod rpc;
 mod rpc_command;
 mod staff;
 mod stats;
 mod tasks;
-mod testing;
 mod test;
-mod panelapi;
+mod testing;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

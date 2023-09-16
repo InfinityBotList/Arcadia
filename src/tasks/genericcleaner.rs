@@ -4,7 +4,7 @@ use futures_util::StreamExt;
 use log::{info, warn};
 use sqlx::Row;
 use strum::VariantNames;
-use strum_macros::{EnumVariantNames, EnumString};
+use strum_macros::{EnumString, EnumVariantNames};
 
 #[derive(EnumVariantNames, EnumString)]
 enum Entity {
@@ -18,7 +18,7 @@ impl Entity {
     fn table_name(&self) -> &'static str {
         match self {
             Entity::Bot => "bots",
-	    Entity::Server => "servers",
+            Entity::Server => "servers",
             Entity::Team => "teams",
             Entity::Pack => "packs",
         }
@@ -27,7 +27,7 @@ impl Entity {
     fn id_column(&self) -> &'static str {
         match self {
             Entity::Bot => "bot_id",
-	    Entity::Server => "server_id",
+            Entity::Server => "server_id",
             Entity::Team => "id",
             Entity::Pack => "url",
         }
@@ -36,16 +36,14 @@ impl Entity {
     fn target_type(&self) -> &'static str {
         match self {
             Entity::Bot => "bot",
-	    Entity::Server => "server",
+            Entity::Server => "server",
             Entity::Team => "team",
             Entity::Pack => "pack",
         }
     }
 }
 
-pub async fn generic_cleaner(
-    pool: &sqlx::PgPool,
-) -> Result<(), crate::Error> {
+pub async fn generic_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
     let mut table_names = sqlx::query!(
         "select table_name from information_schema.columns where column_name = 'target_id'"
     )
@@ -65,13 +63,9 @@ pub async fn generic_cleaner(
     Ok(())
 }
 
-async fn clean_table(
-    pool: &sqlx::PgPool,
-    table: &str,
-) -> Result<(), crate::Error> {
+async fn clean_table(pool: &sqlx::PgPool, table: &str) -> Result<(), crate::Error> {
     // Fetch target_id and target_type for all in the table such that it does not exist in the corresponding entity table
     for entity in Entity::VARIANTS {
-
         let Ok(e) = Entity::from_str(entity) else {
             warn!("Invalid entity type {}", entity);
             continue;
@@ -84,18 +78,19 @@ async fn clean_table(
             format!("select target_id, target_type from {table} where target_type = '{target_type}' and not exists (select 1 from {table_name} where {id_column}::text = target_id)")
         };
 
-        let mut rows = sqlx::query(
-            &sql,
-        )
-        .fetch(pool);
+        let mut rows = sqlx::query(&sql).fetch(pool);
 
         // rows is a stream, loop over it
         while let Some(item) = rows.next().await {
             let item = item.map_err(|e| format!("Error fetching rows: {:?} {}", e, sql))?;
 
             // Get target_id and target_type from PgRow
-            let target_id = item.try_get::<String, &str>("target_id").map_err(|e| format!("Error getting target_id: {:?}", e))?;
-            let target_type = item.try_get::<String, &str>("target_type").map_err(|e| format!("Error getting target_type: {:?}", e))?;
+            let target_id = item
+                .try_get::<String, &str>("target_id")
+                .map_err(|e| format!("Error getting target_id: {:?}", e))?;
+            let target_type = item
+                .try_get::<String, &str>("target_type")
+                .map_err(|e| format!("Error getting target_type: {:?}", e))?;
 
             info!("Found orphaned generic entity with table={table}, target_id={target_id}, target_type={target_type}");
 
@@ -109,7 +104,10 @@ async fn clean_table(
                 .await
                 .map_err(|e| format!("Error deleting orphaned generic entity: {:?}", e))?;
 
-            info!("Deleted orphaned generic entity with table={}, target_id={}, target_type={}", table, target_id, target_type);
+            info!(
+                "Deleted orphaned generic entity with table={}, target_id={}, target_type={}",
+                table, target_id, target_type
+            );
         }
     }
 

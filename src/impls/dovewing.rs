@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use ts_rs::TS;
 
@@ -11,10 +11,7 @@ pub struct PartialUser {
     pub avatar: String,
 }
 
-pub async fn get_partial_user(
-    pool: &PgPool,
-    user_id: &str,
-) -> Result<PartialUser, crate::Error> {
+pub async fn get_partial_user(pool: &PgPool, user_id: &str) -> Result<PartialUser, crate::Error> {
     let rec = sqlx::query!(
         "SELECT username, display_name, avatar, bot FROM internal_user_cache__discord WHERE id = $1",
         user_id

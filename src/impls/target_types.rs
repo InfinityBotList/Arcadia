@@ -1,11 +1,13 @@
-use std::fmt::{Formatter, Display};
+use std::fmt::{Display, Formatter};
 
+use serde::{Deserialize, Serialize};
 use strum_macros::{EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, PartialEq, EnumString, ToSchema, TS, EnumVariantNames, Clone, Default)]
+#[derive(
+    Serialize, Deserialize, PartialEq, EnumString, ToSchema, TS, EnumVariantNames, Clone, Default,
+)]
 #[ts(export, export_to = ".generated/TargetType.ts")]
 pub enum TargetType {
     #[default]

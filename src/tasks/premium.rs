@@ -62,7 +62,9 @@ pub async fn premium_remove(
             }
         };
 
-        let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot_id.to_string(), pool).await?;
+        let owners =
+            crate::impls::utils::get_entity_managers(TargetType::Bot, &bot_id.to_string(), pool)
+                .await?;
 
         let msg = {
             if row.r#type != "approved" && row.r#type != "certified" {

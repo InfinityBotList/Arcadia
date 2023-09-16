@@ -1,9 +1,12 @@
-use strum_macros::{EnumString, Display, EnumVariantNames};
+use serde::{Deserialize, Serialize};
+use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
-use serde::{Serialize, Deserialize};
 use utoipa::ToSchema;
 
-use crate::{impls::{dovewing::PartialUser, target_types::TargetType}, rpc::core::{RPCField, RPCPerms}};
+use crate::{
+    impls::{dovewing::PartialUser, target_types::TargetType},
+    rpc::core::{RPCField, RPCPerms},
+};
 
 #[derive(Serialize, Deserialize, TS, Clone)]
 #[ts(export, export_to = ".generated/PanelPerms.ts")]
@@ -28,7 +31,9 @@ pub struct InstanceConfig {
     pub query: String,
 }
 
-#[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone, PartialEq)]
+#[derive(
+    Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone, PartialEq,
+)]
 #[ts(export, export_to = ".generated/Capability.ts")]
 pub enum Capability {
     /// RPC capability
@@ -40,7 +45,7 @@ pub enum Capability {
     /// Bot management capability
     BotManagement,
     /// Ability to manage partners
-    ManagePartners
+    ManagePartners,
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
@@ -78,7 +83,7 @@ pub struct CoreConstants {
     /// Infernoplex URL
     pub infernoplex_url: String,
     /// Servers
-    pub servers: PanelServers
+    pub servers: PanelServers,
 }
 
 /// Same as CONFIG.servers but using strings instead of NonZeroU64s
@@ -117,7 +122,7 @@ pub struct RPCWebAction {
     pub description: String,
     /// Fields of the RPC action
     pub fields: Vec<RPCField>,
-    /// Target types supported by the RPC action 
+    /// Target types supported by the RPC action
     pub supported_target_types: Vec<TargetType>,
     /// Permissions required to use the RPC action
     pub needs_perms: RPCPerms,

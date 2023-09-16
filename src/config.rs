@@ -85,7 +85,6 @@ pub struct PanelLogin {
     pub client_secret: String,
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct Config {
     pub database_url: String,
@@ -99,7 +98,7 @@ pub struct Config {
     pub proxy_url: String,
     pub owners: Vec<NonZeroU64>,
     pub protected_bots: Vec<NonZeroU64>,
-    pub panel_login: PanelLogin
+    pub panel_login: PanelLogin,
 }
 
 impl Default for Config {
@@ -118,7 +117,7 @@ impl Default for Config {
             protected_bots: vec![
                 NonZeroU64::new(1019662370278228028).unwrap(), // Reedwhisker (PTB) - Main Bot
             ],
-            panel_login: PanelLogin::default()
+            panel_login: PanelLogin::default(),
         }
     }
 }

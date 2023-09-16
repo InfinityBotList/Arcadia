@@ -3,12 +3,12 @@ use sqlx::PgPool;
 use super::target_types::TargetType;
 
 pub struct EntityManagers {
-    users: Vec<Manager>
+    users: Vec<Manager>,
 }
 
 struct Manager {
     mentionable: bool,
-    user: String
+    user: String,
 }
 
 impl EntityManagers {
@@ -48,32 +48,39 @@ impl EntityManagers {
     }
 }
 
-pub async fn get_entity_managers(target_type: TargetType, target_id: &str, pool: &PgPool) -> Result<EntityManagers, crate::Error> {
+pub async fn get_entity_managers(
+    target_type: TargetType,
+    target_id: &str,
+    pool: &PgPool,
+) -> Result<EntityManagers, crate::Error> {
     let team_id = match target_type {
         TargetType::Bot => {
             // Check for owner first
             let owner_rec = sqlx::query!("SELECT owner FROM bots WHERE bot_id = $1", target_id)
-            .fetch_one(pool)
-            .await
-            .map_err(|e| format!("Error while checking for owner of bot {}: {}", target_id, e))?;
+                .fetch_one(pool)
+                .await
+                .map_err(|e| {
+                    format!("Error while checking for owner of bot {}: {}", target_id, e)
+                })?;
 
             if let Some(owner) = owner_rec.owner {
                 return Ok(EntityManagers {
                     users: vec![Manager {
                         mentionable: true,
-                        user: owner
-                    }]
+                        user: owner,
+                    }],
                 });
             } else {
-                let team_id = sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", target_id)
-                    .fetch_one(pool)
-                    .await
-                    .map_err(|e| {
-                        format!(
-                            "Error while checking for team owner of bot {}: {}",
-                            target_id, e
-                        )
-                    })?;
+                let team_id =
+                    sqlx::query!("SELECT team_owner FROM bots WHERE bot_id = $1", target_id)
+                        .fetch_one(pool)
+                        .await
+                        .map_err(|e| {
+                            format!(
+                                "Error while checking for team owner of bot {}: {}",
+                                target_id, e
+                            )
+                        })?;
 
                 if let Some(team_id) = team_id.team_owner {
                     // Get all team members first
@@ -86,24 +93,25 @@ pub async fn get_entity_managers(target_type: TargetType, target_id: &str, pool:
                     .into());
                 }
             }
-        },
+        }
         TargetType::Server => {
-            let team_owner = sqlx::query!("SELECT team_owner FROM servers WHERE server_id = $1", target_id)
-                .fetch_one(pool)
-                .await
-                .map_err(|e| {
-                    format!(
-                        "Error while checking for team owner of server {}: {}",
-                        target_id, e
-                    )
-                })?;
-            
+            let team_owner = sqlx::query!(
+                "SELECT team_owner FROM servers WHERE server_id = $1",
+                target_id
+            )
+            .fetch_one(pool)
+            .await
+            .map_err(|e| {
+                format!(
+                    "Error while checking for team owner of server {}: {}",
+                    target_id, e
+                )
+            })?;
+
             team_owner.team_owner
-        },
-        TargetType::Team => {
-            sqlx::types::Uuid::parse_str(target_id)
-                .map_err(|e| format!("Error while parsing team id {}: {}", target_id, e))?
-        },
+        }
+        TargetType::Team => sqlx::types::Uuid::parse_str(target_id)
+            .map_err(|e| format!("Error while parsing team id {}: {}", target_id, e))?,
         TargetType::Pack => {
             return Err("Packs are not supported yet!".into());
         }
@@ -131,11 +139,14 @@ pub async fn get_entity_managers(target_type: TargetType, target_id: &str, pool:
     }
 
     // Return all members
-    Ok(EntityManagers { 
-        users: team_members.iter().map(|m| Manager {
-            mentionable: m.mentionable,
-            user: m.user_id.clone()
-        }).collect()
+    Ok(EntityManagers {
+        users: team_members
+            .iter()
+            .map(|m| Manager {
+                mentionable: m.mentionable,
+                user: m.user_id.clone(),
+            })
+            .collect(),
     })
 }
 

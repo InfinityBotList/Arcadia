@@ -134,7 +134,8 @@ pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
         return Ok(());
     }
 
-    ctx.say("``updprod`` has been moved to https://sysmanage.infinitybots.gg > Custom Actions").await?;
+    ctx.say("``updprod`` has been moved to https://sysmanage.infinitybots.gg > Custom Actions")
+        .await?;
 
     Ok(())
 }

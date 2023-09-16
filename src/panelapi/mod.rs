@@ -1,3 +1,3 @@
-pub mod server;
 mod auth;
+pub mod server;
 mod types;

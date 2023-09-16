@@ -6,30 +6,26 @@ use std::time::Duration;
 use crate::impls;
 use crate::impls::target_types::TargetType;
 use crate::panelapi::types::InstanceConfig;
-use crate::rpc::core::{RPCMethod, RPCHandle};
-use axum::Json;
+use crate::rpc::core::{RPCHandle, RPCMethod};
 use axum::extract::Host;
 use axum::http::HeaderMap;
+use axum::Json;
 
-use axum::response::{Response, IntoResponse};
-use axum::routing::{post, get};
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Router
-};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, post};
+use axum::{extract::State, http::StatusCode, Router};
 use log::info;
 use rand::Rng;
 use serenity::all::User;
 use sqlx::PgPool;
 use tower_http::cors::{Any, CorsLayer};
 
+use crate::impls::partners::Partners;
 use serde::{Deserialize, Serialize};
+use strum::VariantNames;
+use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use strum_macros::{Display, EnumVariantNames, EnumString};
-use strum::VariantNames;
-use crate::impls::partners::Partners;
 
 struct Error {
     status: StatusCode,
@@ -51,7 +47,6 @@ impl IntoResponse for Error {
     }
 }
 
-
 pub struct AppState {
     pub cache_http: impls::cache::CacheHttpImpl,
     pub pool: PgPool,
@@ -60,8 +55,11 @@ pub struct AppState {
 pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
     #[derive(OpenApi)]
-    #[openapi(paths(get_instance_config, query), components(schemas(PanelQuery, InstanceConfig, RPCMethod, TargetType)))]
-    struct ApiDoc;  
+    #[openapi(
+        paths(get_instance_config, query),
+        components(schemas(PanelQuery, InstanceConfig, RPCMethod, TargetType))
+    )]
+    struct ApiDoc;
 
     async fn docs() -> impl IntoResponse {
         let mut headers = HeaderMap::new();
@@ -72,8 +70,12 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
             return (headers, data).into_response();
         }
 
-        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to generate docs".to_string()).into_response()
-    }  
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to generate docs".to_string(),
+        )
+            .into_response()
+    }
 
     sqlx::query!(
         "CREATE TABLE IF NOT EXISTS staffpanel__authchain (
@@ -101,7 +103,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     .execute(&pool)
     .await
     .expect("Failed to create staffpanel__paneldata table");
-    
+
     let shared_state = Arc::new(AppState { pool, cache_http });
 
     let app = Router::new()
@@ -138,7 +140,7 @@ pub enum PanelQuery {
         /// Panel protocol version
         version: u16,
         /// Redirect URL
-        redirect_url: String
+        redirect_url: String,
     },
     /// Login, returning a login token
     Login {
@@ -208,10 +210,10 @@ pub enum PanelQuery {
         /// Target Type
         target_type: TargetType,
         /// RPC Method
-        method: RPCMethod
+        method: RPCMethod,
     },
     /// Returns all RPC actions available
-    /// 
+    ///
     /// Setting filtered will filter RPC actions to that what the user has access to
     GetRpcMethods {
         /// Login token
@@ -251,21 +253,16 @@ pub enum PanelQuery {
     ),
 )]
 #[axum_macros::debug_handler]
-async fn get_instance_config(
-    Host(host): Host,
-) -> Result<impl IntoResponse, Error> {
-    Ok(
-        (
-            StatusCode::OK, 
-            Json(
-                super::types::InstanceConfig {
-                    description: "Arcadia Production Instance Config".to_string(),
-                    instance_url: host,
-                    query: "/query".to_string(),
-                }
-            )
-        ).into_response()
-    ) 
+async fn get_instance_config(Host(host): Host) -> Result<impl IntoResponse, Error> {
+    Ok((
+        StatusCode::OK,
+        Json(super::types::InstanceConfig {
+            description: "Arcadia Production Instance Config".to_string(),
+            instance_url: host,
+            query: "/query".to_string(),
+        }),
+    )
+        .into_response())
 }
 
 /// Make Panel Query
@@ -285,14 +282,17 @@ async fn query(
     Json(req): Json<PanelQuery>,
 ) -> Result<impl IntoResponse, Error> {
     match req {
-        PanelQuery::GetLoginUrl { version, redirect_url } => {
+        PanelQuery::GetLoginUrl {
+            version,
+            redirect_url,
+        } => {
             if version != 1 {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 
             Ok(
                 (
-                    StatusCode::OK, 
+                    StatusCode::OK,
                     format!(
                         "https://discord.com/api/oauth2/authorize?client_id={client_id}&redirect_uri={redirect_url}&response_type=code&scope=identify",
                         client_id = crate::config::CONFIG.panel_login.client_id,
@@ -300,21 +300,36 @@ async fn query(
                     )
                 ).into_response()
             )
-        },
+        }
         PanelQuery::Login { code, redirect_url } => {
-            if !crate::config::CONFIG.panel_login.redirect_url.contains(&redirect_url) {
-                return Ok((StatusCode::BAD_REQUEST, "Invalid redirect url".to_string()).into_response());
+            if !crate::config::CONFIG
+                .panel_login
+                .redirect_url
+                .contains(&redirect_url)
+            {
+                return Ok(
+                    (StatusCode::BAD_REQUEST, "Invalid redirect url".to_string()).into_response(),
+                );
             }
 
-            let client = reqwest::Client::builder().timeout(Duration::from_secs(10)).build().map_err(Error::new)?;
+            let client = reqwest::Client::builder()
+                .timeout(Duration::from_secs(10))
+                .build()
+                .map_err(Error::new)?;
 
             let resp = client
                 .post("https://discord.com/api/oauth2/token")
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header("User-Agent", "DiscordBot (arcadia v1.0)")
                 .form(&[
-                    ("client_id", crate::config::CONFIG.panel_login.client_id.as_str()),
-                    ("client_secret", crate::config::CONFIG.panel_login.client_secret.as_str()),
+                    (
+                        "client_id",
+                        crate::config::CONFIG.panel_login.client_id.as_str(),
+                    ),
+                    (
+                        "client_secret",
+                        crate::config::CONFIG.panel_login.client_secret.as_str(),
+                    ),
                     ("grant_type", "authorization_code"),
                     ("code", code.as_str()),
                     ("redirect_uri", redirect_url.as_str()),
@@ -325,24 +340,27 @@ async fn query(
                 .map_err(Error::new)?
                 .error_for_status()
                 .map_err(Error::new)?;
-            
+
             #[derive(Deserialize)]
             struct Oauth2 {
-                access_token: String
+                access_token: String,
             }
 
             let oauth2 = resp.json::<Oauth2>().await.map_err(Error::new)?;
 
             let user_resp = client
-            .get("https://discord.com/api/users/@me")
-            .header("Authorization", "Bearer ".to_string() + oauth2.access_token.as_str())
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .header("User-Agent", "DiscordBot (arcadia v1.0)")
-            .send()
-            .await
-            .map_err(Error::new)?
-            .error_for_status()
-            .map_err(Error::new)?;
+                .get("https://discord.com/api/users/@me")
+                .header(
+                    "Authorization",
+                    "Bearer ".to_string() + oauth2.access_token.as_str(),
+                )
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .header("User-Agent", "DiscordBot (arcadia v1.0)")
+                .send()
+                .await
+                .map_err(Error::new)?
+                .error_for_status()
+                .map_err(Error::new)?;
 
             let user = user_resp.json::<User>().await.map_err(Error::new)?;
 
@@ -421,20 +439,17 @@ async fn query(
             tx.commit().await.map_err(Error::new)?;
 
             // Stage 1 of login is done, panel will handle MFA next
-            Ok((
-                StatusCode::OK, 
-                token
-            ).into_response())
-        },
+            Ok((StatusCode::OK, token).into_response())
+        }
         PanelQuery::LoginMfaCheckStatus { login_token } => {
-            let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token).await.map_err(Error::new)?;
+            let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
             if auth_data.state != "pending" {
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "sessionAlreadyActive".to_string(),
-                    }
-                )
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "sessionAlreadyActive".to_string(),
+                });
             }
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
@@ -452,14 +467,12 @@ async fn query(
 
             if count == 0 {
                 // This should never happen, as Login creates a dummy MFA setup
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "invalidPanelData".to_string(),
-                    }
-                );
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "invalidPanelData".to_string(),
+                });
             }
-            
+
             // Check if user has MFA setup
             let mrec = sqlx::query!(
                 "SELECT mfa_verified FROM staffpanel__paneldata WHERE user_id = $1",
@@ -495,7 +508,7 @@ async fn query(
                     // The counter (Only HOTP)
                     None,
                 )
-                .map_err(Error::new)?;    
+                .map_err(Error::new)?;
 
                 let qr = thotp::qr::generate_code_svg(
                     &qr_code_uri,
@@ -505,38 +518,32 @@ async fn query(
                     None,
                     // Correction level, M is the default
                     thotp::qr::EcLevel::M,
-                )        
-                .map_err(Error::new)?;  
+                )
+                .map_err(Error::new)?;
 
-                tx.commit().await.map_err(Error::new)?;   
+                tx.commit().await.map_err(Error::new)?;
 
                 Ok((
-                    StatusCode::OK, 
-                    Json(
-                        super::types::MfaLogin {
-                            info: Some(super::types::MfaLoginSecret {
-                                qr_code: qr,
-                                otp_url: qr_code_uri,
-                                secret,
-                            }),
-                        }
-                    )
-                ).into_response())
+                    StatusCode::OK,
+                    Json(super::types::MfaLogin {
+                        info: Some(super::types::MfaLoginSecret {
+                            qr_code: qr,
+                            otp_url: qr_code_uri,
+                            secret,
+                        }),
+                    }),
+                )
+                    .into_response())
             } else {
                 tx.rollback().await.map_err(Error::new)?;
 
-                Ok((
-                    StatusCode::OK, 
-                    Json(
-                        super::types::MfaLogin {
-                            info: None,
-                        }
-                    )
-                ).into_response())
+                Ok((StatusCode::OK, Json(super::types::MfaLogin { info: None })).into_response())
             }
-        },
+        }
         PanelQuery::LoginActivateSession { login_token, otp } => {
-            let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token).await.map_err(Error::new)?;
+            let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
@@ -548,16 +555,14 @@ async fn query(
             .await
             .map_err(Error::new)?
             .count
-            .unwrap_or(0);     
+            .unwrap_or(0);
 
             if count == 0 {
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "mfaNotSetup".to_string(),
-                    }
-                )
-            }      
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "mfaNotSetup".to_string(),
+                });
+            }
 
             let secret = sqlx::query!(
                 "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
@@ -567,18 +572,17 @@ async fn query(
             .await
             .map_err(Error::new)?
             .mfa_secret;
-            
-            let secret = thotp::encoding::decode(&secret, data_encoding::BASE32).map_err(Error::new)?;
+
+            let secret =
+                thotp::encoding::decode(&secret, data_encoding::BASE32).map_err(Error::new)?;
 
             let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
 
             if !result {
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "mfaInvalidCode".to_string(),
-                    }
-                )
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "mfaInvalidCode".to_string(),
+                });
             }
 
             sqlx::query!(
@@ -599,13 +603,12 @@ async fn query(
 
             tx.commit().await.map_err(Error::new)?;
 
-            Ok((
-                StatusCode::NO_CONTENT, 
-                ""
-            ).into_response())
-        },
+            Ok((StatusCode::NO_CONTENT, "").into_response())
+        }
         PanelQuery::LoginResetMfa { login_token, otp } => {
-            let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
@@ -617,16 +620,14 @@ async fn query(
             .await
             .map_err(Error::new)?
             .count
-            .unwrap_or(0);     
+            .unwrap_or(0);
 
             if count == 0 {
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "mfaNotSetup".to_string(),
-                    }
-                )
-            } 
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "mfaNotSetup".to_string(),
+                });
+            }
 
             let secret = sqlx::query!(
                 "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
@@ -636,18 +637,17 @@ async fn query(
             .await
             .map_err(Error::new)?
             .mfa_secret;
-            
-            let secret = thotp::encoding::decode(&secret, data_encoding::BASE32).map_err(Error::new)?;
+
+            let secret =
+                thotp::encoding::decode(&secret, data_encoding::BASE32).map_err(Error::new)?;
 
             let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
 
             if !result {
-                return Err(
-                    Error {
-                        status: StatusCode::BAD_REQUEST,
-                        message: "mfaInvalidCode".to_string(),
-                    }
-                )
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "mfaInvalidCode".to_string(),
+                });
             }
 
             sqlx::query!(
@@ -669,13 +669,8 @@ async fn query(
 
             tx.commit().await.map_err(Error::new)?;
 
-            Ok(
-                (
-                    StatusCode::NO_CONTENT, 
-                    ""
-                ).into_response()
-            )
-        },
+            Ok((StatusCode::NO_CONTENT, "").into_response())
+        }
         PanelQuery::Logout { login_token } => {
             // Just delete the auth, no point in even erroring if it doesn't exist
             let row = sqlx::query!(
@@ -686,79 +681,67 @@ async fn query(
             .await
             .map_err(Error::new)?;
 
-            Ok(
-                (
-                    StatusCode::OK,
-                    row.rows_affected().to_string()
-                ).into_response()
-            )
-        },
+            Ok((StatusCode::OK, row.rows_affected().to_string()).into_response())
+        }
         PanelQuery::GetIdentity { login_token } => {
-            let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
-            Ok(
-                (
-                    StatusCode::OK, 
-                    Json(auth_data)
-                ).into_response()
-            )
-        },
+            Ok((StatusCode::OK, Json(auth_data)).into_response())
+        }
         PanelQuery::GetUserDetails { user_id } => {
-            let user = crate::impls::dovewing::get_partial_user(&state.pool, &user_id).await.map_err(Error::new)?;
+            let user = crate::impls::dovewing::get_partial_user(&state.pool, &user_id)
+                .await
+                .map_err(Error::new)?;
 
-            Ok(
-                (
-                    StatusCode::OK, 
-                    Json(user)
-                ).into_response()
-            )
-        },
+            Ok((StatusCode::OK, Json(user)).into_response())
+        }
         PanelQuery::GetUserPerms { user_id } => {
-            let perms = super::auth::get_user_perms(&state.pool, &user_id).await.map_err(Error::new)?;
+            let perms = super::auth::get_user_perms(&state.pool, &user_id)
+                .await
+                .map_err(Error::new)?;
 
-            Ok(
-                (
-                    StatusCode::OK, 
-                    Json(perms)
-                ).into_response()
-            )
-        },
+            Ok((StatusCode::OK, Json(perms)).into_response())
+        }
         PanelQuery::GetCapabilities { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
-            Ok(
-                (
-                    StatusCode::OK, 
-                    Json(caps)
-                ).into_response()
-            )
-        },
+            Ok((StatusCode::OK, Json(caps)).into_response())
+        }
         PanelQuery::GetCoreConstants { login_token } => {
             // Ensure auth is valid, that's all that matters here
-            super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+            super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
-            Ok(
-                (
-                    StatusCode::OK, 
-                    Json(
-                        super::types::CoreConstants {
-                            frontend_url: crate::config::CONFIG.frontend_url.clone(),
-                            infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
-                            servers: super::types::PanelServers {
-                                main: crate::config::CONFIG.servers.main.to_string(),
-                                staff: crate::config::CONFIG.servers.staff.to_string(),
-                                testing: crate::config::CONFIG.servers.testing.to_string(),
-                            }
-                        }
-                    )
-                ).into_response()
+            Ok((
+                StatusCode::OK,
+                Json(super::types::CoreConstants {
+                    frontend_url: crate::config::CONFIG.frontend_url.clone(),
+                    infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
+                    servers: super::types::PanelServers {
+                        main: crate::config::CONFIG.servers.main.to_string(),
+                        staff: crate::config::CONFIG.servers.staff.to_string(),
+                        testing: crate::config::CONFIG.servers.testing.to_string(),
+                    },
+                }),
             )
-        },
+                .into_response())
+        }
         PanelQuery::BotQueue { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             if !caps.contains(&super::types::Capability::ViewBotQueue) {
-                return Ok((StatusCode::FORBIDDEN, "You do not have permission to access the bot queue right now".to_string()).into_response());
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to access the bot queue right now".to_string(),
+                )
+                    .into_response());
             }
 
             let queue = sqlx::query!(
@@ -771,81 +754,93 @@ async fn query(
             let mut bots = Vec::new();
 
             for bot in queue {
-                let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &state.pool).await.map_err(Error::new)?;
+                let owners = crate::impls::utils::get_entity_managers(
+                    TargetType::Bot,
+                    &bot.bot_id,
+                    &state.pool,
+                )
+                .await
+                .map_err(Error::new)?;
 
-                let user = crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id).await.map_err(Error::new)?;
+                let user = crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id)
+                    .await
+                    .map_err(Error::new)?;
 
-                bots.push(
-                    super::types::QueueBot {
-                        bot_id: bot.bot_id,
-                        client_id: bot.client_id,
-                        user,
-                        claimed_by: bot.claimed_by,
-                        approval_note: bot.approval_note,
-                        short: bot.short,
-                        mentionable: owners.mentionables(),
-                        invite: bot.invite,
-                    }
-                );
+                bots.push(super::types::QueueBot {
+                    bot_id: bot.bot_id,
+                    client_id: bot.client_id,
+                    user,
+                    claimed_by: bot.claimed_by,
+                    approval_note: bot.approval_note,
+                    short: bot.short,
+                    mentionable: owners.mentionables(),
+                    invite: bot.invite,
+                });
             }
 
-            Ok(
-                (
-                    StatusCode::OK, 
-                    Json(bots)
-                ).into_response()
-            )
-        },
-        PanelQuery::ExecuteRpc { login_token, target_type, method } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+            Ok((StatusCode::OK, Json(bots)).into_response())
+        }
+        PanelQuery::ExecuteRpc {
+            login_token,
+            target_type,
+            method,
+        } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             if !caps.contains(&super::types::Capability::Rpc) {
-                return Ok((StatusCode::FORBIDDEN, "You do not have permission to use RPC right now".to_string()).into_response());
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to use RPC right now".to_string(),
+                )
+                    .into_response());
             }
 
-            let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
-            let resp = method.handle(
-                RPCHandle {
+            let resp = method
+                .handle(RPCHandle {
                     pool: state.pool.clone(),
                     cache_http: state.cache_http.clone(),
                     user_id: auth_data.user_id,
                     target_type,
-                }
-            )
-            .await;
+                })
+                .await;
 
             match resp {
                 Ok(r) => match r {
                     crate::rpc::core::RPCSuccess::NoContent => {
-                        Ok((
-                            StatusCode::NO_CONTENT, 
-                            ""
-                        ).into_response())
-                    },
+                        Ok((StatusCode::NO_CONTENT, "").into_response())
+                    }
                     crate::rpc::core::RPCSuccess::Content(c) => {
-                        Ok((
-                            StatusCode::OK, 
-                            c
-                        ).into_response())
+                        Ok((StatusCode::OK, c).into_response())
                     }
                 },
-                Err(e) => {
-                    Ok((
-                        StatusCode::BAD_REQUEST, 
-                        e.to_string()
-                    ).into_response())
-                }
+                Err(e) => Ok((StatusCode::BAD_REQUEST, e.to_string()).into_response()),
             }
-        },
-        PanelQuery::GetRpcMethods { login_token, filtered } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+        }
+        PanelQuery::GetRpcMethods {
+            login_token,
+            filtered,
+        } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             if !caps.contains(&super::types::Capability::Rpc) {
-                return Ok((StatusCode::FORBIDDEN, "You do not have permission to use RPC right now".to_string()).into_response());
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to use RPC right now".to_string(),
+                )
+                    .into_response());
             }
 
-            let auth_data = super::auth::check_auth(&state.pool, &login_token).await.map_err(Error::new)?;
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             let (owner, head, admin, staff) = {
                 let perms = sqlx::query!(
@@ -904,36 +899,44 @@ async fn query(
                 };
 
                 rpc_methods.push(action);
-            }        
-
-            Ok((
-                StatusCode::OK, 
-                Json(rpc_methods)
-            ).into_response())
-        },
-        PanelQuery::GetRpcTargetTypes { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
-
-            if !caps.contains(&super::types::Capability::Rpc) {
-                return Ok((StatusCode::FORBIDDEN, "You do not have permission to use RPC right now?".to_string()).into_response());
             }
 
-            Ok((
-                StatusCode::OK,
-                Json(
-                    TargetType::VARIANTS
+            Ok((StatusCode::OK, Json(rpc_methods)).into_response())
+        }
+        PanelQuery::GetRpcTargetTypes { login_token } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::Rpc) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to use RPC right now?".to_string(),
                 )
-            ).into_response())
-        },
-        PanelQuery::SearchEntitys { login_token, target_type, query } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+                    .into_response());
+            }
+
+            Ok((StatusCode::OK, Json(TargetType::VARIANTS)).into_response())
+        }
+        PanelQuery::SearchEntitys {
+            login_token,
+            target_type,
+            query,
+        } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             match target_type {
                 TargetType::Bot => {
                     if !caps.contains(&super::types::Capability::BotManagement) {
-                        return Ok((StatusCode::FORBIDDEN, "You do not have permission to manage bots right now?".to_string()).into_response());
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to manage bots right now?".to_string(),
+                        )
+                            .into_response());
                     }
-        
+
                     let queue = sqlx::query!(
                         "
                         SELECT bot_id, client_id, type, claimed_by, approval_note, short, invite FROM bots 
@@ -946,52 +949,61 @@ async fn query(
                     .fetch_all(&state.pool)
                     .await
                     .map_err(Error::new)?;
-        
+
                     let mut bots = Vec::new();
-        
+
                     for bot in queue {
-                        let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &state.pool).await.map_err(Error::new)?;
-        
-                        let user = crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id).await.map_err(Error::new)?;
-        
-                        bots.push(
-                            super::types::SearchBot {
-                                bot_id: bot.bot_id,
-                                client_id: bot.client_id,
-                                user,
-                                r#type: bot.r#type,
-                                claimed_by: bot.claimed_by,
-                                approval_note: bot.approval_note,
-                                short: bot.short,
-                                mentionable: owners.mentionables(),
-                                invite: bot.invite,
-                            }
-                        );
+                        let owners = crate::impls::utils::get_entity_managers(
+                            TargetType::Bot,
+                            &bot.bot_id,
+                            &state.pool,
+                        )
+                        .await
+                        .map_err(Error::new)?;
+
+                        let user =
+                            crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id)
+                                .await
+                                .map_err(Error::new)?;
+
+                        bots.push(super::types::SearchBot {
+                            bot_id: bot.bot_id,
+                            client_id: bot.client_id,
+                            user,
+                            r#type: bot.r#type,
+                            claimed_by: bot.claimed_by,
+                            approval_note: bot.approval_note,
+                            short: bot.short,
+                            mentionable: owners.mentionables(),
+                            invite: bot.invite,
+                        });
                     }
-        
-                    Ok(
-                        (
-                            StatusCode::OK, 
-                            Json(bots)
-                        ).into_response()
-                    )   
-                },
-                _ => Ok((StatusCode::NOT_IMPLEMENTED, "Searching this target type is not implemented".to_string()).into_response())
+
+                    Ok((StatusCode::OK, Json(bots)).into_response())
+                }
+                _ => Ok((
+                    StatusCode::NOT_IMPLEMENTED,
+                    "Searching this target type is not implemented".to_string(),
+                )
+                    .into_response()),
             }
-        },
+        }
         PanelQuery::GetPartnerList { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token).await.map_err(Error::new)?;
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             if !caps.contains(&super::types::Capability::ManagePartners) {
-                return Ok((StatusCode::FORBIDDEN, "You do not have permission to manage partners right now?".to_string()).into_response());
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage partners right now?".to_string(),
+                )
+                    .into_response());
             }
 
             let partners = Partners::fetch(&state.pool).await.map_err(Error::new)?;
 
-            Ok((
-                StatusCode::OK, 
-                Json(partners)
-            ).into_response())
+            Ok((StatusCode::OK, Json(partners)).into_response())
         }
     }
 }

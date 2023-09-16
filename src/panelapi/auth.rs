@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
-use sqlx::PgPool;
 use crate::Error;
+use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use ts_rs::TS;
 
 use super::types::{Capability, PanelPerms};
@@ -27,7 +27,7 @@ pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData,
         "DELETE FROM staffpanel__authchain WHERE state = 'pending' AND created_at < NOW() - INTERVAL '5 minutes'"
     )
     .execute(pool)
-    .await?;    
+    .await?;
 
     let count = sqlx::query!(
         "SELECT COUNT(*) FROM staffpanel__authchain WHERE token = $1",
@@ -57,7 +57,7 @@ pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData,
 }
 
 /// Checks auth, and ensures active sessions
-/// 
+///
 /// Equivalent to `check_auth_insecure`, and rec.status != "active"
 pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     let rec = check_auth_insecure(pool, token).await?;
@@ -77,22 +77,20 @@ pub async fn get_user_perms(pool: &PgPool, user_id: &str) -> Result<PanelPerms, 
     .fetch_one(pool)
     .await?;
 
-    Ok(
-        PanelPerms {
-            staff: perms.staff,
-            admin: perms.admin,
-            hadmin: perms.hadmin,
-            ibldev: perms.ibldev,
-            iblhdev: perms.iblhdev,
-            owner: perms.owner,
-        }
-    )
+    Ok(PanelPerms {
+        staff: perms.staff,
+        admin: perms.admin,
+        hadmin: perms.hadmin,
+        ibldev: perms.ibldev,
+        iblhdev: perms.iblhdev,
+        owner: perms.owner,
+    })
 }
 
 /// Returns the capabilities of a user
-/// 
+///
 /// NOTE 1: Server list and bot management capability not enabled right now
-/// 
+///
 /// NOTE 2: in the future, capabilities can be limited based on user info/perms as well
 pub async fn get_capabilities(pool: &PgPool, token: &str) -> Result<Vec<Capability>, Error> {
     let auth_data = check_auth(pool, token).await?;

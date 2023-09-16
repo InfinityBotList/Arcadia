@@ -44,15 +44,15 @@ pub async fn invitesafe(
     let data = ctx.data();
 
     let invite_data = sqlx::query!("SELECT client_id FROM bots WHERE bot_id = $1", bot)
-    .fetch_one(&data.pool)
-    .await?;
+        .fetch_one(&data.pool)
+        .await?;
 
     ctx.say(
         format!(
             "https://discord.com/api/v10/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot%20applications.commands&guild_id={guild_id}", 
             client_id = invite_data.client_id,
             guild_id = crate::config::CONFIG.servers.main
-        )        
+        )
     ).await?;
     Ok(())
 }
@@ -176,7 +176,8 @@ pub async fn queue(
     // Send message with buttons
     let bot = &bots[current_bot];
 
-    let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool).await?;
+    let owners =
+        crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool).await?;
 
     let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
 
@@ -231,9 +232,11 @@ pub async fn queue(
 
         let bot = &bots[current_bot];
 
-        let owners = crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool).await?;
+        let owners =
+            crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool)
+                .await?;
 
-	    let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
+        let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
 
         msg.edit(
             ctx,

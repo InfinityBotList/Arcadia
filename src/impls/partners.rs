@@ -12,7 +12,7 @@ use super::link::Link;
 pub struct Partner {
     pub id: String,
     pub name: String,
-    pub image: String,
+    pub image_type: String,
     pub short: String,
     pub links: Vec<Link>,
     pub r#type: String,
@@ -40,7 +40,7 @@ pub struct Partners {
 impl Partners {
     pub async fn fetch(pool: &PgPool) -> Result<Self, Error> {
         let prec = sqlx::query!(
-            "SELECT id, name, image, short, links, type, created_at, user_id FROM partners"
+            "SELECT id, name, image_type, short, links, type, created_at, user_id FROM partners"
         )
         .fetch_all(pool)
         .await?;
@@ -51,7 +51,7 @@ impl Partners {
             partners.push(Partner {
                 id: partner.id,
                 name: partner.name,
-                image: partner.image,
+                image_type: partner.image_type,
                 short: partner.short,
                 links: serde_json::from_value(partner.links)?,
                 r#type: partner.r#type,

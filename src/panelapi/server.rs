@@ -976,7 +976,7 @@ async fn query(
                         ).into_response()
                     )   
                 },
-                _ => Ok((StatusCode::FORBIDDEN, "You do not have permission to manage partners right now?".to_string()).into_response())
+                _ => Ok((StatusCode::NOT_IMPLEMENTED, "Searching this target type is not implemented".to_string()).into_response())
             }
         },
         PanelQuery::GetPartnerList { login_token } => {

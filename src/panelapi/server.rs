@@ -240,6 +240,12 @@ pub enum PanelQuery {
         /// Login token
         login_token: String,
     },
+    DeletePartner {
+        /// Login token
+        login_token: String,
+        /// Partner ID
+        partner_id: String,
+    }
 }
 
 /// Make Panel Query
@@ -781,7 +787,7 @@ async fn query(
             }
 
             Ok((StatusCode::OK, Json(bots)).into_response())
-        }
+        },
         PanelQuery::ExecuteRpc {
             login_token,
             target_type,
@@ -1006,6 +1012,26 @@ async fn query(
             let partners = Partners::fetch(&state.pool).await.map_err(Error::new)?;
 
             Ok((StatusCode::OK, Json(partners)).into_response())
-        }
+        },
+        PanelQuery::DeletePartner { login_token, partner_id } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::ManagePartners) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage partners right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            sqlx::query!("DELETE FROM partners WHERE id = $1", partner_id)
+                .execute(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+            Ok((StatusCode::NO_CONTENT, "").into_response())
+        },
     }
 }

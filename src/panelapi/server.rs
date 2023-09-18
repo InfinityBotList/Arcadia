@@ -114,7 +114,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
         .route("/query", post(query))
         .route("/", get(get_instance_config))
         .with_state(shared_state)
-        .layer(DefaultBodyLimit::max(1048576))
+        .layer(DefaultBodyLimit::max(1048576000))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

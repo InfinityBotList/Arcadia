@@ -1106,7 +1106,7 @@ async fn query(
 
                             files.push(super::types::CdnAssetItem {
                                 name: name.to_string(),
-                                path: entry.path().to_str().unwrap_or_default().to_string().replace(&asset_path, ""),
+                                path: entry.path().to_str().unwrap_or_default().to_string().replace(CDN_PATH, ""),
                                 size: meta.len(),
                                 last_modified: meta.modified().map_err(Error::new)?.duration_since(std::time::UNIX_EPOCH).map_err(Error::new)?.as_secs(),
                                 is_dir: meta.is_dir(),

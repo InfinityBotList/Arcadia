@@ -7,7 +7,7 @@ use crate::impls;
 use crate::impls::target_types::TargetType;
 use crate::panelapi::types::InstanceConfig;
 use crate::rpc::core::{RPCHandle, RPCMethod};
-use axum::extract::Host;
+use axum::extract::{Host, DefaultBodyLimit};
 use axum::http::HeaderMap;
 use axum::Json;
 
@@ -114,6 +114,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
         .route("/query", post(query))
         .route("/", get(get_instance_config))
         .with_state(shared_state)
+        .layer(DefaultBodyLimit::max(1048576))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

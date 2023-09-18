@@ -45,7 +45,9 @@ pub enum Capability {
     /// Bot management capability
     BotManagement,
     /// Ability to manage partners
-    ManagePartners,
+    PartnerManagement,
+    /// Ability to add assets to the CDN
+    CdnManagement,
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]

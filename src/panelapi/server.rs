@@ -26,6 +26,9 @@ use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
+use data_encoding::BASE64;
+
+const CDN_PATH: &str = "/iblcdn/public";
 
 struct Error {
     status: StatusCode,
@@ -235,11 +238,25 @@ pub enum PanelQuery {
         /// Query
         query: String,
     },
+    /// Uploads an asset to the CDN
+    UploadAsset {
+        /// Login token
+        login_token: String,
+        /// Asset name
+        name: String,
+        /// Path
+        path: String,
+        /// Asset data in base64
+        data: String,
+        /// Force overwrite
+        force_overwrite: bool,
+    },
     /// Returns the list of all partners on the list
     GetPartnerList {
         /// Login token
         login_token: String,
     },
+    /// Deletes a partner
     DeletePartner {
         /// Login token
         login_token: String,
@@ -995,13 +1012,128 @@ async fn query(
                 )
                     .into_response()),
             }
-        }
+        },
+        PanelQuery::UploadAsset { login_token, name, path, data, force_overwrite } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::CdnManagement) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage the CDN right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            // 1. Ensure name does not contain any unicode characters
+            // 2. Ensure name does not contain a slash
+            // 3. Ensure name does not contain a backslash
+            // 4. Ensure name does not start with a dot
+            if name.chars().any(|c| !c.is_ascii()) || name.contains('/') || name.contains('\\') || name.starts_with('.') {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Asset name cannot contain non-ASCII characters, slashes or backslashes. It also may not start with a dot".to_string(),
+                )
+                    .into_response());
+            }
+
+            // 1. Ensure path does not contain any unicode characters
+            // 2. Ensure path does not contain a dot
+            // 3. Ensure path does not contain a double slash
+            // 4. Ensure path does not contain a backslash
+            // 5. Ensure path does not start with a slash
+            if path.chars().any(|c| !c.is_ascii()) || path.contains('.') || path.contains("//") || path.contains('\\') || path.starts_with('/') {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Asset path cannot contain non-ASCII characters".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Base64 decode the data
+            let data = BASE64.decode(data.as_bytes()).map_err(Error::new)?;
+
+            if data.len() > 1024 * 1024 * 10 {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Asset data cannot be larger than 10MB".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Check if the asset path exists
+            let asset_path = format!("{}/{}", CDN_PATH, path);
+            let asset_final_path = format!("{}/{}", asset_path, name);
+
+            // Check if the asset exists
+            match std::fs::metadata(&asset_final_path) {
+                Ok(m) => {
+                    if !m.is_file() {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Asset already exists and is not a file".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if !force_overwrite {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Asset already exists".to_string(),
+                        )
+                            .into_response());
+                    }
+                }
+                Err(e) => {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Fetching asset metadata failed due to unknown error: ".to_string() + &e.to_string(),
+                        )
+                            .into_response());
+                    }
+                }
+            }
+
+            match std::fs::metadata(&asset_path) {
+                Ok(m) => {
+                    if !m.is_dir() {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Asset path already exists and is not a directory".to_string(),
+                        )
+                            .into_response());
+                    }
+                }
+                Err(e) => {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Asset path already exists and is not a directory".to_string(),
+                        )
+                            .into_response());
+                    } else {
+                        // Create path
+                        std::fs::DirBuilder::new()
+                            .recursive(true)
+                            .create(&asset_path)
+                            .map_err(Error::new)?;
+                    }
+                }
+            }
+
+            // Write the file
+            std::fs::write(asset_final_path, &data).map_err(Error::new)?;
+
+            Ok((StatusCode::NO_CONTENT, "").into_response())
+        },
         PanelQuery::GetPartnerList { login_token } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::ManagePartners) {
+            if !caps.contains(&super::types::Capability::PartnerManagement) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to manage partners right now?".to_string(),
@@ -1018,7 +1150,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::ManagePartners) {
+            if !caps.contains(&super::types::Capability::PartnerManagement) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to manage partners right now?".to_string(),

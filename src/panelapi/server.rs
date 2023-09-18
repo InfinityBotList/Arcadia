@@ -239,7 +239,7 @@ pub enum PanelQuery {
         query: String,
     },
     /// Uploads an asset to the CDN
-    UploadAsset {
+    UploadAssetToCDN {
         /// Login token
         login_token: String,
         /// Asset name
@@ -1013,7 +1013,7 @@ async fn query(
                     .into_response()),
             }
         },
-        PanelQuery::UploadAsset { login_token, name, path, data, force_overwrite } => {
+        PanelQuery::UploadAssetToCDN { login_token, name, path, data, force_overwrite } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -1046,7 +1046,7 @@ async fn query(
             if path.chars().any(|c| !c.is_ascii()) || path.contains('.') || path.contains("//") || path.contains('\\') || path.starts_with('/') {
                 return Ok((
                     StatusCode::BAD_REQUEST,
-                    "Asset path cannot contain non-ASCII characters".to_string(),
+                    "Asset path cannot contain non-ASCII characters, dots, doubleslashes, backslashes or start with a slash".to_string(),
                 )
                     .into_response());
             }

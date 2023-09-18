@@ -50,6 +50,43 @@ pub enum Capability {
     CdnManagement,
 }
 
+#[derive(
+    Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone, PartialEq, Default
+)]
+#[ts(export, export_to = ".generated/CdnAssetAction.ts")]
+pub enum CdnAssetAction {
+    /// List entries in path
+    /// 
+    /// Using this ignores the `name` field
+    ListPath,
+    /// Creates an asset
+    /// 
+    /// The file itself must not already exist
+    #[default]
+    Create,
+    /// Updates an asset
+    /// 
+    /// If the file does not exist, this acts as a `Create` action
+    Update,
+    /// Delete asset
+    Delete,
+}
+
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/CdnAssetItem.ts")]
+pub struct CdnAssetItem {
+    /// Name of the asset
+    pub name: String,
+    /// Path of the asset
+    pub path: String,
+    /// Size of the asset
+    pub size: u64,
+    /// Last modified time of the asset as unix epoch
+    pub last_modified: u64,
+    /// Whether the asset is a directory
+    pub is_dir: bool,
+}
+
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
 #[ts(export, export_to = ".generated/QueueBot.ts")]
 pub struct QueueBot {

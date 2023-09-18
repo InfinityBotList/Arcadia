@@ -58,16 +58,17 @@ pub enum CdnAssetAction {
     /// List entries in path
     /// 
     /// Using this ignores the `name` field
+    #[default]
     ListPath,
     /// Creates an asset
     /// 
     /// The file itself must not already exist
-    #[default]
-    Create,
-    /// Updates an asset
-    /// 
-    /// If the file does not exist, this acts as a `Create` action
-    Update,
+    AddFile {
+        /// Allow overwrite of existing file
+        overwrite: bool,
+        /// Base 64 encoded file contents
+        contents: String,
+    },
     /// Delete asset
     Delete,
 }

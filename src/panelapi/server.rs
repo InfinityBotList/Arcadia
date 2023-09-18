@@ -246,8 +246,6 @@ pub enum PanelQuery {
         name: String,
         /// Path
         path: String,
-        /// Asset data in base64
-        data: String,
         /// Action to take
         action: super::types::CdnAssetAction,
     },
@@ -1013,7 +1011,7 @@ async fn query(
                     .into_response()),
             }
         },
-        PanelQuery::UpdateCdnAsset { login_token, name, path, data, action } => {
+        PanelQuery::UpdateCdnAsset { login_token, name, path, action } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -1051,18 +1049,7 @@ async fn query(
                     .into_response());
             }
 
-            // Base64 decode the data
-            let data = BASE64.decode(data.as_bytes()).map_err(Error::new)?;
-
-            if data.len() > 1024 * 1024 * 10 {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Asset data cannot be larger than 10MB".to_string(),
-                )
-                    .into_response());
-            }
-
-            // Check if the asset path exists
+            // Get asset path and final resolved path
             let asset_path = if path.is_empty() {
                 CDN_PATH.to_string()
             } else {
@@ -1129,66 +1116,33 @@ async fn query(
 
                     Ok((StatusCode::OK, Json(files)).into_response())
                 },
-                super::types::CdnAssetAction::Create => {
+                super::types::CdnAssetAction::AddFile { overwrite, contents } => {
+                    // Base64 decode the data
+                    let data = BASE64.decode(contents.as_bytes()).map_err(Error::new)?;
+
+                    if data.len() > 1024 * 1024 * 10 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Asset data cannot be larger than 10MB".to_string(),
+                        )
+                            .into_response());
+                    }
+                    
                     // Check if the asset exists
                     match std::fs::metadata(&asset_final_path) {
-                        Ok(_) => {
-                            return Ok((
-                                StatusCode::BAD_REQUEST,
-                                "Asset already exists".to_string(),
-                            )
-                                .into_response());
-                        },
-                        Err(e) => {
-                            if e.kind() != std::io::ErrorKind::NotFound {
-                                return Ok((
-                                    StatusCode::BAD_REQUEST,
-                                    "Fetching asset metadata failed due to unknown error: ".to_string() + &e.to_string(),
-                                )
-                                    .into_response());
-                            }        
-                        }
-                    }
-
-                    match std::fs::metadata(&asset_path) {
                         Ok(m) => {
-                            if !m.is_dir() {
-                                return Ok((
-                                    StatusCode::BAD_REQUEST,
-                                    "Asset path already exists and is not a directory".to_string(),
-                                )
-                                    .into_response());
-                            }
-                        },
-                        Err(e) => {
-                            if e.kind() != std::io::ErrorKind::NotFound {
-                                return Ok((
-                                    StatusCode::BAD_REQUEST,
-                                    "Fetching asset metadata failed due to unknown error: ".to_string() + &e.to_string(),
-                                )
-                                    .into_response());
+                            if overwrite {
+                                if m.is_dir() {
+                                    return Ok((
+                                        StatusCode::BAD_REQUEST,
+                                        "Asset to be replaced is a directory".to_string(),
+                                    )
+                                        .into_response());
+                                }
                             } else {
-                                // Create path
-                                std::fs::DirBuilder::new()
-                                    .recursive(true)
-                                    .create(&asset_path)
-                                    .map_err(Error::new)?;
-                            }
-                        }
-                    }
-
-                    // Write the file
-                    std::fs::write(asset_final_path, &data).map_err(Error::new)?;
-                    Ok((StatusCode::NO_CONTENT, "").into_response())        
-                },
-                super::types::CdnAssetAction::Update => {
-                    // Check if the asset exists
-                    match std::fs::metadata(&asset_final_path) {
-                        Ok(m) => {
-                            if !m.is_file() {
                                 return Ok((
                                     StatusCode::BAD_REQUEST,
-                                    "Asset to be replaced is not a file".to_string(),
+                                    "Asset already exists".to_string(),
                                 )
                                     .into_response());
                             }

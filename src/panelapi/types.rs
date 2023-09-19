@@ -51,17 +51,30 @@ pub enum Capability {
 }
 
 #[derive(
-    Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone, PartialEq, Default
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TS,
+    EnumString,
+    EnumVariantNames,
+    Display,
+    Clone,
+    PartialEq,
+    Default,
 )]
 #[ts(export, export_to = ".generated/CdnAssetAction.ts")]
 pub enum CdnAssetAction {
     /// List entries in path
-    /// 
+    ///
     /// Using this ignores the `name` field
     #[default]
     ListPath,
+    /// Read an asset
+    ReadFile,
+    /// Creates a new folder
+    CreateFolder,
     /// Creates an asset
-    /// 
+    ///
     /// The file itself must not already exist
     AddFile {
         /// Allow overwrite of existing file
@@ -69,7 +82,16 @@ pub enum CdnAssetAction {
         /// Base 64 encoded file contents
         contents: String,
     },
-    /// Delete asset
+    /// Copies an asset already on the server to a new location
+    CopyFile {
+        /// Allow overwrite of existing file
+        overwrite: bool,
+        /// Delete the original file
+        delete_original: bool,
+        /// Path to copy to
+        copy_to: String,
+    },
+    /// Delete asset or folder
     Delete,
 }
 
@@ -86,6 +108,8 @@ pub struct CdnAssetItem {
     pub last_modified: u64,
     /// Whether the asset is a directory
     pub is_dir: bool,
+    /// Permissions of the asset
+    pub permissions: u32,
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]

@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::{fs::File, io::Write, num::NonZeroU64};
+use std::{fs::File, io::Write, num::NonZeroU64, collections::HashMap};
 
 use crate::Error;
 
@@ -79,10 +79,15 @@ impl Default for Channels {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct PanelLogin {
+pub struct PanelConfig {
     pub client_id: String,
     pub redirect_url: Vec<String>,
     pub client_secret: String,
+    /// CDN scopes for the panel API (locations for the CDN)
+    /// 
+    /// Currently the panel uses the following scopes:
+    /// - ibl@main
+    pub cdn_scopes: HashMap<String, String>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -99,7 +104,7 @@ pub struct Config {
     pub proxy_url: String,
     pub owners: Vec<NonZeroU64>,
     pub protected_bots: Vec<NonZeroU64>,
-    pub panel_login: PanelLogin,
+    pub panel: PanelConfig,
 }
 
 impl Default for Config {
@@ -119,7 +124,7 @@ impl Default for Config {
             protected_bots: vec![
                 NonZeroU64::new(1019662370278228028).unwrap(), // Reedwhisker (PTB) - Main Bot
             ],
-            panel_login: PanelLogin::default(),
+            panel: PanelConfig::default(),
         }
     }
 }

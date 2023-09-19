@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::os::unix::prelude::PermissionsExt;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,7 +8,8 @@ use crate::impls;
 use crate::impls::target_types::TargetType;
 use crate::panelapi::types::InstanceConfig;
 use crate::rpc::core::{RPCHandle, RPCMethod};
-use axum::extract::{Host, DefaultBodyLimit};
+use axum::body::StreamBody;
+use axum::extract::{DefaultBodyLimit, Host};
 use axum::http::HeaderMap;
 use axum::Json;
 
@@ -21,14 +23,12 @@ use sqlx::PgPool;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::impls::partners::Partners;
+use data_encoding::BASE64;
 use serde::{Deserialize, Serialize};
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use data_encoding::BASE64;
-
-const CDN_PATH: &str = "/iblcdn/public";
 
 struct Error {
     status: StatusCode,
@@ -243,6 +243,14 @@ pub enum PanelQuery {
     UpdateCdnAsset {
         /// Login token
         login_token: String,
+        /// CDN scope
+        /// 
+        /// This describes a location where the CDN may be stored on disk and should be a full path to it
+        /// 
+        /// Currently the panel uses the following scopes:
+        /// 
+        /// `ibl@main`
+        cdn_scope: String,
         /// Asset name
         name: String,
         /// Path
@@ -261,7 +269,7 @@ pub enum PanelQuery {
         login_token: String,
         /// Partner ID
         partner_id: String,
-    }
+    },
 }
 
 /// Make Panel Query
@@ -317,7 +325,7 @@ async fn query(
                     StatusCode::OK,
                     format!(
                         "https://discord.com/api/oauth2/authorize?client_id={client_id}&redirect_uri={redirect_url}&response_type=code&scope=identify",
-                        client_id = crate::config::CONFIG.panel_login.client_id,
+                        client_id = crate::config::CONFIG.panel.client_id,
                         redirect_url = redirect_url
                     )
                 ).into_response()
@@ -325,7 +333,7 @@ async fn query(
         }
         PanelQuery::Login { code, redirect_url } => {
             if !crate::config::CONFIG
-                .panel_login
+                .panel
                 .redirect_url
                 .contains(&redirect_url)
             {
@@ -346,11 +354,11 @@ async fn query(
                 .form(&[
                     (
                         "client_id",
-                        crate::config::CONFIG.panel_login.client_id.as_str(),
+                        crate::config::CONFIG.panel.client_id.as_str(),
                     ),
                     (
                         "client_secret",
-                        crate::config::CONFIG.panel_login.client_secret.as_str(),
+                        crate::config::CONFIG.panel.client_secret.as_str(),
                     ),
                     ("grant_type", "authorization_code"),
                     ("code", code.as_str()),
@@ -803,7 +811,7 @@ async fn query(
             }
 
             Ok((StatusCode::OK, Json(bots)).into_response())
-        },
+        }
         PanelQuery::ExecuteRpc {
             login_token,
             target_type,
@@ -1011,8 +1019,14 @@ async fn query(
                 )
                     .into_response()),
             }
-        },
-        PanelQuery::UpdateCdnAsset { login_token, name, path, action } => {
+        }
+        PanelQuery::UpdateCdnAsset {
+            login_token,
+            name,
+            path,
+            action,
+            cdn_scope,
+        } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -1025,36 +1039,57 @@ async fn query(
                     .into_response());
             }
 
-            // 1. Ensure name does not contain any unicode characters
-            // 2. Ensure name does not contain a slash
-            // 3. Ensure name does not contain a backslash
-            // 4. Ensure name does not start with a dot
-            if name.chars().any(|c| !c.is_ascii()) || name.contains('/') || name.contains('\\') || name.starts_with('.') {
+            // Get cdn path from cdn_scope hashmap
+            let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&cdn_scope) else {
                 return Ok((
                     StatusCode::BAD_REQUEST,
-                    "Asset name cannot contain non-ASCII characters, slashes or backslashes. It also may not start with a dot".to_string(),
+                    "Invalid CDN scope".to_string(),
                 )
                     .into_response());
+            };
+
+            fn validate_name(name: &str) -> Result<(), crate::Error> {
+                // 1. Ensure name does not contain any unicode characters
+                // 2. Ensure name does not contain a slash
+                // 3. Ensure name does not contain a backslash
+                // 4. Ensure name does not start with a dot
+                if name.chars().any(|c| !c.is_ascii())
+                    || name.contains('/')
+                    || name.contains('\\')
+                    || name.starts_with('.')
+                {
+                    return Err("Asset name cannot contain non-ASCII characters, slashes or backslashes. It also may not start with a dot".into());
+                }
+
+                Ok(())
             }
 
-            // 1. Ensure path does not contain any unicode characters
-            // 2. Ensure path does not contain a dot
-            // 3. Ensure path does not contain a double slash
-            // 4. Ensure path does not contain a backslash
-            // 5. Ensure path does not start with a slash
-            if path.chars().any(|c| !c.is_ascii()) || path.contains('.') || path.contains("//") || path.contains('\\') || path.starts_with('/') {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Asset path cannot contain non-ASCII characters, dots, doubleslashes, backslashes or start with a slash".to_string(),
-                )
-                    .into_response());
+            fn validate_path(path: &str) -> Result<(), crate::Error> {
+                // 1. Ensure path does not contain any unicode characters
+                // 2. Ensure path does not contain a dot
+                // 3. Ensure path does not contain a double slash
+                // 4. Ensure path does not contain a backslash
+                // 5. Ensure path does not start with a slash
+                if path.chars().any(|c| !c.is_ascii())
+                    || path.contains('.')
+                    || path.contains("//")
+                    || path.contains('\\')
+                    || path.starts_with('/')
+                {
+                    return Err("Asset path cannot contain non-ASCII characters, dots, doubleslashes, backslashes or start with a slash".into());
+                }
+
+                Ok(())
             }
+
+            validate_name(&name).map_err(Error::new)?;
+            validate_path(&path).map_err(Error::new)?;
 
             // Get asset path and final resolved path
             let asset_path = if path.is_empty() {
-                CDN_PATH.to_string()
+                cdn_path.to_string()
             } else {
-                format!("{}/{}", CDN_PATH, path)
+                format!("{}/{}", cdn_path, path)
             };
 
             let asset_final_path = if name.is_empty() {
@@ -1074,21 +1109,13 @@ async fn query(
                                 )
                                     .into_response());
                             }
-                        },
+                        }
                         Err(e) => {
-                            if e.kind() != std::io::ErrorKind::NotFound {
-                                return Ok((
-                                    StatusCode::BAD_REQUEST,
-                                    "Fetching asset metadata failed due to unknown error: ".to_string() + &e.to_string(),
-                                )
-                                    .into_response());
-                            } else {
-                                // Create path
-                                std::fs::DirBuilder::new()
-                                    .recursive(true)
-                                    .create(&asset_path)
-                                    .map_err(Error::new)?;
-                            }
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                "Fetching asset metadata failed: ".to_string() + &e.to_string(),
+                            )
+                                .into_response());
                         }
                     }
 
@@ -1107,17 +1134,99 @@ async fn query(
 
                             files.push(super::types::CdnAssetItem {
                                 name: name.to_string(),
-                                path: entry.path().to_str().unwrap_or_default().to_string().replace(CDN_PATH, ""),
+                                path: entry
+                                    .path()
+                                    .to_str()
+                                    .unwrap_or_default()
+                                    .to_string()
+                                    .replace(cdn_path, ""),
                                 size: meta.len(),
-                                last_modified: meta.modified().map_err(Error::new)?.duration_since(std::time::UNIX_EPOCH).map_err(Error::new)?.as_secs(),
+                                last_modified: meta
+                                    .modified()
+                                    .map_err(Error::new)?
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .map_err(Error::new)?
+                                    .as_secs(),
                                 is_dir: meta.is_dir(),
+                                permissions: meta.permissions().mode(),
                             });
                         }
                     }
 
                     Ok((StatusCode::OK, Json(files)).into_response())
-                },
-                super::types::CdnAssetAction::AddFile { overwrite, contents } => {
+                }
+                super::types::CdnAssetAction::ReadFile => {
+                    match std::fs::metadata(&asset_final_path) {
+                        Ok(m) => {
+                            if !m.is_file() {
+                                return Ok((
+                                    StatusCode::BAD_REQUEST,
+                                    "Asset path is not a file".to_string(),
+                                )
+                                    .into_response());
+                            }
+                        }
+                        Err(e) => {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                "Fetching asset metadata failed: ".to_string() + &e.to_string(),
+                            )
+                                .into_response());
+                        }
+                    }
+
+                    let file = match tokio::fs::File::open(&asset_final_path).await {
+                        Ok(file) => file,
+                        Err(e) => {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                "Reading file failed: ".to_string() + &e.to_string(),
+                            )
+                                .into_response());
+                        }
+                    };
+
+                    let stream = tokio_util::io::ReaderStream::new(file);
+                    let body = StreamBody::new(stream);
+
+                    let headers = [(axum::http::header::CONTENT_TYPE, "application/octet-stream")];
+
+                    Ok((headers, body).into_response())
+                }
+                super::types::CdnAssetAction::CreateFolder => {
+                    match std::fs::metadata(&asset_final_path) {
+                        Ok(_) => {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                "Asset path already exists".to_string(),
+                            )
+                                .into_response());
+                        }
+                        Err(e) => {
+                            if e.kind() != std::io::ErrorKind::NotFound {
+                                return Ok((
+                                    StatusCode::BAD_REQUEST,
+                                    "Fetching asset metadata failed due to unknown error: "
+                                        .to_string()
+                                        + &e.to_string(),
+                                )
+                                    .into_response());
+                            }
+                        }
+                    }
+
+                    // Create path
+                    std::fs::DirBuilder::new()
+                        .recursive(true)
+                        .create(&asset_final_path)
+                        .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                super::types::CdnAssetAction::AddFile {
+                    overwrite,
+                    contents,
+                } => {
                     // Base64 decode the data
                     let data = BASE64.decode(contents.as_bytes()).map_err(Error::new)?;
 
@@ -1128,7 +1237,7 @@ async fn query(
                         )
                             .into_response());
                     }
-                    
+
                     // Check if the asset exists
                     match std::fs::metadata(&asset_final_path) {
                         Ok(m) => {
@@ -1147,15 +1256,17 @@ async fn query(
                                 )
                                     .into_response());
                             }
-                        },
+                        }
                         Err(e) => {
                             if e.kind() != std::io::ErrorKind::NotFound {
                                 return Ok((
                                     StatusCode::BAD_REQUEST,
-                                    "Fetching asset metadata failed due to unknown error: ".to_string() + &e.to_string(),
+                                    "Fetching asset metadata failed due to unknown error: "
+                                        .to_string()
+                                        + &e.to_string(),
                                 )
                                     .into_response());
-                            }        
+                            }
                         }
                     }
 
@@ -1168,12 +1279,14 @@ async fn query(
                                 )
                                     .into_response());
                             }
-                        },
+                        }
                         Err(e) => {
                             if e.kind() != std::io::ErrorKind::NotFound {
                                 return Ok((
                                     StatusCode::BAD_REQUEST,
-                                    "Fetching asset metadata failed due to unknown error: ".to_string() + &e.to_string(),
+                                    "Fetching asset metadata failed due to unknown error: "
+                                        .to_string()
+                                        + &e.to_string(),
                                 )
                                     .into_response());
                             } else {
@@ -1188,8 +1301,94 @@ async fn query(
 
                     // Write the file
                     std::fs::write(asset_final_path, &data).map_err(Error::new)?;
-                    Ok((StatusCode::NO_CONTENT, "").into_response())        
-                },
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                super::types::CdnAssetAction::CopyFile {
+                    overwrite,
+                    delete_original,
+                    copy_to,
+                } => {
+                    validate_path(&copy_to).map_err(Error::new)?;
+
+                    let copy_to = if copy_to.is_empty() {
+                        cdn_path.to_string()
+                    } else {
+                        format!("{}/{}", cdn_path, copy_to)
+                    };
+
+                    let mut copy_to_directory = false;
+                    match std::fs::metadata(&copy_to) {
+                        Ok(m) => {
+                            if m.is_dir() {
+                                copy_to_directory = true;
+                            } else if !overwrite {
+                                return Ok((
+                                    StatusCode::BAD_REQUEST,
+                                    "copy_to location already exists".to_string(),
+                                )
+                                    .into_response());
+                            }
+                        }
+                        Err(e) => {
+                            if e.kind() != std::io::ErrorKind::NotFound {
+                                return Ok((
+                                    StatusCode::BAD_REQUEST,
+                                    "Fetching asset metadata failed due to unknown error: "
+                                        .to_string()
+                                        + &e.to_string(),
+                                )
+                                    .into_response());
+                            }
+                        }
+                    }
+
+                    match std::fs::metadata(&asset_final_path) {
+                        Ok(m) => {
+                            if m.is_symlink() || m.is_file() {
+                                // We have a file
+                                // There are two cases here, based on copy_to_directory
+                                if copy_to_directory {
+                                    if delete_original {
+                                        // This is just a rename operation
+                                        std::fs::rename(&asset_final_path, &copy_to)
+                                            .map_err(Error::new)?;
+                                    } else {
+                                        // This is a copy operation
+                                        std::fs::copy(&asset_final_path, &copy_to)
+                                            .map_err(Error::new)?;
+                                    }
+                                } else {
+                                    let moved_path = format!("{}/{}", copy_to, name);
+
+                                    if delete_original {
+                                        // This is just a rename operation
+                                        std::fs::rename(&asset_final_path, &moved_path)
+                                            .map_err(Error::new)?;
+                                    } else {
+                                        // This is a copy operation
+                                        std::fs::copy(&asset_final_path, &moved_path)
+                                            .map_err(Error::new)?;
+                                    }
+                                }
+                            } else if m.is_dir() {
+                                return Ok((
+                                    StatusCode::BAD_REQUEST,
+                                    "Asset to be moved is a directory".to_string(),
+                                )
+                                    .into_response());
+                            }
+                        }
+                        Err(e) => {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                "Could not find asset: ".to_string() + &e.to_string(),
+                            )
+                                .into_response());
+                        }
+                    }
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
                 super::types::CdnAssetAction::Delete => {
                     // Check if the asset exists
                     match std::fs::metadata(&asset_final_path) {
@@ -1203,18 +1402,16 @@ async fn query(
                             }
 
                             Ok((StatusCode::NO_CONTENT, "").into_response())
-                        },
-                        Err(e) => {
-                            Ok((
-                                StatusCode::BAD_REQUEST,
-                                "Could not find asset: ".to_string() + &e.to_string(),
-                            )
-                                .into_response())
                         }
-                    }       
+                        Err(e) => Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Could not find asset: ".to_string() + &e.to_string(),
+                        )
+                            .into_response()),
+                    }
                 }
             }
-        },
+        }
         PanelQuery::GetPartnerList { login_token } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
@@ -1231,8 +1428,11 @@ async fn query(
             let partners = Partners::fetch(&state.pool).await.map_err(Error::new)?;
 
             Ok((StatusCode::OK, Json(partners)).into_response())
-        },
-        PanelQuery::DeletePartner { login_token, partner_id } => {
+        }
+        PanelQuery::DeletePartner {
+            login_token,
+            partner_id,
+        } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -1251,6 +1451,6 @@ async fn query(
                 .map_err(Error::new)?;
 
             Ok((StatusCode::NO_CONTENT, "").into_response())
-        },
+        }
     }
 }

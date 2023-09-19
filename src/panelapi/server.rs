@@ -239,6 +239,11 @@ pub enum PanelQuery {
         /// Query
         query: String,
     },
+    /// Lists all available CDN scopes
+    ListCdnScopes {
+        /// Login token
+        login_token: String,
+    },
     /// Updates an asset on the CDN
     UpdateCdnAsset {
         /// Login token
@@ -1019,7 +1024,31 @@ async fn query(
                 )
                     .into_response()),
             }
-        }
+        },
+        PanelQuery::ListCdnScopes { login_token } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::CdnManagement) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage the CDN right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            let mut scopes = Vec::new();
+
+            for (scope, path) in crate::config::CONFIG.panel.cdn_scopes.iter() {
+                scopes.push(crate::impls::link::Link {
+                    name: scope.to_string(),
+                    value: path.to_string(),
+                });
+            }
+
+            Ok((StatusCode::OK, Json(scopes)).into_response())
+        },
         PanelQuery::UpdateCdnAsset {
             login_token,
             name,

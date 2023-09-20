@@ -1155,31 +1155,29 @@ async fn query(
 
                         let meta = entry.metadata().map_err(Error::new)?;
 
-                        if meta.is_file() {
-                            let efn = entry.file_name();
-                            let Some(name) = efn.to_str() else {
-                                continue;
-                            };
+                        let efn = entry.file_name();
+                        let Some(name) = efn.to_str() else {
+                            continue;
+                        };
 
-                            files.push(super::types::CdnAssetItem {
-                                name: name.to_string(),
-                                path: entry
-                                    .path()
-                                    .to_str()
-                                    .unwrap_or_default()
-                                    .to_string()
-                                    .replace(cdn_path, ""),
-                                size: meta.len(),
-                                last_modified: meta
-                                    .modified()
-                                    .map_err(Error::new)?
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .map_err(Error::new)?
-                                    .as_secs(),
-                                is_dir: meta.is_dir(),
-                                permissions: meta.permissions().mode(),
-                            });
-                        }
+                        files.push(super::types::CdnAssetItem {
+                            name: name.to_string(),
+                            path: entry
+                                .path()
+                                .to_str()
+                                .unwrap_or_default()
+                                .to_string()
+                                .replace(cdn_path, ""),
+                            size: meta.len(),
+                            last_modified: meta
+                                .modified()
+                                .map_err(Error::new)?
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map_err(Error::new)?
+                                .as_secs(),
+                            is_dir: meta.is_dir(),
+                            permissions: meta.permissions().mode(),
+                        });
                     }
 
                     Ok((StatusCode::OK, Json(files)).into_response())

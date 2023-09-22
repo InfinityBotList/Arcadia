@@ -1,5 +1,7 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+use utoipa::ToSchema;
 use std::{fs::File, io::Write, num::NonZeroU64, collections::HashMap};
 
 use crate::Error;
@@ -87,7 +89,16 @@ pub struct PanelConfig {
     /// 
     /// Currently the panel uses the following scopes:
     /// - ibl@main
-    pub cdn_scopes: HashMap<String, String>
+    pub cdn_scopes: HashMap<String, CdnScopeData>
+}
+
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone, Default)]
+#[ts(export, export_to = ".generated/CdnScopeData.ts")]
+pub struct CdnScopeData {
+    /// Path in local fs (or remote if support is added)
+    pub path: String,
+    /// Exposed URL for the CDN
+    pub exposed_url: String
 }
 
 #[derive(Serialize, Deserialize)]

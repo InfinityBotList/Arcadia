@@ -1038,16 +1038,7 @@ async fn query(
                     .into_response());
             }
 
-            let mut scopes = Vec::new();
-
-            for (scope, path) in crate::config::CONFIG.panel.cdn_scopes.iter() {
-                scopes.push(crate::impls::link::Link {
-                    name: scope.to_string(),
-                    value: path.to_string(),
-                });
-            }
-
-            Ok((StatusCode::OK, Json(scopes)).into_response())
+            Ok((StatusCode::OK, Json(crate::config::CONFIG.panel.cdn_scopes.clone())).into_response())
         },
         PanelQuery::UpdateCdnAsset {
             login_token,
@@ -1116,9 +1107,9 @@ async fn query(
 
             // Get asset path and final resolved path
             let asset_path = if path.is_empty() {
-                cdn_path.to_string()
+                cdn_path.path.to_string()
             } else {
-                format!("{}/{}", cdn_path, path)
+                format!("{}/{}", cdn_path.path, path)
             };
 
             let asset_final_path = if name.is_empty() {
@@ -1167,7 +1158,7 @@ async fn query(
                                 .to_str()
                                 .unwrap_or_default()
                                 .to_string()
-                                .replace(cdn_path, ""),
+                                .replace(&cdn_path.path, ""),
                             size: meta.len(),
                             last_modified: meta
                                 .modified()
@@ -1338,9 +1329,9 @@ async fn query(
                     validate_path(&copy_to).map_err(Error::new)?;
 
                     let copy_to = if copy_to.is_empty() {
-                        cdn_path.to_string()
+                        cdn_path.path.to_string()
                     } else {
-                        format!("{}/{}", cdn_path, copy_to)
+                        format!("{}/{}", cdn_path.path, copy_to)
                     };
 
                     let mut copy_to_directory = false;

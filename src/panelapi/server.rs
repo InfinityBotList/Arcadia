@@ -1076,9 +1076,9 @@ async fn query(
                 if name.chars().any(|c| !c.is_ascii())
                     || name.contains('/')
                     || name.contains('\\')
-                    || name.starts_with('.')
+                    || name.contains("..")
                 {
-                    return Err("Asset name cannot contain non-ASCII characters, slashes or backslashes. It also may not start with a dot".into());
+                    return Err("Asset name cannot contain non-ASCII characters, slashes or backslashes or a dot-dot".into());
                 }
 
                 Ok(())
@@ -1086,17 +1086,17 @@ async fn query(
 
             fn validate_path(path: &str) -> Result<(), crate::Error> {
                 // 1. Ensure path does not contain any unicode characters
-                // 2. Ensure path does not contain a dot
+                // 2. Ensure path does not contain a dot-dot (path escape)
                 // 3. Ensure path does not contain a double slash
                 // 4. Ensure path does not contain a backslash
                 // 5. Ensure path does not start with a slash
                 if path.chars().any(|c| !c.is_ascii())
-                    || path.contains('.')
+                    || path.contains("..")
                     || path.contains("//")
                     || path.contains('\\')
                     || path.starts_with('/')
                 {
-                    return Err("Asset path cannot contain non-ASCII characters, dots, doubleslashes, backslashes or start with a slash".into());
+                    return Err("Asset path cannot contain non-ASCII characters, dot-dots, doubleslashes, backslashes or start with a slash".into());
                 }
 
                 Ok(())
@@ -1369,7 +1369,14 @@ async fn query(
                                     if delete_original {
                                         // This is just a rename operation
                                         std::fs::rename(&asset_final_path, &copy_to)
-                                            .map_err(Error::new)?;
+                                            .map_err(|e| {
+                                                Error::new(format!(
+                                                    "Failed to rename file: {} from {} to {}",
+                                                    e,
+                                                    &asset_final_path,
+                                                    &copy_to
+                                                ))
+                                            })?;
                                     } else {
                                         // This is a copy operation
                                         std::fs::copy(&asset_final_path, &copy_to)
@@ -1399,7 +1406,10 @@ async fn query(
                         Err(e) => {
                             return Ok((
                                 StatusCode::BAD_REQUEST,
-                                "Could not find asset: ".to_string() + &e.to_string(),
+                                "Could not find asset: ".to_string() + &e.to_string() + &format!(
+                                    " (path: {})",
+                                    &asset_final_path
+                                ),
                             )
                                 .into_response());
                         }

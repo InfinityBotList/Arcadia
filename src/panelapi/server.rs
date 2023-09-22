@@ -1329,17 +1329,18 @@ async fn query(
                     validate_path(&copy_to).map_err(Error::new)?;
 
                     let copy_to = if copy_to.is_empty() {
-                        cdn_path.path.to_string()
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "copy_to location cannot be empty".to_string(),
+                        )
+                            .into_response());
                     } else {
                         format!("{}/{}", cdn_path.path, copy_to)
                     };
 
-                    let mut copy_to_directory = false;
                     match std::fs::metadata(&copy_to) {
                         Ok(m) => {
-                            if m.is_dir() {
-                                copy_to_directory = true;
-                            } else if !overwrite {
+                            if !m.is_dir() && !overwrite {
                                 return Ok((
                                     StatusCode::BAD_REQUEST,
                                     "copy_to location already exists".to_string(),
@@ -1363,37 +1364,21 @@ async fn query(
                     match std::fs::metadata(&asset_final_path) {
                         Ok(m) => {
                             if m.is_symlink() || m.is_file() {
-                                // We have a file
-                                // There are two cases here, based on copy_to_directory
-                                if copy_to_directory {
-                                    if delete_original {
-                                        // This is just a rename operation
-                                        std::fs::rename(&asset_final_path, &copy_to)
-                                            .map_err(|e| {
-                                                Error::new(format!(
-                                                    "Failed to rename file: {} from {} to {}",
-                                                    e,
-                                                    &asset_final_path,
-                                                    &copy_to
-                                                ))
-                                            })?;
-                                    } else {
-                                        // This is a copy operation
-                                        std::fs::copy(&asset_final_path, &copy_to)
-                                            .map_err(Error::new)?;
-                                    }
+                                if delete_original {
+                                    // This is just a rename operation
+                                    std::fs::rename(&asset_final_path, &copy_to)
+                                        .map_err(|e| {
+                                            Error::new(format!(
+                                                "Failed to rename file: {} from {} to {}",
+                                                e,
+                                                &asset_final_path,
+                                                &copy_to
+                                            ))
+                                        })?;
                                 } else {
-                                    let moved_path = format!("{}/{}", copy_to, name);
-
-                                    if delete_original {
-                                        // This is just a rename operation
-                                        std::fs::rename(&asset_final_path, &moved_path)
-                                            .map_err(Error::new)?;
-                                    } else {
-                                        // This is a copy operation
-                                        std::fs::copy(&asset_final_path, &moved_path)
-                                            .map_err(Error::new)?;
-                                    }
+                                    // This is a copy operation
+                                    std::fs::copy(&asset_final_path, &copy_to)
+                                        .map_err(Error::new)?;
                                 }
                             } else if m.is_dir() {
                                 return Ok((

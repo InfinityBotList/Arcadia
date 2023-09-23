@@ -1146,29 +1146,33 @@ async fn query(
                     .into_response());
             };
 
+
             fn validate_name(name: &str) -> Result<(), crate::Error> {
                 // 1. Ensure name does not contain any unicode characters
                 // 2. Ensure name does not contain a slash
                 // 3. Ensure name does not contain a backslash
                 // 4. Ensure name does not start with a dot
-                if name.chars().any(|c| !c.is_ascii())
+                if name.chars().any(|c| !c.is_ascii() && c != ' ')
                     || name.contains('/')
                     || name.contains('\\')
                     || name.contains("..")
                 {
-                    return Err("Asset name cannot contain non-ASCII characters, slashes or backslashes or a dot-dot".into());
+                    return Err(
+                        "Asset name cannot contain non-ASCII characters, slashes or backslashes or a dot-dot"
+                            .into(),
+                    );
                 }
-
+            
                 Ok(())
             }
-
+            
             fn validate_path(path: &str) -> Result<(), crate::Error> {
                 // 1. Ensure path does not contain any unicode characters
                 // 2. Ensure path does not contain a dot-dot (path escape)
                 // 3. Ensure path does not contain a double slash
                 // 4. Ensure path does not contain a backslash
                 // 5. Ensure path does not start with a slash
-                if path.chars().any(|c| !c.is_ascii())
+                if path.chars().any(|c| !c.is_ascii() && c != ' ')
                     || path.contains("..")
                     || path.contains("//")
                     || path.contains('\\')
@@ -1176,9 +1180,9 @@ async fn query(
                 {
                     return Err("Asset path cannot contain non-ASCII characters, dot-dots, doubleslashes, backslashes or start with a slash".into());
                 }
-
+            
                 Ok(())
-            }
+            }            
 
             validate_name(&name).map_err(Error::new)?;
             validate_path(&path).map_err(Error::new)?;

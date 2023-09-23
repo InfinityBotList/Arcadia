@@ -79,8 +79,10 @@ pub enum CdnAssetAction {
     AddFile {
         /// Allow overwrite of existing file
         overwrite: bool,
-        /// Base 64 encoded file contents
-        contents: String,
+        /// Base 64 encoded file contents uploaded as multiple chunks with an ID associated with each chunk
+        chunks: Vec<String>,
+        /// SHA512 hash of the file
+        sha512: String,
     },
     /// Copies an asset already on the server to a new location
     CopyFile {

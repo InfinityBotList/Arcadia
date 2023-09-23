@@ -300,6 +300,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "serenity",
+ "sha2",
  "sqlx",
  "strum",
  "strum_macros",

@@ -17,9 +17,11 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{extract::State, http::StatusCode, Router};
 use log::info;
+use moka::future::Cache;
 use rand::Rng;
 use serenity::all::User;
 use sqlx::PgPool;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::impls::partners::Partners;
@@ -29,6 +31,7 @@ use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
+use sha2::{Sha512, Digest};
 
 struct Error {
     status: StatusCode,
@@ -53,6 +56,7 @@ impl IntoResponse for Error {
 pub struct AppState {
     pub cache_http: impls::cache::CacheHttpImpl,
     pub pool: PgPool,
+    pub cdn_file_chunks_cache: Cache<String, Vec<u8>>,
 }
 
 pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
@@ -107,7 +111,11 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     .await
     .expect("Failed to create staffpanel__paneldata table");
 
-    let shared_state = Arc::new(AppState { pool, cache_http });
+    let cdn_file_chunks_cache = Cache::<String, Vec<u8>>::builder()
+    .time_to_live(Duration::from_secs(600))
+    .build();
+
+    let shared_state = Arc::new(AppState { pool, cache_http, cdn_file_chunks_cache });
 
     let app = Router::new()
         .route("/openapi", get(docs))
@@ -239,12 +247,23 @@ pub enum PanelQuery {
         /// Query
         query: String,
     },
+    /// Uploads a chunk of data returning a chunk ID
+    /// 
+    /// Chunks expire after 10 minutes and are stored in memory
+    /// 
+    /// After uploading all chunks for a file, use `AddFile` to create the file
+    UploadCdnFileChunk {
+        /// Login token
+        login_token: String,
+        /// Base 64 encoded chunk contents
+        chunk: String,
+    },
     /// Lists all available CDN scopes
     ListCdnScopes {
         /// Login token
         login_token: String,
     },
-    /// Updates an asset on the CDN
+    /// Updates/handles an asset on the CDN
     UpdateCdnAsset {
         /// Login token
         login_token: String,
@@ -1025,6 +1044,65 @@ async fn query(
                     .into_response()),
             }
         },
+        PanelQuery::UploadCdnFileChunk { login_token, chunk } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            if !caps.contains(&super::types::Capability::CdnManagement) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage the CDN right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Check that length of chunk is not greater than 10MB
+            if chunk.len() > 10_000_000 {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Chunk size is too large".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Check that chunk is not empty
+            if chunk.is_empty() {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Chunk is empty".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Create chunk ID
+            let chunk_id = crate::impls::crypto::gen_random(32);
+
+            // Keep looping until we get a free chunk ID
+            let mut tries = 0;
+
+            while tries < 10 {
+                if !state.cdn_file_chunks_cache.contains_key(&chunk_id) {
+                    // Base64 decode chunk
+                    let chunk = BASE64.decode(chunk.as_bytes()).map_err(Error::new)?;
+
+                    state
+                        .cdn_file_chunks_cache
+                        .insert(chunk_id.clone(), chunk.clone())
+                        .await;
+
+                    return Ok((StatusCode::OK, chunk_id).into_response());
+                }
+
+                tries += 1;
+            }
+
+            Ok((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to generate a chunk ID".to_string(),
+            )
+                .into_response())
+        },
         PanelQuery::ListCdnScopes { login_token } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
@@ -1243,17 +1321,33 @@ async fn query(
                 }
                 super::types::CdnAssetAction::AddFile {
                     overwrite,
-                    contents,
+                    chunks,
+                    sha512
                 } => {
-                    // Base64 decode the data
-                    let data = BASE64.decode(contents.as_bytes()).map_err(Error::new)?;
-
-                    if data.len() > 1024 * 1024 * 10 {
+                    if chunks.is_empty() {
                         return Ok((
                             StatusCode::BAD_REQUEST,
-                            "Asset data cannot be larger than 10MB".to_string(),
+                            "No chunks were provided".to_string(),
                         )
                             .into_response());
+                    }
+
+                    if chunks.len() > 100_000 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Too many chunks were provided".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    for chunk in &chunks {
+                        if !state.cdn_file_chunks_cache.contains_key(chunk) {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                "Chunk does not exist".to_string(),
+                            )
+                                .into_response());
+                        }
                     }
 
                     // Check if the asset exists
@@ -1317,8 +1411,66 @@ async fn query(
                         }
                     }
 
-                    // Write the file
-                    std::fs::write(asset_final_path, &data).map_err(Error::new)?;
+                    {
+                        let tmp_file_path = format!(
+                            "/tmp/arcadia-cdn-file{}@{}", 
+                            crate::impls::crypto::gen_random(32),
+                            asset_final_path.replace('/', ">")
+                        );
+
+                        let mut temp_file = tokio::fs::File::create(
+                            &tmp_file_path
+                        )
+                            .await
+                            .map_err(Error::new)?;
+
+                        // For each chunk, fetch and add to file
+                        for chunk in chunks {
+                            let chunk = state
+                                .cdn_file_chunks_cache
+                                .remove(&chunk)
+                                .await
+                                .ok_or_else(|| Error::new("Chunk ".to_string() + &chunk + " does not exist"))?;
+
+                            temp_file.write_all(&chunk).await.map_err(Error::new)?;
+                        }
+
+                        // Sync file
+                        temp_file.sync_all().await.map_err(Error::new)?;
+
+                        // Close file
+                        drop(temp_file);
+
+                        // Calculate sha512 of file
+                        let mut hasher = Sha512::new();
+
+                        let mut file = tokio::fs::File::open(
+                            &tmp_file_path
+                        )
+                            .await
+                            .map_err(Error::new)?;
+
+                        let mut file_buf = Vec::new();
+                        file.read_to_end(&mut file_buf).await.map_err(Error::new)?;
+
+                        hasher.update(&file_buf);
+
+                        let hash = hasher.finalize();
+
+                        let hash_expected = data_encoding::HEXLOWER.encode(&hash);
+
+                        if sha512 != hash_expected {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                "SHA512 hash does not match".to_string(),
+                            )
+                                .into_response());
+                        }
+
+                        // Rename temp file to final path
+                        tokio::fs::rename(&tmp_file_path, &asset_final_path).await.map_err(Error::new)?;
+                    }
+
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 super::types::CdnAssetAction::CopyFile {

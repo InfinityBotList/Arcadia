@@ -1468,7 +1468,10 @@ async fn query(
                         }
 
                         // Rename temp file to final path
-                        tokio::fs::rename(&tmp_file_path, &asset_final_path).await.map_err(Error::new)?;
+                        tokio::fs::copy(&tmp_file_path, &asset_final_path).await.map_err(Error::new)?;
+
+                        // Delete temp file
+                        tokio::fs::remove_file(&tmp_file_path).await.map_err(Error::new)?;
                     }
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())

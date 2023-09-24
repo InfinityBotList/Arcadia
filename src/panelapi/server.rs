@@ -111,7 +111,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     .expect("Failed to create staffpanel__paneldata table");
 
     let cdn_file_chunks_cache = Cache::<String, Vec<u8>>::builder()
-    .time_to_live(Duration::from_secs(600))
+    .time_to_live(Duration::from_secs(3600))
     .build();
 
     let shared_state = Arc::new(AppState { pool, cache_http, cdn_file_chunks_cache });
@@ -1057,8 +1057,8 @@ async fn query(
                     .into_response());
             }
 
-            // Check that length of chunk is not greater than 20MB
-            if chunk.len() > 20_000_000 {
+            // Check that length of chunk is not greater than 100MB
+            if chunk.len() > 100_000_000 {
                 return Ok((
                     StatusCode::BAD_REQUEST,
                     "Chunk size is too large".to_string(),
@@ -1144,7 +1144,7 @@ async fn query(
             };
 
             fn validate_name(name: &str) -> Result<(), crate::Error> {
-                const ALLOWED_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:%$ ";
+                const ALLOWED_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:%$[](){}$@! ";
 
                 // 1. Ensure all chars of name are in ALLOWED_CHARS
                 // 2. Ensure name does not contain a slash

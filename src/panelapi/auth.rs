@@ -17,7 +17,7 @@ pub struct AuthData {
 pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     // Delete expired auths
     sqlx::query!(
-        "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '30 minutes'"
+        "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '1 hour'"
     )
     .execute(pool)
     .await?;

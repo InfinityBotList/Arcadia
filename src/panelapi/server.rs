@@ -25,7 +25,6 @@ use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::impls::partners::Partners;
-use data_encoding::BASE64;
 use serde::{Deserialize, Serialize};
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
@@ -255,8 +254,8 @@ pub enum PanelQuery {
     UploadCdnFileChunk {
         /// Login token
         login_token: String,
-        /// Base 64 encoded chunk contents
-        chunk: String,
+        /// Array of bytes of the chunk contents
+        chunk: Vec<u8>,
     },
     /// Lists all available CDN scopes
     ListCdnScopes {
@@ -1083,12 +1082,9 @@ async fn query(
 
             while tries < 10 {
                 if !state.cdn_file_chunks_cache.contains_key(&chunk_id) {
-                    // Base64 decode chunk
-                    let chunk = BASE64.decode(chunk.as_bytes()).map_err(Error::new)?;
-
                     state
                         .cdn_file_chunks_cache
-                        .insert(chunk_id.clone(), chunk.clone())
+                        .insert(chunk_id.clone(), chunk)
                         .await;
 
                     return Ok((StatusCode::OK, chunk_id).into_response());

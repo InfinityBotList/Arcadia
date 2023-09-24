@@ -1057,8 +1057,8 @@ async fn query(
                     .into_response());
             }
 
-            // Check that length of chunk is not greater than 10MB
-            if chunk.len() > 10_000_000 {
+            // Check that length of chunk is not greater than 20MB
+            if chunk.len() > 20_000_000 {
                 return Ok((
                     StatusCode::BAD_REQUEST,
                     "Chunk size is too large".to_string(),

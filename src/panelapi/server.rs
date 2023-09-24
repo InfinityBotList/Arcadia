@@ -1165,7 +1165,7 @@ async fn query(
             }
             
             fn validate_path(path: &str) -> Result<(), crate::Error> {
-                const ALLOWED_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:%$ ";
+                const ALLOWED_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:%$/ ";
 
                 // 1. Ensure all chars of name are in ALLOWED_CHARS
                 // 2. Ensure path does not contain a dot-dot (path escape)

@@ -4,6 +4,6 @@ project: "arcadia"
 binary: "bot"
 service: "arcadia"
 lang_opts:
-  bindings: "/iblcdn/public/dev/bindings/arcadia"
+  bindings: "/silverpelt/cdn/ibl/dev/bindings/arcadia"
 env:
   DATABASE_URL: postgres://localhost/infinity  

@@ -9,7 +9,7 @@ use crate::impls::target_types::TargetType;
 use crate::panelapi::types::InstanceConfig;
 use crate::rpc::core::{RPCHandle, RPCMethod};
 use axum::body::StreamBody;
-use axum::extract::{DefaultBodyLimit, Host};
+use axum::extract::{DefaultBodyLimit, Host, Path};
 use axum::http::HeaderMap;
 use axum::Json;
 
@@ -119,6 +119,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     let app = Router::new()
         .route("/openapi", get(docs))
         .route("/query", post(query))
+        .route("/query/cdnUploadChunk/:chunk_id", post(cdn_upload_chunk))
         .route("/", get(get_instance_config))
         .with_state(shared_state)
         .layer(DefaultBodyLimit::max(1048576000))
@@ -246,16 +247,13 @@ pub enum PanelQuery {
         /// Query
         query: String,
     },
-    /// Uploads a chunk of data returning a chunk ID
+    /// Creates a file chunk
     /// 
-    /// Chunks expire after 10 minutes and are stored in memory
-    /// 
-    /// After uploading all chunks for a file, use `AddFile` to create the file
-    UploadCdnFileChunk {
+    /// After this, the client should send a POST request to `/query/cdnUploadChunk/{chunk_id}` with the file
+    /// sending a multipart/form-data body with the file
+    CreateFileChunk {
         /// Login token
         login_token: String,
-        /// Array of bytes of the chunk contents
-        chunk: Vec<u8>,
     },
     /// Lists all available CDN scopes
     ListCdnScopes {
@@ -1043,7 +1041,7 @@ async fn query(
                     .into_response()),
             }
         },
-        PanelQuery::UploadCdnFileChunk { login_token, chunk } => {
+        PanelQuery::CreateFileChunk { login_token } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -1056,37 +1054,15 @@ async fn query(
                     .into_response());
             }
 
-            // Check that length of chunk is not greater than 10MB
-            if chunk.len() > 10_000_000 {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Chunk size is too large".to_string(),
-                )
-                    .into_response());
-            }
-
-            // Check that chunk is not empty
-            if chunk.is_empty() {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Chunk is empty".to_string(),
-                )
-                    .into_response());
-            }
-
             // Create chunk ID
-            let chunk_id = crate::impls::crypto::gen_random(32);
+            let chunk_id = crate::impls::crypto::gen_random(512);
 
             // Keep looping until we get a free chunk ID
             let mut tries = 0;
 
             while tries < 10 {
                 if !state.cdn_file_chunks_cache.contains_key(&chunk_id) {
-                    state
-                        .cdn_file_chunks_cache
-                        .insert(chunk_id.clone(), chunk)
-                        .await;
-
+                    state.cdn_file_chunks_cache.insert(chunk_id.clone(), vec![]).await;
                     return Ok((StatusCode::OK, chunk_id).into_response());
                 }
 
@@ -1621,4 +1597,33 @@ async fn query(
             Ok((StatusCode::NO_CONTENT, "").into_response())
         }
     }
+}
+
+/// Make Panel Query
+#[utoipa::path(
+    post,
+    path = "/query/cdnUploadChunk/{chunk_id}",
+    responses(
+        (status = 200, description = "Content", body = String),
+        (status = 204, description = "No content"),
+        (status = BAD_REQUEST, description = "An error occured", body = String),
+    ),
+)]
+//#[axum_macros::debug_handler]
+async fn cdn_upload_chunk(
+    State(state): State<Arc<AppState>>, 
+    Path(chunk_id): Path<String>,
+    Json(data): Json<Vec<u8>>,
+) -> Result<impl IntoResponse, Error> {
+    if !state.cdn_file_chunks_cache.contains_key(&chunk_id) {
+        return Ok((
+            StatusCode::BAD_REQUEST,
+            "Chunk does not exist".to_string(),
+        )
+            .into_response());
+    }
+
+    state.cdn_file_chunks_cache.insert(chunk_id, data).await;
+
+    Ok((StatusCode::NO_CONTENT, "").into_response())
 }

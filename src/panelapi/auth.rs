@@ -1,17 +1,10 @@
 use crate::Error;
-use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use ts_rs::TS;
 
-use super::types::{Capability, PanelPerms};
-
-#[derive(Serialize, Deserialize, TS)]
-#[ts(export, export_to = ".generated/AuthData.ts")]
-pub struct AuthData {
-    pub user_id: String,
-    pub created_at: i64,
-    pub state: String,
-}
+use super::types::{
+    webcore::{Capability, PanelPerms},
+    auth::AuthData
+};
 
 /// Checks auth, but does not ensure active sessions
 pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {

@@ -6,10 +6,17 @@ use std::time::Duration;
 
 use crate::impls;
 use crate::impls::target_types::TargetType;
-use crate::panelapi::types::InstanceConfig;
+use crate::panelapi::types::{
+    auth::{MfaLogin, MfaLoginSecret},
+    bots::{QueueBot, SearchBot},
+    cdn::{CdnAssetAction, CdnAssetItem},
+    partners::{Partners, PartnerType, Partner},
+    rpc::RPCWebAction,
+    webcore::{Capability, CoreConstants, InstanceConfig, PanelServers}
+};
 use crate::rpc::core::{RPCHandle, RPCMethod};
 use axum::body::StreamBody;
-use axum::extract::{DefaultBodyLimit, Host};
+use axum::extract::DefaultBodyLimit;
 use axum::http::HeaderMap;
 use axum::Json;
 
@@ -24,7 +31,6 @@ use sqlx::PgPool;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::impls::partners::Partners;
 use serde::{Deserialize, Serialize};
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
@@ -62,7 +68,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     use utoipa::OpenApi;
     #[derive(OpenApi)]
     #[openapi(
-        paths(get_instance_config, query),
+        paths(query),
         components(schemas(PanelQuery, InstanceConfig, RPCMethod, TargetType))
     )]
     struct ApiDoc;
@@ -118,8 +124,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 
     let app = Router::new()
         .route("/openapi", get(docs))
-        .route("/query", post(query))
-        .route("/", get(get_instance_config))
+        .route("/", post(query))
         .with_state(shared_state)
         .layer(DefaultBodyLimit::max(1048576000))
         .layer(
@@ -146,9 +151,14 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 #[derive(Serialize, Deserialize, ToSchema, TS, Display, Clone, EnumString, EnumVariantNames)]
 #[ts(export, export_to = ".generated/PanelQuery.ts")]
 pub enum PanelQuery {
+    /// Returns instance configuration and other important information
+    Hello {
+        /// Panel protocol version, should be 2
+        version: u16,
+    },
     /// Get Login URL
     GetLoginUrl {
-        /// Panel protocol version
+        /// Panel protocol version, should be 2
         version: u16,
         /// Redirect URL
         redirect_url: String,
@@ -279,13 +289,24 @@ pub enum PanelQuery {
         /// Path
         path: String,
         /// Action to take
-        action: super::types::CdnAssetAction,
+        action: CdnAssetAction,
     },
     /// Returns the list of all partners on the list
     GetPartnerList {
         /// Login token
         login_token: String,
     },
+    /// Adds a partner
+    /// 
+    /// This technically only needs the PartnerManagement capability, 
+    /// but also requires a CDN asset upload capability as well to upload the avatar
+    /// of the partner
+    /*AddPartner {
+        /// Login token
+        login_token: String,
+        /// Partner Data
+        partner: crate::impls::partners::Partner,
+    },*/
     /// Deletes a partner
     DeletePartner {
         /// Login token
@@ -293,29 +314,6 @@ pub enum PanelQuery {
         /// Partner ID
         partner_id: String,
     },
-}
-
-/// Make Panel Query
-#[utoipa::path(
-    post,
-    path = "/",
-    responses(
-        (status = 200, description = "Content", body = InstanceConfig),
-        (status = 204, description = "No content"),
-        (status = BAD_REQUEST, description = "An error occured", body = String),
-    ),
-)]
-#[axum_macros::debug_handler]
-async fn get_instance_config(Host(host): Host) -> Result<impl IntoResponse, Error> {
-    Ok((
-        StatusCode::OK,
-        Json(super::types::InstanceConfig {
-            description: "Arcadia Production Instance Config".to_string(),
-            instance_url: host,
-            query: "/query".to_string(),
-        }),
-    )
-        .into_response())
 }
 
 /// Make Panel Query
@@ -335,11 +333,27 @@ async fn query(
     Json(req): Json<PanelQuery>,
 ) -> Result<impl IntoResponse, Error> {
     match req {
+        PanelQuery::Hello { version } => {
+            if version != 2 {
+                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
+            }
+
+            Ok((
+                StatusCode::OK,
+                Json(InstanceConfig {
+                    description: "Arcadia Production Panel Instance".to_string(),
+                    warnings: vec![
+                        "The panel is currently undergoing large-scale changes while it is being rewritten. Please report any bugs you find to the staff team.".to_string(),
+                    ],
+                }),
+            )
+                .into_response())        
+        },
         PanelQuery::GetLoginUrl {
             version,
             redirect_url,
         } => {
-            if version != 1 {
+            if version != 2 {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 
@@ -578,8 +592,8 @@ async fn query(
 
                 Ok((
                     StatusCode::OK,
-                    Json(super::types::MfaLogin {
-                        info: Some(super::types::MfaLoginSecret {
+                    Json(MfaLogin {
+                        info: Some(MfaLoginSecret {
                             qr_code: qr,
                             otp_url: qr_code_uri,
                             secret,
@@ -590,7 +604,7 @@ async fn query(
             } else {
                 tx.rollback().await.map_err(Error::new)?;
 
-                Ok((StatusCode::OK, Json(super::types::MfaLogin { info: None })).into_response())
+                Ok((StatusCode::OK, Json(MfaLogin { info: None })).into_response())
             }
         }
         PanelQuery::LoginActivateSession { login_token, otp } => {
@@ -772,12 +786,12 @@ async fn query(
 
             Ok((
                 StatusCode::OK,
-                Json(super::types::CoreConstants {
+                Json(CoreConstants {
                     frontend_url: crate::config::CONFIG.frontend_url.clone(),
                     infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
                     popplio_url: crate::config::CONFIG.popplio_url.clone(),
                     cdn_url: crate::config::CONFIG.cdn_url.clone(),
-                    servers: super::types::PanelServers {
+                    servers: PanelServers {
                         main: crate::config::CONFIG.servers.main.to_string(),
                         staff: crate::config::CONFIG.servers.staff.to_string(),
                         testing: crate::config::CONFIG.servers.testing.to_string(),
@@ -791,7 +805,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::ViewBotQueue) {
+            if !caps.contains(&Capability::ViewBotQueue) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to access the bot queue right now".to_string(),
@@ -821,7 +835,7 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                bots.push(super::types::QueueBot {
+                bots.push(QueueBot {
                     bot_id: bot.bot_id,
                     client_id: bot.client_id,
                     user,
@@ -844,7 +858,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::Rpc) {
+            if !caps.contains(&Capability::Rpc) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to use RPC right now".to_string(),
@@ -885,7 +899,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::Rpc) {
+            if !caps.contains(&Capability::Rpc) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to use RPC right now".to_string(),
@@ -944,7 +958,7 @@ async fn query(
                     }
                 }
 
-                let action = super::types::RPCWebAction {
+                let action = RPCWebAction {
                     id: method.to_string(),
                     label: variant.label(),
                     description: variant.description(),
@@ -963,7 +977,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::Rpc) {
+            if !caps.contains(&Capability::Rpc) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to use RPC right now?".to_string(),
@@ -984,7 +998,7 @@ async fn query(
 
             match target_type {
                 TargetType::Bot => {
-                    if !caps.contains(&super::types::Capability::BotManagement) {
+                    if !caps.contains(&Capability::BotManagement) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to manage bots right now?".to_string(),
@@ -1021,7 +1035,7 @@ async fn query(
                                 .await
                                 .map_err(Error::new)?;
 
-                        bots.push(super::types::SearchBot {
+                        bots.push(SearchBot {
                             bot_id: bot.bot_id,
                             client_id: bot.client_id,
                             user,
@@ -1049,7 +1063,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::CdnManagement) {
+            if !caps.contains(&Capability::CdnManagement) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to manage the CDN right now?".to_string(),
@@ -1105,7 +1119,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::CdnManagement) {
+            if !caps.contains(&Capability::CdnManagement) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to manage the CDN right now?".to_string(),
@@ -1126,7 +1140,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::CdnManagement) {
+            if !caps.contains(&Capability::CdnManagement) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to manage the CDN right now?".to_string(),
@@ -1201,7 +1215,7 @@ async fn query(
             };
 
             match action {
-                super::types::CdnAssetAction::ListPath => {
+                CdnAssetAction::ListPath => {
                     match std::fs::metadata(&asset_path) {
                         Ok(m) => {
                             if !m.is_dir() {
@@ -1233,7 +1247,7 @@ async fn query(
                             continue;
                         };
 
-                        files.push(super::types::CdnAssetItem {
+                        files.push(CdnAssetItem {
                             name: name.to_string(),
                             path: entry
                                 .path()
@@ -1255,7 +1269,7 @@ async fn query(
 
                     Ok((StatusCode::OK, Json(files)).into_response())
                 }
-                super::types::CdnAssetAction::ReadFile => {
+                CdnAssetAction::ReadFile => {
                     match std::fs::metadata(&asset_final_path) {
                         Ok(m) => {
                             if !m.is_file() {
@@ -1293,7 +1307,7 @@ async fn query(
 
                     Ok((headers, body).into_response())
                 }
-                super::types::CdnAssetAction::CreateFolder => {
+                CdnAssetAction::CreateFolder => {
                     match std::fs::metadata(&asset_final_path) {
                         Ok(_) => {
                             return Ok((
@@ -1323,7 +1337,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
-                super::types::CdnAssetAction::AddFile {
+                CdnAssetAction::AddFile {
                     overwrite,
                     chunks,
                     sha512
@@ -1480,7 +1494,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
-                super::types::CdnAssetAction::CopyFile {
+                CdnAssetAction::CopyFile {
                     overwrite,
                     delete_original,
                     copy_to,
@@ -1561,7 +1575,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
-                super::types::CdnAssetAction::Delete => {
+                CdnAssetAction::Delete => {
                     // Check if the asset exists
                     match std::fs::metadata(&asset_final_path) {
                         Ok(m) => {
@@ -1589,7 +1603,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::PartnerManagement) {
+            if !caps.contains(&Capability::PartnerManagement) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to manage partners right now?".to_string(),
@@ -1597,9 +1611,49 @@ async fn query(
                     .into_response());
             }
 
-            let partners = Partners::fetch(&state.pool).await.map_err(Error::new)?;
+            let prec = sqlx::query!(
+                "SELECT id, name, image_type, short, links, type, created_at, user_id FROM partners"
+            )
+            .fetch_all(&state.pool)
+            .await
+            .map_err(Error::new)?;
+    
+            let mut partners = Vec::new();
+    
+            for partner in prec {
+                partners.push(Partner {
+                    id: partner.id,
+                    name: partner.name,
+                    image_type: partner.image_type,
+                    short: partner.short,
+                    links: serde_json::from_value(partner.links).map_err(Error::new)?,
+                    r#type: partner.r#type,
+                    created_at: partner.created_at,
+                    user_id: partner.user_id,
+                })
+            }
+    
+            let ptrec = sqlx::query!("SELECT id, name, short, icon, created_at FROM partner_types")
+                .fetch_all(&state.pool)
+                .await
+                .map_err(Error::new)?;
+    
+            let mut partner_types = Vec::new();
+    
+            for partner_type in ptrec {
+                partner_types.push(PartnerType {
+                    id: partner_type.id,
+                    name: partner_type.name,
+                    short: partner_type.short,
+                    icon: partner_type.icon,
+                    created_at: partner_type.created_at,
+                })
+            }    
 
-            Ok((StatusCode::OK, Json(partners)).into_response())
+            Ok((StatusCode::OK, Json(Partners {
+                partners,
+                partner_types,
+            })).into_response())
         }
         PanelQuery::DeletePartner {
             login_token,
@@ -1609,7 +1663,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&super::types::Capability::PartnerManagement) {
+            if !caps.contains(&Capability::PartnerManagement) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to manage partners right now?".to_string(),

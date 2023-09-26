@@ -1594,6 +1594,9 @@ async fn query(
 
                                     rename_dir_all(&asset_final_path, &copy_to)
                                         .map_err(Error::new)?;
+
+                                    // Delete original directory
+                                    std::fs::remove_dir_all(&asset_final_path).map_err(Error::new)?;
                                 } else {
                                     // This is a recursive copy operation
                                     fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {

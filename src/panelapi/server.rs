@@ -1576,11 +1576,78 @@ async fn query(
                                         .map_err(Error::new)?;
                                 }
                             } else if m.is_dir() {
-                                return Ok((
-                                    StatusCode::BAD_REQUEST,
-                                    "Asset to be moved is a directory".to_string(),
-                                )
-                                    .into_response());
+                                if delete_original {
+                                    // This is a rename operation
+                                    // Ensure that copy_to is an empty directory
+                                    match std::fs::metadata(&copy_to) {
+                                        Ok(m) => {
+                                            // Check if directory is empty
+                                            if !m.is_dir() {
+                                                return Ok((
+                                                    StatusCode::BAD_REQUEST,
+                                                    "copy_to location already exists and is not a directory".to_string(),
+                                                )
+                                                    .into_response());
+                                            }
+
+                                            let read_dir = std::fs::read_dir(&copy_to).map_err(Error::new)?.collect::<Vec<_>>();
+
+                                            if !read_dir.is_empty() {
+                                                return Ok((
+                                                    StatusCode::BAD_REQUEST,
+                                                    "copy_to location already exists and is not empty".to_string(),
+                                                )
+                                                    .into_response());
+                                            }
+                                        },
+                                        Err(e) => {
+                                            if e.kind() != std::io::ErrorKind::NotFound {
+                                                return Ok((
+                                                    StatusCode::BAD_REQUEST,
+                                                    "Fetching asset metadata failed due to unknown error: "
+                                                        .to_string()
+                                                        + &e.to_string(),
+                                                )
+                                                    .into_response());
+                                            }
+
+                                            // Create directory
+                                            std::fs::DirBuilder::new()
+                                                .recursive(true)
+                                                .create(&copy_to)
+                                                .map_err(Error::new)?;
+                                        }
+                                    };
+
+                                    // This is just a rename operation
+                                    std::fs::rename(&asset_final_path, &copy_to)
+                                        .map_err(|e| {
+                                            Error::new(format!(
+                                                "Failed to rename directory: {} from {} to {}",
+                                                e,
+                                                &asset_final_path,
+                                                &copy_to
+                                            ))
+                                        })?;
+                                } else {
+                                    // This is a recursive copy operation
+                                    fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+                                        std::fs::create_dir_all(&dst)?;
+                                        for entry in std::fs::read_dir(src)? {
+                                            let entry = entry?;
+                                            let ty = entry.file_type()?;
+                                            if ty.is_dir() {
+                                                copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+                                            } else {
+                                                std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+                                            }
+                                        }
+                                        Ok(())
+                                    }
+
+                                    copy_dir_all(&asset_final_path, &copy_to)
+                                        .map_err(Error::new)?;
+                                }
                             }
                         }
                         Err(e) => {

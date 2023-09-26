@@ -272,6 +272,11 @@ pub enum PanelQuery {
         /// Login token
         login_token: String,
     },
+    /// Returns the main CDN scope for Infinity Bot List
+    GetMainCdnScope {
+        /// Login token
+        login_token: String,
+    },
     /// Updates/handles an asset on the CDN
     UpdateCdnAsset {
         /// Login token
@@ -1128,6 +1133,23 @@ async fn query(
             }
 
             Ok((StatusCode::OK, Json(crate::config::CONFIG.panel.cdn_scopes.clone())).into_response())
+        },
+        PanelQuery::GetMainCdnScope {
+            login_token,
+        } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            if !caps.contains(&Capability::CdnManagement) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage the CDN right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            Ok((StatusCode::OK, crate::config::CONFIG.panel.main_scope.clone()).into_response())
         },
         PanelQuery::UpdateCdnAsset {
             login_token,

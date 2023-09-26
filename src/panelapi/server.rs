@@ -10,7 +10,7 @@ use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
     bots::{QueueBot, SearchBot},
     cdn::{CdnAssetAction, CdnAssetItem},
-    partners::{Partners, PartnerType, Partner},
+    partners::{Partners, PartnerType, Partner, CreatePartner},
     rpc::RPCWebAction,
     webcore::{Capability, CoreConstants, InstanceConfig, PanelServers}
 };
@@ -301,12 +301,12 @@ pub enum PanelQuery {
     /// This technically only needs the PartnerManagement capability, 
     /// but also requires a CDN asset upload capability as well to upload the avatar
     /// of the partner
-    /*AddPartner {
+    AddPartner {
         /// Login token
         login_token: String,
         /// Partner Data
-        partner: crate::impls::partners::Partner,
-    },*/
+        partner: CreatePartner,
+    },
     /// Deletes a partner
     DeletePartner {
         /// Login token
@@ -1654,7 +1654,149 @@ async fn query(
                 partners,
                 partner_types,
             })).into_response())
-        }
+        },
+        PanelQuery::AddPartner {
+            login_token,
+            partner
+        } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            if !caps.contains(&Capability::PartnerManagement) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage partners right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Check if partner type exists
+            let partner_type_exists = sqlx::query!(
+                "SELECT id FROM partner_types WHERE id = $1",
+                partner.r#type
+            )
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(Error::new)?
+            .is_some();
+
+            if !partner_type_exists {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Partner type does not exist".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Ensure that image has been uploaded to CDN
+            // Get cdn path from cdn_scope hashmap
+            let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Main scope not found".to_string(),
+                )
+                    .into_response());
+            };
+
+            let path = format!("{}/partners/{}.{}", cdn_path.path, partner.id, partner.image_type);
+
+            match std::fs::metadata(&path) {
+                Ok(m) => {
+                    if !m.is_file() {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Image does not exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if m.len() > 100_000_000 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Image is too large".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if m.len() == 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Image is empty".to_string(),
+                        )
+                            .into_response());
+                    }
+                }
+                Err(e) => {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        "Fetching image metadata failed: ".to_string() + &e.to_string(),
+                    )
+                        .into_response());
+                }
+            };
+
+            if partner.links.is_empty() {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Links cannot be empty".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Check user id
+            let user_exists = sqlx::query!(
+                "SELECT user_id FROM users WHERE user_id = $1",
+                partner.user_id
+            )
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(Error::new)?
+            .is_some();
+
+            if !user_exists {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "User does not exist".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Check if partner already exists
+            let partner_exists = sqlx::query!(
+                "SELECT id FROM partners WHERE id = $1",
+                partner.id
+            )
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(Error::new)?
+            .is_some();
+
+            if partner_exists {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Partner already exists".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Insert partner
+            sqlx::query!(
+                "INSERT INTO partners (id, name, image_type, short, links, type, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                partner.id,
+                partner.name,
+                partner.image_type,
+                partner.short,
+                serde_json::to_value(partner.links).map_err(Error::new)?,
+                partner.r#type,
+                partner.user_id
+            )
+            .execute(&state.pool)
+            .await
+            .map_err(Error::new)?;
+            
+            Ok((StatusCode::NO_CONTENT, "").into_response())
+        },
         PanelQuery::DeletePartner {
             login_token,
             partner_id,

@@ -89,7 +89,9 @@ pub struct PanelConfig {
     /// 
     /// Currently the panel uses the following scopes:
     /// - ibl@main
-    pub cdn_scopes: HashMap<String, CdnScopeData>
+    pub cdn_scopes: HashMap<String, CdnScopeData>,
+    /// Main scope
+    pub main_scope: String,
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone, Default)]

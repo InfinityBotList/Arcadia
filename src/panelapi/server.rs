@@ -1813,6 +1813,67 @@ async fn query(
                     .into_response());
             }
 
+            // Check if partner exists
+            let partner_exists = sqlx::query!(
+                "SELECT id FROM partners WHERE id = $1",
+                partner_id
+            )
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(Error::new)?
+            .is_some();
+
+            if !partner_exists {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Partner does not exist".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Ensure that image has been uploaded to CDN
+            // Get cdn path from cdn_scope hashmap
+            let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Main scope not found".to_string(),
+                )
+                    .into_response());
+            };
+
+            let rec = sqlx::query!(
+                "SELECT image_type FROM partners WHERE id = $1",
+                partner_id
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            let path = format!("{}/partners/{}.{}", cdn_path.path, partner_id, rec.image_type);
+
+            match std::fs::metadata(&path) {
+                Ok(m) => {
+                    if m.is_symlink() || m.is_file() {
+                        // Delete the symlink
+                        std::fs::remove_file(path).map_err(Error::new)?;
+                    } else if m.is_dir() {
+                        // Delete the directory
+                        std::fs::remove_dir_all(path).map_err(Error::new)?;
+                    }
+                },
+                Err(e) => {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Fetching asset metadata failed due to unknown error: "
+                                .to_string()
+                                + &e.to_string(),
+                        )
+                            .into_response());
+                    }
+                }
+            };
+
             sqlx::query!("DELETE FROM partners WHERE id = $1", partner_id)
                 .execute(&state.pool)
                 .await

@@ -1766,6 +1766,32 @@ async fn query(
                     .into_response());
             }
 
+            for link in &partner.links {
+                if link.name.is_empty() {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        "Link name cannot be empty".to_string(),
+                    )
+                        .into_response());
+                }
+
+                if link.value.is_empty() {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        "Link URL cannot be empty".to_string(),
+                    )
+                        .into_response());
+                }
+
+                if !link.value.starts_with("https://") {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        "Link URL must start with https://".to_string(),
+                    )
+                        .into_response());
+                }
+            }
+
             // Check user id
             let user_exists = sqlx::query!(
                 "SELECT user_id FROM users WHERE user_id = $1",

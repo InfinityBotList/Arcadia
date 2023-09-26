@@ -1,9 +1,0 @@
-user: ibl
-language: rust
-project: "arcadia"
-binary: "bot"
-service: "arcadia"
-lang_opts:
-  bindings: "/silverpelt/cdn/ibl/dev/bindings/arcadia"
-env:
-  DATABASE_URL: postgres://localhost/infinity  

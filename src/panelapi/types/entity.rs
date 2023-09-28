@@ -4,6 +4,45 @@ use utoipa::ToSchema;
 use strum_macros::{Display, EnumVariantNames};
 use crate::impls::dovewing::PartialUser;
 
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/PartialBot.ts")]
+pub struct PartialBot {
+    pub bot_id: String,
+    pub user: PartialUser,
+    pub short: String,
+    pub r#type: String,
+    pub votes: i32,
+    pub shards: i32,
+    pub library: String,
+    pub invite_clicks: i32,
+    pub clicks: i32,
+    pub servers: i32,
+    pub claimed_by: Option<String>,
+    pub approval_note: String,
+    pub mentionable: Vec<String>,
+    pub invite: String,
+    pub client_id: String,
+}
+
+#[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
+#[ts(export, export_to = ".generated/PartialServer.ts")]
+pub struct PartialServer {
+    pub server_id: String,
+    pub name: String,
+    pub avatar: String,
+    pub total_members: i32,
+    pub online_members: i32,
+    pub short: String,
+    pub r#type: String,
+    pub votes: i32,
+    pub invite_clicks: i32,
+    pub clicks: i32,
+    pub nsfw: bool,
+    pub tags: Vec<String>,
+    pub premium: bool,
+    pub banner: Option<String>,
+}
+
 #[derive(
     Serialize,
     Deserialize,
@@ -12,41 +51,9 @@ use crate::impls::dovewing::PartialUser;
     EnumVariantNames,
     Display,
     Clone,
-    PartialEq,
 )]
 #[ts(export, export_to = ".generated/PartialEntity.ts")]
 pub enum PartialEntity {
-    Bot {
-        bot_id: String,
-        user: PartialUser,
-        short: String,
-        r#type: String,
-        votes: i32,
-        shards: i32,
-        library: String,
-        invite_clicks: i32,
-        clicks: i32,
-        servers: i32,
-        claimed_by: Option<String>,
-        approval_note: String,
-        mentionable: Vec<String>,
-        invite: String,
-        client_id: String,
-    },
-    Server {
-        server_id: String,
-        name: String,
-        avatar: String,
-        total_members: i32,
-        online_members: i32,
-        short: String,
-        r#type: String,
-        votes: i32,
-        invite_clicks: i32,
-        clicks: i32,
-        nsfw: bool,
-        tags: Vec<String>,
-        premium: bool,
-        banner: Option<String>,
-    },
+    Bot(PartialBot),
+    Server(PartialServer),
 }

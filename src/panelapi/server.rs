@@ -8,7 +8,7 @@ use crate::impls;
 use crate::impls::target_types::TargetType;
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
-    entity::PartialEntity,
+    entity::{PartialBot, PartialEntity},
     cdn::{CdnAssetAction, CdnAssetItem},
     partners::{Partners, PartnerType, Partner, CreatePartner},
     rpc::RPCWebAction,
@@ -842,7 +842,7 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                bots.push(PartialEntity::Bot {
+                bots.push(PartialEntity::Bot(PartialBot {
                     bot_id: bot.bot_id,
                     client_id: bot.client_id,
                     user,
@@ -858,7 +858,7 @@ async fn query(
                     servers: bot.servers,
                     mentionable: owners.mentionables(),
                     invite: bot.invite,
-                });
+                }));
             }
 
             Ok((StatusCode::OK, Json(bots)).into_response())
@@ -1050,7 +1050,7 @@ async fn query(
                                 .await
                                 .map_err(Error::new)?;
 
-                        bots.push(PartialEntity::Bot {
+                        bots.push(PartialEntity::Bot(PartialBot {
                             bot_id: bot.bot_id,
                             client_id: bot.client_id,
                             user,
@@ -1066,7 +1066,7 @@ async fn query(
                             short: bot.short,
                             mentionable: owners.mentionables(),
                             invite: bot.invite,
-                        });
+                        }));
                     }
 
                     Ok((StatusCode::OK, Json(bots)).into_response())

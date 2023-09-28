@@ -5,10 +5,17 @@ use ts_rs::TS;
 #[derive(Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = ".generated/PartialUser.ts")]
 pub struct PartialUser {
+    pub id: String,
     pub username: String,
     pub display_name: String,
     pub bot: bool,
     pub avatar: String,
+}
+
+impl PartialEq for PartialUser {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 pub async fn get_partial_user(pool: &PgPool, user_id: &str) -> Result<PartialUser, crate::Error> {
@@ -20,6 +27,7 @@ pub async fn get_partial_user(pool: &PgPool, user_id: &str) -> Result<PartialUse
     .await?;
 
     Ok(PartialUser {
+        id: user_id.to_string(),
         username: rec.username,
         display_name: rec.display_name,
         bot: rec.bot,

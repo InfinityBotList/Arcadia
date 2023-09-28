@@ -8,7 +8,7 @@ use crate::impls;
 use crate::impls::target_types::TargetType;
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
-    bots::{QueueBot, SearchBot},
+    entity::PartialEntity,
     cdn::{CdnAssetAction, CdnAssetItem},
     partners::{Partners, PartnerType, Partner, CreatePartner},
     rpc::RPCWebAction,
@@ -332,7 +332,7 @@ pub enum PanelQuery {
         (status = BAD_REQUEST, description = "An error occured", body = String),
     ),
 )]
-//#[axum_macros::debug_handler]
+#[axum_macros::debug_handler]
 async fn query(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PanelQuery>,
@@ -454,7 +454,7 @@ async fn query(
                 "DELETE FROM staffpanel__authchain WHERE user_id = $1",
                 user.id.to_string()
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .map_err(Error::new)?;
 
@@ -467,7 +467,7 @@ async fn query(
                 "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
                 user.id.to_string()
             )
-            .fetch_one(&mut tx)
+            .fetch_one(&mut *tx)
             .await
             .map_err(Error::new)?
             .count
@@ -483,7 +483,7 @@ async fn query(
                     user.id.to_string(),
                     temp_secret_enc
                 )
-                .fetch_one(&mut tx)
+                .fetch_one(&mut *tx)
                 .await
                 .map_err(Error::new)?
                 .itag
@@ -492,7 +492,7 @@ async fn query(
                     "SELECT itag FROM staffpanel__paneldata WHERE user_id = $1",
                     user.id.to_string()
                 )
-                .fetch_one(&mut tx)
+                .fetch_one(&mut *tx)
                 .await
                 .map_err(Error::new)?
                 .itag
@@ -504,7 +504,7 @@ async fn query(
                 itag,
                 token,
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .map_err(Error::new)?;
 
@@ -531,7 +531,7 @@ async fn query(
                 "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
                 auth_data.user_id
             )
-            .fetch_one(&mut tx)
+            .fetch_one(&mut *tx)
             .await
             .map_err(Error::new)?
             .count
@@ -550,7 +550,7 @@ async fn query(
                 "SELECT mfa_verified FROM staffpanel__paneldata WHERE user_id = $1",
                 auth_data.user_id
             )
-            .fetch_one(&mut tx)
+            .fetch_one(&mut *tx)
             .await
             .map_err(Error::new)?;
 
@@ -564,7 +564,7 @@ async fn query(
                     auth_data.user_id,
                     secret
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
                 .map_err(Error::new)?;
 
@@ -623,7 +623,7 @@ async fn query(
                 "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
                 auth_data.user_id
             )
-            .fetch_one(&mut tx)
+            .fetch_one(&mut *tx)
             .await
             .map_err(Error::new)?
             .count
@@ -640,7 +640,7 @@ async fn query(
                 "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
                 auth_data.user_id
             )
-            .fetch_one(&mut tx)
+            .fetch_one(&mut *tx)
             .await
             .map_err(Error::new)?
             .mfa_secret;
@@ -661,7 +661,7 @@ async fn query(
                 "UPDATE staffpanel__authchain SET state = 'active' WHERE token = $1",
                 login_token
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .map_err(Error::new)?;
 
@@ -669,7 +669,7 @@ async fn query(
                 "UPDATE staffpanel__paneldata SET mfa_verified = TRUE WHERE user_id = $1",
                 auth_data.user_id
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .map_err(Error::new)?;
 
@@ -688,7 +688,7 @@ async fn query(
                 "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
                 auth_data.user_id
             )
-            .fetch_one(&mut tx)
+            .fetch_one(&mut *tx)
             .await
             .map_err(Error::new)?
             .count
@@ -705,7 +705,7 @@ async fn query(
                 "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
                 auth_data.user_id
             )
-            .fetch_one(&mut tx)
+            .fetch_one(&mut *tx)
             .await
             .map_err(Error::new)?
             .mfa_secret;
@@ -726,7 +726,7 @@ async fn query(
                 "UPDATE staffpanel__paneldata SET mfa_verified = FALSE WHERE user_id = $1",
                 auth_data.user_id
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .map_err(Error::new)?;
 
@@ -735,7 +735,7 @@ async fn query(
                 "DELETE FROM staffpanel__authchain WHERE user_id = $1",
                 auth_data.user_id
             )
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .map_err(Error::new)?;
 
@@ -819,7 +819,9 @@ async fn query(
             }
 
             let queue = sqlx::query!(
-                "SELECT bot_id, client_id, claimed_by, approval_note, short, invite FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at"
+                "SELECT bot_id, client_id, claimed_by, type, approval_note, short, invite,
+                votes, shards, library, invite_clicks, clicks, servers 
+                FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at"
             )
             .fetch_all(&state.pool)
             .await
@@ -840,13 +842,20 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                bots.push(QueueBot {
+                bots.push(PartialEntity::Bot {
                     bot_id: bot.bot_id,
                     client_id: bot.client_id,
                     user,
                     claimed_by: bot.claimed_by,
                     approval_note: bot.approval_note,
                     short: bot.short,
+                    r#type: bot.r#type,
+                    votes: bot.votes,
+                    shards: bot.shards,
+                    library: bot.library,
+                    invite_clicks: bot.invite_clicks,
+                    clicks: bot.clicks,
+                    servers: bot.servers,
                     mentionable: owners.mentionables(),
                     invite: bot.invite,
                 });
@@ -1013,7 +1022,8 @@ async fn query(
 
                     let queue = sqlx::query!(
                         "
-                        SELECT bot_id, client_id, type, claimed_by, approval_note, short, invite FROM bots 
+                        SELECT bot_id, client_id, type, votes, shards, library, invite_clicks, clicks,
+                        servers, claimed_by, approval_note, short, invite FROM bots 
                         INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id
                         WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at
                         ",
@@ -1040,11 +1050,17 @@ async fn query(
                                 .await
                                 .map_err(Error::new)?;
 
-                        bots.push(SearchBot {
+                        bots.push(PartialEntity::Bot {
                             bot_id: bot.bot_id,
                             client_id: bot.client_id,
                             user,
                             r#type: bot.r#type,
+                            votes: bot.votes,
+                            shards: bot.shards,
+                            library: bot.library,
+                            invite_clicks: bot.invite_clicks,
+                            clicks: bot.clicks,
+                            servers: bot.servers,
                             claimed_by: bot.claimed_by,
                             approval_note: bot.approval_note,
                             short: bot.short,

@@ -93,7 +93,7 @@ pub async fn staff_resync(
             owner = false
     "
     )
-    .execute(&mut tx)
+    .execute(&mut *tx)
     .await
     .map_err(|e| format!("Error while updating users in database: {:?}", e))?;
 
@@ -105,7 +105,7 @@ pub async fn staff_resync(
                     "UPDATE users SET staff = true WHERE user_id = $1",
                     staff.user_id.to_string()
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
             }
             StaffPosition::Manager => {
@@ -113,7 +113,7 @@ pub async fn staff_resync(
                     "UPDATE users SET staff = true, admin = true WHERE user_id = $1",
                     staff.user_id.to_string()
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
             }
             StaffPosition::Developer => {
@@ -121,7 +121,7 @@ pub async fn staff_resync(
                     "UPDATE users SET staff = true, ibldev = true WHERE user_id = $1",
                     staff.user_id.to_string()
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
             }
             StaffPosition::HeadDeveloper => {
@@ -129,7 +129,7 @@ pub async fn staff_resync(
                 "UPDATE users SET staff = true, admin = true, ibldev = true, iblhdev = true WHERE user_id = $1",
                 staff.user_id.to_string()
             )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
             }
             StaffPosition::HeadManager => {
@@ -137,7 +137,7 @@ pub async fn staff_resync(
                     "UPDATE users SET staff = true, admin = true, hadmin = true WHERE user_id = $1",
                     staff.user_id.to_string()
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
             }
             StaffPosition::Owner => {
@@ -145,7 +145,7 @@ pub async fn staff_resync(
                     "UPDATE users SET staff = true, owner = true WHERE user_id = $1",
                     staff.user_id.to_string()
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
             }
         }

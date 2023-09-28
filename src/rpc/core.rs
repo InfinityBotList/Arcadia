@@ -956,7 +956,7 @@ impl RPCMethod {
                 match state.target_type {
                     TargetType::Bot => {
                         sqlx::query!("UPDATE bots SET votes = 0 WHERE bot_id = $1", target_id)
-                            .execute(&mut tx)
+                            .execute(&mut *tx)
                             .await?;
                     }
                     TargetType::Server => {
@@ -964,7 +964,7 @@ impl RPCMethod {
                             "UPDATE servers SET votes = 0 WHERE server_id = $1",
                             target_id
                         )
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     }
                     TargetType::Team => {
@@ -972,18 +972,18 @@ impl RPCMethod {
                             "UPDATE teams SET votes = 0 WHERE id = $1",
                             sqlx::types::Uuid::parse_str(target_id)?
                         )
-                        .execute(&mut tx)
+                        .execute(&mut *tx)
                         .await?;
                     }
                     TargetType::Pack => {
                         sqlx::query!("UPDATE packs SET votes = 0 WHERE url = $1", target_id)
-                            .execute(&mut tx)
+                            .execute(&mut *tx)
                             .await?;
                     }
                 };
 
                 sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (single entity) reset', voided_at = NOW() WHERE target_type = $1 AND target_id = $2", state.target_type.to_string(), target_id)
-                    .execute(&mut tx)
+                    .execute(&mut *tx)
                     .await?;
 
                 tx.commit().await?;
@@ -1012,28 +1012,28 @@ impl RPCMethod {
                 match state.target_type {
                     TargetType::Bot => {
                         sqlx::query!("UPDATE bots SET votes = 0")
-                            .execute(&mut tx)
+                            .execute(&mut *tx)
                             .await?;
                     }
                     TargetType::Server => {
                         sqlx::query!("UPDATE servers SET votes = 0")
-                            .execute(&mut tx)
+                            .execute(&mut *tx)
                             .await?;
                     }
                     TargetType::Team => {
                         sqlx::query!("UPDATE teams SET votes = 0")
-                            .execute(&mut tx)
+                            .execute(&mut *tx)
                             .await?;
                     }
                     TargetType::Pack => {
                         sqlx::query!("UPDATE packs SET votes = 0")
-                            .execute(&mut tx)
+                            .execute(&mut *tx)
                             .await?;
                     }
                 };
 
                 sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (all entities) reset', voided_at = NOW() WHERE target_type = $1", state.target_type.to_string())
-                    .execute(&mut tx)
+                    .execute(&mut *tx)
                     .await?;
 
                 tx.commit().await?;

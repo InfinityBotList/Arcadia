@@ -43,7 +43,7 @@ pub async fn spec_role_sync(
         .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
     sqlx::query!("UPDATE users SET bug_hunters = false")
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await
         .map_err(|e| format!("Error updating users: {:?}", e))?;
 
@@ -55,7 +55,7 @@ pub async fn spec_role_sync(
                     UPDATE users SET bug_hunters = true WHERE user_id = $1",
                     user.user_id.to_string()
                 )
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
                 .map_err(|e| format!("Error updating users: {:?}", e))?;
             }

@@ -19,19 +19,19 @@ pub async fn bans_sync(
 
     // First unset all bans
     sqlx::query!("UPDATE users SET banned = false")
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await
         .map_err(|e| format!("Error while updating users in database: {}", e))?;
 
     for ban in bans {
         let user_id = ban.user.id.0.to_string();
         sqlx::query!("UPDATE users SET banned = true WHERE user_id = $1", user_id)
-            .execute(&mut tx)
+            .execute(&mut *tx)
             .await
             .map_err(|e| format!("Error while updating user {} in database: {:?}", user_id, e))?;
 
         let owned_bots = sqlx::query!("SELECT bot_id FROM bots WHERE owner = $1", user_id)
-            .fetch_all(&mut tx)
+            .fetch_all(&mut *tx)
             .await
             .map_err(|e| {
                 format!(
@@ -43,7 +43,7 @@ pub async fn bans_sync(
         for bot in owned_bots {
             let bot_id = bot.bot_id;
             sqlx::query!("DELETE FROM bots WHERE bot_id = $1", bot_id)
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
                 .map_err(|e| {
                     format!(

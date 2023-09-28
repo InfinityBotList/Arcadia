@@ -90,7 +90,7 @@ pub async fn deleted_bots(
                 .map_err(|e| format!("Error creating transaction: {}", e))?;
 
             sqlx::query!("DELETE FROM bots WHERE bot_id = $1", bot_id)
-                .execute(&mut tx)
+                .execute(&mut *tx)
                 .await
                 .map_err(|e| format!("Error while deleting bot {} from database: {}", bot_id, e))?;
 

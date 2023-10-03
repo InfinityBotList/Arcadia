@@ -9,7 +9,6 @@ use crate::impls::link::Link;
 pub struct CreatePartner {
     pub id: String,
     pub name: String,
-    pub image_type: String,
     pub short: String,
     pub links: Vec<Link>,
     pub r#type: String,
@@ -21,7 +20,6 @@ pub struct CreatePartner {
 pub struct Partner {
     pub id: String,
     pub name: String,
-    pub image_type: String,
     pub short: String,
     pub links: Vec<Link>,
     pub r#type: String,

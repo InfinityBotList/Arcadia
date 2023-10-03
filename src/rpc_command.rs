@@ -19,10 +19,7 @@ async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<poise::Autocomple
 
     for m in crate::rpc::core::RPCMethod::VARIANTS {
         if partial.is_empty() || m.contains(partial) {
-            choices.push(poise::AutocompleteChoice {
-                name: m.to_string(),
-                value: m.to_string(),
-            });
+            choices.push(poise::slash_argument::AutocompleteChoice::new_with_value(m.to_string(), m.to_string()));
         }
     }
 
@@ -106,7 +103,6 @@ pub async fn rpc(
 ) -> Result<(), Error> {
     // Creates a "blank" RPCMethod
     let variant = crate::rpc::core::RPCMethod::from_str(&method)?;
-    let discord = ctx.discord();
 
     let rpc_method = {
         // Send modal button
@@ -130,7 +126,7 @@ pub async fn rpc(
         let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
         let interaction = msg
-            .await_component_interaction(ctx.discord())
+            .await_component_interaction(ctx)
             .author_id(ctx.author().id)
             .timeout(Duration::from_secs(120))
             .await;
@@ -138,7 +134,7 @@ pub async fn rpc(
         if let Some(m) = &interaction {
             let id = &m.data.custom_id;
 
-            msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
+            msg.edit(ctx.serenity_context(), builder.to_prefix_edit().components(vec![]))
                 .await?; // remove buttons after button press
 
             if id == "cancel" {
@@ -168,7 +164,7 @@ pub async fn rpc(
                 qm
             };
 
-            if let Some(resp) = m.quick_modal(discord, qm).await? {
+            if let Some(resp) = m.quick_modal(ctx.serenity_context(), qm).await? {
                 let mut data = HashMap::new();
 
                 for (i, inp) in resp.inputs.iter().enumerate() {
@@ -236,7 +232,7 @@ pub async fn rpc(
                 return Err("Timed out waiting for modal response".into());
             }
         } else {
-            msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
+            msg.edit(ctx.serenity_context(), builder.to_prefix_edit().components(vec![]))
                 .await?; // remove buttons after timeout
             return Ok(());
         }

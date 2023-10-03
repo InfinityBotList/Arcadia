@@ -1685,7 +1685,7 @@ async fn query(
             }
 
             let prec = sqlx::query!(
-                "SELECT id, name, image_type, short, links, type, created_at, user_id FROM partners"
+                "SELECT id, name, short, links, type, created_at, user_id FROM partners"
             )
             .fetch_all(&state.pool)
             .await
@@ -1697,7 +1697,6 @@ async fn query(
                 partners.push(Partner {
                     id: partner.id,
                     name: partner.name,
-                    image_type: partner.image_type,
                     short: partner.short,
                     links: serde_json::from_value(partner.links).map_err(Error::new)?,
                     r#type: partner.r#type,
@@ -1772,7 +1771,7 @@ async fn query(
                     .into_response());
             };
 
-            let path = format!("{}/partners/{}.{}", cdn_path.path, partner.id, partner.image_type);
+            let path = format!("{}/avatars/partners/{}.webp", cdn_path.path, partner.id);
 
             match std::fs::metadata(&path) {
                 Ok(m) => {
@@ -1881,10 +1880,9 @@ async fn query(
 
             // Insert partner
             sqlx::query!(
-                "INSERT INTO partners (id, name, image_type, short, links, type, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                "INSERT INTO partners (id, name, short, links, type, user_id) VALUES ($1, $2, $3, $4, $5, $6)",
                 partner.id,
                 partner.name,
-                partner.image_type,
                 partner.short,
                 serde_json::to_value(partner.links).map_err(Error::new)?,
                 partner.r#type,

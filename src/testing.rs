@@ -199,20 +199,20 @@ pub async fn queue(
         .await?;
 
     let mut interaction = msg
-        .await_component_interactions(ctx.discord())
+        .await_component_interactions(ctx.serenity_context())
         .author_id(ctx.author().id)
         .timeout(Duration::from_secs(120))
         .stream();
 
     while let Some(item) = interaction.next().await {
-        item.defer(&ctx.discord()).await?;
+        item.defer(&ctx.serenity_context()).await?;
 
         let id = &item.data.custom_id;
 
         info!("Received interaction: {}", id);
 
         if id == "q:cancel" {
-            item.delete_response(ctx.discord()).await?;
+            item.delete_response(ctx.serenity_context()).await?;
             return Ok(());
         }
 
@@ -313,11 +313,11 @@ pub async fn claim(
         let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
         let interaction = msg
-            .await_component_interaction(ctx.discord())
+            .await_component_interaction(ctx.serenity_context())
             .author_id(ctx.author().id)
             .await;
 
-        msg.edit(ctx.discord(), builder.to_prefix_edit().components(vec![]))
+        msg.edit(ctx.serenity_context(), builder.to_prefix_edit().components(vec![]))
             .await?; // remove buttons after button press
 
         if let Some(m) = &interaction {

@@ -4,7 +4,6 @@ use std::num::NonZeroU64;
 use crate::checks;
 use crate::Context;
 use crate::Error;
-use poise::serenity_prelude::CacheHttp;
 use poise::serenity_prelude::GuildId;
 
 #[poise::command(
@@ -28,9 +27,7 @@ pub async fn uninvitedbots(ctx: Context<'_>) -> Result<(), Error> {
         match row.bot_id.parse::<NonZeroU64>() {
             Ok(id) => {
                 match ctx
-                    .cache_and_http()
                     .cache()
-                    .ok_or("Error finding main server")?
                     .member_field(GuildId(crate::config::CONFIG.servers.main), id, |m| {
                         m.user.id
                     }) {

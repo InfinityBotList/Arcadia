@@ -23,7 +23,7 @@ async fn _embed_help(
     pctx: Context<'_>,
     ctx: poise::FrameworkContext<'_, Data, Error>,
 ) -> Result<Vec<EmbedHelp>, Error> {
-    let mut categories = indexmap::IndexMap::<Option<&str>, Vec<&Command<Data, Error>>>::new();
+    let mut categories = indexmap::IndexMap::<Option<String>, Vec<&Command<Data, Error>>>::new();
     for cmd in &ctx.options().commands {
         // Check if category exists
         if categories.contains_key(&cmd.category) {
@@ -31,14 +31,14 @@ async fn _embed_help(
         }
         // If category doesn't exist, create it
         else {
-            categories.insert(cmd.category, vec![cmd]);
+            categories.insert(cmd.category.clone(), vec![cmd]);
         }
     }
 
     let mut help_arr = Vec::new();
 
     for (category_name, commands) in categories {
-        let cat_name = category_name.unwrap_or("Commands");
+        let cat_name = category_name.unwrap_or("Commands".to_string());
         let mut menu = "".to_string();
         for command in commands {
             if command.hide_in_help {
@@ -253,7 +253,9 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                     .map(|p| {
                         format!(
                             "{} - {}",
-                            p.name,
+                            p.name
+                                .as_deref()
+                                .unwrap_or("No name available yet"),
                             p.description
                                 .as_deref()
                                 .unwrap_or("No description available yet")
@@ -286,7 +288,7 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                                 .iter()
                                 .map(|p| format!(
                                     "*{}* - {}",
-                                    p.name,
+                                    p.name.as_deref().unwrap_or("No name available yet"),
                                     p.description
                                         .as_deref()
                                         .unwrap_or("No description available yet")
@@ -310,26 +312,26 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
 
     let eh = _embed_help(ctx, ctx.framework()).await?;
 
-    let msg = _help_send_index(Some(ctx), None, &ctx.discord().http, &eh, 0, None).await?;
+    let msg = _help_send_index(Some(ctx), None, &ctx.serenity_context().http, &eh, 0, None).await?;
 
     if let Some(msg) = msg {
         // Create a collector
         let interaction = msg
-            .await_component_interactions(ctx.discord())
+            .await_component_interactions(ctx.serenity_context())
             .author_id(ctx.author().id)
             .timeout(Duration::from_secs(120));
 
         let mut collect_stream = interaction.stream();
 
         while let Some(item) = collect_stream.next().await {
-            item.defer(&ctx.discord()).await?;
+            item.defer(&ctx.serenity_context()).await?;
 
             let id = &item.data.custom_id;
 
             info!("Received interaction: {}", id);
 
             if id == "hnav:cancel" {
-                item.delete_response(ctx.discord()).await?;
+                item.delete_response(ctx.serenity_context()).await?;
                 return Ok(());
             }
 
@@ -356,7 +358,7 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                         channel_id: msg.channel_id,
                         message_id: msg.id,
                     }),
-                    &ctx.discord().http,
+                    &ctx.serenity_context().http,
                     &eh,
                     value,
                     Some(Arc::new(item.clone())),
@@ -376,7 +378,7 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                         channel_id: msg.channel_id,
                         message_id: msg.id,
                     }),
-                    &ctx.discord().http,
+                    &ctx.serenity_context().http,
                     &eh,
                     id,
                     Some(Arc::new(item.clone())),

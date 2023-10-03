@@ -14,7 +14,7 @@ pub async fn modaltest(ctx: Context<'_>) -> Result<(), Error> {
     match ctx {
         poise::structs::Context::Application(a) => match a.interaction {
             CommandOrAutocompleteInteraction::Command(c) => {
-                if let Some(resp) = c.quick_modal(ctx.discord(), qm).await? {
+                if let Some(resp) = c.quick_modal(ctx.serenity_context(), qm).await? {
                     let inputs = resp.inputs;
                     let h = &inputs[0];
 

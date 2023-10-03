@@ -1,5 +1,5 @@
 use crate::{checks, config};
-use poise::serenity_prelude::{CacheHttp, GuildId, RoleId};
+use poise::serenity_prelude::{GuildId, RoleId};
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;

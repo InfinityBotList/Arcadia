@@ -7,7 +7,7 @@ pub async fn bans_sync(
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
     let bans = GuildId(config::CONFIG.servers.main)
-        .bans(&cache_http.http)
+        .bans(&cache_http.http, None, None)
         .await
         .map_err(|e| format!("Error while fetching bans: {}", e))?;
 

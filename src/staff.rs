@@ -91,7 +91,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             }
         };
 
-        let cache_user = ctx.discord().cache.member(server_id, UserId(user_id));
+        let cache_user = ctx.serenity_context().cache.member(server_id, UserId(user_id));
 
         let user = match cache_user {
             Some(user) => user.user,
@@ -128,20 +128,20 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
     // Wait for user to select a staff member
     let interaction = msg
-        .await_component_interactions(ctx.discord())
+        .await_component_interactions(ctx.serenity_context())
         .author_id(ctx.author().id)
         .timeout(Duration::from_secs(120));
 
     let mut collect_stream = interaction.stream();
 
     while let Some(item) = collect_stream.next().await {
-        item.defer(&ctx.discord()).await?;
+        item.defer(&ctx.serenity_context()).await?;
 
         let id = &item.data.custom_id;
 
         if id == "sl:cancel" {
             log::info!("Received cancel interaction");
-            item.delete_response(ctx.discord()).await?;
+            item.delete_response(ctx.serenity_context()).await?;
             return Ok(());
         }
 
@@ -172,7 +172,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             }
         };
 
-        let cache_user = ctx.discord().cache.member(server_id, UserId(user_id));
+        let cache_user = ctx.serenity_context().cache.member(server_id, UserId(user_id));
 
         let member = match cache_user {
             Some(user) => user,
@@ -249,7 +249,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
                 CreateActionRow::Buttons(vec![CreateButton::new("sl:cancel").label("Cancel")]),
             ]);
 
-        item.edit_response(ctx.discord(), msg).await?;
+        item.edit_response(ctx.serenity_context(), msg).await?;
     }
 
     Ok(())
@@ -265,7 +265,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
     // Get list of users with staff flag set to true
     let data = ctx.data();
-    let discord = &ctx.discord();
+    let discord = &ctx.serenity_context();
 
     let staffs = sqlx::query!(
         "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin, owner FROM users WHERE staff = true ORDER BY user_id ASC"
@@ -312,13 +312,13 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
 /// Get guild list, this is intentionally public
 #[poise::command(rename = "guildlist", track_edits, prefix_command, slash_command)]
 pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
-    let guilds = ctx.discord().cache.guilds();
+    let guilds = ctx.serenity_context().cache.guilds();
 
     let mut guild_list = String::new();
 
     for guild in guilds.iter() {
         let name = guild
-            .name(ctx.discord())
+            .name(ctx.serenity_context())
             .unwrap_or_else(|| "Unknown".to_string())
             + " ("
             + &guild.to_string()
@@ -346,7 +346,7 @@ pub async fn staff_guilddel(
 ) -> Result<(), Error> {
     let gid = guild.parse::<NonZeroU64>()?;
 
-    ctx.discord().http.delete_guild(GuildId(gid)).await?;
+    ctx.serenity_context().http.delete_guild(GuildId(gid)).await?;
 
     ctx.say("Removed guild").await?;
 
@@ -368,7 +368,7 @@ pub async fn staff_guildleave(
 ) -> Result<(), Error> {
     let gid = guild.parse::<NonZeroU64>()?;
 
-    ctx.discord().http.leave_guild(GuildId(gid)).await?;
+    ctx.serenity_context().http.leave_guild(GuildId(gid)).await?;
 
     ctx.say("Removed guild").await?;
 

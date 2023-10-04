@@ -1,5 +1,5 @@
 <h2 align='center'>
-  <img src="https://cdn.infinitybots.xyz/images/png/Infinity5.png" height='100px' width='100px' />
+  <img src="https://cdn.infinitybots.gg/core/full_logo.webp" height='100px' width='100px' />
   <br> 
   Arcadia
 </h2>

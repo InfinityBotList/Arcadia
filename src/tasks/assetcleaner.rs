@@ -1,4 +1,4 @@
-use log::{info, warn};
+use log::{info, warn, error};
 
 pub async fn asset_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
     let type_id_map = indexmap::indexmap! { 
@@ -17,13 +17,16 @@ pub async fn asset_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
     // Enumerate over every possbility
     for asset in assets {
         for (entity_type, id_column) in &type_id_map {
-            info!("Validating '{}' for entity type '{}'", asset, entity_type);
             let entity_type_dir = format!("{}/{}/{}", cdn_path.path, asset, entity_type); 
 
             if let Err(e) = std::fs::metadata(&entity_type_dir) {
-                info!("Could not validate '{}': {}", entity_type_dir, e);
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    error!("Could not validate '{}': {}", entity_type_dir, e);
+                }
                 continue;
             }
+
+            info!("Validating '{}' for entity type '{}'", asset, entity_type);
 
             let dir = std::fs::read_dir(&entity_type_dir)?;
 
@@ -38,7 +41,7 @@ pub async fn asset_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
                     continue;
                 };
 
-                let query = format!("SELECT {} FROM {} WHERE {} = $1", id_column, entity_type, id_column);
+                let query = format!("SELECT {}::text FROM {} WHERE {}::text = $1::text", id_column, entity_type, id_column);
                 let id: Option<String> = sqlx::query_scalar(&query).bind(id).fetch_optional(pool).await?;
 
                 if id.is_none() {

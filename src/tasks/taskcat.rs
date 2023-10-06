@@ -14,6 +14,7 @@ pub enum Task {
     SpecRoleSync,
     TeamCleaner,
     GenericCleaner,
+    AssetCleaner,
     DeletedBots,
 }
 
@@ -28,6 +29,7 @@ impl Task {
             Task::SpecRoleSync => true,
             Task::TeamCleaner => true,
             Task::GenericCleaner => true,
+            Task::AssetCleaner => true,
             Task::DeletedBots => true,
         }
     }
@@ -42,6 +44,7 @@ impl Task {
             Task::SpecRoleSync => Duration::from_secs(50),
             Task::TeamCleaner => Duration::from_secs(300),
             Task::GenericCleaner => Duration::from_secs(400),
+            Task::AssetCleaner => Duration::from_secs(450),
             Task::DeletedBots => Duration::from_secs(500),
         }
     }
@@ -56,6 +59,7 @@ impl Task {
             Task::SpecRoleSync => "Syncing special roles",
             Task::TeamCleaner => "Fixing up empty/invalid teams",
             Task::GenericCleaner => "Cleaning up orphaned generic entities",
+            Task::AssetCleaner => "Cleaning up orphaned assets",
             Task::DeletedBots => "Cleaning up deleted bots",
         }
     }
@@ -76,6 +80,7 @@ impl Task {
             }
             Task::TeamCleaner => crate::tasks::teamcleaner::team_cleaner(pool).await,
             Task::GenericCleaner => crate::tasks::genericcleaner::generic_cleaner(pool).await,
+            Task::AssetCleaner => crate::tasks::assetcleaner::asset_cleaner(pool).await,
             Task::DeletedBots => crate::tasks::deletedbots::deleted_bots(pool, cache_http).await,
         }
     }

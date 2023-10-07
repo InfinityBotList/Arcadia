@@ -1938,15 +1938,7 @@ async fn query(
                     .into_response());
             };
 
-            let rec = sqlx::query!(
-                "SELECT image_type FROM partners WHERE id = $1",
-                partner_id
-            )
-            .fetch_one(&state.pool)
-            .await
-            .map_err(Error::new)?;
-
-            let path = format!("{}/partners/{}.{}", cdn_path.path, partner_id, rec.image_type);
+            let path = format!("{}/partners/{}.webp", cdn_path.path, partner_id);
 
             match std::fs::metadata(&path) {
                 Ok(m) => {

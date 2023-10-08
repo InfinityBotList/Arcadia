@@ -1696,10 +1696,10 @@ async fn query(
                     // If current_dir is set, then set curr dir to that
                     // 
                     // Otherwise, set curr dir to the root of the repo 
-                    let curr_dir = if current_dir {
+                    let curr_dir = if !current_dir {
                         repo_root.clone()
                     } else {
-                        format!("{}/{}", repo_root, current_dir)
+                        asset_final_path.clone()
                     };
 
                     cmd_output.insert("git rev-parse --show-toplevel", repo_root.clone());

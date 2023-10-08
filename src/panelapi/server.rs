@@ -37,7 +37,6 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
 use sha2::{Sha512, Digest};
-
 struct Error {
     status: StatusCode,
     message: String,
@@ -1673,26 +1672,26 @@ async fn query(
                     let mut cmd_output = indexmap::IndexMap::new();
                    
                     // Use git rev-parse --show-toplevel to get the root of the repo
-                    let output = std::process::Command::new("git")
+                    let output = tokio::process::Command::new("git")
                         .arg("rev-parse")
                         .arg("--show-toplevel")
                         .current_dir(&asset_final_path)
                         .output()
+                        .await
                         .map_err(|e| Error::new(format!("Failed to execute git rev-parse: {}", e)))?;
 
-                    if !output.status.success() {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Failed to get git repo root".to_string(),
-                        )
-                            .into_response());
-                    }
-
                     let repo_root = std::str::from_utf8(&output.stdout)
-                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
-                        .trim()
-                        .replace('\n', "")
-                        .to_string();
+                    .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                    .trim()
+                    .replace('\n', "")
+                    .to_string();
+
+                    cmd_output.insert("git rev-parse --show-toplevel", repo_root.clone());
+
+                    if !output.status.success() {
+                        cmd_output.insert("error", output.status.to_string());
+                        return Ok((StatusCode::OK, Json(cmd_output)).into_response())
+                    }
 
                     // If current_dir is set, then set curr dir to that
                     // 
@@ -1703,75 +1702,69 @@ async fn query(
                         asset_final_path.clone()
                     };
 
-                    cmd_output.insert("git rev-parse --show-toplevel", repo_root.clone());
                     cmd_output.insert("[dir]", curr_dir.clone());
 
                     // Run `git add .` in the current directory
-                    let output = std::process::Command::new("git")
+                    let output = tokio::process::Command::new("git")
                         .arg("add")
                         .arg(".")
                         .current_dir(&curr_dir)
+                        .env("GIT_TERMINAL_PROMPT", "0")
                         .output()
+                        .await
                         .map_err(|e| Error::new(format!("Failed to execute git add: {}", e)))?;
-
-                    if !output.status.success() {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Failed to add files to git".to_string(),
-                        )
-                            .into_response());
-                    }
 
                     cmd_output.insert("git add", std::str::from_utf8(&output.stdout)
                         .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
                         .trim()
-                        .replace('\n', "")
                         .to_string());
 
+                    if !output.status.success() {
+                        cmd_output.insert("error", output.status.to_string());
+                        return Ok((StatusCode::OK, Json(cmd_output)).into_response())
+                    } 
+
+                    // Check if theres already a pending commit
+
                     // Run `git commit -m <message>` in the current directory
-                    let output = std::process::Command::new("git")
+                    let output = tokio::process::Command::new("git")
                         .arg("commit")
                         .arg("-m")
                         .arg(message)
+                        .env("GIT_TERMINAL_PROMPT", "0")
                         .current_dir(&curr_dir)
                         .output()
+                        .await
                         .map_err(|e| Error::new(format!("Failed to execute git commit: {}", e)))?;
-
-                    if !output.status.success() {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Failed to commit files to git".to_string(),
-                        )
-                            .into_response());
-                    }
 
                     cmd_output.insert("git commit", std::str::from_utf8(&output.stdout)
                         .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
                         .trim()
-                        .replace('\n', "")
                         .to_string());
 
+                    if !output.status.success() {
+                        cmd_output.insert("error_gc", output.status.to_string());
+                    }    
+
                     // Run `git push --force` in the current directory
-                    let output = std::process::Command::new("git")
+                    let output = tokio::process::Command::new("git")
                         .arg("push")
                         .arg("--force")
+                        .env("GIT_TERMINAL_PROMPT", "0")
                         .current_dir(&curr_dir)
                         .output()
+                        .await
                         .map_err(|e| Error::new(format!("Failed to execute git push: {}", e)))?;
-
-                    if !output.status.success() {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Failed to push files to git".to_string(),
-                        )
-                            .into_response());
-                    }
 
                     cmd_output.insert("git push", std::str::from_utf8(&output.stdout)
                         .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
                         .trim()
-                        .replace('\n', "")
                         .to_string());
+
+                    if !output.status.success() {
+                        cmd_output.insert("error_gp", output.status.to_string());
+                        return Ok((StatusCode::OK, Json(cmd_output)).into_response())
+                    }    
 
                     Ok((StatusCode::OK, Json(cmd_output)).into_response())
                 },

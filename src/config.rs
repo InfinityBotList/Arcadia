@@ -82,9 +82,13 @@ impl Default for Channels {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct PanelConfig {
+    /// Discord client ID for panel login app
     pub client_id: String,
-    pub redirect_url: Vec<String>,
+    /// Discord client secret for panel login app
     pub client_secret: String,
+    /// Redirect URL for panel login app
+    pub redirect_url: Vec<String>,
+
     /// CDN scopes for the panel API (locations for the CDN)
     /// 
     /// Currently the panel uses the following scopes:

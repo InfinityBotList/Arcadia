@@ -48,6 +48,15 @@ pub enum CdnAssetAction {
     },
     /// Delete asset or folder
     Delete,
+    /// Make github commit to persist files to github
+    PersistGit {
+        /// Commit message
+        message: String,
+        /// Current directory push
+        /// 
+        /// Using this option will only add and push files in the current directory
+        current_dir: bool,
+    }
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]

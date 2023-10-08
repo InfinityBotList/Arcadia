@@ -1668,7 +1668,112 @@ async fn query(
                         )
                             .into_response()),
                     }
-                }
+                },
+                CdnAssetAction::PersistGit { message, current_dir } => {
+                    let mut cmd_output = indexmap::IndexMap::new();
+                   
+                    // Use git rev-parse --show-toplevel to get the root of the repo
+                    let output = std::process::Command::new("git")
+                        .arg("rev-parse")
+                        .arg("--show-toplevel")
+                        .output()
+                        .map_err(|e| Error::new(format!("Failed to execute git rev-parse: {}", e)))?;
+
+                    if !output.status.success() {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Failed to get git repo root".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    let repo_root = std::str::from_utf8(&output.stdout)
+                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                        .trim()
+                        .replace('\n', "")
+                        .to_string();
+
+                    // If current_dir is set, then set curr dir to that
+                    // 
+                    // Otherwise, set curr dir to the root of the repo 
+                    let curr_dir = if current_dir {
+                        repo_root.clone()
+                    } else {
+                        format!("{}/{}", repo_root, current_dir)
+                    };
+
+                    cmd_output.insert("git rev-parse --show-toplevel", repo_root.clone());
+                    cmd_output.insert("[dir]", curr_dir.clone());
+
+                    // Run `git add .` in the current directory
+                    let output = std::process::Command::new("git")
+                        .arg("add")
+                        .arg(".")
+                        .current_dir(&curr_dir)
+                        .output()
+                        .map_err(|e| Error::new(format!("Failed to execute git add: {}", e)))?;
+
+                    if !output.status.success() {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Failed to add files to git".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    cmd_output.insert("git add", std::str::from_utf8(&output.stdout)
+                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                        .trim()
+                        .replace('\n', "")
+                        .to_string());
+
+                    // Run `git commit -m <message>` in the current directory
+                    let output = std::process::Command::new("git")
+                        .arg("commit")
+                        .arg("-m")
+                        .arg(message)
+                        .current_dir(&curr_dir)
+                        .output()
+                        .map_err(|e| Error::new(format!("Failed to execute git commit: {}", e)))?;
+
+                    if !output.status.success() {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Failed to commit files to git".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    cmd_output.insert("git commit", std::str::from_utf8(&output.stdout)
+                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                        .trim()
+                        .replace('\n', "")
+                        .to_string());
+
+                    // Run `git push --force` in the current directory
+                    let output = std::process::Command::new("git")
+                        .arg("push")
+                        .arg("--force")
+                        .current_dir(&curr_dir)
+                        .output()
+                        .map_err(|e| Error::new(format!("Failed to execute git push: {}", e)))?;
+
+                    if !output.status.success() {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Failed to push files to git".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    cmd_output.insert("git push", std::str::from_utf8(&output.stdout)
+                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                        .trim()
+                        .replace('\n', "")
+                        .to_string());
+
+                    Ok((StatusCode::OK, Json(cmd_output)).into_response())
+                },
             }
         }
         PanelQuery::GetPartnerList { login_token } => {

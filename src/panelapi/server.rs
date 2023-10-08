@@ -1676,6 +1676,7 @@ async fn query(
                     let output = std::process::Command::new("git")
                         .arg("rev-parse")
                         .arg("--show-toplevel")
+                        .current_dir(&asset_final_path)
                         .output()
                         .map_err(|e| Error::new(format!("Failed to execute git rev-parse: {}", e)))?;
 

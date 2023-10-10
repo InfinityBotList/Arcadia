@@ -303,11 +303,20 @@ pub enum PanelQuery {
     /// Adds a partner
     /// 
     /// This technically only needs the PartnerManagement capability, 
-    /// but also requires a CDN asset upload capability as well to upload the avatar
+    /// but also requires the CDN asset upload capability as well to upload the avatar
     /// of the partner
     AddPartner {
         /// Login token
         login_token: String,
+        /// Partner Data
+        partner: CreatePartner,
+    },
+    /// Edits a partner
+    EditPartner {
+        /// Login token
+        login_token: String,
+        /// Partner ID
+        partner_id: String,
         /// Partner Data
         partner: CreatePartner,
     },
@@ -1991,6 +2000,109 @@ async fn query(
             .await
             .map_err(Error::new)?;
             
+            Ok((StatusCode::NO_CONTENT, "").into_response())
+        },
+        PanelQuery::EditPartner {
+            login_token,
+            partner_id,
+            partner
+        } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            if !caps.contains(&Capability::PartnerManagement) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage partners right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Check if partner exists
+            let partner_exists = sqlx::query!(
+                "SELECT id FROM partners WHERE id = $1",
+                partner_id
+            )
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(Error::new)?
+            .is_some();
+
+            if !partner_exists {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Partner does not exist".to_string(),
+                )
+                    .into_response());
+            }
+
+            if partner.links.is_empty() {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Links cannot be empty".to_string(),
+                )
+                    .into_response());
+            }
+
+            for link in &partner.links {
+                if link.name.is_empty() {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        "Link name cannot be empty".to_string(),
+                    )
+                        .into_response());
+                }
+
+                if link.value.is_empty() {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        "Link URL cannot be empty".to_string(),
+                    )
+                        .into_response());
+                }
+
+                if !link.value.starts_with("https://") {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        "Link URL must start with https://".to_string(),
+                    )
+                        .into_response());
+                }
+            }
+
+            // Check if partner type exists
+            let partner_type_exists = sqlx::query!(
+                "SELECT id FROM partner_types WHERE id = $1",
+                partner.r#type
+            )
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(Error::new)?
+            .is_some();
+
+            if !partner_type_exists {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Partner type does not exist".to_string(),
+                )
+                    .into_response());
+            }
+
+            // Update partner
+            sqlx::query!(
+                "UPDATE partners SET name = $2, short = $3, links = $4, type = $5, user_id = $6 WHERE id = $1",
+                partner.id,
+                partner.name,
+                partner.short,
+                serde_json::to_value(partner.links).map_err(Error::new)?,
+                partner.r#type,
+                partner.user_id
+            )
+            .execute(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
             Ok((StatusCode::NO_CONTENT, "").into_response())
         },
         PanelQuery::DeletePartner {

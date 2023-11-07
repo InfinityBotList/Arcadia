@@ -41,9 +41,11 @@ pub enum Capability {
     PartnerManagement,
     /// Ability to add assets to the CDN
     CdnManagement,
-    /// Ability to view applications
+    /// Ability to manage changelogs
+    ChangelogManagement,
+    /// Ability to view applications [not yet implemented]
     ViewApps,
-    /// Ability to manage applications
+    /// Ability to manage applications [not yet implemented]
     ManageApps,
 }
 

@@ -10,6 +10,7 @@ use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
     entity::{PartialBot, PartialEntity},
     cdn::{CdnAssetAction, CdnAssetItem},
+    changelogs::{ChangelogAction, ChangelogEntry},
     partners::{Partners, PartnerType, Partner, CreatePartner},
     rpc::RPCWebAction,
     webcore::{Capability, CoreConstants, InstanceConfig, PanelServers}
@@ -338,6 +339,13 @@ pub enum PanelQuery {
         method: String,
         /// Body
         body: String,
+    },
+    /// Updates/handles the changelog of the list
+    UpdateChangelog {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: ChangelogAction
     }
 }
 
@@ -2240,7 +2248,47 @@ async fn query(
             let resp = res.text().await.map_err(Error::new)?;
 
             Ok((status, resp).into_response())
+        },
+        PanelQuery::UpdateChangelog { login_token, action } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
+            if !caps.contains(&Capability::ChangelogManagement) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage changelogs right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            match action {
+                ChangelogAction::ListEntries => {
+                    let rows = sqlx::query!(
+                        "SELECT version, added, updated, removed, github_html, created_at, extra_description, prerelease FROM changelogs ORDER BY version DESC"
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut entries = Vec::new();
+
+                    for row in rows {
+                        entries.push(ChangelogEntry {
+                            version: row.version,
+                            added: row.added,
+                            updated: row.updated,
+                            removed: row.removed,
+                            github_html: row.github_html,
+                            created_at: row.created_at,
+                            extra_description: row.extra_description,
+                            prerelease: row.prerelease,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(entries)).into_response())        
+                }
+            }
         },
     }
 }

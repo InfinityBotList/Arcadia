@@ -41,6 +41,10 @@ pub enum Capability {
     PartnerManagement,
     /// Ability to add assets to the CDN
     CdnManagement,
+    /// Ability to view applications
+    ViewApps,
+    /// Ability to manage applications
+    ManageApps,
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]

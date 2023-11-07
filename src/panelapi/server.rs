@@ -94,6 +94,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
             paneldata_ref UUID NOT NULL REFERENCES staffpanel__paneldata(itag) ON DELETE CASCADE,
             user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
             token TEXT NOT NULL,
+            popplio_token TEXT NOT NULL, -- The popplio_token is sent to Popplio etc. to validate such requests. It is not visible or disclosed to the client
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             state TEXT NOT NULL DEFAULT 'pending'
         )"
@@ -327,6 +328,17 @@ pub enum PanelQuery {
         /// Partner ID
         partner_id: String,
     },
+    /// Create a request to a/an Popplio staff endpoint
+    PopplioStaff {
+        /// Login token
+        login_token: String,
+        /// Path
+        path: String,
+        /// Method
+        method: String,
+        /// Body
+        body: String,
+    }
 }
 
 /// Make Panel Query
@@ -507,10 +519,11 @@ async fn query(
             };
 
             sqlx::query!(
-                "INSERT INTO staffpanel__authchain (user_id, paneldata_ref, token) VALUES ($1, $2, $3)",
+                "INSERT INTO staffpanel__authchain (user_id, paneldata_ref, token, popplio_token) VALUES ($1, $2, $3, $4)",
                 user.id.to_string(),
                 itag,
                 token,
+                crate::impls::crypto::gen_random(2048)
             )
             .execute(&mut *tx)
             .await
@@ -2180,6 +2193,54 @@ async fn query(
                 .map_err(Error::new)?;
 
             Ok((StatusCode::NO_CONTENT, "").into_response())
-        }
+        },
+        PanelQuery::PopplioStaff { login_token, path, method, body } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let client = reqwest::Client::new();
+
+            let Ok(method) = reqwest::Method::from_bytes(&method.into_bytes()) else {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Invalid method".to_string(),
+                )
+                    .into_response());
+            };
+
+            if !path.starts_with('/') {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Path must start with /".to_string(),
+                )
+                    .into_response());
+            }
+
+            let query = sqlx::query!("SELECT popplio_token FROM staffpanel__authchain WHERE token = $1", login_token)
+                .fetch_one(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+            let caps_str = caps.iter().map(|c| c.to_string()).collect::<Vec<String>>();
+
+            let res = client
+                .request(method, crate::config::CONFIG.popplio_url.clone()+&path)
+                .header("User-Agent", "arcadia")
+                .header("Authorization", &login_token)
+                .header("X-Forwarded-For", &path)
+                .header("X-Staff-Auth-Token", &query.popplio_token)
+                .header("X-User-Capabilities", caps_str.join(","))
+                .body(body)
+                .send()
+                .await
+                .map_err(Error::new)?;
+
+            let status = res.status();
+            let resp = res.text().await.map_err(Error::new)?;
+
+            Ok((status, resp).into_response())
+
+        },
     }
 }

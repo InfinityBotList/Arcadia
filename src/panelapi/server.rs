@@ -2287,7 +2287,42 @@ async fn query(
                     }
 
                     Ok((StatusCode::OK, Json(entries)).into_response())        
-                }
+                },
+                ChangelogAction::CreateEntry { version, extra_description, prerelease, added, updated, removed } => {
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM changelogs WHERE version = $1",
+                        version
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                    > 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same version already exists".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Insert entry
+                    sqlx::query!(
+                        "INSERT INTO changelogs (version, extra_description, prerelease, added, updated, removed) VALUES ($1, $2, $3, $4, $5, $6)",
+                        version,
+                        extra_description,
+                        prerelease,
+                        &added,
+                        &updated,
+                        &removed
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
             }
         },
     }

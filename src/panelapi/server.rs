@@ -2265,7 +2265,7 @@ async fn query(
             match action {
                 ChangelogAction::ListEntries => {
                     let rows = sqlx::query!(
-                        "SELECT version, added, updated, removed, github_html, created_at, extra_description, prerelease FROM changelogs ORDER BY version DESC"
+                        "SELECT version, added, updated, removed, github_html, created_at, extra_description, prerelease FROM changelogs ORDER BY version::semver DESC"
                     )
                     .fetch_all(&state.pool)
                     .await

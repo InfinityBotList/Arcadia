@@ -35,7 +35,31 @@ pub enum ChangelogAction {
         updated: Vec<String>,
         /// Removed features for the version
         removed: Vec<String>,
-    }
+    },
+
+    /// Update a changelog entry
+    UpdateEntry {
+        /// Version for the changelog entry to update
+        version: String,
+        /// Extra description for the version, if applicable
+        extra_description: String,
+        /// Github HTML for the version, if applicable
+        github_html: Option<String>,
+        /// Whether or not this is a prerelease
+        prerelease: bool,
+        /// Added features for the version
+        added: Vec<String>,
+        /// Updated features for the version
+        updated: Vec<String>,
+        /// Removed features for the version
+        removed: Vec<String>,
+    },
+
+    /// Delete a changelog entry
+    DeleteEntry {
+        /// Version for the changelog entry to delete
+        version: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]

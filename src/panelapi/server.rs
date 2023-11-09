@@ -317,8 +317,6 @@ pub enum PanelQuery {
     EditPartner {
         /// Login token
         login_token: String,
-        /// Partner ID
-        partner_id: String,
         /// Partner Data
         partner: CreatePartner,
     },
@@ -2025,7 +2023,6 @@ async fn query(
         },
         PanelQuery::EditPartner {
             login_token,
-            partner_id,
             partner
         } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
@@ -2043,7 +2040,7 @@ async fn query(
             // Check if partner exists
             let partner_exists = sqlx::query!(
                 "SELECT id FROM partners WHERE id = $1",
-                partner_id
+                partner.id
             )
             .fetch_optional(&state.pool)
             .await
@@ -2316,6 +2313,72 @@ async fn query(
                         &added,
                         &updated,
                         &removed
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
+                ChangelogAction::UpdateEntry { version, extra_description, github_html, prerelease, added, updated, removed } => {
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM changelogs WHERE version = $1",
+                        version
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                    == 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same version does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Update entry
+                    sqlx::query!(
+                        "UPDATE changelogs SET extra_description = $2, github_html = $3, prerelease = $4, added = $5, updated = $6, removed = $7 WHERE version = $1",
+                        version,
+                        extra_description,
+                        github_html,
+                        prerelease,
+                        &added,
+                        &updated,
+                        &removed
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
+                ChangelogAction::DeleteEntry { version } => {
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM changelogs WHERE version = $1",
+                        version
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                    == 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same version does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete entry
+                    sqlx::query!(
+                        "DELETE FROM changelogs WHERE version = $1",
+                        version
                     )
                     .execute(&state.pool)
                     .await

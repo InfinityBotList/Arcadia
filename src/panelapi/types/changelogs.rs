@@ -53,6 +53,8 @@ pub enum ChangelogAction {
         updated: Vec<String>,
         /// Removed features for the version
         removed: Vec<String>,
+        /// Whether or not to publish the version
+        published: bool,
     },
 
     /// Delete a changelog entry
@@ -73,4 +75,5 @@ pub struct ChangelogEntry {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub extra_description: String,
     pub prerelease: bool,
+    pub published: bool,
 }

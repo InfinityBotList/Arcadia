@@ -2076,7 +2076,7 @@ async fn query(
             match action {
                 ChangelogAction::ListEntries => {
                     let rows = sqlx::query!(
-                        "SELECT version, added, updated, removed, github_html, created_at, extra_description, prerelease FROM changelogs ORDER BY version::semver DESC"
+                        "SELECT version, added, updated, removed, github_html, created_at, extra_description, prerelease, published FROM changelogs ORDER BY version::semver DESC"
                     )
                     .fetch_all(&state.pool)
                     .await
@@ -2094,6 +2094,7 @@ async fn query(
                             created_at: row.created_at,
                             extra_description: row.extra_description,
                             prerelease: row.prerelease,
+                            published: row.published,
                         });
                     }
 
@@ -2126,7 +2127,7 @@ async fn query(
                         prerelease,
                         &added,
                         &updated,
-                        &removed
+                        &removed,
                     )
                     .execute(&state.pool)
                     .await
@@ -2134,7 +2135,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
-                ChangelogAction::UpdateEntry { version, extra_description, github_html, prerelease, added, updated, removed } => {
+                ChangelogAction::UpdateEntry { version, extra_description, github_html, prerelease, added, updated, removed, published } => {
                     // Check if entry already exists with same vesion
                     if sqlx::query!(
                         "SELECT COUNT(*) FROM changelogs WHERE version = $1",
@@ -2155,14 +2156,15 @@ async fn query(
 
                     // Update entry
                     sqlx::query!(
-                        "UPDATE changelogs SET extra_description = $2, github_html = $3, prerelease = $4, added = $5, updated = $6, removed = $7 WHERE version = $1",
+                        "UPDATE changelogs SET extra_description = $2, github_html = $3, prerelease = $4, added = $5, updated = $6, removed = $7, published = $8 WHERE version = $1",
                         version,
                         extra_description,
                         github_html,
                         prerelease,
                         &added,
                         &updated,
-                        &removed
+                        &removed,
+                        published
                     )
                     .execute(&state.pool)
                     .await

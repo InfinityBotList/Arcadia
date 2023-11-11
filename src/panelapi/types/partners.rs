@@ -1,8 +1,50 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
 use crate::impls::link::Link;
+
+#[derive(
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TS,
+    EnumString,
+    EnumVariantNames,
+    Display,
+    Clone,
+    PartialEq,
+    Default,
+)]
+#[ts(export, export_to = ".generated/PartnerAction.ts")]
+pub enum PartnerAction {
+    /// List partners
+    #[default]
+    List,
+
+    /// Create a new partner
+    /// 
+    /// This technically only needs the PartnerManagement capability, 
+    /// but also requires the CDN asset upload capability as well to upload the avatar
+    /// of the partner
+    Create {
+        /// Create partner data
+        partner: CreatePartner,
+    },
+
+    /// Update a partner
+    Update {
+        /// Update partner data
+        partner: CreatePartner,
+    },
+
+    /// Delete a partner
+    Delete {
+        /// ID for the partner to delete
+        id: String,
+    },
+}
 
 #[derive(Serialize, Deserialize, PartialEq, TS, Clone, Default, ToSchema)]
 #[ts(export, export_to = ".generated/CreatePartner.ts")]

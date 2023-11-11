@@ -11,7 +11,7 @@ use crate::panelapi::types::{
     entity::{PartialBot, PartialEntity},
     cdn::{CdnAssetAction, CdnAssetItem},
     changelogs::{ChangelogAction, ChangelogEntry},
-    partners::{Partners, PartnerType, Partner, CreatePartner},
+    partners::{Partners, PartnerType, Partner, PartnerAction, CreatePartner},
     rpc::RPCWebAction,
     webcore::{Capability, CoreConstants, InstanceConfig, PanelServers}
 };
@@ -297,35 +297,19 @@ pub enum PanelQuery {
         /// Action to take
         action: CdnAssetAction,
     },
-    /// Returns the list of all partners on the list
-    GetPartnerList {
+    /// Updates/handles partners
+    UpdatePartners {
         /// Login token
         login_token: String,
+        /// Action
+        action: PartnerAction,
     },
-    /// Adds a partner
-    /// 
-    /// This technically only needs the PartnerManagement capability, 
-    /// but also requires the CDN asset upload capability as well to upload the avatar
-    /// of the partner
-    AddPartner {
+    /// Updates/handles the changelog of the list
+    UpdateChangelog {
         /// Login token
         login_token: String,
-        /// Partner Data
-        partner: CreatePartner,
-    },
-    /// Edits a partner
-    EditPartner {
-        /// Login token
-        login_token: String,
-        /// Partner Data
-        partner: CreatePartner,
-    },
-    /// Deletes a partner
-    DeletePartner {
-        /// Login token
-        login_token: String,
-        /// Partner ID
-        partner_id: String,
+        /// Action
+        action: ChangelogAction
     },
     /// Create a request to a/an Popplio staff endpoint
     PopplioStaff {
@@ -338,13 +322,6 @@ pub enum PanelQuery {
         /// Body
         body: String,
     },
-    /// Updates/handles the changelog of the list
-    UpdateChangelog {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: ChangelogAction
-    }
 }
 
 /// Make Panel Query
@@ -1797,66 +1774,10 @@ async fn query(
                     Ok((StatusCode::OK, Json(cmd_output)).into_response())
                 },
             }
-        }
-        PanelQuery::GetPartnerList { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::PartnerManagement) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to manage partners right now?".to_string(),
-                )
-                    .into_response());
-            }
-
-            let prec = sqlx::query!(
-                "SELECT id, name, short, links, type, created_at, user_id FROM partners"
-            )
-            .fetch_all(&state.pool)
-            .await
-            .map_err(Error::new)?;
-    
-            let mut partners = Vec::new();
-    
-            for partner in prec {
-                partners.push(Partner {
-                    id: partner.id,
-                    name: partner.name,
-                    short: partner.short,
-                    links: serde_json::from_value(partner.links).map_err(Error::new)?,
-                    r#type: partner.r#type,
-                    created_at: partner.created_at,
-                    user_id: partner.user_id,
-                })
-            }
-    
-            let ptrec = sqlx::query!("SELECT id, name, short, icon, created_at FROM partner_types")
-                .fetch_all(&state.pool)
-                .await
-                .map_err(Error::new)?;
-    
-            let mut partner_types = Vec::new();
-    
-            for partner_type in ptrec {
-                partner_types.push(PartnerType {
-                    id: partner_type.id,
-                    name: partner_type.name,
-                    short: partner_type.short,
-                    icon: partner_type.icon,
-                    created_at: partner_type.created_at,
-                })
-            }    
-
-            Ok((StatusCode::OK, Json(Partners {
-                partners,
-                partner_types,
-            })).into_response())
         },
-        PanelQuery::AddPartner {
+        PanelQuery::UpdatePartners {
             login_token,
-            partner
+            action
         } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
@@ -1870,381 +1791,274 @@ async fn query(
                     .into_response());
             }
 
-            // Check if partner type exists
-            let partner_type_exists = sqlx::query!(
-                "SELECT id FROM partner_types WHERE id = $1",
-                partner.r#type
-            )
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(Error::new)?
-            .is_some();
-
-            if !partner_type_exists {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Partner type does not exist".to_string(),
+            async fn parse_partner(pool: &PgPool, partner: &CreatePartner) -> Result<(), crate::Error> {
+                // Check if partner type exists
+                let partner_type_exists = sqlx::query!(
+                    "SELECT id FROM partner_types WHERE id = $1",
+                    partner.r#type
                 )
-                    .into_response());
-            }
+                .fetch_optional(pool)
+                .await?
+                .is_some();
 
-            // Ensure that image has been uploaded to CDN
-            // Get cdn path from cdn_scope hashmap
-            let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Main scope not found".to_string(),
-                )
-                    .into_response());
-            };
+                if !partner_type_exists {
+                    return Err("Partner type does not exist".into());
+                }
 
-            let path = format!("{}/avatars/partners/{}.webp", cdn_path.path, partner.id);
+                // Ensure that image has been uploaded to CDN
+                // Get cdn path from cdn_scope hashmap
+                let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
+                    return Err("Main scope not found".into());
+                };
 
-            match std::fs::metadata(&path) {
-                Ok(m) => {
-                    if !m.is_file() {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Image does not exist".to_string(),
-                        )
-                            .into_response());
+                let path = format!("{}/avatars/partners/{}.webp", cdn_path.path, partner.id);
+
+                match std::fs::metadata(&path) {
+                    Ok(m) => {
+                        if !m.is_file() {
+                            return Err("Image does not exist".into());
+                        }
+
+                        if m.len() > 100_000_000 {
+                            return Err("Image is too large".into());
+                        }
+
+                        if m.len() == 0 {
+                            return Err("Image is empty".into());
+                        }
+                    }
+                    Err(e) => {
+                        return Err(("Fetching image metadata failed: ".to_string() + &e.to_string()).into());
+                    }
+                };
+
+                if partner.links.is_empty() {
+                    return Err("Links cannot be empty".into());
+                }
+
+                for link in &partner.links {
+                    if link.name.is_empty() {
+                        return Err("Link name cannot be empty".into());
                     }
 
-                    if m.len() > 100_000_000 {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Image is too large".to_string(),
-                        )
-                            .into_response());
+                    if link.value.is_empty() {
+                        return Err("Link URL cannot be empty".into());
                     }
 
-                    if m.len() == 0 {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Image is empty".to_string(),
-                        )
-                            .into_response());
+                    if !link.value.starts_with("https://") {
+                        return Err("Link URL must start with https://".into());
                     }
                 }
-                Err(e) => {
-                    return Ok((
-                        StatusCode::BAD_REQUEST,
-                        "Fetching image metadata failed: ".to_string() + &e.to_string(),
-                    )
-                        .into_response());
-                }
-            };
 
-            if partner.links.is_empty() {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Links cannot be empty".to_string(),
+                // Check user id
+                let user_exists = sqlx::query!(
+                    "SELECT user_id FROM users WHERE user_id = $1",
+                    partner.user_id
                 )
-                    .into_response());
-            }
+                .fetch_optional(pool)
+                .await?
+                .is_some();
 
-            for link in &partner.links {
-                if link.name.is_empty() {
-                    return Ok((
-                        StatusCode::BAD_REQUEST,
-                        "Link name cannot be empty".to_string(),
-                    )
-                        .into_response());
+                if !user_exists {
+                    return Err("User does not exist".into());
                 }
 
-                if link.value.is_empty() {
-                    return Ok((
-                        StatusCode::BAD_REQUEST,
-                        "Link URL cannot be empty".to_string(),
+                Ok(())
+            }
+
+            match action {
+                PartnerAction::List => {
+                    let prec = sqlx::query!(
+                        "SELECT id, name, short, links, type, created_at, user_id FROM partners"
                     )
-                        .into_response());
-                }
-
-                if !link.value.starts_with("https://") {
-                    return Ok((
-                        StatusCode::BAD_REQUEST,
-                        "Link URL must start with https://".to_string(),
-                    )
-                        .into_response());
-                }
-            }
-
-            // Check user id
-            let user_exists = sqlx::query!(
-                "SELECT user_id FROM users WHERE user_id = $1",
-                partner.user_id
-            )
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(Error::new)?
-            .is_some();
-
-            if !user_exists {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "User does not exist".to_string(),
-                )
-                    .into_response());
-            }
-
-            // Check if partner already exists
-            let partner_exists = sqlx::query!(
-                "SELECT id FROM partners WHERE id = $1",
-                partner.id
-            )
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(Error::new)?
-            .is_some();
-
-            if partner_exists {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Partner already exists".to_string(),
-                )
-                    .into_response());
-            }
-
-            // Insert partner
-            sqlx::query!(
-                "INSERT INTO partners (id, name, short, links, type, user_id) VALUES ($1, $2, $3, $4, $5, $6)",
-                partner.id,
-                partner.name,
-                partner.short,
-                serde_json::to_value(partner.links).map_err(Error::new)?,
-                partner.r#type,
-                partner.user_id
-            )
-            .execute(&state.pool)
-            .await
-            .map_err(Error::new)?;
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
             
-            Ok((StatusCode::NO_CONTENT, "").into_response())
-        },
-        PanelQuery::EditPartner {
-            login_token,
-            partner
-        } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::PartnerManagement) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to manage partners right now?".to_string(),
-                )
-                    .into_response());
-            }
-
-            // Check if partner exists
-            let partner_exists = sqlx::query!(
-                "SELECT id FROM partners WHERE id = $1",
-                partner.id
-            )
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(Error::new)?
-            .is_some();
-
-            if !partner_exists {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Partner does not exist".to_string(),
-                )
-                    .into_response());
-            }
-
-            if partner.links.is_empty() {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Links cannot be empty".to_string(),
-                )
-                    .into_response());
-            }
-
-            for link in &partner.links {
-                if link.name.is_empty() {
-                    return Ok((
-                        StatusCode::BAD_REQUEST,
-                        "Link name cannot be empty".to_string(),
-                    )
-                        .into_response());
-                }
-
-                if link.value.is_empty() {
-                    return Ok((
-                        StatusCode::BAD_REQUEST,
-                        "Link URL cannot be empty".to_string(),
-                    )
-                        .into_response());
-                }
-
-                if !link.value.starts_with("https://") {
-                    return Ok((
-                        StatusCode::BAD_REQUEST,
-                        "Link URL must start with https://".to_string(),
-                    )
-                        .into_response());
-                }
-            }
-
-            // Check if partner type exists
-            let partner_type_exists = sqlx::query!(
-                "SELECT id FROM partner_types WHERE id = $1",
-                partner.r#type
-            )
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(Error::new)?
-            .is_some();
-
-            if !partner_type_exists {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Partner type does not exist".to_string(),
-                )
-                    .into_response());
-            }
-
-            // Update partner
-            sqlx::query!(
-                "UPDATE partners SET name = $2, short = $3, links = $4, type = $5, user_id = $6 WHERE id = $1",
-                partner.id,
-                partner.name,
-                partner.short,
-                serde_json::to_value(partner.links).map_err(Error::new)?,
-                partner.r#type,
-                partner.user_id
-            )
-            .execute(&state.pool)
-            .await
-            .map_err(Error::new)?;
-
-            Ok((StatusCode::NO_CONTENT, "").into_response())
-        },
-        PanelQuery::DeletePartner {
-            login_token,
-            partner_id,
-        } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::PartnerManagement) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to manage partners right now?".to_string(),
-                )
-                    .into_response());
-            }
-
-            // Check if partner exists
-            let partner_exists = sqlx::query!(
-                "SELECT id FROM partners WHERE id = $1",
-                partner_id
-            )
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(Error::new)?
-            .is_some();
-
-            if !partner_exists {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Partner does not exist".to_string(),
-                )
-                    .into_response());
-            }
-
-            // Ensure that image has been uploaded to CDN
-            // Get cdn path from cdn_scope hashmap
-            let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Main scope not found".to_string(),
-                )
-                    .into_response());
-            };
-
-            let path = format!("{}/partners/{}.webp", cdn_path.path, partner_id);
-
-            match std::fs::metadata(&path) {
-                Ok(m) => {
-                    if m.is_symlink() || m.is_file() {
-                        // Delete the symlink
-                        std::fs::remove_file(path).map_err(Error::new)?;
-                    } else if m.is_dir() {
-                        // Delete the directory
-                        std::fs::remove_dir_all(path).map_err(Error::new)?;
+                    let mut partners = Vec::new();
+            
+                    for partner in prec {
+                        partners.push(Partner {
+                            id: partner.id,
+                            name: partner.name,
+                            short: partner.short,
+                            links: serde_json::from_value(partner.links).map_err(Error::new)?,
+                            r#type: partner.r#type,
+                            created_at: partner.created_at,
+                            user_id: partner.user_id,
+                        })
                     }
+            
+                    let ptrec = sqlx::query!("SELECT id, name, short, icon, created_at FROM partner_types")
+                        .fetch_all(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+            
+                    let mut partner_types = Vec::new();
+            
+                    for partner_type in ptrec {
+                        partner_types.push(PartnerType {
+                            id: partner_type.id,
+                            name: partner_type.name,
+                            short: partner_type.short,
+                            icon: partner_type.icon,
+                            created_at: partner_type.created_at,
+                        })
+                    }    
+        
+                    Ok((StatusCode::OK, Json(Partners {
+                        partners,
+                        partner_types,
+                    })).into_response())
                 },
-                Err(e) => {
-                    if e.kind() != std::io::ErrorKind::NotFound {
+                PartnerAction::Create { partner } => {
+                    // Check if partner already exists
+                    let partner_exists = sqlx::query!(
+                        "SELECT id FROM partners WHERE id = $1",
+                        partner.id
+                    )
+                    .fetch_optional(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .is_some();
+
+                    if partner_exists {
                         return Ok((
                             StatusCode::BAD_REQUEST,
-                            "Fetching asset metadata failed due to unknown error: "
-                                .to_string()
-                                + &e.to_string(),
+                            "Partner already exists".to_string(),
                         )
                             .into_response());
                     }
-                }
-            };
 
-            sqlx::query!("DELETE FROM partners WHERE id = $1", partner_id)
-                .execute(&state.pool)
-                .await
-                .map_err(Error::new)?;
+                    if let Err(e) = parse_partner(&state.pool, &partner).await {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            e.to_string(),
+                        )
+                            .into_response());
+                    }
 
-            Ok((StatusCode::NO_CONTENT, "").into_response())
-        },
-        PanelQuery::PopplioStaff { login_token, path, method, body } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                    // Insert partner
+                    sqlx::query!(
+                        "INSERT INTO partners (id, name, short, links, type, user_id) VALUES ($1, $2, $3, $4, $5, $6)",
+                        partner.id,
+                        partner.name,
+                        partner.short,
+                        serde_json::to_value(partner.links).map_err(Error::new)?,
+                        partner.r#type,
+                        partner.user_id
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
 
-            let client = reqwest::Client::new();
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
+                PartnerAction::Update { partner } => {
+                    // Check if partner already exists
+                    let partner_exists = sqlx::query!(
+                        "SELECT id FROM partners WHERE id = $1",
+                        partner.id
+                    )
+                    .fetch_optional(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .is_some();
 
-            let Ok(method) = reqwest::Method::from_bytes(&method.into_bytes()) else {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Invalid method".to_string(),
-                )
-                    .into_response());
-            };
+                    if !partner_exists {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Partner does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
 
-            if !path.starts_with('/') {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Path must start with /".to_string(),
-                )
-                    .into_response());
+                    if let Err(e) = parse_partner(&state.pool, &partner).await {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            e.to_string(),
+                        )
+                            .into_response());
+                    }
+
+                     // Update partner
+                    sqlx::query!(
+                        "UPDATE partners SET name = $2, short = $3, links = $4, type = $5, user_id = $6 WHERE id = $1",
+                        partner.id,
+                        partner.name,
+                        partner.short,
+                        serde_json::to_value(partner.links).map_err(Error::new)?,
+                        partner.r#type,
+                        partner.user_id
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
+                PartnerAction::Delete { id } => {
+                    // Check if partner exists
+                    let partner_exists = sqlx::query!(
+                        "SELECT id FROM partners WHERE id = $1",
+                        id
+                    )
+                    .fetch_optional(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .is_some();
+
+                    if !partner_exists {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Partner does not exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Ensure that image has been uploaded to CDN
+                    // Get cdn path from cdn_scope hashmap
+                    let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Main scope not found".to_string(),
+                        )
+                            .into_response());
+                    };
+
+                    let path = format!("{}/partners/{}.webp", cdn_path.path, id);
+
+                    match std::fs::metadata(&path) {
+                        Ok(m) => {
+                            if m.is_symlink() || m.is_file() {
+                                // Delete the symlink
+                                std::fs::remove_file(path).map_err(Error::new)?;
+                            } else if m.is_dir() {
+                                // Delete the directory
+                                std::fs::remove_dir_all(path).map_err(Error::new)?;
+                            }
+                        },
+                        Err(e) => {
+                            if e.kind() != std::io::ErrorKind::NotFound {
+                                return Ok((
+                                    StatusCode::BAD_REQUEST,
+                                    "Fetching asset metadata failed due to unknown error: "
+                                        .to_string()
+                                        + &e.to_string(),
+                                )
+                                    .into_response());
+                            }
+                        }
+                    };
+
+                    sqlx::query!("DELETE FROM partners WHERE id = $1", id)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
             }
-
-            let query = sqlx::query!("SELECT popplio_token FROM staffpanel__authchain WHERE token = $1", login_token)
-                .fetch_one(&state.pool)
-                .await
-                .map_err(Error::new)?;
-
-            let caps_str = caps.iter().map(|c| c.to_string()).collect::<Vec<String>>();
-
-            let res = client
-                .request(method, crate::config::CONFIG.popplio_url.clone()+&path)
-                .header("User-Agent", "arcadia")
-                .header("Authorization", &login_token)
-                .header("X-Forwarded-For", &path)
-                .header("X-Staff-Auth-Token", &query.popplio_token)
-                .header("X-User-Capabilities", caps_str.join(","))
-                .body(body)
-                .send()
-                .await
-                .map_err(Error::new)?;
-
-            let status = res.status();
-            let resp = res.text().await.map_err(Error::new)?;
-
-            Ok((status, resp).into_response())
         },
         PanelQuery::UpdateChangelog { login_token, action } => {
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
@@ -2387,6 +2201,53 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
             }
+        },
+        PanelQuery::PopplioStaff { login_token, path, method, body } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let client = reqwest::Client::new();
+
+            let Ok(method) = reqwest::Method::from_bytes(&method.into_bytes()) else {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Invalid method".to_string(),
+                )
+                    .into_response());
+            };
+
+            if !path.starts_with('/') {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    "Path must start with /".to_string(),
+                )
+                    .into_response());
+            }
+
+            let query = sqlx::query!("SELECT popplio_token FROM staffpanel__authchain WHERE token = $1", login_token)
+                .fetch_one(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+            let caps_str = caps.iter().map(|c| c.to_string()).collect::<Vec<String>>();
+
+            let res = client
+                .request(method, crate::config::CONFIG.popplio_url.clone()+&path)
+                .header("User-Agent", "arcadia")
+                .header("Authorization", &login_token)
+                .header("X-Forwarded-For", &path)
+                .header("X-Staff-Auth-Token", &query.popplio_token)
+                .header("X-User-Capabilities", caps_str.join(","))
+                .body(body)
+                .send()
+                .await
+                .map_err(Error::new)?;
+
+            let status = res.status();
+            let resp = res.text().await.map_err(Error::new)?;
+
+            Ok((status, resp).into_response())
         },
     }
 }

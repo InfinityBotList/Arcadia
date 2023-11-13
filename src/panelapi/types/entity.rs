@@ -18,6 +18,7 @@ pub struct PartialBot {
     pub clicks: i32,
     pub servers: i32,
     pub claimed_by: Option<String>,
+    pub last_claimed: Option<chrono::DateTime<chrono::Utc>>,
     pub approval_note: String,
     pub mentionable: Vec<String>,
     pub invite: String,
@@ -40,7 +41,9 @@ pub struct PartialServer {
     pub nsfw: bool,
     pub tags: Vec<String>,
     pub premium: bool,
-    pub banner: Option<String>,
+    pub claimed_by: Option<String>,
+    pub last_claimed: Option<chrono::DateTime<chrono::Utc>>,
+    pub mentionable: Vec<String>,
 }
 
 #[derive(

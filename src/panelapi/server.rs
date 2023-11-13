@@ -8,7 +8,7 @@ use crate::impls;
 use crate::impls::target_types::TargetType;
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
-    entity::{PartialBot, PartialEntity},
+    entity::{PartialBot, PartialServer, PartialEntity},
     cdn::{CdnAssetAction, CdnAssetItem},
     changelogs::{ChangelogAction, ChangelogEntry},
     partners::{Partners, PartnerType, Partner, PartnerAction, CreatePartner},
@@ -823,8 +823,8 @@ async fn query(
             }
 
             let queue = sqlx::query!(
-                "SELECT bot_id, client_id, claimed_by, type, approval_note, short, invite,
-                votes, shards, library, invite_clicks, clicks, servers 
+                "SELECT bot_id, client_id, last_claimed, claimed_by, type, approval_note, short, 
+                invite, votes, shards, library, invite_clicks, clicks, servers 
                 FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at"
             )
             .fetch_all(&state.pool)
@@ -851,6 +851,7 @@ async fn query(
                     client_id: bot.client_id,
                     user,
                     claimed_by: bot.claimed_by,
+                    last_claimed: bot.last_claimed,
                     approval_note: bot.approval_note,
                     short: bot.short,
                     r#type: bot.r#type,
@@ -1014,20 +1015,20 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
+            if !caps.contains(&Capability::Search) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to search entities right now?".to_string(),
+                )
+                    .into_response());
+            }
+
             match target_type {
                 TargetType::Bot => {
-                    if !caps.contains(&Capability::BotManagement) {
-                        return Ok((
-                            StatusCode::FORBIDDEN,
-                            "You do not have permission to manage bots right now?".to_string(),
-                        )
-                            .into_response());
-                    }
-
                     let queue = sqlx::query!(
                         "
                         SELECT bot_id, client_id, type, votes, shards, library, invite_clicks, clicks,
-                        servers, claimed_by, approval_note, short, invite FROM bots 
+                        servers, last_claimed, claimed_by, approval_note, short, invite FROM bots 
                         INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id
                         WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at
                         ",
@@ -1066,6 +1067,7 @@ async fn query(
                             clicks: bot.clicks,
                             servers: bot.servers,
                             claimed_by: bot.claimed_by,
+                            last_claimed: bot.last_claimed,
                             approval_note: bot.approval_note,
                             short: bot.short,
                             mentionable: owners.mentionables(),
@@ -1074,6 +1076,53 @@ async fn query(
                     }
 
                     Ok((StatusCode::OK, Json(bots)).into_response())
+                },
+                TargetType::Server => {
+                    let queue = sqlx::query!(
+                        "
+                        SELECT server_id, name, avatar, total_members, online_members, short, type, votes, invite_clicks, 
+                        clicks, nsfw, tags, premium, claimed_by, last_claimed FROM servers
+                        WHERE server_id = $1 OR name ILIKE $2 ORDER BY created_at
+                        ",
+                        query,
+                        format!("%{}%", query)
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut servers = Vec::new();
+
+                    for server in queue {
+                        let owners = crate::impls::utils::get_entity_managers(
+                            TargetType::Server,
+                            &server.server_id,
+                            &state.pool,
+                        )
+                        .await
+                        .map_err(Error::new)?;
+
+                        servers.push(PartialEntity::Server(PartialServer {
+                            server_id: server.server_id,
+                            name: server.name,
+                            avatar: server.avatar,
+                            total_members: server.total_members,
+                            online_members: server.online_members,
+                            short: server.short,
+                            r#type: server.r#type,
+                            votes: server.votes,
+                            invite_clicks: server.invite_clicks,
+                            clicks: server.clicks,
+                            nsfw: server.nsfw,
+                            tags: server.tags,
+                            premium: server.premium,
+                            claimed_by: server.claimed_by,
+                            last_claimed: server.last_claimed,
+                            mentionable: owners.mentionables(),
+                        }));
+                    }
+
+                    Ok((StatusCode::OK, Json(servers)).into_response())
                 }
                 _ => Ok((
                     StatusCode::NOT_IMPLEMENTED,

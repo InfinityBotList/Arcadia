@@ -33,10 +33,8 @@ pub enum Capability {
     Rpc,
     /// View bot queue capability
     ViewBotQueue,
-    /// Server management capability
-    ServerManagement,
-    /// Bot management capability
-    BotManagement,
+    /// Search capability
+    Search,
     /// Ability to manage partners
     PartnerManagement,
     /// Ability to add assets to the CDN

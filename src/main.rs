@@ -244,7 +244,6 @@ async fn main() {
             initialize_owners: true,
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("ibb!".into()),
-                mention_as_prefix: true,
                 ..poise::PrefixFrameworkOptions::default()
             },
             event_handler: |event, _ctx, user_data| Box::pin(event_listener(event, user_data)),

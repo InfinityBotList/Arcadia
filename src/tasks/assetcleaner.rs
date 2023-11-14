@@ -6,9 +6,10 @@ pub async fn asset_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
         "servers" => "server_id",
         "teams" => "id",
         "partners" => "id",
+        "tickets" => "id",
     };
 
-    let assets = ["avatars", "banners"];
+    let assets = ["avatars", "banners", "blobs"];
 
     let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
         return Err("No CDN scope for main scope".into());
@@ -32,12 +33,19 @@ pub async fn asset_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
 
             for entry in dir {
                 let entry = entry?;
-                let file_name = entry.file_name().into_string().unwrap();
+                let is_dir = entry.file_type()?.is_dir();
+                let file_name = entry.file_name().into_string().map_err(|_| "Invalid file name")?; // TODO: Better error handling (maybe
                 let file_path = entry.path();
 
                 let Some(id) = file_name.split('.').next() else {
                     warn!("Invalid file name: {}", file_name);
-                    std::fs::remove_file(&file_path)?;
+
+                    if is_dir {
+                        std::fs::remove_dir_all(&file_path)?;
+                    } else {
+                        std::fs::remove_file(&file_path)?;
+                    }
+
                     continue;
                 };
 
@@ -46,7 +54,12 @@ pub async fn asset_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
 
                 if id.is_none() {
                     warn!("Found orphaned file: {}", file_path.display());
-                    std::fs::remove_file(&file_path)?;
+
+                    if is_dir {
+                        std::fs::remove_dir_all(&file_path)?;
+                    } else {
+                        std::fs::remove_file(&file_path)?;
+                    }
                 }
             }
         }

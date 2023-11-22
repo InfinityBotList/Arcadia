@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod blog;
 pub mod entity;
 pub mod cdn;
 pub mod partners;

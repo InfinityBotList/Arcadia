@@ -41,9 +41,11 @@ pub enum Capability {
     CdnManagement,
     /// Ability to manage changelogs
     ChangelogManagement,
-    /// Ability to view applications [not yet implemented]
+    /// Ability to manage blog posts
+    BlogManagement,
+    /// Ability to view applications
     ViewApps,
-    /// Ability to manage applications [not yet implemented]
+    /// Ability to manage applications
     ManageApps,
 }
 

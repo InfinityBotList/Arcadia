@@ -11,6 +11,7 @@ use crate::panelapi::types::{
     entity::{PartialBot, PartialServer, PartialEntity},
     cdn::{CdnAssetAction, CdnAssetItem},
     changelogs::{ChangelogAction, ChangelogEntry},
+    blog::{BlogAction, BlogPost},
     partners::{Partners, PartnerType, Partner, PartnerAction, CreatePartner},
     rpc::RPCWebAction,
     webcore::{Capability, CoreConstants, InstanceConfig, PanelServers}
@@ -310,6 +311,12 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: ChangelogAction
+    },
+    UpdateBlog {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: BlogAction
     },
     /// Create a request to a/an Popplio staff endpoint
     PopplioStaff {
@@ -2251,6 +2258,132 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
+            }
+        },
+        PanelQuery::UpdateBlog { login_token, action } => {
+            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            if !caps.contains(&Capability::ChangelogManagement) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to manage blog entries right now?".to_string(),
+                )
+                    .into_response());
+            }
+
+            match action {
+                BlogAction::ListEntries => {
+                    let rows = sqlx::query!(
+                        "SELECT itag, slug, title, description, user_id, content, created_at, draft, tags FROM blogs ORDER BY created_at DESC"
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut entries = Vec::new();
+
+                    for row in rows {
+                        entries.push(BlogPost {
+                            itag: row.itag.hyphenated().to_string(),
+                            slug: row.slug,
+                            title: row.title,
+                            description: row.description,
+                            user_id: row.user_id,
+                            tags: row.tags,
+                            content: row.content,
+                            created_at: row.created_at,
+                            draft: row.draft,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(entries)).into_response())        
+                },
+                BlogAction::CreateEntry { slug, title, description, content, tags } => {
+                    // Insert entry
+                    sqlx::query!(
+                        "INSERT INTO blogs (slug, title, description, content, tags) VALUES ($1, $2, $3, $4, $5)",
+                        slug,
+                        title,
+                        description,
+                        content,
+                        &tags,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
+                BlogAction::UpdateEntry { itag, slug, title, description, content, tags, draft } => {
+                    let uuid = sqlx::types::uuid::Uuid::parse_str(&itag).map_err(Error::new)?;
+                    
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM blogs WHERE itag = $1",
+                        uuid
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                    == 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry does not exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Update entry
+                    sqlx::query!(
+                        "UPDATE blogs SET slug = $2, title = $3, description = $4, content = $5, tags = $6, draft = $7 WHERE itag = $1",
+                        uuid,
+                        slug,
+                        title,
+                        description,
+                        content,
+                        &tags,
+                        draft
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
+                BlogAction::DeleteEntry { itag } => {
+                    // Check if entry already exists with same vesion
+                    let uuid = sqlx::types::uuid::Uuid::parse_str(&itag).map_err(Error::new)?;
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM blogs WHERE itag = $1",
+                        uuid
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0) == 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete entry
+                    sqlx::query!(
+                        "DELETE FROM blogs WHERE itag = $1",
+                        uuid
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+                
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
             }
         },
         PanelQuery::PopplioStaff { login_token, path, method, body } => {

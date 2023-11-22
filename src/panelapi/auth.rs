@@ -101,6 +101,7 @@ pub async fn get_capabilities(pool: &PgPool, token: &str) -> Result<Vec<Capabili
     if perms.admin || perms.ibldev {
         capabilities.push(Capability::ViewApps);
         capabilities.push(Capability::ChangelogManagement);
+        capabilities.push(Capability::BlogManagement);
     }
 
     if perms.hadmin {

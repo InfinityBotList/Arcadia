@@ -806,6 +806,7 @@ async fn query(
                     frontend_url: crate::config::CONFIG.frontend_url.clone(),
                     infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
                     popplio_url: crate::config::CONFIG.popplio_url.clone(),
+                    htmlsanitize_url: crate::config::CONFIG.htmlsanitize_url.clone(),
                     cdn_url: crate::config::CONFIG.cdn_url.clone(),
                     servers: PanelServers {
                         main: crate::config::CONFIG.servers.main.to_string(),
@@ -2261,6 +2262,9 @@ async fn query(
             }
         },
         PanelQuery::UpdateBlog { login_token, action } => {
+            let auth = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
             let caps = super::auth::get_capabilities(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -2303,12 +2307,13 @@ async fn query(
                 BlogAction::CreateEntry { slug, title, description, content, tags } => {
                     // Insert entry
                     sqlx::query!(
-                        "INSERT INTO blogs (slug, title, description, content, tags) VALUES ($1, $2, $3, $4, $5)",
+                        "INSERT INTO blogs (slug, title, description, content, tags, user_id) VALUES ($1, $2, $3, $4, $5, $6)",
                         slug,
                         title,
                         description,
                         content,
                         &tags,
+                        &auth.user_id,
                     )
                     .execute(&state.pool)
                     .await

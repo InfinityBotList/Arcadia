@@ -60,6 +60,8 @@ pub struct CoreConstants {
     pub cdn_url: String,
     /// Popplio URL
     pub popplio_url: String,
+    /// HTMLSanitize URL
+    pub htmlsanitize_url: String,
     /// Servers
     pub servers: PanelServers,
 }

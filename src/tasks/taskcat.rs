@@ -106,7 +106,7 @@ pub async fn start_all_tasks(
         ));
     }
 
-    while let Some(res) = set.join_next().await {
+    if let Some(res) = set.join_next().await {
         if let Err(e) = res {
             error!("Error while running task: {}", e);
         }

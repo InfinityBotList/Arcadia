@@ -2,14 +2,28 @@ use poise::serenity_prelude::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 
 use crate::{config, impls::target_types::TargetType};
 
+// Internal struct used to send notifications on unclaimed bots
+struct AutoUnclaimNotification {
+    bot_id: String,
+    claimed_by: String,
+    last_claimed: chrono::DateTime<chrono::Utc>,
+}
+
 pub async fn auto_unclaim(
     pool: &sqlx::PgPool,
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| format!("Error creating transaction: {:?}", e))?;
+
+    let mut notifications = Vec::new();
+
     let bots = sqlx::query!(
-        "SELECT bot_id, claimed_by, last_claimed FROM bots WHERE claimed_by IS NOT NULL AND NOW() - last_claimed > INTERVAL '1 hour'",
+        "SELECT bot_id, claimed_by, last_claimed FROM bots WHERE claimed_by IS NOT NULL AND NOW() - last_claimed > INTERVAL '1 hour' FOR UPDATE",
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await
     .map_err(|e| format!("Error while checking for claimed bots: {}", e))?;
 
@@ -23,7 +37,7 @@ pub async fn auto_unclaim(
                 "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
                 bot.bot_id
             )
-            .execute(pool)
+            .execute(&mut *tx)
             .await
             .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;
 
@@ -39,7 +53,7 @@ pub async fn auto_unclaim(
                 "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
                 bot.bot_id
             )
-            .execute(pool)
+            .execute(&mut *tx)
             .await
             .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;
 
@@ -58,46 +72,60 @@ pub async fn auto_unclaim(
                     "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
                     bot.bot_id
                 )
-                .execute(pool)
+                .execute(&mut *tx)
                 .await
                 .map_err(|e| format!("Error while unclaiming bot {}: {}", bot.bot_id, e))?;
 
-                // Now send message in #lounge
-                let msg = CreateMessage::default()
-                .content(format!("<@{}>", claimed_by))
-                .embed(
-                    CreateEmbed::default()
-                        .title("Auto-Unclaimed Bot")
-                        .description(
-                            format!(
-                                "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed <t:{}:R>.", 
-                                bot.bot_id,
-                                claimed_by,
-                                last_claimed.timestamp(),
-                            ))
-                        .color(0xFF0000)
-                );
+                notifications.push(AutoUnclaimNotification {
+                    bot_id: bot.bot_id,
+                    claimed_by,
+                    last_claimed,
+                });
+            }
+        }
+    }
 
-                config::CONFIG.channels.testing_lounge
-                    .send_message(&cache_http, msg)
-                    .await
-                    .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
+    tx.commit()
+    .await
+    .map_err(|e| format!("Error while committing transaction: {}", e))?;
 
-                let owners =
-                    crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, pool)
-                        .await?;
+    for notification in notifications {
+        // Now send message in #lounge
+        let msg = CreateMessage::default()
+        .content(format!("<@{}>", notification.claimed_by))
+        .embed(
+            CreateEmbed::default()
+                .title("Auto-Unclaimed Bot")
+                .description(
+                    format!(
+                        "Bot <@{}> was auto-unclaimed (was previously claimed by <@{}> due to it being claimed for over one hour without being approved or denied).\nThis bot was last claimed <t:{}:R>.", 
+                        notification.bot_id,
+                        notification.claimed_by,
+                        notification.last_claimed.timestamp(),
+                    ))
+                .color(0xFF0000)
+        );
 
-                config::CONFIG.channels.mod_logs
-                .send_message(
-                    &cache_http,
-                    CreateMessage::default()
-                    .content(owners.mention_users())
-                    .embed(
-                        CreateEmbed::default()
-                            .title("Bot Unclaimed!")
-                            .description(
-                                format!(
-                                    r#"
+        config::CONFIG.channels.testing_lounge
+            .send_message(&cache_http, msg)
+            .await
+            .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
+
+        let owners =
+            crate::impls::utils::get_entity_managers(TargetType::Bot, &notification.bot_id, pool)
+                .await?;
+
+        config::CONFIG.channels.mod_logs
+        .send_message(
+            &cache_http,
+            CreateMessage::default()
+            .content(owners.mention_users())
+            .embed(
+                CreateEmbed::default()
+                    .title("Bot Unclaimed!")
+                    .description(
+                        format!(
+                            r#"
 <@{}> has been unclaimed as it was not being actively reviewed. 
 
 Don't worry, this is normal, could just be our staff looking more into your bots functionality! 
@@ -105,18 +133,16 @@ Don't worry, this is normal, could just be our staff looking more into your bots
 For more information, you can contact the current reviewer <@{}>
 
 *This bot was claimed <t:{}:R>. This is a automated message letting you know about whats going on...*
-                                    "#, 
-                                    bot.bot_id,
-                                    claimed_by,
-                                    last_claimed.timestamp()
-                                ))
-                            .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
-                    )
+                            "#, 
+                            notification.bot_id,
+                            notification.claimed_by,
+                            notification.last_claimed.timestamp()
+                        ))
+                    .footer(CreateEmbedFooter::new("This is completely normal, don't worry!"))
                 )
-                .await
-                .map_err(|e| format!("Error while sending message in #mod-logs: {}", e))?;
-            }
-        }
+            )
+            .await
+            .map_err(|e| format!("Error while sending message in #mod-logs: {}", e))?;     
     }
 
     Ok(())

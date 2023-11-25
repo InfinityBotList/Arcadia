@@ -1,8 +1,12 @@
 use log::{error, info};
+use once_cell::sync::Lazy;
 use std::time::Duration;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 use tokio::task::JoinSet;
+use tokio::sync::Mutex;
+
+static TASK_MUTEX: Lazy<Mutex<i32>> = Lazy::new(|| Mutex::new(0));
 
 #[derive(EnumIter, Display)]
 #[strum(serialize_all = "snake_case")]
@@ -136,6 +140,8 @@ async fn taskcat(
     loop {
         interval.tick().await;
 
+        let guard = TASK_MUTEX.lock().await;
+
         log::info!(
             "TASK: {} ({}s interval) [{}]",
             task.to_string(),
@@ -146,5 +152,7 @@ async fn taskcat(
         if let Err(e) = task.run(&pool, &cache_http).await {
             log::error!("TASK {} ERROR'd: {:?}", task.to_string(), e);
         }
+
+        drop(guard);
     }
 }

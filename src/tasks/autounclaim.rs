@@ -1,4 +1,4 @@
-use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateEmbedFooter, CreateMessage};
+use poise::serenity_prelude::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 
 use crate::{config, impls::target_types::TargetType};
 
@@ -78,7 +78,7 @@ pub async fn auto_unclaim(
                         .color(0xFF0000)
                 );
 
-                ChannelId(config::CONFIG.channels.testing_lounge)
+                config::CONFIG.channels.testing_lounge
                     .send_message(&cache_http, msg)
                     .await
                     .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
@@ -87,7 +87,7 @@ pub async fn auto_unclaim(
                     crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, pool)
                         .await?;
 
-                ChannelId(config::CONFIG.channels.mod_logs)
+                config::CONFIG.channels.mod_logs
                 .send_message(
                     &cache_http,
                     CreateMessage::default()

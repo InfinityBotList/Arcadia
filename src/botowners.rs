@@ -1,5 +1,4 @@
 use crate::{checks, config};
-use poise::serenity_prelude::{GuildId, RoleId};
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -50,9 +49,6 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
         let mut roles_to_add = Vec::new();
         let mut roles_to_remove = Vec::new();
 
-        let bot_role = RoleId(config::CONFIG.roles.bot_developer);
-        let certified_role = RoleId(config::CONFIG.roles.certified_developer);
-
         if certified {
             ctx.say(
                 "You are the owner/additional owner of a certified bot! Giving you certified role",
@@ -60,12 +56,12 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
             .await?;
 
             // Check that they have botdev_role, if not, add
-            if !member.roles.contains(&bot_role) {
-                roles_to_add.push(bot_role);
+            if !member.roles.contains(&config::CONFIG.roles.bot_developer) {
+                roles_to_add.push(config::CONFIG.roles.bot_developer);
             }
 
-            if !member.roles.contains(&certified_role) {
-                roles_to_add.push(certified_role);
+            if !member.roles.contains(&config::CONFIG.roles.certified_developer) {
+                roles_to_add.push(config::CONFIG.roles.certified_developer);
             }
         } else if approved {
             ctx.say(
@@ -74,12 +70,12 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
             .await?;
 
             // Check that they have botdev_role, if not, add
-            if !member.roles.contains(&bot_role) {
-                roles_to_add.push(bot_role);
+            if !member.roles.contains(&config::CONFIG.roles.bot_developer) {
+                roles_to_add.push(config::CONFIG.roles.bot_developer);
             }
 
-            if member.roles.contains(&certified_role) {
-                roles_to_remove.push(certified_role);
+            if member.roles.contains(&config::CONFIG.roles.certified_developer) {
+                roles_to_remove.push(config::CONFIG.roles.certified_developer);
             }
         }
 
@@ -88,7 +84,7 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
             for role in roles_to_add {
                 ctx.http()
                     .add_member_role(
-                        GuildId(config::CONFIG.servers.main),
+                        config::CONFIG.servers.main,
                         member.user.id,
                         role,
                         Some("Autorole due to bots owned"),
@@ -101,7 +97,7 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
             for role in roles_to_remove {
                 ctx.http()
                     .remove_member_role(
-                        GuildId(config::CONFIG.servers.main),
+                        config::CONFIG.servers.main,
                         member.user.id,
                         role,
                         Some("Autorole due to bots owned"),

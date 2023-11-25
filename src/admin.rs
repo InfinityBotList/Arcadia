@@ -1,10 +1,9 @@
 use std::io::Write;
-use std::num::NonZeroU64;
 
 use crate::checks;
 use crate::Context;
 use crate::Error;
-use poise::serenity_prelude::GuildId;
+use poise::serenity_prelude::UserId;
 
 #[poise::command(
     category = "Admin",
@@ -24,13 +23,9 @@ pub async fn uninvitedbots(ctx: Context<'_>) -> Result<(), Error> {
     let mut bad_ids = Vec::new();
 
     for row in subject_rows {
-        match row.bot_id.parse::<NonZeroU64>() {
+        match row.bot_id.parse::<UserId>() {
             Ok(id) => {
-                match ctx
-                    .cache()
-                    .member_field(GuildId(crate::config::CONFIG.servers.main), id, |m| {
-                        m.user.id
-                    }) {
+                match ctx.cache().member(crate::config::CONFIG.servers.main, id) {
                     Some(_) => continue,
                     None => {
                         bad_ids.push(id.to_string());
@@ -76,7 +71,7 @@ pub async fn protectdeploy(
     ctx: Context<'_>,
     #[description = "Reason"] reason: String,
 ) -> Result<(), Error> {
-    if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
+    if !crate::config::CONFIG.owners.contains(&ctx.author().id) {
         ctx.say("Only owners can update the main site").await?;
         return Ok(());
     }
@@ -100,7 +95,7 @@ pub async fn protectdeploy(
     check = "checks::is_staff"
 )]
 pub async fn unprotectdeploy(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
+    if !crate::config::CONFIG.owners.contains(&ctx.author().id) {
         ctx.say("Only owners can update the main site").await?;
         return Ok(());
     }
@@ -126,7 +121,7 @@ pub async fn unprotectdeploy(ctx: Context<'_>) -> Result<(), Error> {
     check = "checks::is_staff"
 )]
 pub async fn updprod(ctx: Context<'_>) -> Result<(), Error> {
-    if !crate::config::CONFIG.owners.contains(&ctx.author().id.0) {
+    if !crate::config::CONFIG.owners.contains(&ctx.author().id) {
         ctx.say("Only owners can update the main site").await?;
         return Ok(());
     }

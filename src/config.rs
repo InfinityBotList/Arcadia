@@ -2,7 +2,8 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use std::{fs::File, io::Write, num::NonZeroU64, collections::HashMap};
+use std::{fs::File, io::Write, collections::HashMap};
+use poise::serenity_prelude::{UserId, ChannelId, RoleId, GuildId};
 
 use crate::Error;
 
@@ -11,50 +12,50 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load().expect("Failed to 
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Servers {
-    pub main: NonZeroU64,
-    pub staff: NonZeroU64,
-    pub testing: NonZeroU64,
+    pub main: GuildId,
+    pub staff: GuildId,
+    pub testing: GuildId,
 }
 
 impl Default for Servers {
     fn default() -> Self {
         Self {
-            main: NonZeroU64::new(758641373074423808).unwrap(),
-            staff: NonZeroU64::new(870950609291972618).unwrap(),
-            testing: NonZeroU64::new(870952645811134475).unwrap(),
+            main: GuildId::new(758641373074423808),
+            staff: GuildId::new(870950609291972618),
+            testing: GuildId::new(870952645811134475),
         }
     }
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Roles {
-    pub developer: NonZeroU64,
-    pub head_developer: NonZeroU64,
-    pub staff_manager: NonZeroU64,
-    pub head_manager: NonZeroU64,
-    pub web_moderator: NonZeroU64,
-    pub owner: NonZeroU64,
-    pub awaiting_staff: NonZeroU64,
-    pub bot_developer: NonZeroU64,
-    pub certified_developer: NonZeroU64,
-    pub bot_role: NonZeroU64,
-    pub bug_hunters: NonZeroU64,
+    pub developer: RoleId,
+    pub head_developer: RoleId,
+    pub staff_manager: RoleId,
+    pub head_manager: RoleId,
+    pub web_moderator: RoleId,
+    pub owner: RoleId,
+    pub awaiting_staff: RoleId,
+    pub bot_developer: RoleId,
+    pub certified_developer: RoleId,
+    pub bot_role: RoleId,
+    pub bug_hunters: RoleId,
 }
 
 impl Default for Roles {
     fn default() -> Self {
         Self {
-            developer: NonZeroU64::new(870950609291972625).unwrap(),
-            head_developer: NonZeroU64::new(870950609317150732).unwrap(),
-            staff_manager: NonZeroU64::new(870950609291972626).unwrap(),
-            head_manager: NonZeroU64::new(870950609291972627).unwrap(),
-            web_moderator: NonZeroU64::new(870950609291972622).unwrap(),
-            owner: NonZeroU64::new(870950609317150734).unwrap(),
-            awaiting_staff: NonZeroU64::new(1029058929361174678).unwrap(),
-            bot_developer: NonZeroU64::new(758756147313246209).unwrap(),
-            certified_developer: NonZeroU64::new(759468303344992266).unwrap(),
-            bot_role: NonZeroU64::new(758652296459976715).unwrap(),
-            bug_hunters: NonZeroU64::new(1042546603795427398).unwrap(),
+            developer: RoleId::new(870950609291972625),
+            head_developer: RoleId::new(870950609317150732),
+            staff_manager: RoleId::new(870950609291972626),
+            head_manager: RoleId::new(870950609291972627),
+            web_moderator: RoleId::new(870950609291972622),
+            owner: RoleId::new(870950609317150734),
+            awaiting_staff: RoleId::new(1029058929361174678),
+            bot_developer: RoleId::new(758756147313246209),
+            certified_developer: RoleId::new(759468303344992266),
+            bot_role: RoleId::new(758652296459976715),
+            bug_hunters: RoleId::new(1042546603795427398),
         }
     }
 }
@@ -62,20 +63,20 @@ impl Default for Roles {
 #[derive(Serialize, Deserialize)]
 pub struct Channels {
     /// The testing lounge channel where autounclaims are sent
-    pub testing_lounge: NonZeroU64,
-    pub mod_logs: NonZeroU64,
+    pub testing_lounge: ChannelId,
+    pub mod_logs: ChannelId,
     // System channel
-    pub system: NonZeroU64,
-    pub uptime: NonZeroU64,
+    pub system: ChannelId,
+    pub uptime: ChannelId,
 }
 
 impl Default for Channels {
     fn default() -> Self {
         Self {
-            testing_lounge: NonZeroU64::new(891611731699335209).unwrap(),
-            mod_logs: NonZeroU64::new(911907978926493716).unwrap(),
-            system: NonZeroU64::new(762958420277067786).unwrap(),
-            uptime: NonZeroU64::new(1083108330442076292).unwrap(),
+            testing_lounge: ChannelId::new(891611731699335209),
+            mod_logs: ChannelId::new(911907978926493716),
+            system: ChannelId::new(762958420277067786),
+            uptime: ChannelId::new(1083108330442076292),
         }
     }
 }
@@ -120,8 +121,8 @@ pub struct Config {
     pub popplio_url: String,
     pub cdn_url: String,
     pub proxy_url: String,
-    pub owners: Vec<NonZeroU64>,
-    pub protected_bots: Vec<NonZeroU64>,
+    pub owners: Vec<UserId>,
+    pub protected_bots: Vec<UserId>,
     pub panel: PanelConfig,
 }
 
@@ -139,9 +140,9 @@ impl Default for Config {
             htmlsanitize_url: String::from("https://hs.infinitybots.gg/"),
             cdn_url: String::from("https://cdn.infinitybots.gg"),
             proxy_url: String::from("http://127.0.0.1:3219"),
-            owners: vec![NonZeroU64::new(510065483693817867).unwrap()],
+            owners: vec![UserId::new(510065483693817867)],
             protected_bots: vec![
-                NonZeroU64::new(1019662370278228028).unwrap(), // Reedwhisker (PTB) - Main Bot
+                UserId::new(1019662370278228028), // Reedwhisker (PTB) - Main Bot
             ],
             panel: PanelConfig::default(),
         }

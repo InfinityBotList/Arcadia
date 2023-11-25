@@ -1,6 +1,6 @@
 use log::{error, info};
 use poise::serenity_prelude::{
-    self as serenity, ChannelId, CreateEmbed, CreateMessage, FullEvent, GuildId, RoleId, Timestamp,
+    self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp,
 };
 use sqlx::postgres::PgPoolOptions;
 
@@ -143,23 +143,22 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
             ));
         }
         FullEvent::GuildMemberAddition { new_member, ctx } => {
-            if new_member.guild_id.0 == config::CONFIG.servers.main && new_member.user.bot {
+            if new_member.guild_id == config::CONFIG.servers.main && new_member.user.bot {
                 // Check if new member is in testing server
-                let member = ctx.cache.member_field(
-                    GuildId(config::CONFIG.servers.testing),
+                let member_exists_in_test_server = ctx.cache.member(
+                    config::CONFIG.servers.testing,
                     new_member.user.id,
-                    |m| m.user.id,
-                );
+                ).is_some();
 
-                if member.is_some() {
+                if member_exists_in_test_server {
                     // If so, move them to main server
-                    GuildId(config::CONFIG.servers.testing)
+                    config::CONFIG.servers.testing
                         .kick_with_reason(&ctx, new_member.user.id, "Added to main server")
                         .await?;
                 }
 
                 // Send member join message
-                ChannelId(config::CONFIG.channels.system)
+                config::CONFIG.channels.system
                 .send_message(
                     &ctx,
                     CreateMessage::new()
@@ -183,17 +182,17 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 // Give bot role
                 ctx.http
                     .add_member_role(
-                        GuildId(config::CONFIG.servers.main),
+                        config::CONFIG.servers.main,
                         new_member.user.id,
-                        RoleId(config::CONFIG.roles.bot_role),
+                        config::CONFIG.roles.bot_role,
                         Some("Bot added to server"),
                     )
                     .await?;
             }
 
-            if new_member.guild_id.0 == config::CONFIG.servers.main && !new_member.user.bot {
+            if new_member.guild_id == config::CONFIG.servers.main && !new_member.user.bot {
                 // Send member join message
-                ChannelId(config::CONFIG.channels.system)
+                config::CONFIG.channels.system
                 .send_message(
                     &ctx,
                     CreateMessage::new()

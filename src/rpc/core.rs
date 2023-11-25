@@ -1,8 +1,6 @@
-use std::num::NonZeroU64;
-
 use log::error;
 use poise::serenity_prelude::{
-    ChannelId, CreateEmbed, CreateEmbedFooter, CreateMessage, GuildId, RoleId, UserId,
+    CreateEmbed, CreateEmbedFooter, CreateMessage, UserId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -290,9 +288,9 @@ impl RPCMethod {
         // Next, ensure we have the permissions needed
         match self.needs_perms() {
             RPCPerms::Owner => {
-                let staff_id_snow = state.user_id.parse::<NonZeroU64>()?;
+                let staff_id = state.user_id.parse::<UserId>()?;
 
-                if !crate::config::CONFIG.owners.contains(&staff_id_snow) {
+                if !crate::config::CONFIG.owners.contains(&staff_id) {
                     return Err("You need to be an owner to use this method".into());
                 }
             }
@@ -478,7 +476,7 @@ impl RPCMethod {
                             )),
                     );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -544,7 +542,7 @@ impl RPCMethod {
                         )),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -585,10 +583,10 @@ impl RPCMethod {
                     let guild = state
                         .cache_http
                         .cache
-                        .guild(GuildId(crate::config::CONFIG.servers.testing))
+                        .guild(crate::config::CONFIG.servers.testing)
                         .ok_or("Failed to find guild")?;
 
-                    let member = guild.members.contains_key(&UserId(target_id.parse()?));
+                    let member = guild.members.contains_key(&target_id.parse()?);
 
                     if !member {
                         return Err("Entity is not in testing server. Please ensure this bot is in the testing server when approving. It will then be kicked by Arcadia when added to main server".into());
@@ -630,7 +628,7 @@ impl RPCMethod {
                             .color(0x00ff00),
                     );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -643,14 +641,12 @@ impl RPCMethod {
                 .all();
 
                 for owner in owners {
-                    let owner_snow = UserId(owner.parse()?);
-
-                    let guild_id = GuildId(crate::config::CONFIG.servers.main);
+                    let owner_snow = owner.parse::<UserId>()?;
 
                     if state
                         .cache_http
                         .cache
-                        .member_field(guild_id, owner_snow, |m| m.user.id)
+                        .member(crate::config::CONFIG.servers.main, owner_snow)
                         .is_some()
                     {
                         // Add role to user
@@ -658,9 +654,9 @@ impl RPCMethod {
                             .cache_http
                             .http
                             .add_member_role(
-                                GuildId(crate::config::CONFIG.servers.main),
+                                crate::config::CONFIG.servers.main,
                                 owner_snow,
-                                RoleId(crate::config::CONFIG.roles.bot_developer),
+                                crate::config::CONFIG.roles.bot_developer,
                                 Some("Autorole due to bots owned"),
                             )
                             .await
@@ -747,7 +743,7 @@ impl RPCMethod {
                         .color(0x00ff00),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -789,7 +785,7 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
                 Ok(RPCSuccess::NoContent)
@@ -831,7 +827,7 @@ impl RPCMethod {
                         .color(0x00ff00),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -869,7 +865,7 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -906,7 +902,7 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -943,7 +939,7 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -999,7 +995,7 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1048,7 +1044,7 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1068,7 +1064,7 @@ impl RPCMethod {
                     return Err(" does not exist".into());
                 }
 
-                let target_id_snow = target_id.parse::<NonZeroU64>()?;
+                let target_id_snow = target_id.parse::<UserId>()?;
 
                 if crate::config::CONFIG
                     .protected_bots
@@ -1096,27 +1092,23 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
                 if *kick {
                     // Check that the bot is in the server
-                    let bot = state.cache_http.cache.member_field(
-                        GuildId(crate::config::CONFIG.servers.main),
-                        UserId(target_id_snow),
-                        |m| m.user.name.clone(),
-                    );
+                    let bot_in_server = state.cache_http.cache.member(
+                        crate::config::CONFIG.servers.main,
+                        target_id_snow,
+                    ).is_some();
 
-                    if bot.is_some() {
-                        GuildId(crate::config::CONFIG.servers.main)
-                            .member(&state.cache_http, UserId(target_id.parse()?))
-                            .await?
-                            .kick_with_reason(
-                                &state.cache_http,
-                                &(state.user_id.to_string() + ":" + reason),
-                            )
-                            .await?;
+                    if bot_in_server {
+                        state.cache_http.http.kick_member(
+                            crate::config::CONFIG.servers.main,
+                            target_id_snow,
+                            Some("Force deleted via RPC with kick set to true")
+                        ).await?;
                     }
                 }
 
@@ -1151,7 +1143,7 @@ impl RPCMethod {
                         .color(0xff0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1188,7 +1180,7 @@ impl RPCMethod {
                         .color(0xff0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1240,7 +1232,7 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1298,7 +1290,7 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                ChannelId(crate::config::CONFIG.channels.mod_logs)
+                crate::config::CONFIG.channels.mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 

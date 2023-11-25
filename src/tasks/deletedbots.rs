@@ -1,8 +1,5 @@
 use log::{error, info, warn};
-use serenity::{
-    all::ChannelId,
-    builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
-};
+use serenity::builder::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 
 use crate::impls::target_types::TargetType;
 
@@ -116,7 +113,7 @@ pub async fn deleted_bots(
                         .color(0x00ff00),
                 );
 
-            ChannelId(crate::config::CONFIG.channels.mod_logs)
+            crate::config::CONFIG.channels.mod_logs
                 .send_message(&cache_http, msg)
                 .await?;
 

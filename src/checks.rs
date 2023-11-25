@@ -6,7 +6,7 @@ type Context<'a> = crate::Context<'a>;
 /// Check for main_server
 pub async fn main_server(ctx: Context<'_>) -> Result<bool, Error> {
     let in_main_server = match ctx.guild_id() {
-        Some(guild_id) => guild_id.0 == config::CONFIG.servers.main,
+        Some(guild_id) => guild_id == config::CONFIG.servers.main,
         None => false,
     };
 
@@ -16,7 +16,7 @@ pub async fn main_server(ctx: Context<'_>) -> Result<bool, Error> {
 /// Check for staff_server
 pub async fn staff_server(ctx: Context<'_>) -> Result<bool, Error> {
     let in_staff_server = match ctx.guild_id() {
-        Some(guild_id) => guild_id.0 == config::CONFIG.servers.staff,
+        Some(guild_id) => guild_id == config::CONFIG.servers.staff,
         None => false,
     };
 
@@ -26,7 +26,7 @@ pub async fn staff_server(ctx: Context<'_>) -> Result<bool, Error> {
 /// Check for staff_server
 pub async fn testing_server(ctx: Context<'_>) -> Result<bool, Error> {
     let in_testing_server = match ctx.guild_id() {
-        Some(guild_id) => guild_id.0 == config::CONFIG.servers.testing,
+        Some(guild_id) => guild_id == config::CONFIG.servers.testing,
         None => false,
     };
 

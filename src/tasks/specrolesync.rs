@@ -1,4 +1,4 @@
-use std::num::NonZeroU64;
+use poise::serenity_prelude::UserId;
 
 use crate::config;
 
@@ -7,7 +7,7 @@ pub enum SpecialRole {
 }
 
 struct SpecRoleSync {
-    user_id: NonZeroU64,
+    user_id: UserId,
     col: SpecialRole,
 }
 
@@ -18,15 +18,13 @@ pub async fn spec_role_sync(
     // Now actually resync
     let mut resync = Vec::new();
 
-    let bug_hunter_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.bug_hunters);
-
     {
         if let Some(guild) = cache_http.cache.guild(config::CONFIG.servers.main) {
             // Get all members with the bug hunter role
             for (_, member) in guild.members.iter() {
-                if member.roles.contains(&bug_hunter_role) {
+                if member.roles.contains(&config::CONFIG.roles.bug_hunters) {
                     resync.push(SpecRoleSync {
-                        user_id: member.user.id.0,
+                        user_id: member.user.id,
                         col: SpecialRole::BugHunter,
                     });
                 }

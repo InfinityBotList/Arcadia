@@ -1,7 +1,8 @@
-use std::num::NonZeroU64;
+use serenity::all::{UserId, RoleId};
 
 use crate::config;
 
+#[derive(Clone, Copy)]
 enum StaffPosition {
     Staff,
     Manager,
@@ -12,7 +13,7 @@ enum StaffPosition {
 }
 
 struct StaffResync {
-    user_id: NonZeroU64,
+    user_id: UserId,
     col: StaffPosition,
 }
 
@@ -23,50 +24,31 @@ pub async fn staff_resync(
     // Now actually resync
     let mut staff_resync = Vec::new();
 
-    let dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.developer);
-    let head_dev_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.head_developer);
-    let staff_man_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.staff_manager);
-    let head_man_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.head_manager);
-    let web_mod_role = poise::serenity_prelude::RoleId(config::CONFIG.roles.web_moderator);
+    let rid_map: indexmap::IndexMap<RoleId, StaffPosition> = indexmap::indexmap! {
+        config::CONFIG.roles.developer => StaffPosition::Developer,
+        config::CONFIG.roles.head_developer => StaffPosition::HeadDeveloper,
+        config::CONFIG.roles.staff_manager => StaffPosition::Manager,
+        config::CONFIG.roles.head_manager => StaffPosition::HeadManager,
+        config::CONFIG.roles.web_moderator => StaffPosition::Staff,
+    };
 
     {
         if let Some(guild) = cache_http.cache.guild(config::CONFIG.servers.staff) {
             for (_, member) in guild.members.iter() {
-                if config::CONFIG.owners.contains(&member.user.id.0) {
+                if config::CONFIG.owners.contains(&member.user.id) {
                     staff_resync.push(StaffResync {
-                        user_id: member.user.id.0,
+                        user_id: member.user.id,
                         col: StaffPosition::Owner,
                     });
                 }
-                if member.roles.contains(&dev_role) {
-                    staff_resync.push(StaffResync {
-                        user_id: member.user.id.0,
-                        col: StaffPosition::Developer,
-                    });
-                }
-                if member.roles.contains(&head_dev_role) {
-                    staff_resync.push(StaffResync {
-                        user_id: member.user.id.0,
-                        col: StaffPosition::HeadDeveloper,
-                    });
-                }
-                if member.roles.contains(&staff_man_role) {
-                    staff_resync.push(StaffResync {
-                        user_id: member.user.id.0,
-                        col: StaffPosition::Manager,
-                    });
-                }
-                if member.roles.contains(&head_man_role) {
-                    staff_resync.push(StaffResync {
-                        user_id: member.user.id.0,
-                        col: StaffPosition::HeadManager,
-                    });
-                }
-                if member.roles.contains(&web_mod_role) {
-                    staff_resync.push(StaffResync {
-                        user_id: member.user.id.0,
-                        col: StaffPosition::Staff,
-                    });
+
+                for (role, col) in rid_map.iter() {
+                    if member.roles.contains(role) {
+                        staff_resync.push(StaffResync {
+                            user_id: member.user.id,
+                            col: *col,
+                        });
+                    }
                 }
             }
         } else {

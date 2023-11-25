@@ -7,7 +7,7 @@ use poise::{
     CreateReply,
 };
 
-use std::{fmt::Write as _, num::NonZeroU64, time::Duration};
+use std::{fmt::Write as _, time::Duration};
 // import without risk of name clashing
 use poise::serenity_prelude::UserId;
 
@@ -83,7 +83,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             }
         };
 
-        let user_id = match staff.user_id.parse::<NonZeroU64>() {
+        let user_id = match staff.user_id.parse::<UserId>() {
             Ok(user_id) => user_id,
             Err(e) => {
                 log::error!("Failed to parse user_id: {}", e);
@@ -91,10 +91,10 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             }
         };
 
-        let cache_user = ctx.serenity_context().cache.member(server_id, UserId(user_id));
+        let cache_user = ctx.cache().member(server_id, user_id);
 
-        let user = match cache_user {
-            Some(user) => user.user,
+        let username = match cache_user {
+            Some(user) => user.user.name.clone(),
             None => {
                 log::error!("Failed to get user from cache: {}", staff.user_id);
                 continue;
@@ -102,7 +102,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
         };
 
         select_menus.push(
-            CreateSelectMenuOption::new(format!("{} ({})", user.name, highest_perm), staff.user_id)
+            CreateSelectMenuOption::new(format!("{} ({})", username, highest_perm), staff.user_id)
                 .description("View staff member's information"),
         );
     }
@@ -164,7 +164,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
 
         log::info!("Received interaction: {}", id);
 
-        let user_id = match id.parse::<NonZeroU64>() {
+        let user_id = match id.parse::<UserId>() {
             Ok(id) => id,
             Err(_) => {
                 log::info!("Failed to parse user_id: {}", id);
@@ -172,13 +172,15 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             }
         };
 
-        let cache_user = ctx.serenity_context().cache.member(server_id, UserId(user_id));
+        let member = {
+            let cache_user = ctx.serenity_context().cache.member(server_id, user_id);
 
-        let member = match cache_user {
-            Some(user) => user,
-            None => {
-                log::error!("Failed to get user from cache: {}", user_id);
-                continue;
+            match cache_user {
+                Some(user) => user.clone(),
+                None => {
+                    log::error!("Failed to get user from cache: {}", user_id);
+                    continue;
+                }
             }
         };
 
@@ -279,12 +281,12 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
 
     for staff in staffs {
         // Convert ID to u64
-        let user_id = staff.user_id.parse::<NonZeroU64>()?;
+        let user_id = staff.user_id.parse::<UserId>()?;
 
-        let cache_user = discord.cache.member(guild, UserId(user_id));
+        let cache_user = discord.cache.member(guild, user_id);
 
-        let user = match cache_user {
-            Some(user) => user.user,
+        let username = match cache_user {
+            Some(user) => user.user.name.clone(),
             None => {
                 return Err(format!("User <@{}> is staff but not in the server", user_id).into());
             }
@@ -294,7 +296,7 @@ pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
             staff_list,
             "{user_id} ({username}) [staff={staff}, admin={admin}, ibldev={ibldev}, iblhdev={iblhdev} hadmin={hadmin}, owner={owner}]", 
             user_id=staff.user_id,
-            username=user.name,
+            username=username,
             staff=staff.staff,
             admin=staff.admin,
             ibldev=staff.ibldev,
@@ -344,9 +346,8 @@ pub async fn staff_guilddel(
     ctx: Context<'_>,
     #[description = "The guild ID to remove"] guild: String,
 ) -> Result<(), Error> {
-    let gid = guild.parse::<NonZeroU64>()?;
-
-    ctx.serenity_context().http.delete_guild(GuildId(gid)).await?;
+    let gid = guild.parse::<GuildId>()?;
+    ctx.http().delete_guild(gid).await?;
 
     ctx.say("Removed guild").await?;
 
@@ -366,9 +367,9 @@ pub async fn staff_guildleave(
     ctx: Context<'_>,
     #[description = "The guild ID to leave"] guild: String,
 ) -> Result<(), Error> {
-    let gid = guild.parse::<NonZeroU64>()?;
+    let gid = guild.parse::<GuildId>()?;
 
-    ctx.serenity_context().http.leave_guild(GuildId(gid)).await?;
+    ctx.http().leave_guild(gid).await?;
 
     ctx.say("Removed guild").await?;
 

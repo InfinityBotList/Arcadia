@@ -1,12 +1,10 @@
-use poise::serenity_prelude::GuildId;
-
 use crate::config;
 
 pub async fn bans_sync(
     pool: &sqlx::PgPool,
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
-    let bans = GuildId(config::CONFIG.servers.main)
+    let bans = config::CONFIG.servers.main
         .bans(&cache_http.http, None, None)
         .await
         .map_err(|e| format!("Error while fetching bans: {}", e))?;
@@ -24,7 +22,7 @@ pub async fn bans_sync(
         .map_err(|e| format!("Error while updating users in database: {}", e))?;
 
     for ban in bans {
-        let user_id = ban.user.id.0.to_string();
+        let user_id = ban.user.id.to_string();
         sqlx::query!("UPDATE users SET banned = true WHERE user_id = $1", user_id)
             .execute(&mut *tx)
             .await

@@ -20,6 +20,7 @@ pub enum Task {
     GenericCleaner,
     AssetCleaner,
     DeletedBots,
+    VoteResetter,
 }
 
 impl Task {
@@ -35,6 +36,7 @@ impl Task {
             Task::GenericCleaner => true,
             Task::AssetCleaner => true,
             Task::DeletedBots => true,
+            Task::VoteResetter => true,
         }
     }
 
@@ -50,6 +52,7 @@ impl Task {
             Task::GenericCleaner => Duration::from_secs(400),
             Task::AssetCleaner => Duration::from_secs(450),
             Task::DeletedBots => Duration::from_secs(500),
+            Task::VoteResetter => Duration::from_secs(600),
         }
     }
 
@@ -65,6 +68,7 @@ impl Task {
             Task::GenericCleaner => "Cleaning up orphaned generic entities",
             Task::AssetCleaner => "Cleaning up orphaned assets",
             Task::DeletedBots => "Cleaning up deleted bots",
+            Task::VoteResetter => "Resetting votes",
         }
     }
 
@@ -86,6 +90,7 @@ impl Task {
             Task::GenericCleaner => crate::tasks::genericcleaner::generic_cleaner(pool).await,
             Task::AssetCleaner => crate::tasks::assetcleaner::asset_cleaner(pool).await,
             Task::DeletedBots => crate::tasks::deletedbots::deleted_bots(pool, cache_http).await,
+            Task::VoteResetter => crate::tasks::voterestter::vote_resetter(pool, cache_http).await,
         }
     }
 }

@@ -8,3 +8,4 @@ pub mod staffresync;
 pub mod taskcat;
 pub mod teamcleaner;
 pub mod assetcleaner;
+pub mod voterestter;

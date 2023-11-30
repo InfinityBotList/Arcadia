@@ -978,7 +978,7 @@ impl RPCMethod {
                     }
                 };
 
-                sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (single entity) reset', voided_at = NOW() WHERE target_type = $1 AND target_id = $2", state.target_type.to_string(), target_id)
+                sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (single entity) reset', voided_at = NOW() WHERE target_type = $1 AND target_id = $2 AND void = FALSE", state.target_type.to_string(), target_id)
                     .execute(&mut *tx)
                     .await?;
 

@@ -579,41 +579,30 @@ async fn query(
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
-            let count = sqlx::query!(
-                "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
-                auth_data.user_id
+            let mfa = sqlx::query!(
+                "SELECT mfa_secret, mfa_verified FROM staff_members WHERE user_id = $1",
+		auth_data.user_id
             )
             .fetch_one(&mut *tx)
             .await
-            .map_err(Error::new)?
-            .count
-            .unwrap_or(0);
+            .map_err(Error::new)?;
 
-            if count == 0 {
+            if mfa.mfa_secret.is_none() {
                 return Err(Error {
                     status: StatusCode::BAD_REQUEST,
                     message: "mfaNotSetup".to_string(),
                 });
             }
 
-            let secret = sqlx::query!(
-                "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
-                auth_data.user_id
-            )
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(Error::new)?
-            .mfa_secret;
-
             let secret =
-                thotp::encoding::decode(&secret, data_encoding::BASE32).map_err(Error::new)?;
+                thotp::encoding::decode(&mfa.mfa_secret.unwrap(), data_encoding::BASE32).map_err(Error::new)?;
 
             let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
 
             if !result {
                 return Err(Error {
                     status: StatusCode::BAD_REQUEST,
-                    message: "mfaInvalidCode".to_string(),
+                    message: "Invalid OTP entered".to_string(),
                 });
             }
 
@@ -626,7 +615,7 @@ async fn query(
             .map_err(Error::new)?;
 
             sqlx::query!(
-                "UPDATE staffpanel__paneldata SET mfa_verified = TRUE WHERE user_id = $1",
+                "UPDATE staff_members SET mfa_verified = TRUE WHERE user_id = $1",
                 auth_data.user_id
             )
             .execute(&mut *tx)
@@ -644,25 +633,8 @@ async fn query(
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
-            let count = sqlx::query!(
-                "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
-                auth_data.user_id
-            )
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(Error::new)?
-            .count
-            .unwrap_or(0);
-
-            if count == 0 {
-                return Err(Error {
-                    status: StatusCode::BAD_REQUEST,
-                    message: "mfaNotSetup".to_string(),
-                });
-            }
-
             let secret = sqlx::query!(
-                "SELECT mfa_secret FROM staffpanel__paneldata WHERE user_id = $1",
+                "SELECT mfa_secret FROM staff_members WHERE user_id = $1",
                 auth_data.user_id
             )
             .fetch_one(&mut *tx)
@@ -671,26 +643,26 @@ async fn query(
             .mfa_secret;
 
             let secret =
-                thotp::encoding::decode(&secret, data_encoding::BASE32).map_err(Error::new)?;
+                thotp::encoding::decode(&secret.unwrap(), data_encoding::BASE32).map_err(Error::new)?;
 
             let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
 
             if !result {
                 return Err(Error {
                     status: StatusCode::BAD_REQUEST,
-                    message: "mfaInvalidCode".to_string(),
+                    message: "Invalid OTP Entered".to_string(),
                 });
             }
 
             sqlx::query!(
-                "UPDATE staffpanel__paneldata SET mfa_verified = FALSE WHERE user_id = $1",
+                "UPDATE staff_members SET mfa_secret = NULL, mfa_verified = FALSE WHERE user_id = $1",
                 auth_data.user_id
             )
             .execute(&mut *tx)
             .await
             .map_err(Error::new)?;
 
-            // Revoke existing session
+            // Revoke existing sessions
             sqlx::query!(
                 "DELETE FROM staffpanel__authchain WHERE user_id = $1",
                 auth_data.user_id

@@ -9,7 +9,7 @@
 /// 
 /// If a permission has ~ in the beginning of its namespace, it is a negator permission that removes that specific permission from the user
 /// 
-/// Negators work to negate a specific permission *excluding the global.* permission*
+/// Negators work to negate a specific permission *excluding the global.* permission* (for now, until this gets a bit more refined to not need a global.* special case)
 /// 
 /// Anything past the <namespace>.<permission> may be ignored or indexed at the discretion of the implementation and is *undefined behaviour*
 
@@ -88,5 +88,7 @@ mod tests {
         assert!(!has_perm(&vec!["apps.*".to_string(), "~apps.test".to_string()], "apps.test")); // apps.* does not imply apps.test due to negator ~apps.test
         assert!(!has_perm(&vec!["~apps.test".to_string(), "apps.*".to_string()], "apps.test")); // apps.* does not imply apps.test due to negator ~apps.test. Same as above with different order of perms to test for ordering
         assert!(has_perm(&vec!["apps.test".to_string()], "apps.test")); // ~apps.* does not imply apps.test as it is negated
+        assert!(has_perm(&vec!["apps.test".to_string(), "apps.*".to_string()], "apps.test")); // More tests
+        assert!(has_perm(&vec!["~apps.test".to_string(), "global.*".to_string()], "apps.test")); // Test for global.* handling as a wildcard 'return true'
     }
 }

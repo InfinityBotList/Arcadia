@@ -314,7 +314,7 @@ pub async fn staff_resync(
                                     perms.push("None".to_string());
                                 }
                                 
-                                perms.join(", ")
+                                "``".to_string() + &perms.join(", ") + "``"
                             },
                             false
                         )
@@ -330,7 +330,7 @@ pub async fn staff_resync(
                                     nperms.push("None".to_string());
                                 }
                                 
-                                nperms.join(", ")
+                                "``".to_string() + &nperms.join(", ") + "``"
                             }, 
                             false
                         )
@@ -338,9 +338,9 @@ pub async fn staff_resync(
             )
             .await
             .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;
-
-            unaccounted_user_ids.remove(&user.user_id.to_string());
         }
+
+        unaccounted_user_ids.remove(&user.user_id.to_string());
     }
 
     // Now, remove any unaccounted users

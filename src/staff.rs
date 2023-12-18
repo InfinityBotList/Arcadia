@@ -1,6 +1,6 @@
 use poise::serenity_prelude::GuildId;
 
-use crate::checks;
+use crate::{checks, impls::perms};
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -14,12 +14,11 @@ type Context<'a> = crate::Context<'a>;
     subcommands(
         "staff_list",
         "staff_guildlist",
-        "staff_guilddel",
         "staff_guildleave"
     )
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guilddel``, ``staff_guildleave``").await?;
+    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``").await?;
     Ok(())
 }
 
@@ -186,40 +185,29 @@ pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-/// Delete server
-#[poise::command(
-    rename = "guilddel",
-    track_edits,
-    prefix_command,
-    slash_command,
-    check = "checks::is_admin_hdev",
-    check = "checks::staff_server"
-)]
-pub async fn staff_guilddel(
-    ctx: Context<'_>,
-    #[description = "The guild ID to remove"] guild: String,
-) -> Result<(), Error> {
-    let gid = guild.parse::<GuildId>()?;
-    ctx.http().delete_guild(gid).await?;
-
-    ctx.say("Removed guild").await?;
-
-    Ok(())
-}
-
 /// Leave server
 #[poise::command(
     rename = "guildleave",
     track_edits,
     prefix_command,
     slash_command,
-    check = "checks::is_admin_hdev",
     check = "checks::staff_server"
 )]
 pub async fn staff_guildleave(
     ctx: Context<'_>,
     #[description = "The guild ID to leave"] guild: String,
 ) -> Result<(), Error> {
+    let user_perms = sqlx::query!(
+        "SELECT perms FROM staff_members WHERE user_id = $1",
+        ctx.author().id.to_string()
+    )
+    .fetch_one(&ctx.data().pool)
+    .await?;
+
+    if !perms::has_perm(&user_perms.perms, &perms::build("arcadia", "leave_guilds")) {
+        return Err("You do not have permission to use this command".into());
+    }
+
     let gid = guild.parse::<GuildId>()?;
 
     ctx.http().leave_guild(gid).await?;

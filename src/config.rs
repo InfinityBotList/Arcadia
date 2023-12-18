@@ -68,6 +68,7 @@ pub struct Channels {
     // System channel
     pub system: ChannelId,
     pub uptime: ChannelId,
+    pub staff_logs: ChannelId,
 }
 
 impl Default for Channels {
@@ -77,6 +78,7 @@ impl Default for Channels {
             mod_logs: ChannelId::new(911907978926493716),
             system: ChannelId::new(762958420277067786),
             uptime: ChannelId::new(1083108330442076292),
+            staff_logs: ChannelId::new(1186195848497999912),
         }
     }
 }

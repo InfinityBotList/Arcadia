@@ -1,5 +1,7 @@
 use serenity::builder::{CreateMessage, CreateEmbed, CreateEmbedFooter};
 
+const ENTITY_TYPES: [&str; 4] = ["bots", "servers", "teams", "packs"];
+
 pub async fn vote_resetter(
     pool: &sqlx::PgPool,
     cache_http: &crate::impls::cache::CacheHttpImpl,
@@ -28,6 +30,13 @@ pub async fn vote_resetter(
     )
     .execute(&mut *tx)
     .await?;
+
+    // Clear entity-specific tables
+    for entity_type in ENTITY_TYPES.iter() {
+        sqlx::query(&format!("UPDATE {} SET votes = 0", entity_type))
+        .execute(&mut *tx)
+        .await?;
+    }
 
     // Insert into automated_vote_resets
     sqlx::query!(

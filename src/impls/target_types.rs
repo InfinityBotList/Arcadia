@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use strum_macros::{EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
@@ -28,8 +29,30 @@ impl Display for TargetType {
     }
 }
 
-/* TODO/TOUSE
 impl TargetType {
+    #[allow(dead_code)] // TODO: Use this basic support
+    pub fn supports_votes(&self) -> bool {
+        match self {
+            TargetType::Bot => true,
+            TargetType::Server => true,
+            TargetType::Team => true,
+            TargetType::Pack => true,
+        }
+    }
+
+    #[allow(dead_code)] // TODO: Use this basic support
+    pub fn id(&self) -> String {
+        match self {
+            TargetType::Bot => "bot_id".to_string(),
+            TargetType::Server => "server_id".to_string(),
+            TargetType::Team => "id".to_string(),
+            TargetType::Pack => "url".to_string(),
+        }
+    }
+}
+
+impl TargetType {
+    #[allow(dead_code)] // TODO: Implement this/use this basic support
     pub async fn get_vanity(pool: &PgPool, vanity_ref: sqlx::types::Uuid) -> Result<String, crate::Error> {
         let rec = sqlx::query!(
             "SELECT code::text FROM vanity WHERE itag = $1",
@@ -44,4 +67,4 @@ impl TargetType {
 
         Ok(code)
     }
-}*/
+}

@@ -262,7 +262,7 @@ pub async fn staff_resync(
                                 let mut positions = Vec::new();
                                 for pos in user_positions_db.iter() {
                                     if let Some(pos) = pos_cache_by_id.get(pos) {
-                                        positions.push(format!("- {}", pos));
+                                        positions.push(format!("- ``{}``", pos));
                                     } else {
                                         positions.push(format!("- Unknown Position: {}", pos));
                                     }
@@ -272,7 +272,7 @@ pub async fn staff_resync(
                                     positions.push("None".to_string());
                                 }
                                 
-                                positions.join(", ")
+                                positions.join("\n")
                             },
                             false
                         )
@@ -282,7 +282,7 @@ pub async fn staff_resync(
                                 let mut positions = Vec::new();
                                 for pos in user_positions.iter() {
                                     if let Some(pos) = pos_cache_by_id.get(pos) {
-                                        positions.push(format!("- {}", pos));
+                                        positions.push(format!("- ``{}``", pos));
                                     } else {
                                         positions.push(format!("- Unknown Position: {}", pos));
                                     }
@@ -292,7 +292,7 @@ pub async fn staff_resync(
                                     positions.push("None".to_string());
                                 }
                                 
-                                positions.join(", ")
+                                positions.join("\n")
                             }, 
                             false
                         )
@@ -303,7 +303,7 @@ pub async fn staff_resync(
                                 for perm in user_positions_db.iter() {
                                     if let Some(pos) = pos_cache_by_id.get(perm) {
                                         for perm in pos.perms.iter() {
-                                            perms.push(format!("- {}", perm));
+                                            perms.push(format!("- ``{}``", perm));
                                         }
                                     } else {
                                         perms.push(format!("- Unknown Position: {}", perm));
@@ -314,7 +314,7 @@ pub async fn staff_resync(
                                     perms.push("None".to_string());
                                 }
                                 
-                                "``".to_string() + &perms.join(", ") + "``"
+                               perms.join("\n")
                             },
                             false
                         )
@@ -323,14 +323,14 @@ pub async fn staff_resync(
                             {
                                 let mut nperms = Vec::new();
                                 for perm in perms.iter() {
-                                    nperms.push(format!("- {}", perm));
+                                    nperms.push(format!("- ``{}``", perm));
                                 }
 
                                 if nperms.is_empty() {
                                     nperms.push("None".to_string());
                                 }
                                 
-                                "``".to_string() + &nperms.join(", ") + "``"
+                               nperms.join("\n")
                             }, 
                             false
                         )
@@ -362,6 +362,48 @@ pub async fn staff_resync(
                         "Removed unaccounted staff member <@{}> as they are no longer in the staff server.",
                         user_id
                     ))
+                    .field(
+                        "Old Positions", 
+                        {
+                            let mut positions = Vec::new();
+                            for pos in member_pos_cache.get(&user_id).unwrap() {
+                                if let Some(pos) = pos_cache_by_id.get(pos) {
+                                    positions.push(format!("- ``{}``", pos));
+                                } else {
+                                    positions.push(format!("- Unknown Position: {}", pos));
+                                }
+                            }
+
+                            if positions.is_empty() {
+                                positions.push("None".to_string());
+                            }
+                            
+                            positions.join("\n")
+                        },
+                        false
+                    )
+                    .field(
+                        "Old Permissions", 
+                        {
+                            let mut perms = Vec::new();
+                            for perm in member_pos_cache.get(&user_id).unwrap() {
+                                if let Some(pos) = pos_cache_by_id.get(perm) {
+                                    for perm in pos.perms.iter() {
+                                        perms.push(format!("- ``{}``", perm));
+                                    }
+                                } else {
+                                    perms.push(format!("- Unknown Position: {}", perm));
+                                }
+                            }
+
+                            if perms.is_empty() {
+                                perms.push("None".to_string());
+                            }
+                            
+                           perms.join("\n")
+                        },
+                        false
+                    )
                 ]),
         )
         .await

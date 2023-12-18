@@ -11,14 +11,11 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands(
-        "staff_list",
-        "staff_guildlist",
-        "staff_guildleave"
-    )
+    subcommands("staff_list", "staff_guildlist", "staff_guildleave")
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``").await?;
+    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``")
+        .await?;
     Ok(())
 }
 

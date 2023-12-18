@@ -1,7 +1,5 @@
 use log::error;
-use poise::serenity_prelude::{
-    CreateEmbed, CreateEmbedFooter, CreateMessage, UserId,
-};
+use poise::serenity_prelude::{CreateEmbed, CreateEmbedFooter, CreateMessage, UserId};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serenity::model::Color;
@@ -10,7 +8,7 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
 use crate::{
-    impls::{self, target_types::TargetType, perms},
+    impls::{self, perms, target_types::TargetType},
     Error,
 };
 use utoipa::ToSchema;
@@ -265,9 +263,12 @@ impl RPCMethod {
 
         let required_perm = perms::build("rpc", &self.to_string());
         if !perms::has_perm(&user_perms.perms, &required_perm) {
-            return Err(
-                format!("You need {} permission to use {}", required_perm, &self.to_string()).into()
-            );
+            return Err(format!(
+                "You need {} permission to use {}",
+                required_perm,
+                &self.to_string()
+            )
+            .into());
         }
 
         // Also ensure that onboarding has happened
@@ -416,7 +417,9 @@ impl RPCMethod {
                             )),
                     );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -482,7 +485,9 @@ impl RPCMethod {
                         )),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -568,7 +573,9 @@ impl RPCMethod {
                             .color(0x00ff00),
                     );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -683,7 +690,9 @@ impl RPCMethod {
                         .color(0x00ff00),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -725,7 +734,9 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
                 Ok(RPCSuccess::NoContent)
@@ -767,7 +778,9 @@ impl RPCMethod {
                         .color(0x00ff00),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -805,7 +818,9 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -842,7 +857,9 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -879,7 +896,9 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -935,7 +954,9 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -984,7 +1005,9 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1032,23 +1055,30 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
                 if *kick {
                     // Check that the bot is in the server
-                    let bot_in_server = state.cache_http.cache.member(
-                        crate::config::CONFIG.servers.main,
-                        target_id_snow,
-                    ).is_some();
+                    let bot_in_server = state
+                        .cache_http
+                        .cache
+                        .member(crate::config::CONFIG.servers.main, target_id_snow)
+                        .is_some();
 
                     if bot_in_server {
-                        state.cache_http.http.kick_member(
-                            crate::config::CONFIG.servers.main,
-                            target_id_snow,
-                            Some("Force deleted via RPC with kick set to true")
-                        ).await?;
+                        state
+                            .cache_http
+                            .http
+                            .kick_member(
+                                crate::config::CONFIG.servers.main,
+                                target_id_snow,
+                                Some("Force deleted via RPC with kick set to true"),
+                            )
+                            .await?;
                     }
                 }
 
@@ -1083,7 +1113,9 @@ impl RPCMethod {
                         .color(0xff0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1120,7 +1152,9 @@ impl RPCMethod {
                         .color(0xff0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1172,7 +1206,9 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 
@@ -1230,7 +1266,9 @@ impl RPCMethod {
                         .color(0xFF0000),
                 );
 
-                crate::config::CONFIG.channels.mod_logs
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
 

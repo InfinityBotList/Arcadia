@@ -32,7 +32,7 @@ pub enum BlogAction {
         /// The content of the blog entry
         content: String,
         /// The tags for the blog entry
-        tags: Vec<String>
+        tags: Vec<String>,
     },
 
     /// Updates a blog entry
@@ -80,5 +80,5 @@ pub struct BlogPost {
     /// Whether or not the blog entry is a draft or not
     pub draft: bool,
     /// The tags for the blog entry
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }

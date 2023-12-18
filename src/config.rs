@@ -1,9 +1,9 @@
 use once_cell::sync::Lazy;
+use poise::serenity_prelude::{ChannelId, GuildId, RoleId, UserId};
 use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, fs::File, io::Write};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use std::{fs::File, io::Write, collections::HashMap};
-use poise::serenity_prelude::{UserId, ChannelId, RoleId, GuildId};
 
 use crate::Error;
 
@@ -93,7 +93,7 @@ pub struct PanelConfig {
     pub redirect_url: Vec<String>,
 
     /// CDN scopes for the panel API (locations for the CDN)
-    /// 
+    ///
     /// Currently the panel uses the following scopes:
     /// - ibl@main
     pub cdn_scopes: HashMap<String, CdnScopeData>,
@@ -107,7 +107,7 @@ pub struct CdnScopeData {
     /// Path in local fs (or remote if support is added)
     pub path: String,
     /// Exposed URL for the CDN
-    pub exposed_url: String
+    pub exposed_url: String,
 }
 
 #[derive(Serialize, Deserialize)]

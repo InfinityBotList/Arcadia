@@ -1,7 +1,5 @@
 use log::{error, info};
-use poise::serenity_prelude::{
-    self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp,
-};
+use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp};
 use sqlx::postgres::PgPoolOptions;
 
 use crate::impls::cache::CacheHttpImpl;
@@ -145,14 +143,16 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
         FullEvent::GuildMemberAddition { new_member, ctx } => {
             if new_member.guild_id == config::CONFIG.servers.main && new_member.user.bot {
                 // Check if new member is in testing server
-                let member_exists_in_test_server = ctx.cache.member(
-                    config::CONFIG.servers.testing,
-                    new_member.user.id,
-                ).is_some();
+                let member_exists_in_test_server = ctx
+                    .cache
+                    .member(config::CONFIG.servers.testing, new_member.user.id)
+                    .is_some();
 
                 if member_exists_in_test_server {
                     // If so, move them to main server
-                    config::CONFIG.servers.testing
+                    config::CONFIG
+                        .servers
+                        .testing
                         .kick_with_reason(&ctx, new_member.user.id, "Added to main server")
                         .await?;
                 }

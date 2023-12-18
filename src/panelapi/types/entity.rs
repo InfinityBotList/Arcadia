@@ -1,8 +1,8 @@
+use crate::impls::dovewing::PartialUser;
 use serde::{Deserialize, Serialize};
+use strum_macros::{Display, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use strum_macros::{Display, EnumVariantNames};
-use crate::impls::dovewing::PartialUser;
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
 #[ts(export, export_to = ".generated/PartialBot.ts")]
@@ -46,15 +46,7 @@ pub struct PartialServer {
     pub mentionable: Vec<String>,
 }
 
-#[derive(
-    Serialize,
-    Deserialize,
-    ToSchema,
-    TS,
-    EnumVariantNames,
-    Display,
-    Clone,
-)]
+#[derive(Serialize, Deserialize, ToSchema, TS, EnumVariantNames, Display, Clone)]
 #[ts(export, export_to = ".generated/PartialEntity.ts")]
 pub enum PartialEntity {
     Bot(PartialBot),

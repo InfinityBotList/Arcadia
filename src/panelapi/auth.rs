@@ -6,11 +6,9 @@ use super::types::auth::AuthData;
 /// Checks auth, but does not ensure active sessions
 pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     // Delete expired auths
-    sqlx::query!(
-        "DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '1 hour'"
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query!("DELETE FROM staffpanel__authchain WHERE created_at < NOW() - INTERVAL '1 hour'")
+        .execute(pool)
+        .await?;
 
     // Delete expired auths that are inactive
     sqlx::query!(

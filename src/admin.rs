@@ -24,14 +24,12 @@ pub async fn uninvitedbots(ctx: Context<'_>) -> Result<(), Error> {
 
     for row in subject_rows {
         match row.bot_id.parse::<UserId>() {
-            Ok(id) => {
-                match ctx.cache().member(crate::config::CONFIG.servers.main, id) {
-                    Some(_) => continue,
-                    None => {
-                        bad_ids.push(id.to_string());
-                    }
+            Ok(id) => match ctx.cache().member(crate::config::CONFIG.servers.main, id) {
+                Some(_) => continue,
+                None => {
+                    bad_ids.push(id.to_string());
                 }
-            }
+            },
             Err(_) => continue,
         }
     }

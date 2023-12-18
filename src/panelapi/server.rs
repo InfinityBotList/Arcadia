@@ -4,17 +4,17 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::impls::{self, perms};
 use crate::impls::target_types::TargetType;
+use crate::impls::{self, perms};
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
-    entity::{PartialBot, PartialServer, PartialEntity},
+    blog::{BlogAction, BlogPost},
     cdn::{CdnAssetAction, CdnAssetItem},
     changelogs::{ChangelogAction, ChangelogEntry},
-    blog::{BlogAction, BlogPost},
-    partners::{Partners, PartnerType, Partner, PartnerAction, CreatePartner},
+    entity::{PartialBot, PartialEntity, PartialServer},
+    partners::{CreatePartner, Partner, PartnerAction, PartnerType, Partners},
     rpc::RPCWebAction,
-    webcore::{CoreConstants, InstanceConfig, PanelServers, StaffMember, StaffPosition}
+    webcore::{CoreConstants, InstanceConfig, PanelServers, StaffMember, StaffPosition},
 };
 use crate::rpc::core::{RPCHandle, RPCMethod};
 use axum::body::StreamBody;
@@ -30,15 +30,15 @@ use moka::future::Cache;
 use rand::Rng;
 use serenity::all::User;
 use sqlx::PgPool;
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tower_http::cors::{Any, CorsLayer};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha512};
 use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use sha2::{Sha512, Digest};
 struct Error {
     status: StatusCode,
     message: String,
@@ -105,10 +105,14 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     .expect("Failed to create staffpanel__authchain table");
 
     let cdn_file_chunks_cache = Cache::<String, Vec<u8>>::builder()
-    .time_to_live(Duration::from_secs(3600))
-    .build();
+        .time_to_live(Duration::from_secs(3600))
+        .build();
 
-    let shared_state = Arc::new(AppState { pool, cache_http, cdn_file_chunks_cache });
+    let shared_state = Arc::new(AppState {
+        pool,
+        cache_http,
+        cdn_file_chunks_cache,
+    });
 
     let app = Router::new()
         .route("/openapi", get(docs))
@@ -203,7 +207,7 @@ pub enum PanelQuery {
         login_token: String,
     },
     /// Returns the bot queue
-    /// 
+    ///
     /// This is public to all staff members
     BotQueue {
         /// Login token
@@ -223,7 +227,7 @@ pub enum PanelQuery {
     /// Returns all RPC actions available
     ///
     /// Setting filtered will filter RPC actions to that what the user has access to
-    /// 
+    ///
     /// This is public to all staff members
     GetRpcMethods {
         /// Login token
@@ -232,14 +236,14 @@ pub enum PanelQuery {
         filtered: bool,
     },
     /// Returns a list of the supported RPC entity types
-    /// 
+    ///
     /// This is public to all staff members
     GetRpcTargetTypes {
         /// Login token
         login_token: String,
     },
     /// Searches for a bot based on a query
-    /// 
+    ///
     /// This is public to all staff members
     SearchEntitys {
         /// Login token
@@ -250,11 +254,11 @@ pub enum PanelQuery {
         query: String,
     },
     /// Uploads a chunk of data returning a chunk ID
-    /// 
+    ///
     /// Chunks expire after 10 minutes and are stored in memory
-    /// 
+    ///
     /// After uploading all chunks for a file, use `AddFile` to create the file
-    /// 
+    ///
     /// Needs `cdn.upload_chunk` permission
     UploadCdnFileChunk {
         /// Login token
@@ -263,31 +267,31 @@ pub enum PanelQuery {
         chunk: Vec<u8>,
     },
     /// Lists all available CDN scopes
-    /// 
+    ///
     /// Needs `cdn.list_scopes` permission
     ListCdnScopes {
         /// Login token
         login_token: String,
     },
     /// Returns the main CDN scope for Infinity Bot List
-    /// 
+    ///
     /// This is public to all staff members
     GetMainCdnScope {
         /// Login token
         login_token: String,
     },
     /// Updates/handles an asset on the CDN
-    /// 
+    ///
     /// Needs `cdn.update_asset` permission. Not yet granular/action specific
     UpdateCdnAsset {
         /// Login token
         login_token: String,
         /// CDN scope
-        /// 
+        ///
         /// This describes a location where the CDN may be stored on disk and should be a full path to it
-        /// 
+        ///
         /// Currently the panel uses the following scopes:
-        /// 
+        ///
         /// `ibl@main`
         cdn_scope: String,
         /// Asset name
@@ -298,7 +302,7 @@ pub enum PanelQuery {
         action: CdnAssetAction,
     },
     /// Updates/handles partners
-    /// 
+    ///
     /// Needs `partners.update` permission. Not yet granular/action specific
     UpdatePartners {
         /// Login token
@@ -307,22 +311,22 @@ pub enum PanelQuery {
         action: PartnerAction,
     },
     /// Updates/handles the changelog of the list
-    /// 
+    ///
     /// Needs `changelog.update` permission. Not yet granular/action specific
     UpdateChangelog {
         /// Login token
         login_token: String,
         /// Action
-        action: ChangelogAction
+        action: ChangelogAction,
     },
     /// Updates/handles the blog of the list
-    /// 
+    ///
     /// Needs `blog.update` permission. Not yet granular/action specific
     UpdateBlog {
         /// Login token
         login_token: String,
         /// Action
-        action: BlogAction
+        action: BlogAction,
     },
     /// Create a request to a/an Popplio staff endpoint
     PopplioStaff {
@@ -368,8 +372,8 @@ async fn query(
                     ],
                 }),
             )
-                .into_response())        
-        },
+                .into_response())
+        }
         PanelQuery::GetLoginUrl {
             version,
             redirect_url,
@@ -410,10 +414,7 @@ async fn query(
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header("User-Agent", "DiscordBot (arcadia v1.0)")
                 .form(&[
-                    (
-                        "client_id",
-                        crate::config::CONFIG.panel.client_id.as_str(),
-                    ),
+                    ("client_id", crate::config::CONFIG.panel.client_id.as_str()),
                     (
                         "client_secret",
                         crate::config::CONFIG.panel.client_secret.as_str(),
@@ -565,7 +566,8 @@ async fn query(
                             secret: temp_secret_enc,
                         }),
                     }),
-                ).into_response())
+                )
+                    .into_response())
             } else {
                 tx.rollback().await.map_err(Error::new)?;
 
@@ -581,7 +583,7 @@ async fn query(
 
             let mfa = sqlx::query!(
                 "SELECT mfa_secret, mfa_verified FROM staff_members WHERE user_id = $1",
-		auth_data.user_id
+                auth_data.user_id
             )
             .fetch_one(&mut *tx)
             .await
@@ -594,8 +596,8 @@ async fn query(
                 });
             }
 
-            let secret =
-                thotp::encoding::decode(&mfa.mfa_secret.unwrap(), data_encoding::BASE32).map_err(Error::new)?;
+            let secret = thotp::encoding::decode(&mfa.mfa_secret.unwrap(), data_encoding::BASE32)
+                .map_err(Error::new)?;
 
             let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
 
@@ -642,8 +644,8 @@ async fn query(
             .map_err(Error::new)?
             .mfa_secret;
 
-            let secret =
-                thotp::encoding::decode(&secret.unwrap(), data_encoding::BASE32).map_err(Error::new)?;
+            let secret = thotp::encoding::decode(&secret.unwrap(), data_encoding::BASE32)
+                .map_err(Error::new)?;
 
             let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
 
@@ -731,13 +733,17 @@ async fn query(
                 });
             }
 
-            Ok((StatusCode::OK, Json(StaffMember {
-                user_id,
-                positions,
-                perms: data.perms,
-                no_autosync: data.no_autosync,
-                created_at: data.created_at,
-            })).into_response())
+            Ok((
+                StatusCode::OK,
+                Json(StaffMember {
+                    user_id,
+                    positions,
+                    perms: data.perms,
+                    no_autosync: data.no_autosync,
+                    created_at: data.created_at,
+                }),
+            )
+                .into_response())
         }
         PanelQuery::GetCoreConstants { login_token } => {
             // Ensure auth is valid, that's all that matters here
@@ -952,7 +958,7 @@ async fn query(
                     }
 
                     Ok((StatusCode::OK, Json(bots)).into_response())
-                },
+                }
                 TargetType::Server => {
                     let queue = sqlx::query!(
                         "
@@ -1006,7 +1012,7 @@ async fn query(
                 )
                     .into_response()),
             }
-        },
+        }
         PanelQuery::UploadCdnFileChunk { login_token, chunk } => {
             let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
                 .await
@@ -1021,7 +1027,7 @@ async fn query(
             }
 
             info!("Got chunk with len={}", chunk.len());
-    
+
             // Check that length of chunk is not greater than 100MB
             if chunk.len() > 100_000_000 {
                 return Ok((
@@ -1033,11 +1039,7 @@ async fn query(
 
             // Check that chunk is not empty
             if chunk.is_empty() {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Chunk is empty".to_string(),
-                )
-                    .into_response());
+                return Ok((StatusCode::BAD_REQUEST, "Chunk is empty".to_string()).into_response());
             }
 
             // Create chunk ID
@@ -1064,11 +1066,11 @@ async fn query(
                 "Failed to generate a chunk ID".to_string(),
             )
                 .into_response())
-        },
+        }
         PanelQuery::ListCdnScopes { login_token } => {
             let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             if !perms::has_perm(&user_perms, &perms::build("cdn", "list_scopes")) {
                 return Ok((
@@ -1078,17 +1080,23 @@ async fn query(
                     .into_response());
             }
 
-            Ok((StatusCode::OK, Json(crate::config::CONFIG.panel.cdn_scopes.clone())).into_response())
-        },
-        PanelQuery::GetMainCdnScope {
-            login_token,
-        } => {
+            Ok((
+                StatusCode::OK,
+                Json(crate::config::CONFIG.panel.cdn_scopes.clone()),
+            )
+                .into_response())
+        }
+        PanelQuery::GetMainCdnScope { login_token } => {
             super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
 
-            Ok((StatusCode::OK, crate::config::CONFIG.panel.main_scope.clone()).into_response())
-        },
+            Ok((
+                StatusCode::OK,
+                crate::config::CONFIG.panel.main_scope.clone(),
+            )
+                .into_response())
+        }
         PanelQuery::UpdateCdnAsset {
             login_token,
             name,
@@ -1097,24 +1105,23 @@ async fn query(
             cdn_scope,
         } => {
             let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             if !perms::has_perm(&user_perms, &perms::build("cdn", "update_asset")) {
                 return Ok((
                     StatusCode::FORBIDDEN,
-                    "You do not have permission to update CDN assets right now [cdn.update_asset]".to_string(),
+                    "You do not have permission to update CDN assets right now [cdn.update_asset]"
+                        .to_string(),
                 )
                     .into_response());
             }
 
             // Get cdn path from cdn_scope hashmap
             let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&cdn_scope) else {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Invalid CDN scope".to_string(),
-                )
-                    .into_response());
+                return Ok(
+                    (StatusCode::BAD_REQUEST, "Invalid CDN scope".to_string()).into_response()
+                );
             };
 
             fn validate_name(name: &str) -> Result<(), crate::Error> {
@@ -1134,12 +1141,13 @@ async fn query(
                             .into(),
                     );
                 }
-            
+
                 Ok(())
             }
-            
+
             fn validate_path(path: &str) -> Result<(), crate::Error> {
-                const ALLOWED_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:%$/ ";
+                const ALLOWED_CHARS: &str =
+                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:%$/ ";
 
                 // 1. Ensure all chars of name are in ALLOWED_CHARS
                 // 2. Ensure path does not contain a dot-dot (path escape)
@@ -1154,9 +1162,9 @@ async fn query(
                 {
                     return Err("Asset path cannot contain non-ASCII characters, dot-dots, doubleslashes, backslashes or start with a slash".into());
                 }
-            
+
                 Ok(())
-            }            
+            }
 
             validate_name(&name).map_err(Error::new)?;
             validate_path(&path).map_err(Error::new)?;
@@ -1300,7 +1308,7 @@ async fn query(
                 CdnAssetAction::AddFile {
                     overwrite,
                     chunks,
-                    sha512
+                    sha512,
                 } => {
                     if chunks.is_empty() {
                         return Ok((
@@ -1391,14 +1399,12 @@ async fn query(
 
                     {
                         let tmp_file_path = format!(
-                            "/tmp/arcadia-cdn-file{}@{}", 
+                            "/tmp/arcadia-cdn-file{}@{}",
                             crate::impls::crypto::gen_random(32),
                             asset_final_path.replace('/', ">")
                         );
 
-                        let mut temp_file = tokio::fs::File::create(
-                            &tmp_file_path
-                        )
+                        let mut temp_file = tokio::fs::File::create(&tmp_file_path)
                             .await
                             .map_err(Error::new)?;
 
@@ -1408,7 +1414,9 @@ async fn query(
                                 .cdn_file_chunks_cache
                                 .remove(&chunk)
                                 .await
-                                .ok_or_else(|| Error::new("Chunk ".to_string() + &chunk + " does not exist"))?;
+                                .ok_or_else(|| {
+                                    Error::new("Chunk ".to_string() + &chunk + " does not exist")
+                                })?;
 
                             temp_file.write_all(&chunk).await.map_err(Error::new)?;
                         }
@@ -1422,9 +1430,7 @@ async fn query(
                         // Calculate sha512 of file
                         let mut hasher = Sha512::new();
 
-                        let mut file = tokio::fs::File::open(
-                            &tmp_file_path
-                        )
+                        let mut file = tokio::fs::File::open(&tmp_file_path)
                             .await
                             .map_err(Error::new)?;
 
@@ -1446,10 +1452,14 @@ async fn query(
                         }
 
                         // Rename temp file to final path
-                        tokio::fs::copy(&tmp_file_path, &asset_final_path).await.map_err(Error::new)?;
+                        tokio::fs::copy(&tmp_file_path, &asset_final_path)
+                            .await
+                            .map_err(Error::new)?;
 
                         // Delete temp file
-                        tokio::fs::remove_file(&tmp_file_path).await.map_err(Error::new)?;
+                        tokio::fs::remove_file(&tmp_file_path)
+                            .await
+                            .map_err(Error::new)?;
                     }
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
@@ -1499,15 +1509,12 @@ async fn query(
                             if m.is_symlink() || m.is_file() {
                                 if delete_original {
                                     // This is just a rename operation
-                                    std::fs::rename(&asset_final_path, &copy_to)
-                                        .map_err(|e| {
-                                            Error::new(format!(
-                                                "Failed to rename file: {} from {} to {}",
-                                                e,
-                                                &asset_final_path,
-                                                &copy_to
-                                            ))
-                                        })?;
+                                    std::fs::rename(&asset_final_path, &copy_to).map_err(|e| {
+                                        Error::new(format!(
+                                            "Failed to rename file: {} from {} to {}",
+                                            e, &asset_final_path, &copy_to
+                                        ))
+                                    })?;
                                 } else {
                                     // This is a copy operation
                                     std::fs::copy(&asset_final_path, &copy_to)
@@ -1516,15 +1523,24 @@ async fn query(
                             } else if m.is_dir() {
                                 if delete_original {
                                     // This is a rename operation
-                                    fn rename_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+                                    fn rename_dir_all(
+                                        src: impl AsRef<std::path::Path>,
+                                        dst: impl AsRef<std::path::Path>,
+                                    ) -> std::io::Result<()> {
                                         std::fs::create_dir_all(&dst)?;
                                         for entry in std::fs::read_dir(src)? {
                                             let entry = entry?;
                                             let ty = entry.file_type()?;
                                             if ty.is_dir() {
-                                                rename_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+                                                rename_dir_all(
+                                                    entry.path(),
+                                                    dst.as_ref().join(entry.file_name()),
+                                                )?;
                                             } else {
-                                                std::fs::rename(entry.path(), dst.as_ref().join(entry.file_name()))?;
+                                                std::fs::rename(
+                                                    entry.path(),
+                                                    dst.as_ref().join(entry.file_name()),
+                                                )?;
                                             }
                                         }
                                         Ok(())
@@ -1534,18 +1550,28 @@ async fn query(
                                         .map_err(Error::new)?;
 
                                     // Delete original directory
-                                    std::fs::remove_dir_all(&asset_final_path).map_err(Error::new)?;
+                                    std::fs::remove_dir_all(&asset_final_path)
+                                        .map_err(Error::new)?;
                                 } else {
                                     // This is a recursive copy operation
-                                    fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+                                    fn copy_dir_all(
+                                        src: impl AsRef<std::path::Path>,
+                                        dst: impl AsRef<std::path::Path>,
+                                    ) -> std::io::Result<()> {
                                         std::fs::create_dir_all(&dst)?;
                                         for entry in std::fs::read_dir(src)? {
                                             let entry = entry?;
                                             let ty = entry.file_type()?;
                                             if ty.is_dir() {
-                                                copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+                                                copy_dir_all(
+                                                    entry.path(),
+                                                    dst.as_ref().join(entry.file_name()),
+                                                )?;
                                             } else {
-                                                std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+                                                std::fs::copy(
+                                                    entry.path(),
+                                                    dst.as_ref().join(entry.file_name()),
+                                                )?;
                                             }
                                         }
                                         Ok(())
@@ -1559,10 +1585,9 @@ async fn query(
                         Err(e) => {
                             return Ok((
                                 StatusCode::BAD_REQUEST,
-                                "Could not find asset: ".to_string() + &e.to_string() + &format!(
-                                    " (path: {})",
-                                    &asset_final_path
-                                ),
+                                "Could not find asset: ".to_string()
+                                    + &e.to_string()
+                                    + &format!(" (path: {})", &asset_final_path),
                             )
                                 .into_response());
                         }
@@ -1590,10 +1615,13 @@ async fn query(
                         )
                             .into_response()),
                     }
-                },
-                CdnAssetAction::PersistGit { message, current_dir } => {
+                }
+                CdnAssetAction::PersistGit {
+                    message,
+                    current_dir,
+                } => {
                     let mut cmd_output = indexmap::IndexMap::new();
-                   
+
                     // Use git rev-parse --show-toplevel to get the root of the repo
                     let output = tokio::process::Command::new("git")
                         .arg("rev-parse")
@@ -1601,24 +1629,26 @@ async fn query(
                         .current_dir(&asset_final_path)
                         .output()
                         .await
-                        .map_err(|e| Error::new(format!("Failed to execute git rev-parse: {}", e)))?;
+                        .map_err(|e| {
+                            Error::new(format!("Failed to execute git rev-parse: {}", e))
+                        })?;
 
                     let repo_root = std::str::from_utf8(&output.stdout)
-                    .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
-                    .trim()
-                    .replace('\n', "")
-                    .to_string();
+                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                        .trim()
+                        .replace('\n', "")
+                        .to_string();
 
                     cmd_output.insert("git rev-parse --show-toplevel", repo_root.clone());
 
                     if !output.status.success() {
                         cmd_output.insert("error", output.status.to_string());
-                        return Ok((StatusCode::OK, Json(cmd_output)).into_response())
+                        return Ok((StatusCode::OK, Json(cmd_output)).into_response());
                     }
 
                     // If current_dir is set, then set curr dir to that
-                    // 
-                    // Otherwise, set curr dir to the root of the repo 
+                    //
+                    // Otherwise, set curr dir to the root of the repo
                     let curr_dir = if !current_dir {
                         repo_root.clone()
                     } else {
@@ -1637,15 +1667,18 @@ async fn query(
                         .await
                         .map_err(|e| Error::new(format!("Failed to execute git add: {}", e)))?;
 
-                    cmd_output.insert("git add", std::str::from_utf8(&output.stdout)
-                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
-                        .trim()
-                        .to_string());
+                    cmd_output.insert(
+                        "git add",
+                        std::str::from_utf8(&output.stdout)
+                            .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                            .trim()
+                            .to_string(),
+                    );
 
                     if !output.status.success() {
                         cmd_output.insert("error", output.status.to_string());
-                        return Ok((StatusCode::OK, Json(cmd_output)).into_response())
-                    } 
+                        return Ok((StatusCode::OK, Json(cmd_output)).into_response());
+                    }
 
                     // Check if theres already a pending commit
 
@@ -1660,14 +1693,17 @@ async fn query(
                         .await
                         .map_err(|e| Error::new(format!("Failed to execute git commit: {}", e)))?;
 
-                    cmd_output.insert("git commit", std::str::from_utf8(&output.stdout)
-                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
-                        .trim()
-                        .to_string());
+                    cmd_output.insert(
+                        "git commit",
+                        std::str::from_utf8(&output.stdout)
+                            .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                            .trim()
+                            .to_string(),
+                    );
 
                     if !output.status.success() {
                         cmd_output.insert("error_gc", output.status.to_string());
-                    }    
+                    }
 
                     // Run `git push --force` in the current directory
                     let output = tokio::process::Command::new("git")
@@ -1679,23 +1715,26 @@ async fn query(
                         .await
                         .map_err(|e| Error::new(format!("Failed to execute git push: {}", e)))?;
 
-                    cmd_output.insert("git push", std::str::from_utf8(&output.stdout)
-                        .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
-                        .trim()
-                        .to_string());
+                    cmd_output.insert(
+                        "git push",
+                        std::str::from_utf8(&output.stdout)
+                            .map_err(|e| Error::new(format!("Failed to parse git output: {}", e)))?
+                            .trim()
+                            .to_string(),
+                    );
 
                     if !output.status.success() {
                         cmd_output.insert("error_gp", output.status.to_string());
-                        return Ok((StatusCode::OK, Json(cmd_output)).into_response())
-                    }    
+                        return Ok((StatusCode::OK, Json(cmd_output)).into_response());
+                    }
 
                     Ok((StatusCode::OK, Json(cmd_output)).into_response())
-                },
+                }
             }
-        },
+        }
         PanelQuery::UpdatePartners {
             login_token,
-            action
+            action,
         } => {
             let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
                 .await
@@ -1709,15 +1748,16 @@ async fn query(
                     .into_response());
             }
 
-            async fn parse_partner(pool: &PgPool, partner: &CreatePartner) -> Result<(), crate::Error> {
+            async fn parse_partner(
+                pool: &PgPool,
+                partner: &CreatePartner,
+            ) -> Result<(), crate::Error> {
                 // Check if partner type exists
-                let partner_type_exists = sqlx::query!(
-                    "SELECT id FROM partner_types WHERE id = $1",
-                    partner.r#type
-                )
-                .fetch_optional(pool)
-                .await?
-                .is_some();
+                let partner_type_exists =
+                    sqlx::query!("SELECT id FROM partner_types WHERE id = $1", partner.r#type)
+                        .fetch_optional(pool)
+                        .await?
+                        .is_some();
 
                 if !partner_type_exists {
                     return Err("Partner type does not exist".into());
@@ -1725,7 +1765,11 @@ async fn query(
 
                 // Ensure that image has been uploaded to CDN
                 // Get cdn path from cdn_scope hashmap
-                let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
+                let Some(cdn_path) = crate::config::CONFIG
+                    .panel
+                    .cdn_scopes
+                    .get(&crate::config::CONFIG.panel.main_scope)
+                else {
                     return Err("Main scope not found".into());
                 };
 
@@ -1746,7 +1790,9 @@ async fn query(
                         }
                     }
                     Err(e) => {
-                        return Err(("Fetching image metadata failed: ".to_string() + &e.to_string()).into());
+                        return Err(("Fetching image metadata failed: ".to_string()
+                            + &e.to_string())
+                            .into());
                     }
                 };
 
@@ -1792,9 +1838,9 @@ async fn query(
                     .fetch_all(&state.pool)
                     .await
                     .map_err(Error::new)?;
-            
+
                     let mut partners = Vec::new();
-            
+
                     for partner in prec {
                         partners.push(Partner {
                             id: partner.id,
@@ -1806,14 +1852,15 @@ async fn query(
                             user_id: partner.user_id,
                         })
                     }
-            
-                    let ptrec = sqlx::query!("SELECT id, name, short, icon, created_at FROM partner_types")
-                        .fetch_all(&state.pool)
-                        .await
-                        .map_err(Error::new)?;
-            
+
+                    let ptrec =
+                        sqlx::query!("SELECT id, name, short, icon, created_at FROM partner_types")
+                            .fetch_all(&state.pool)
+                            .await
+                            .map_err(Error::new)?;
+
                     let mut partner_types = Vec::new();
-            
+
                     for partner_type in ptrec {
                         partner_types.push(PartnerType {
                             id: partner_type.id,
@@ -1822,23 +1869,25 @@ async fn query(
                             icon: partner_type.icon,
                             created_at: partner_type.created_at,
                         })
-                    }    
-        
-                    Ok((StatusCode::OK, Json(Partners {
-                        partners,
-                        partner_types,
-                    })).into_response())
-                },
+                    }
+
+                    Ok((
+                        StatusCode::OK,
+                        Json(Partners {
+                            partners,
+                            partner_types,
+                        }),
+                    )
+                        .into_response())
+                }
                 PartnerAction::Create { partner } => {
                     // Check if partner already exists
-                    let partner_exists = sqlx::query!(
-                        "SELECT id FROM partners WHERE id = $1",
-                        partner.id
-                    )
-                    .fetch_optional(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .is_some();
+                    let partner_exists =
+                        sqlx::query!("SELECT id FROM partners WHERE id = $1", partner.id)
+                            .fetch_optional(&state.pool)
+                            .await
+                            .map_err(Error::new)?
+                            .is_some();
 
                     if partner_exists {
                         return Ok((
@@ -1849,11 +1898,7 @@ async fn query(
                     }
 
                     if let Err(e) = parse_partner(&state.pool, &partner).await {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            e.to_string(),
-                        )
-                            .into_response());
+                        return Ok((StatusCode::BAD_REQUEST, e.to_string()).into_response());
                     }
 
                     // Insert partner
@@ -1871,17 +1916,15 @@ async fn query(
                     .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
                 PartnerAction::Update { partner } => {
                     // Check if partner already exists
-                    let partner_exists = sqlx::query!(
-                        "SELECT id FROM partners WHERE id = $1",
-                        partner.id
-                    )
-                    .fetch_optional(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .is_some();
+                    let partner_exists =
+                        sqlx::query!("SELECT id FROM partners WHERE id = $1", partner.id)
+                            .fetch_optional(&state.pool)
+                            .await
+                            .map_err(Error::new)?
+                            .is_some();
 
                     if !partner_exists {
                         return Ok((
@@ -1892,14 +1935,10 @@ async fn query(
                     }
 
                     if let Err(e) = parse_partner(&state.pool, &partner).await {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            e.to_string(),
-                        )
-                            .into_response());
+                        return Ok((StatusCode::BAD_REQUEST, e.to_string()).into_response());
                     }
 
-                     // Update partner
+                    // Update partner
                     sqlx::query!(
                         "UPDATE partners SET name = $2, short = $3, links = $4, type = $5, user_id = $6 WHERE id = $1",
                         partner.id,
@@ -1914,17 +1953,14 @@ async fn query(
                     .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
                 PartnerAction::Delete { id } => {
                     // Check if partner exists
-                    let partner_exists = sqlx::query!(
-                        "SELECT id FROM partners WHERE id = $1",
-                        id
-                    )
-                    .fetch_optional(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .is_some();
+                    let partner_exists = sqlx::query!("SELECT id FROM partners WHERE id = $1", id)
+                        .fetch_optional(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .is_some();
 
                     if !partner_exists {
                         return Ok((
@@ -1936,12 +1972,15 @@ async fn query(
 
                     // Ensure that image has been uploaded to CDN
                     // Get cdn path from cdn_scope hashmap
-                    let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Main scope not found".to_string(),
-                        )
-                            .into_response());
+                    let Some(cdn_path) = crate::config::CONFIG
+                        .panel
+                        .cdn_scopes
+                        .get(&crate::config::CONFIG.panel.main_scope)
+                    else {
+                        return Ok(
+                            (StatusCode::BAD_REQUEST, "Main scope not found".to_string())
+                                .into_response(),
+                        );
                     };
 
                     let path = format!("{}/partners/{}.webp", cdn_path.path, id);
@@ -1955,7 +1994,7 @@ async fn query(
                                 // Delete the directory
                                 std::fs::remove_dir_all(path).map_err(Error::new)?;
                             }
-                        },
+                        }
                         Err(e) => {
                             if e.kind() != std::io::ErrorKind::NotFound {
                                 return Ok((
@@ -1975,10 +2014,13 @@ async fn query(
                         .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
             }
-        },
-        PanelQuery::UpdateChangelog { login_token, action } => {
+        }
+        PanelQuery::UpdateChangelog {
+            login_token,
+            action,
+        } => {
             let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -1986,7 +2028,8 @@ async fn query(
             if !perms::has_perm(&user_perms, &perms::build("changelog", "update")) {
                 return Ok((
                     StatusCode::FORBIDDEN,
-                    "You do not have permission to update the changelog [changelog.update]".to_string(),
+                    "You do not have permission to update the changelog [changelog.update]"
+                        .to_string(),
                 )
                     .into_response());
             }
@@ -2016,9 +2059,16 @@ async fn query(
                         });
                     }
 
-                    Ok((StatusCode::OK, Json(entries)).into_response())        
-                },
-                ChangelogAction::CreateEntry { version, extra_description, prerelease, added, updated, removed } => {
+                    Ok((StatusCode::OK, Json(entries)).into_response())
+                }
+                ChangelogAction::CreateEntry {
+                    version,
+                    extra_description,
+                    prerelease,
+                    added,
+                    updated,
+                    removed,
+                } => {
                     // Check if entry already exists with same vesion
                     if sqlx::query!(
                         "SELECT COUNT(*) FROM changelogs WHERE version = $1",
@@ -2029,7 +2079,8 @@ async fn query(
                     .map_err(Error::new)?
                     .count
                     .unwrap_or(0)
-                    > 0 {
+                        > 0
+                    {
                         return Ok((
                             StatusCode::BAD_REQUEST,
                             "Entry with same version already exists".to_string(),
@@ -2052,8 +2103,17 @@ async fn query(
                     .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
-                ChangelogAction::UpdateEntry { version, extra_description, github_html, prerelease, added, updated, removed, published } => {
+                }
+                ChangelogAction::UpdateEntry {
+                    version,
+                    extra_description,
+                    github_html,
+                    prerelease,
+                    added,
+                    updated,
+                    removed,
+                    published,
+                } => {
                     // Check if entry already exists with same vesion
                     if sqlx::query!(
                         "SELECT COUNT(*) FROM changelogs WHERE version = $1",
@@ -2064,7 +2124,8 @@ async fn query(
                     .map_err(Error::new)?
                     .count
                     .unwrap_or(0)
-                    == 0 {
+                        == 0
+                    {
                         return Ok((
                             StatusCode::BAD_REQUEST,
                             "Entry with same version does not already exist".to_string(),
@@ -2089,7 +2150,7 @@ async fn query(
                     .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
                 ChangelogAction::DeleteEntry { version } => {
                     // Check if entry already exists with same vesion
                     if sqlx::query!(
@@ -2101,7 +2162,8 @@ async fn query(
                     .map_err(Error::new)?
                     .count
                     .unwrap_or(0)
-                    == 0 {
+                        == 0
+                    {
                         return Ok((
                             StatusCode::BAD_REQUEST,
                             "Entry with same version does not already exist".to_string(),
@@ -2110,19 +2172,19 @@ async fn query(
                     }
 
                     // Delete entry
-                    sqlx::query!(
-                        "DELETE FROM changelogs WHERE version = $1",
-                        version
-                    )
-                    .execute(&state.pool)
-                    .await
-                    .map_err(Error::new)?;
+                    sqlx::query!("DELETE FROM changelogs WHERE version = $1", version)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
             }
-        },
-        PanelQuery::UpdateBlog { login_token, action } => {
+        }
+        PanelQuery::UpdateBlog {
+            login_token,
+            action,
+        } => {
             let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -2165,9 +2227,15 @@ async fn query(
                         });
                     }
 
-                    Ok((StatusCode::OK, Json(entries)).into_response())        
-                },
-                BlogAction::CreateEntry { slug, title, description, content, tags } => {
+                    Ok((StatusCode::OK, Json(entries)).into_response())
+                }
+                BlogAction::CreateEntry {
+                    slug,
+                    title,
+                    description,
+                    content,
+                    tags,
+                } => {
                     // Insert entry
                     sqlx::query!(
                         "INSERT INTO blogs (slug, title, description, content, tags, user_id) VALUES ($1, $2, $3, $4, $5, $6)",
@@ -2183,26 +2251,31 @@ async fn query(
                     .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
-                BlogAction::UpdateEntry { itag, slug, title, description, content, tags, draft } => {
+                }
+                BlogAction::UpdateEntry {
+                    itag,
+                    slug,
+                    title,
+                    description,
+                    content,
+                    tags,
+                    draft,
+                } => {
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&itag).map_err(Error::new)?;
-                    
+
                     // Check if entry already exists with same vesion
-                    if sqlx::query!(
-                        "SELECT COUNT(*) FROM blogs WHERE itag = $1",
-                        uuid
-                    )
-                    .fetch_one(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .count
-                    .unwrap_or(0)
-                    == 0 {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Entry does not exist".to_string(),
-                        )
-                            .into_response());
+                    if sqlx::query!("SELECT COUNT(*) FROM blogs WHERE itag = $1", uuid)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok(
+                            (StatusCode::BAD_REQUEST, "Entry does not exist".to_string())
+                                .into_response(),
+                        );
                     }
 
                     // Update entry
@@ -2221,19 +2294,18 @@ async fn query(
                     .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
                 BlogAction::DeleteEntry { itag } => {
                     // Check if entry already exists with same vesion
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&itag).map_err(Error::new)?;
-                    if sqlx::query!(
-                        "SELECT COUNT(*) FROM blogs WHERE itag = $1",
-                        uuid
-                    )
-                    .fetch_one(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .count
-                    .unwrap_or(0) == 0 {
+                    if sqlx::query!("SELECT COUNT(*) FROM blogs WHERE itag = $1", uuid)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
+                        == 0
+                    {
                         return Ok((
                             StatusCode::BAD_REQUEST,
                             "Entry with same id does not already exist".to_string(),
@@ -2242,31 +2314,29 @@ async fn query(
                     }
 
                     // Delete entry
-                    sqlx::query!(
-                        "DELETE FROM blogs WHERE itag = $1",
-                        uuid
-                    )
-                    .execute(&state.pool)
-                    .await
-                    .map_err(Error::new)?;
-                
+                    sqlx::query!("DELETE FROM blogs WHERE itag = $1", uuid)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        },
-        PanelQuery::PopplioStaff { login_token, path, method, body } => {
+        }
+        PanelQuery::PopplioStaff {
+            login_token,
+            path,
+            method,
+            body,
+        } => {
             let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             let client = reqwest::Client::new();
 
             let Ok(method) = reqwest::Method::from_bytes(&method.into_bytes()) else {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "Invalid method".to_string(),
-                )
-                    .into_response());
+                return Ok((StatusCode::BAD_REQUEST, "Invalid method".to_string()).into_response());
             };
 
             if !path.starts_with('/') {
@@ -2277,15 +2347,21 @@ async fn query(
                     .into_response());
             }
 
-            let query = sqlx::query!("SELECT popplio_token FROM staffpanel__authchain WHERE token = $1", login_token)
-                .fetch_one(&state.pool)
-                .await
-                .map_err(Error::new)?;
+            let query = sqlx::query!(
+                "SELECT popplio_token FROM staffpanel__authchain WHERE token = $1",
+                login_token
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?;
 
-            let user_perms_str = user_perms.iter().map(|c| c.to_string()).collect::<Vec<String>>();
+            let user_perms_str = user_perms
+                .iter()
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>();
 
             let res = client
-                .request(method, crate::config::CONFIG.popplio_url.clone()+&path)
+                .request(method, crate::config::CONFIG.popplio_url.clone() + &path)
                 .header("User-Agent", "arcadia")
                 .header("X-Forwarded-For", &path)
                 .header("X-Staff-Auth-Token", &query.popplio_token)
@@ -2299,6 +2375,6 @@ async fn query(
             let resp = res.text().await.map_err(Error::new)?;
 
             Ok((status, resp).into_response())
-        },
+        }
     }
 }

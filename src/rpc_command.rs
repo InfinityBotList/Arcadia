@@ -19,7 +19,10 @@ async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<poise::Autocomple
 
     for m in crate::rpc::core::RPCMethod::VARIANTS {
         if partial.is_empty() || m.contains(partial) {
-            choices.push(poise::slash_argument::AutocompleteChoice::new_with_value(m.to_string(), m.to_string()));
+            choices.push(poise::slash_argument::AutocompleteChoice::new_with_value(
+                m.to_string(),
+                m.to_string(),
+            ));
         }
     }
 
@@ -133,8 +136,11 @@ pub async fn rpc(
         if let Some(m) = &interaction {
             let id = &m.data.custom_id;
 
-            msg.edit(ctx.serenity_context(), builder.to_prefix_edit().components(vec![]))
-                .await?; // remove buttons after button press
+            msg.edit(
+                ctx.serenity_context(),
+                builder.to_prefix_edit().components(vec![]),
+            )
+            .await?; // remove buttons after button press
 
             if id == "cancel" {
                 return Ok(());
@@ -231,8 +237,11 @@ pub async fn rpc(
                 return Err("Timed out waiting for modal response".into());
             }
         } else {
-            msg.edit(ctx.serenity_context(), builder.to_prefix_edit().components(vec![]))
-                .await?; // remove buttons after timeout
+            msg.edit(
+                ctx.serenity_context(),
+                builder.to_prefix_edit().components(vec![]),
+            )
+            .await?; // remove buttons after timeout
             return Ok(());
         }
     };

@@ -2,10 +2,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use utoipa::ToSchema;
 
-use crate::{
-    impls::target_types::TargetType,
-    rpc::core::RPCField,
-};
+use crate::{impls::target_types::TargetType, rpc::core::RPCField};
 
 #[derive(Serialize, Deserialize, ToSchema, TS)]
 #[ts(export, export_to = ".generated/RPCWebAction.ts")]

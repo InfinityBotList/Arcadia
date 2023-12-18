@@ -1,4 +1,4 @@
-use poise::serenity_prelude::{UserId, CreateMessage};
+use poise::serenity_prelude::{CreateMessage, UserId};
 use serenity::all::Mentionable;
 
 use crate::impls::target_types::TargetType;
@@ -39,11 +39,12 @@ pub async fn premium_remove(
         let bot_username = {
             let bot_cref = {
                 if let Some(bot) = cache_http
-                .cache
-                .member(crate::config::CONFIG.servers.main, bot_id) {
+                    .cache
+                    .member(crate::config::CONFIG.servers.main, bot_id)
+                {
                     Some(bot.user.name.clone())
                 } else {
-                    None   
+                    None
                 }
             };
 
@@ -80,9 +81,12 @@ pub async fn premium_remove(
             )
         })?;
 
-        let owners =
-            crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id.to_string(), pool)
-                .await?;
+        let owners = crate::impls::utils::get_entity_managers(
+            TargetType::Bot,
+            &bot.bot_id.to_string(),
+            pool,
+        )
+        .await?;
 
         let msg = {
             if bot.bot_type != "approved" && bot.bot_type != "certified" {
@@ -102,7 +106,9 @@ pub async fn premium_remove(
             }
         };
 
-        crate::config::CONFIG.channels.mod_logs
+        crate::config::CONFIG
+            .channels
+            .mod_logs
             .send_message(&cache_http, CreateMessage::new().content(msg))
             .await?;
     }

@@ -60,7 +60,10 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
                 roles_to_add.push(config::CONFIG.roles.bot_developer);
             }
 
-            if !member.roles.contains(&config::CONFIG.roles.certified_developer) {
+            if !member
+                .roles
+                .contains(&config::CONFIG.roles.certified_developer)
+            {
                 roles_to_add.push(config::CONFIG.roles.certified_developer);
             }
         } else if approved {
@@ -74,7 +77,10 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
                 roles_to_add.push(config::CONFIG.roles.bot_developer);
             }
 
-            if member.roles.contains(&config::CONFIG.roles.certified_developer) {
+            if member
+                .roles
+                .contains(&config::CONFIG.roles.certified_developer)
+            {
                 roles_to_remove.push(config::CONFIG.roles.certified_developer);
             }
         }

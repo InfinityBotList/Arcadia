@@ -3,8 +3,8 @@ use once_cell::sync::Lazy;
 use std::time::Duration;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
-use tokio::task::JoinSet;
 use tokio::sync::Mutex;
+use tokio::task::JoinSet;
 
 static TASK_MUTEX: Lazy<Mutex<i32>> = Lazy::new(|| Mutex::new(0));
 

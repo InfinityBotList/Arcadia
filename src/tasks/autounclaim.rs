@@ -86,8 +86,8 @@ pub async fn auto_unclaim(
     }
 
     tx.commit()
-    .await
-    .map_err(|e| format!("Error while committing transaction: {}", e))?;
+        .await
+        .map_err(|e| format!("Error while committing transaction: {}", e))?;
 
     for notification in notifications {
         // Now send message in #lounge
@@ -106,7 +106,9 @@ pub async fn auto_unclaim(
                 .color(0xFF0000)
         );
 
-        config::CONFIG.channels.testing_lounge
+        config::CONFIG
+            .channels
+            .testing_lounge
             .send_message(&cache_http, msg)
             .await
             .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
@@ -142,7 +144,7 @@ For more information, you can contact the current reviewer <@{}>
                 )
             )
             .await
-            .map_err(|e| format!("Error while sending message in #mod-logs: {}", e))?;     
+            .map_err(|e| format!("Error while sending message in #mod-logs: {}", e))?;
     }
 
     Ok(())

@@ -253,9 +253,7 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                     .map(|p| {
                         format!(
                             "{} - {}",
-                            p.name
-                                .as_deref()
-                                .unwrap_or("No name available yet"),
+                            p.name.as_deref().unwrap_or("No name available yet"),
                             p.description
                                 .as_deref()
                                 .unwrap_or("No description available yet")

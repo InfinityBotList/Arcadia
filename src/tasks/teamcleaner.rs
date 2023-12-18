@@ -29,19 +29,26 @@ pub async fn team_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
                 "Error while checking if team {} has members: {}",
                 team_id, e
             )
-        })?.count.unwrap_or(0) == 0 {
+        })?
+        .count
+        .unwrap_or(0)
+            == 0
+        {
             // Delete team
             sqlx::query!("DELETE FROM teams WHERE id = $1", team_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| format!("Error while deleting team {}: {}", team_id, e))?;
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("Error while deleting team {}: {}", team_id, e))?;
 
             info!("Deleted team {}", team_id);
             continue;
         }
 
         // Ensure team_members perm array has Global Owner in it
-        let tm_with_global_owner = sqlx::query!("SELECT user_id FROM team_members WHERE team_id = $1 AND flags @> ARRAY['global.*']", team_id)
+        let tm_with_global_owner = sqlx::query!(
+            "SELECT user_id FROM team_members WHERE team_id = $1 AND flags @> ARRAY['global.*']",
+            team_id
+        )
         .fetch_all(&mut *tx)
         .await
         .map_err(|e| {
@@ -53,18 +60,34 @@ pub async fn team_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
 
         if tm_with_global_owner.is_empty() {
             let (user_id, _has_dh) = {
-                let dh = sqlx::query!("SELECT user_id FROM team_members WHERE team_id = $1 AND data_holder = true", team_id)
+                let dh = sqlx::query!(
+                    "SELECT user_id FROM team_members WHERE team_id = $1 AND data_holder = true",
+                    team_id
+                )
                 .fetch_optional(&mut *tx)
                 .await
-                .map_err(|e| format!("Error while fetching data_holder for team {}: {}", team_id, e))?;
+                .map_err(|e| {
+                    format!(
+                        "Error while fetching data_holder for team {}: {}",
+                        team_id, e
+                    )
+                })?;
 
                 if let Some(dh) = dh {
                     (dh.user_id, true)
                 } else {
-                    let res = sqlx::query!("SELECT user_id FROM team_members WHERE team_id = $1 LIMIT 1", team_id)
+                    let res = sqlx::query!(
+                        "SELECT user_id FROM team_members WHERE team_id = $1 LIMIT 1",
+                        team_id
+                    )
                     .fetch_one(&mut *tx)
                     .await
-                    .map_err(|e| format!("Error while fetching first team member for team {}: {}", team_id, e))?;
+                    .map_err(|e| {
+                        format!(
+                            "Error while fetching first team member for team {}: {}",
+                            team_id, e
+                        )
+                    })?;
 
                     (res.user_id, false)
                 }
@@ -79,7 +102,7 @@ pub async fn team_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
             )
             .execute(&mut *tx)
             .await
-            .map_err(|e| format!("Error while updating flags for team {}: {}", team_id, e))?;    
+            .map_err(|e| format!("Error while updating flags for team {}: {}", team_id, e))?;
         }
 
         // Ensure the team has at least one data_holder
@@ -89,12 +112,11 @@ pub async fn team_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
         )
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| {
-            format!(
-                "Error while validating data holders of {}: {}",
-                team_id, e
-            )
-        })?.count.unwrap_or(0) == 0 {
+        .map_err(|e| format!("Error while validating data holders of {}: {}", team_id, e))?
+        .count
+        .unwrap_or(0)
+            == 0
+        {
             // Set a team member whose flags contains global.* to data_holder
             if !tm_with_global_owner.is_empty() {
                 sqlx::query!(
@@ -111,7 +133,9 @@ pub async fn team_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
         }
     }
 
-    tx.commit().await.map_err(|e| format!("Error while committing transaction: {:?}", e))?;
+    tx.commit()
+        .await
+        .map_err(|e| format!("Error while committing transaction: {:?}", e))?;
 
     Ok(())
 }

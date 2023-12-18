@@ -4,7 +4,9 @@ pub async fn bans_sync(
     pool: &sqlx::PgPool,
     cache_http: &crate::impls::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
-    let bans = config::CONFIG.servers.main
+    let bans = config::CONFIG
+        .servers
+        .main
         .bans(&cache_http.http, None, None)
         .await
         .map_err(|e| format!("Error while fetching bans: {}", e))?;

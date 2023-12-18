@@ -1,6 +1,12 @@
-use std::{collections::{HashMap, HashSet}, fmt::{Display, Formatter}};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::{Display, Formatter},
+};
 
-use serenity::{all::UserId, builder::{CreateEmbed, CreateMessage}};
+use serenity::{
+    all::UserId,
+    builder::{CreateEmbed, CreateMessage},
+};
 use sqlx::types::Uuid;
 
 use crate::config;
@@ -69,12 +75,10 @@ pub async fn staff_resync(
         .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
     // First get list of positions from db
-    let positions = sqlx::query!(
-        "SELECT id, name, role_id, index, perms FROM staff_positions"
-    )
-    .fetch_all(&mut *tx)
-    .await
-    .map_err(|e| format!("Error while getting staff positions: {:?}", e))?;
+    let positions = sqlx::query!("SELECT id, name, role_id, index, perms FROM staff_positions")
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|e| format!("Error while getting staff positions: {:?}", e))?;
 
     // To speed up operations, make a map of id/role_id and perms
     let mut pos_cache_by_id = HashMap::new();
@@ -146,10 +150,7 @@ pub async fn staff_resync(
                 positions.push(pos);
             }
 
-            member_pos_cache.insert(
-                member.user_id.clone(),
-                positions,
-            );
+            member_pos_cache.insert(member.user_id.clone(), positions);
         }
 
         member_pos_cache
@@ -179,11 +180,11 @@ pub async fn staff_resync(
                 }
 
                 positions
-            },
+            }
             None => {
                 is_on_db = false;
                 HashSet::new()
-            }, // Empty/no perms
+            } // Empty/no perms
         };
 
         let mut user_positions = HashSet::new();
@@ -210,7 +211,11 @@ pub async fn staff_resync(
         }
 
         // Compare user_positions_db and user_positions
-        if user_positions.symmetric_difference(&user_positions_db).count() > 0 {
+        if user_positions
+            .symmetric_difference(&user_positions_db)
+            .count()
+            > 0
+        {
             // Get the position with the highest index
             let mut lowest_index = i32::MAX;
 
@@ -267,17 +272,16 @@ pub async fn staff_resync(
                 .map_err(|e| format!("Error while inserting staff member positions: {:?}", e))?;
             }
 
-            crate::config::CONFIG.channels.staff_logs.send_message(
-                &cache_http.http,
-                    CreateMessage::new().embeds(vec![
-                        CreateEmbed::new()
+            crate::config::CONFIG
+                .channels
+                .staff_logs
+                .send_message(
+                    &cache_http.http,
+                    CreateMessage::new().embeds(vec![CreateEmbed::new()
                         .title("Staff Permissions Resync")
-                        .description(format!(
-                            "Updated staff permissions for <@{}>",
-                            user.user_id
-                        ))
+                        .description(format!("Updated staff permissions for <@{}>", user.user_id))
                         .field(
-                            "Old Positions", 
+                            "Old Positions",
                             {
                                 let mut positions = Vec::new();
                                 for pos in user_positions_db.iter() {
@@ -291,13 +295,13 @@ pub async fn staff_resync(
                                 if positions.is_empty() {
                                     positions.push("None".to_string());
                                 }
-                                
+
                                 positions.join("\n")
                             },
-                            false
+                            false,
                         )
                         .field(
-                            "New Positions", 
+                            "New Positions",
                             {
                                 let mut positions = Vec::new();
                                 for pos in user_positions.iter() {
@@ -311,13 +315,13 @@ pub async fn staff_resync(
                                 if positions.is_empty() {
                                     positions.push("None".to_string());
                                 }
-                                
+
                                 positions.join("\n")
-                            }, 
-                            false
+                            },
+                            false,
                         )
                         .field(
-                            "Old Permissions", 
+                            "Old Permissions",
                             {
                                 let mut perms = Vec::new();
                                 for perm in user_positions_db.iter() {
@@ -333,13 +337,13 @@ pub async fn staff_resync(
                                 if perms.is_empty() {
                                     perms.push("None".to_string());
                                 }
-                                
-                               perms.join("\n")
+
+                                perms.join("\n")
                             },
-                            false
+                            false,
                         )
                         .field(
-                            "New Permissions", 
+                            "New Permissions",
                             {
                                 let mut nperms = Vec::new();
                                 for perm in perms.iter() {
@@ -349,15 +353,14 @@ pub async fn staff_resync(
                                 if nperms.is_empty() {
                                     nperms.push("None".to_string());
                                 }
-                                
-                               nperms.join("\n")
-                            }, 
-                            false
-                        )
-                    ]),
-            )
-            .await
-            .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;
+
+                                nperms.join("\n")
+                            },
+                            false,
+                        )]),
+                )
+                .await
+                .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;
         }
 
         unaccounted_user_ids.remove(&user.user_id.to_string());
@@ -365,13 +368,10 @@ pub async fn staff_resync(
 
     // Now, remove any unaccounted users
     for user_id in unaccounted_user_ids {
-        sqlx::query!(
-            "DELETE FROM staff_members WHERE user_id = $1",
-            user_id
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Error while removing unaccounted staff member: {:?}", e))?;
+        sqlx::query!("DELETE FROM staff_members WHERE user_id = $1", user_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Error while removing unaccounted staff member: {:?}", e))?;
 
         crate::config::CONFIG.channels.staff_logs.send_message(
             &cache_http.http,

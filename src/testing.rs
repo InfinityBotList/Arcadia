@@ -317,8 +317,11 @@ pub async fn claim(
             .author_id(ctx.author().id)
             .await;
 
-        msg.edit(ctx.serenity_context(), builder.to_prefix_edit().components(vec![]))
-            .await?; // remove buttons after button press
+        msg.edit(
+            ctx.serenity_context(),
+            builder.to_prefix_edit().components(vec![]),
+        )
+        .await?; // remove buttons after button press
 
         if let Some(m) = &interaction {
             let id = &m.data.custom_id;

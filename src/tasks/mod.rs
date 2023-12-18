@@ -1,3 +1,4 @@
+pub mod assetcleaner;
 pub mod autounclaim;
 pub mod bans;
 pub mod deletedbots;
@@ -7,5 +8,4 @@ pub mod specrolesync;
 pub mod staffresync;
 pub mod taskcat;
 pub mod teamcleaner;
-pub mod assetcleaner;
 pub mod voterestter;

@@ -33,7 +33,7 @@ pub enum CdnAssetAction {
         /// Allow overwrite of existing file
         overwrite: bool,
         /// Base 64 encoded file contents uploaded as multiple chunks with an ID associated with each chunk
-        /// 
+        ///
         /// Note that uploading chunks needs `cdn.upload_chunk` permission. As it is not possible to upload without
         /// using chunks, disabling `cdn.upload_chunk` will disable uploading files without impacting other operations
         chunks: Vec<String>,
@@ -56,10 +56,10 @@ pub enum CdnAssetAction {
         /// Commit message
         message: String,
         /// Current directory push
-        /// 
+        ///
         /// Using this option will only add and push files in the current directory
         current_dir: bool,
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]

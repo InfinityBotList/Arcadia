@@ -113,7 +113,9 @@ pub async fn deleted_bots(
                         .color(0x00ff00),
                 );
 
-            crate::config::CONFIG.channels.mod_logs
+            crate::config::CONFIG
+                .channels
+                .mod_logs
                 .send_message(&cache_http, msg)
                 .await?;
 

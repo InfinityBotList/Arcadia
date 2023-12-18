@@ -1,9 +1,9 @@
+use crate::impls::link::Link;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use crate::impls::link::Link;
 
 #[derive(
     Serialize,
@@ -24,8 +24,8 @@ pub enum PartnerAction {
     List,
 
     /// Create a new partner
-    /// 
-    /// This technically only needs the PartnerManagement capability, 
+    ///
+    /// This technically only needs the PartnerManagement capability,
     /// but also requires the CDN asset upload capability as well to upload the avatar
     /// of the partner
     Create {

@@ -1,4 +1,4 @@
-use serenity::builder::{CreateMessage, CreateEmbed, CreateEmbedFooter};
+use serenity::builder::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 
 const ENTITY_TYPES: [&str; 4] = ["bots", "servers", "teams", "packs"];
 
@@ -34,16 +34,14 @@ pub async fn vote_resetter(
     // Clear entity-specific tables
     for entity_type in ENTITY_TYPES.iter() {
         sqlx::query(&format!("UPDATE {} SET votes = 0", entity_type))
-        .execute(&mut *tx)
-        .await?;
+            .execute(&mut *tx)
+            .await?;
     }
 
     // Insert into automated_vote_resets
-    sqlx::query!(
-        "INSERT INTO automated_vote_resets (created_at) VALUES (NOW())"
-    )
-    .execute(&mut *tx)
-    .await?;
+    sqlx::query!("INSERT INTO automated_vote_resets (created_at) VALUES (NOW())")
+        .execute(&mut *tx)
+        .await?;
 
     // Commit
     tx.commit().await?;
@@ -56,7 +54,9 @@ pub async fn vote_resetter(
             .color(0xFF0000),
     );
 
-    crate::config::CONFIG.channels.mod_logs
+    crate::config::CONFIG
+        .channels
+        .mod_logs
         .send_message(cache_http, msg)
         .await?;
 

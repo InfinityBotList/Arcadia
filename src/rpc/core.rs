@@ -272,7 +272,7 @@ impl RPCMethod {
 
         // Also ensure that onboarding has happened
         let onboard_state = sqlx::query!(
-            "SELECT staff, staff_onboard_state FROM users WHERE user_id = $1",
+            "SELECT staff_onboard_state FROM users WHERE user_id = $1",
             &state.user_id
         )
         .fetch_one(&state.pool)

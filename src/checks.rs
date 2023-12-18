@@ -34,14 +34,16 @@ pub async fn testing_server(ctx: Context<'_>) -> Result<bool, Error> {
 }
 
 pub async fn is_staff(ctx: Context<'_>) -> Result<bool, Error> {
-    let staff = sqlx::query!(
-        "SELECT staff FROM users WHERE user_id = $1",
+    let count = sqlx::query!(
+        "SELECT COUNT(*) FROM staff_members WHERE user_id = $1",
         ctx.author().id.to_string()
     )
     .fetch_one(&ctx.data().pool)
-    .await?;
+    .await?
+    .count
+    .unwrap_or(0);
 
-    if !staff.staff {
+    if count == 0 {
         return Err("You are not staff".into());
     }
 

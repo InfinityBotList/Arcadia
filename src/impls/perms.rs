@@ -56,8 +56,8 @@ mod tests {
         assert!(!has_perm(&vec!["global.test".to_string()], "rpc.view_bot_queue")); // global.test does not imply rpc.view_bot_queue as global = rpc, test != view_bot_queue
         assert!(has_perm(&vec!["global.*".to_string()], "rpc.view_bot_queue")); // global.* implies rpc.view_bot_queue
         assert!(has_perm(&vec!["rpc.*".to_string()], "rpc.ViewBotQueue")); // rpc.* implies rpc.view_bot_queue
-        assert!(has_perm(&vec!["rpc.BotClaim".to_string()], "rpc.ViewBotQueue")); // rpc.* implies rpc.view_bot_queue
-        assert!(!has_perm(&vec!["apps.*".to_string()], "rpc.view_bot_queue")); // apps.* does not imply rpc.view_bot_queue, apps != rpc
+        assert!(!has_perm(&vec!["rpc.BotClaim".to_string()], "rpc.ViewBotQueue")); // rpc.BotClaim does not implies rpc.ViewBotQueue as BotClaim != ViewBotQueue
+        assert!(!has_perm(&vec!["apps.*".to_string()], "rpc.ViewBotQueue")); // apps.* does not imply rpc.ViewBotQueue, apps != rpc
         assert!(!has_perm(&vec!["apps.*".to_string()], "rpc.*")); // apps.* does not imply rpc.*, apps != rpc despite the global permission
         assert!(!has_perm(&vec!["apps.test".to_string()], "rpc.test")); // apps.test does not imply rpc.test, apps != rpc despite the permissions being the same
     }

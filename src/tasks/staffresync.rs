@@ -13,6 +13,8 @@ struct CachedPosition {
     name: String,
     /// The role id associated with this position on Discord
     role_id: String,
+    /// The index of the permission. Lower means higher in the list of hierarchy
+    index: i32,
     /// The preset permissions of this position
     perms: Vec<String>,
 }
@@ -68,7 +70,7 @@ pub async fn staff_resync(
 
     // First get list of positions from db
     let positions = sqlx::query!(
-        "SELECT id, name, role_id, perms FROM staff_positions"
+        "SELECT id, name, role_id, index, perms FROM staff_positions"
     )
     .fetch_all(&mut *tx)
     .await
@@ -86,6 +88,7 @@ pub async fn staff_resync(
                 id: pos.id,
                 name: pos.name.clone(),
                 role_id: pos.role_id.clone(),
+                index: pos.index,
                 perms: pos.perms.clone(),
             },
         );
@@ -96,6 +99,7 @@ pub async fn staff_resync(
                 id: pos.id,
                 name: pos.name.clone(),
                 role_id: pos.role_id.clone(),
+                index: pos.index,
                 perms: pos.perms.clone(),
             },
         );
@@ -106,6 +110,7 @@ pub async fn staff_resync(
                 id: pos.id,
                 name: pos.name.clone(),
                 role_id: pos.role_id.clone(),
+                index: pos.index,
                 perms: pos.perms.clone(),
             },
         );
@@ -206,6 +211,17 @@ pub async fn staff_resync(
 
         // Compare user_positions_db and user_positions
         if user_positions.symmetric_difference(&user_positions_db).count() > 0 {
+            // Get the position with the highest index
+            let mut lowest_index = i32::MAX;
+
+            for pos in user_positions.iter() {
+                if let Some(pos) = pos_cache_by_id.get(pos) {
+                    if pos.index < lowest_index {
+                        lowest_index = pos.index;
+                    }
+                }
+            }
+
             // Positions are different, update the db and set new perms replacing any overrides
             let mut perms = Vec::new();
 
@@ -213,6 +229,10 @@ pub async fn staff_resync(
                 if let Some(pos) = pos_cache_by_id.get(pos) {
                     for perm in pos.perms.iter() {
                         if !perms.contains(perm) {
+                            if perm.starts_with('~') && pos.index != lowest_index {
+                                // Skip as its a negator and the position is not the lowest index
+                                continue;
+                            }
                             perms.push(perm.clone());
                         }
                     }

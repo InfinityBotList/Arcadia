@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::impls;
+use crate::impls::{self, perms};
 use crate::impls::target_types::TargetType;
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
@@ -14,7 +14,7 @@ use crate::panelapi::types::{
     blog::{BlogAction, BlogPost},
     partners::{Partners, PartnerType, Partner, PartnerAction, CreatePartner},
     rpc::RPCWebAction,
-    webcore::{Capability, CoreConstants, InstanceConfig, PanelServers}
+    webcore::{CoreConstants, InstanceConfig, PanelServers, StaffMember, StaffPosition}
 };
 use crate::rpc::core::{RPCHandle, RPCMethod};
 use axum::body::StreamBody;
@@ -93,7 +93,6 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     sqlx::query!(
         "CREATE TABLE IF NOT EXISTS staffpanel__authchain (
             itag UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4(),
-            paneldata_ref UUID NOT NULL REFERENCES staffpanel__paneldata(itag) ON DELETE CASCADE,
             user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
             token TEXT NOT NULL,
             popplio_token TEXT NOT NULL, -- The popplio_token is sent to Popplio etc. to validate such requests. It is not visible or disclosed to the client
@@ -104,19 +103,6 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     .execute(&pool)
     .await
     .expect("Failed to create staffpanel__authchain table");
-
-    sqlx::query!(
-        "CREATE TABLE IF NOT EXISTS staffpanel__paneldata (
-            itag UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4(),
-            user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
-            mfa_secret TEXT NOT NULL,
-            mfa_verified BOOLEAN NOT NULL DEFAULT FALSE,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )"
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create staffpanel__paneldata table");
 
     let cdn_file_chunks_cache = Cache::<String, Vec<u8>>::builder()
     .time_to_live(Duration::from_secs(3600))
@@ -155,12 +141,12 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 pub enum PanelQuery {
     /// Returns instance configuration and other important information
     Hello {
-        /// Panel protocol version, should be 2
+        /// Panel protocol version, should be 3
         version: u16,
     },
     /// Get Login URL
     GetLoginUrl {
-        /// Panel protocol version, should be 2
+        /// Login protocol version, should be 2
         version: u16,
         /// Redirect URL
         redirect_url: String,
@@ -211,22 +197,21 @@ pub enum PanelQuery {
         /// User ID to fetch perms for
         user_id: String,
     },
-    /// Given a login token, returns the capabilities for that user
-    GetCapabilities {
-        /// Login token
-        login_token: String,
-    },
     /// Given a login token, returns core constants for the panel for that user
     GetCoreConstants {
         /// Login token
         login_token: String,
     },
     /// Returns the bot queue
+    /// 
+    /// This is public to all staff members
     BotQueue {
         /// Login token
         login_token: String,
     },
     /// Executes an RPC on a target
+    ///
+    /// The endpoint itself is public to all staff members however RPC will only execute if the user has permission for the RPC method
     ExecuteRpc {
         /// Login token
         login_token: String,
@@ -238,6 +223,8 @@ pub enum PanelQuery {
     /// Returns all RPC actions available
     ///
     /// Setting filtered will filter RPC actions to that what the user has access to
+    /// 
+    /// This is public to all staff members
     GetRpcMethods {
         /// Login token
         login_token: String,
@@ -245,11 +232,15 @@ pub enum PanelQuery {
         filtered: bool,
     },
     /// Returns a list of the supported RPC entity types
+    /// 
+    /// This is public to all staff members
     GetRpcTargetTypes {
         /// Login token
         login_token: String,
     },
     /// Searches for a bot based on a query
+    /// 
+    /// This is public to all staff members
     SearchEntitys {
         /// Login token
         login_token: String,
@@ -263,6 +254,8 @@ pub enum PanelQuery {
     /// Chunks expire after 10 minutes and are stored in memory
     /// 
     /// After uploading all chunks for a file, use `AddFile` to create the file
+    /// 
+    /// Needs `cdn.upload_chunk` permission
     UploadCdnFileChunk {
         /// Login token
         login_token: String,
@@ -270,16 +263,22 @@ pub enum PanelQuery {
         chunk: Vec<u8>,
     },
     /// Lists all available CDN scopes
+    /// 
+    /// Needs `cdn.list_scopes` permission
     ListCdnScopes {
         /// Login token
         login_token: String,
     },
     /// Returns the main CDN scope for Infinity Bot List
+    /// 
+    /// This is public to all staff members
     GetMainCdnScope {
         /// Login token
         login_token: String,
     },
     /// Updates/handles an asset on the CDN
+    /// 
+    /// Needs `cdn.update_asset` permission. Not yet granular/action specific
     UpdateCdnAsset {
         /// Login token
         login_token: String,
@@ -299,6 +298,8 @@ pub enum PanelQuery {
         action: CdnAssetAction,
     },
     /// Updates/handles partners
+    /// 
+    /// Needs `partners.update` permission. Not yet granular/action specific
     UpdatePartners {
         /// Login token
         login_token: String,
@@ -306,12 +307,17 @@ pub enum PanelQuery {
         action: PartnerAction,
     },
     /// Updates/handles the changelog of the list
+    /// 
+    /// Needs `changelog.update` permission. Not yet granular/action specific
     UpdateChangelog {
         /// Login token
         login_token: String,
         /// Action
         action: ChangelogAction
     },
+    /// Updates/handles the blog of the list
+    /// 
+    /// Needs `blog.update` permission. Not yet granular/action specific
     UpdateBlog {
         /// Login token
         login_token: String,
@@ -349,7 +355,7 @@ async fn query(
 ) -> Result<impl IntoResponse, Error> {
     match req {
         PanelQuery::Hello { version } => {
-            if version != 2 {
+            if version != 3 {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 
@@ -447,14 +453,14 @@ async fn query(
             let user = user_resp.json::<User>().await.map_err(Error::new)?;
 
             let rec = sqlx::query!(
-                "SELECT staff FROM users WHERE user_id = $1",
+                "SELECT COUNT(*) FROM staff_members WHERE user_id = $1",
                 user.id.to_string()
             )
             .fetch_one(&state.pool)
             .await
             .map_err(Error::new)?;
 
-            if !rec.staff {
+            if rec.count.unwrap_or(0) == 0 {
                 return Ok((StatusCode::FORBIDDEN, "You are not staff".to_string()).into_response());
             }
 
@@ -473,45 +479,9 @@ async fn query(
 
             let token = crate::impls::crypto::gen_random(tlength as usize);
 
-            let count = sqlx::query!(
-                "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
-                user.id.to_string()
-            )
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(Error::new)?
-            .count
-            .unwrap_or(0);
-
-            let itag = if count == 0 {
-                let temp_secret = thotp::generate_secret(160);
-
-                let temp_secret_enc = thotp::encoding::encode(&temp_secret, data_encoding::BASE32);
-
-                sqlx::query!(
-                    "INSERT INTO staffpanel__paneldata (user_id, mfa_secret) VALUES ($1, $2) RETURNING itag",
-                    user.id.to_string(),
-                    temp_secret_enc
-                )
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(Error::new)?
-                .itag
-            } else {
-                sqlx::query!(
-                    "SELECT itag FROM staffpanel__paneldata WHERE user_id = $1",
-                    user.id.to_string()
-                )
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(Error::new)?
-                .itag
-            };
-
             sqlx::query!(
-                "INSERT INTO staffpanel__authchain (user_id, paneldata_ref, token, popplio_token) VALUES ($1, $2, $3, $4)",
+                "INSERT INTO staffpanel__authchain (user_id, token, popplio_token) VALUES ($1, $2, $3)",
                 user.id.to_string(),
-                itag,
                 token,
                 crate::impls::crypto::gen_random(2048)
             )
@@ -537,45 +507,25 @@ async fn query(
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
-            // Check if user already has MFA setup
-            let count = sqlx::query!(
-                "SELECT COUNT(*) FROM staffpanel__paneldata WHERE user_id = $1",
-                auth_data.user_id
-            )
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(Error::new)?
-            .count
-            .unwrap_or(0);
-
-            if count == 0 {
-                // This should never happen, as Login creates a dummy MFA setup
-                return Err(Error {
-                    status: StatusCode::BAD_REQUEST,
-                    message: "invalidPanelData".to_string(),
-                });
-            }
-
-            // Check if user has MFA setup
-            let mrec = sqlx::query!(
-                "SELECT mfa_verified FROM staffpanel__paneldata WHERE user_id = $1",
+            let mfa = sqlx::query!(
+                "SELECT mfa_secret, mfa_verified FROM staff_members WHERE user_id = $1",
                 auth_data.user_id
             )
             .fetch_one(&mut *tx)
             .await
             .map_err(Error::new)?;
 
-            if !mrec.mfa_verified {
-                // User does not have MFA setup, generate a secret
-                let secret_vec = thotp::generate_secret(160);
-                let secret = thotp::encoding::encode(&secret_vec, data_encoding::BASE32);
+            if mfa.mfa_secret.is_none() || !mfa.mfa_verified {
+                let temp_secret = thotp::generate_secret(160);
+
+                let temp_secret_enc = thotp::encoding::encode(&temp_secret, data_encoding::BASE32);
 
                 sqlx::query!(
-                    "UPDATE staffpanel__paneldata SET mfa_secret = $2 WHERE user_id = $1",
+                    "UPDATE staff_members SET mfa_secret = $1 WHERE user_id = $2",
+                    &temp_secret_enc,
                     auth_data.user_id,
-                    secret
                 )
-                .execute(&mut *tx)
+                .fetch_one(&mut *tx)
                 .await
                 .map_err(Error::new)?;
 
@@ -583,9 +533,9 @@ async fn query(
                     // Type of otp
                     "totp",
                     // The encoded secret
-                    &secret,
+                    &temp_secret_enc,
                     // Your big corp title
-                    "Infinity Bot List:staff@infinitybots.gg",
+                    "staff@infinitybots.gg",
                     // Your big corp issuer
                     "Infinity Bot List",
                     // The counter (Only HOTP)
@@ -612,11 +562,10 @@ async fn query(
                         info: Some(MfaLoginSecret {
                             qr_code: qr,
                             otp_url: qr_code_uri,
-                            secret,
+                            secret: temp_secret_enc,
                         }),
                     }),
-                )
-                    .into_response())
+                ).into_response())
             } else {
                 tx.rollback().await.map_err(Error::new)?;
 
@@ -781,18 +730,42 @@ async fn query(
             Ok((StatusCode::OK, Json(user)).into_response())
         }
         PanelQuery::GetUserPerms { user_id } => {
-            let perms = super::auth::get_user_perms(&state.pool, &user_id)
+            let data = sqlx::query!(
+                "SELECT positions, perms, no_autosync, created_at FROM staff_members WHERE user_id = $1",
+                user_id
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            let mut positions = Vec::new();
+
+            for pos in data.positions {
+                let position_data = sqlx::query!(
+                    "SELECT id, name, role_id, perms, index, created_at FROM staff_positions WHERE id = $1 ORDER BY index ASC",
+                    pos
+                )
+                .fetch_one(&state.pool)
                 .await
                 .map_err(Error::new)?;
 
-            Ok((StatusCode::OK, Json(perms)).into_response())
-        }
-        PanelQuery::GetCapabilities { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
+                positions.push(StaffPosition {
+                    id: position_data.id.hyphenated().to_string(),
+                    name: position_data.name,
+                    role_id: position_data.role_id,
+                    perms: position_data.perms,
+                    index: position_data.index,
+                    created_at: position_data.created_at,
+                });
+            }
 
-            Ok((StatusCode::OK, Json(caps)).into_response())
+            Ok((StatusCode::OK, Json(StaffMember {
+                user_id,
+                positions,
+                perms: data.perms,
+                no_autosync: data.no_autosync,
+                created_at: data.created_at,
+            })).into_response())
         }
         PanelQuery::GetCoreConstants { login_token } => {
             // Ensure auth is valid, that's all that matters here
@@ -818,17 +791,9 @@ async fn query(
                 .into_response())
         }
         PanelQuery::BotQueue { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::ViewBotQueue) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to access the bot queue right now".to_string(),
-                )
-                    .into_response());
-            }
 
             let queue = sqlx::query!(
                 "SELECT bot_id, client_id, last_claimed, claimed_by, type, approval_note, short, 
@@ -881,18 +846,6 @@ async fn query(
             target_type,
             method,
         } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::Rpc) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to use RPC right now".to_string(),
-                )
-                    .into_response());
-            }
-
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -922,38 +875,17 @@ async fn query(
             login_token,
             filtered,
         } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::Rpc) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to use RPC right now".to_string(),
-                )
-                    .into_response());
-            }
-
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
 
-            let (owner, head, admin, staff) = {
-                let perms = sqlx::query!(
-                    "SELECT owner, hadmin, iblhdev, admin, staff FROM users WHERE user_id = $1",
-                    auth_data.user_id
-                )
-                .fetch_one(&state.pool)
-                .await
-                .map_err(Error::new)?;
-
-                (
-                    perms.owner,
-                    perms.hadmin || perms.iblhdev,
-                    perms.admin,
-                    perms.staff,
-                )
-            };
+            let user_perms = sqlx::query!(
+                "SELECT perms FROM staff_members WHERE user_id = $1",
+                auth_data.user_id
+            )
+            .fetch_one(&state.pool)
+            .await
+            .map_err(Error::new)?;
 
             let mut rpc_methods = Vec::new();
 
@@ -961,27 +893,9 @@ async fn query(
                 let variant = crate::rpc::core::RPCMethod::from_str(method).map_err(Error::new)?;
 
                 if filtered {
-                    match variant.needs_perms() {
-                        crate::rpc::core::RPCPerms::Owner => {
-                            if !owner {
-                                continue;
-                            }
-                        }
-                        crate::rpc::core::RPCPerms::Head => {
-                            if !head {
-                                continue;
-                            }
-                        }
-                        crate::rpc::core::RPCPerms::Admin => {
-                            if !admin {
-                                continue;
-                            }
-                        }
-                        crate::rpc::core::RPCPerms::Staff => {
-                            if !staff {
-                                continue;
-                            }
-                        }
+                    let required_perm = perms::build("rpc", &variant.to_string());
+                    if !perms::has_perm(&user_perms.perms, &required_perm) {
+                        continue;
                     }
                 }
 
@@ -989,7 +903,6 @@ async fn query(
                     id: method.to_string(),
                     label: variant.label(),
                     description: variant.description(),
-                    needs_perms: variant.needs_perms(),
                     supported_target_types: variant.supported_target_types(),
                     fields: variant.method_fields(),
                 };
@@ -1000,18 +913,9 @@ async fn query(
             Ok((StatusCode::OK, Json(rpc_methods)).into_response())
         }
         PanelQuery::GetRpcTargetTypes { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::Rpc) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to use RPC right now?".to_string(),
-                )
-                    .into_response());
-            }
-
             Ok((StatusCode::OK, Json(TargetType::VARIANTS)).into_response())
         }
         PanelQuery::SearchEntitys {
@@ -1019,17 +923,9 @@ async fn query(
             target_type,
             query,
         } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::Search) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to search entities right now?".to_string(),
-                )
-                    .into_response());
-            }
 
             match target_type {
                 TargetType::Bot => {
@@ -1140,19 +1036,20 @@ async fn query(
             }
         },
         PanelQuery::UploadCdnFileChunk { login_token, chunk } => {
-            info!("Got chunk: {}", chunk.len());
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&Capability::CdnManagement) {
+            if !perms::has_perm(&user_perms, &perms::build("cdn", "upload_chunk")) {
                 return Ok((
                     StatusCode::FORBIDDEN,
-                    "You do not have permission to manage the CDN right now?".to_string(),
+                    "You do not have permission to upload chunks to the CDN right now [cdn.upload_chunk]".to_string(),
                 )
                     .into_response());
             }
 
+            info!("Got chunk with len={}", chunk.len());
+    
             // Check that length of chunk is not greater than 100MB
             if chunk.len() > 100_000_000 {
                 return Ok((
@@ -1197,14 +1094,14 @@ async fn query(
                 .into_response())
         },
         PanelQuery::ListCdnScopes { login_token } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
+            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
 
-            if !caps.contains(&Capability::CdnManagement) {
+            if !perms::has_perm(&user_perms, &perms::build("cdn", "list_scopes")) {
                 return Ok((
                     StatusCode::FORBIDDEN,
-                    "You do not have permission to manage the CDN right now?".to_string(),
+                    "You do not have permission to list the CDN's scopes right now [cdn.list_scopes]".to_string(),
                 )
                     .into_response());
             }
@@ -1214,17 +1111,9 @@ async fn query(
         PanelQuery::GetMainCdnScope {
             login_token,
         } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
-
-            if !caps.contains(&Capability::CdnManagement) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to manage the CDN right now?".to_string(),
-                )
-                    .into_response());
-            }
+            super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             Ok((StatusCode::OK, crate::config::CONFIG.panel.main_scope.clone()).into_response())
         },
@@ -1235,14 +1124,14 @@ async fn query(
             action,
             cdn_scope,
         } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
+            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
 
-            if !caps.contains(&Capability::CdnManagement) {
+            if !perms::has_perm(&user_perms, &perms::build("cdn", "update_asset")) {
                 return Ok((
                     StatusCode::FORBIDDEN,
-                    "You do not have permission to manage the CDN right now?".to_string(),
+                    "You do not have permission to update CDN assets right now [cdn.update_asset]".to_string(),
                 )
                     .into_response());
             }
@@ -1836,14 +1725,14 @@ async fn query(
             login_token,
             action
         } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&Capability::PartnerManagement) {
+            if !perms::has_perm(&user_perms, &perms::build("partners", "update")) {
                 return Ok((
                     StatusCode::FORBIDDEN,
-                    "You do not have permission to manage partners right now?".to_string(),
+                    "You do not have permission to update partners [partners.update]".to_string(),
                 )
                     .into_response());
             }
@@ -2118,14 +2007,14 @@ async fn query(
             }
         },
         PanelQuery::UpdateChangelog { login_token, action } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&Capability::ChangelogManagement) {
+            if !perms::has_perm(&user_perms, &perms::build("changelog", "update")) {
                 return Ok((
                     StatusCode::FORBIDDEN,
-                    "You do not have permission to manage changelogs right now?".to_string(),
+                    "You do not have permission to update the changelog [changelog.update]".to_string(),
                 )
                     .into_response());
             }
@@ -2262,20 +2151,22 @@ async fn query(
             }
         },
         PanelQuery::UpdateBlog { login_token, action } => {
-            let auth = super::auth::check_auth(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
 
-            if !caps.contains(&Capability::ChangelogManagement) {
+            if !perms::has_perm(&user_perms, &perms::build("blog", "update")) {
                 return Ok((
                     StatusCode::FORBIDDEN,
-                    "You do not have permission to manage blog entries right now?".to_string(),
+                    "You do not have permission to update the blog [blog.update]".to_string(),
                 )
                     .into_response());
             }
+
+            // TODO: Make this not require a wasteful query
+            let ad = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
 
             match action {
                 BlogAction::ListEntries => {
@@ -2313,7 +2204,7 @@ async fn query(
                         description,
                         content,
                         &tags,
-                        &auth.user_id,
+                        &ad.user_id,
                     )
                     .execute(&state.pool)
                     .await
@@ -2392,7 +2283,7 @@ async fn query(
             }
         },
         PanelQuery::PopplioStaff { login_token, path, method, body } => {
-            let caps = super::auth::get_capabilities(&state.pool, &login_token)
+            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
             .await
             .map_err(Error::new)?;
 
@@ -2419,15 +2310,14 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            let caps_str = caps.iter().map(|c| c.to_string()).collect::<Vec<String>>();
+            let user_perms_str = user_perms.iter().map(|c| c.to_string()).collect::<Vec<String>>();
 
             let res = client
                 .request(method, crate::config::CONFIG.popplio_url.clone()+&path)
                 .header("User-Agent", "arcadia")
-                .header("Authorization", &login_token)
                 .header("X-Forwarded-For", &path)
                 .header("X-Staff-Auth-Token", &query.popplio_token)
-                .header("X-User-Capabilities", caps_str.join(","))
+                .header("X-User-Perms", user_perms_str.join(","))
                 .body(body)
                 .send()
                 .await

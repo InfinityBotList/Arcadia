@@ -33,6 +33,9 @@ pub enum CdnAssetAction {
         /// Allow overwrite of existing file
         overwrite: bool,
         /// Base 64 encoded file contents uploaded as multiple chunks with an ID associated with each chunk
+        /// 
+        /// Note that uploading chunks needs `cdn.upload_chunk` permission. As it is not possible to upload without
+        /// using chunks, disabling `cdn.upload_chunk` will disable uploading files without impacting other operations
         chunks: Vec<String>,
         /// SHA512 hash of the file
         sha512: String,

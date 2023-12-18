@@ -1,18 +1,6 @@
 use serde::{Deserialize, Serialize};
-use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-
-#[derive(Serialize, Deserialize, TS, Clone)]
-#[ts(export, export_to = ".generated/PanelPerms.ts")]
-pub struct PanelPerms {
-    pub staff: bool,
-    pub admin: bool,
-    pub hadmin: bool,
-    pub ibldev: bool,
-    pub iblhdev: bool,
-    pub owner: bool,
-}
 
 #[derive(Serialize, Deserialize, TS, Clone)]
 #[ts(export, export_to = ".generated/StaffPosition.ts")]
@@ -25,6 +13,8 @@ pub struct StaffPosition {
     pub role_id: String,
     /// The preset permissions of this position
     pub perms: Vec<String>,
+    /// The index of the position, higher means further up
+    pub index: i32,
     /// When the staff position was created/added
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
@@ -52,31 +42,6 @@ pub struct InstanceConfig {
     pub description: String,
     /// Any warnings for the instance
     pub warnings: Vec<String>,
-}
-
-#[derive(
-    Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone, PartialEq,
-)]
-#[ts(export, export_to = ".generated/Capability.ts")]
-pub enum Capability {
-    /// RPC capability
-    Rpc,
-    /// View bot queue capability
-    ViewBotQueue,
-    /// Search capability
-    Search,
-    /// Ability to manage partners
-    PartnerManagement,
-    /// Ability to add assets to the CDN
-    CdnManagement,
-    /// Ability to manage changelogs
-    ChangelogManagement,
-    /// Ability to manage blog posts
-    BlogManagement,
-    /// Ability to view applications
-    ViewApps,
-    /// Ability to manage applications
-    ManageApps,
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]

@@ -1,15 +1,4 @@
-use futures_util::StreamExt;
-use poise::{
-    serenity_prelude::{
-        ComponentInteractionDataKind, CreateActionRow, CreateButton, CreateEmbed, CreateSelectMenu,
-        CreateSelectMenuKind, CreateSelectMenuOption, EditInteractionResponse, GuildId,
-    },
-    CreateReply,
-};
-
-use std::{fmt::Write as _, time::Duration};
-// import without risk of name clashing
-use poise::serenity_prelude::UserId;
+use poise::serenity_prelude::GuildId;
 
 use crate::checks;
 
@@ -24,14 +13,13 @@ type Context<'a> = crate::Context<'a>;
     guild_cooldown = 10,
     subcommands(
         "staff_list",
-        "staff_overview",
         "staff_guildlist",
         "staff_guilddel",
         "staff_guildleave"
     )
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Some available options are ``staff list``, ``staff overview``, ``staff guildlist`` (dev/admin only), ``staff_guilddel`` (dev/admin only), ``staff_guildleave`` (dev/admin only), ``staff recalc`` (dev/admin only), ``staff add`` (dev/admin only) etc.").await?;
+    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guilddel``, ``staff_guildleave``").await?;
     Ok(())
 }
 
@@ -42,7 +30,10 @@ pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
     slash_command,
     check = "checks::staff_server"
 )]
-pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn staff_list(_: Context<'_>) -> Result<(), Error> {
+    Err("This command is currently disabled".into())
+
+    /* TODO: FINISH REWRITING
     // Get list of users with staff flag set to true
     let data = ctx.data();
 
@@ -51,59 +42,18 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
         None => return Err("This command can only be used in a server".into()),
     };
 
-    let staffs = sqlx::query!(
-        "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin, owner FROM users WHERE staff = true ORDER BY user_id ASC"
+    let positions = sqlx::query!(
+        "SELECT id, name FROM staff_positions ORDER BY index ASC"
     )
     .fetch_all(&data.pool)
     .await?;
 
-    if staffs.len() > 25 {
-        return Err(
-            "Too many staff members to display, please use the ``staff overview`` command instead."
-                .into(),
-        );
-    }
-
     let mut select_menus = Vec::<CreateSelectMenuOption>::new();
 
-    for staff in staffs {
-        let highest_perm = {
-            if staff.owner {
-                "Owner [owner]"
-            } else if staff.hadmin {
-                "Head Staff Manager [hadmin]"
-            } else if staff.iblhdev {
-                "Head Developer [iblhdev]"
-            } else if staff.ibldev {
-                "Developer [ibldev]"
-            } else if staff.admin {
-                "Staff Manager [admin]"
-            } else {
-                "Staff [staff]"
-            }
-        };
-
-        let user_id = match staff.user_id.parse::<UserId>() {
-            Ok(user_id) => user_id,
-            Err(e) => {
-                log::error!("Failed to parse user_id: {}", e);
-                return Err("Failed to parse user_id".into());
-            }
-        };
-
-        let cache_user = ctx.cache().member(server_id, user_id);
-
-        let username = match cache_user {
-            Some(user) => user.user.name.clone(),
-            None => {
-                log::error!("Failed to get user from cache: {}", staff.user_id);
-                continue;
-            }
-        };
-
+    for position in positions {
         select_menus.push(
-            CreateSelectMenuOption::new(format!("{} ({})", username, highest_perm), staff.user_id)
-                .description("View staff member's information"),
+            CreateSelectMenuOption::new(format!("{} ({})", position.name, position.id), position.id)
+                .description("View staff member's with this position"),
         );
     }
 
@@ -111,10 +61,10 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     let msg = ctx
         .send(
             CreateReply::new()
-                .content("**Please select a staff member to view their information**")
+                .content("**Please select a position to view a list of staff members**")
                 .components(vec![
                     CreateActionRow::SelectMenu(CreateSelectMenu::new(
-                        "Choose a staff member",
+                        "Choose a position",
                         CreateSelectMenuKind::String {
                             options: select_menus.clone(),
                         },
@@ -184,50 +134,6 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
             }
         };
 
-        let staff = sqlx::query!(
-            "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin, owner FROM users WHERE user_id = $1",
-            user_id.to_string()
-        )
-        .fetch_one(&data.pool)
-        .await?;
-
-        let perms = {
-            let mut perms = "".to_string();
-
-            let errors = {
-                let mut errs = Vec::new();
-                if staff.hadmin {
-                    errs.push(writeln!(perms, "- Head Staff Manager [hadmin]"));
-                }
-                if staff.iblhdev {
-                    errs.push(writeln!(perms, "- Head Developer [iblhdev]"));
-                }
-                if staff.ibldev {
-                    errs.push(writeln!(perms, "- Developer [ibldev]"));
-                }
-                if staff.admin {
-                    errs.push(writeln!(perms, "- Staff Manager [admin]"));
-                }
-                if staff.staff {
-                    errs.push(writeln!(perms, "- Staff [staff]"));
-                }
-                if staff.owner {
-                    errs.push(writeln!(perms, "- Owner [owner]"));
-                }
-
-                errs
-            };
-
-            for err in errors {
-                if let Err(e) = err {
-                    log::error!("Failed to write to perms: {}", e);
-                    continue;
-                }
-            }
-
-            perms
-        };
-
         let msg = EditInteractionResponse::new()
             .content("")
             .embed(
@@ -255,60 +161,7 @@ pub async fn staff_list(ctx: Context<'_>) -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-#[poise::command(
-    rename = "overview",
-    track_edits,
-    prefix_command,
-    slash_command,
-    check = "checks::staff_server"
-)]
-pub async fn staff_overview(ctx: Context<'_>) -> Result<(), Error> {
-    // Get list of users with staff flag set to true
-    let data = ctx.data();
-    let discord = &ctx.serenity_context();
-
-    let staffs = sqlx::query!(
-        "SELECT user_id, staff, admin, ibldev, iblhdev, hadmin, owner FROM users WHERE staff = true ORDER BY user_id ASC"
-    )
-    .fetch_all(&data.pool)
-    .await?;
-
-    let mut staff_list = "**Staff List**\n".to_string();
-
-    let guild = ctx.guild().ok_or("Failed to find staff server")?.id;
-
-    for staff in staffs {
-        // Convert ID to u64
-        let user_id = staff.user_id.parse::<UserId>()?;
-
-        let cache_user = discord.cache.member(guild, user_id);
-
-        let username = match cache_user {
-            Some(user) => user.user.name.clone(),
-            None => {
-                return Err(format!("User <@{}> is staff but not in the server", user_id).into());
-            }
-        };
-
-        writeln!(
-            staff_list,
-            "{user_id} ({username}) [staff={staff}, admin={admin}, ibldev={ibldev}, iblhdev={iblhdev} hadmin={hadmin}, owner={owner}]", 
-            user_id=staff.user_id,
-            username=username,
-            staff=staff.staff,
-            admin=staff.admin,
-            ibldev=staff.ibldev,
-            iblhdev=staff.iblhdev,
-            hadmin=staff.hadmin,
-            owner=staff.owner
-        )?;
-    }
-
-    ctx.say(staff_list).await?;
-
-    Ok(())
+    */
 }
 
 /// Get guild list, this is intentionally public

@@ -63,10 +63,9 @@ pub async fn rpclist(ctx: Context<'_>) -> Result<(), Error> {
         let variant = crate::rpc::core::RPCMethod::from_str(cmd)?;
 
         let mut cmd = format!(
-            "**{}**\n{}\n**Needed permissions:** {:#?}\n**Fields:**\n",
+            "**{}**\n{}\n\n**Fields:**\n",
             variant.label(),
             variant.description(),
-            variant.needs_perms(),
         );
 
         let method_fields = variant.method_fields();

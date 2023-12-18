@@ -10,7 +10,7 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
 use crate::{
-    impls::{self, target_types::TargetType},
+    impls::{self, target_types::TargetType, perms},
     Error,
 };
 use utoipa::ToSchema;
@@ -156,15 +156,6 @@ pub enum FieldType {
     Boolean,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, TS)]
-#[ts(export, export_to = ".generated/RPCPerms.ts")]
-pub enum RPCPerms {
-    Owner,
-    Head,  // Either hadmin/hdev
-    Admin, //admin
-    Staff,
-}
-
 pub struct RPCHandle {
     pub pool: PgPool,
     pub cache_http: impls::cache::CacheHttpImpl,
@@ -173,27 +164,6 @@ pub struct RPCHandle {
 }
 
 impl RPCMethod {
-    pub const fn needs_perms(&self) -> RPCPerms {
-        match self {
-            RPCMethod::Claim { .. } => RPCPerms::Staff,
-            RPCMethod::Unclaim { .. } => RPCPerms::Staff,
-            RPCMethod::Approve { .. } => RPCPerms::Staff,
-            RPCMethod::Deny { .. } => RPCPerms::Staff,
-            RPCMethod::Unverify { .. } => RPCPerms::Staff,
-            RPCMethod::PremiumAdd { .. } => RPCPerms::Head,
-            RPCMethod::PremiumRemove { .. } => RPCPerms::Head,
-            RPCMethod::VoteBanAdd { .. } => RPCPerms::Head,
-            RPCMethod::VoteBanRemove { .. } => RPCPerms::Head,
-            RPCMethod::VoteReset { .. } => RPCPerms::Owner,
-            RPCMethod::VoteResetAll { .. } => RPCPerms::Owner,
-            RPCMethod::ForceRemove { .. } => RPCPerms::Admin,
-            RPCMethod::CertifyAdd { .. } => RPCPerms::Owner,
-            RPCMethod::CertifyRemove { .. } => RPCPerms::Owner,
-            RPCMethod::BotTransferOwnershipUser { .. } => RPCPerms::Admin,
-            RPCMethod::BotTransferOwnershipTeam { .. } => RPCPerms::Head,
-        }
-    }
-
     pub fn supported_target_types(&self) -> Vec<TargetType> {
         match self {
             RPCMethod::Claim { .. } => vec![TargetType::Bot],
@@ -286,48 +256,18 @@ impl RPCMethod {
         }
 
         // Next, ensure we have the permissions needed
-        match self.needs_perms() {
-            RPCPerms::Owner => {
-                let staff_id = state.user_id.parse::<UserId>()?;
+        let user_perms = sqlx::query!(
+            "SELECT perms FROM staff_members WHERE user_id = $1",
+            &state.user_id
+        )
+        .fetch_one(&state.pool)
+        .await?;
 
-                if !crate::config::CONFIG.owners.contains(&staff_id) {
-                    return Err("You need to be an owner to use this method".into());
-                }
-            }
-            RPCPerms::Head => {
-                let check = sqlx::query!(
-                    "SELECT iblhdev, hadmin FROM users WHERE user_id = $1",
-                    &state.user_id
-                )
-                .fetch_one(&state.pool)
-                .await?;
-
-                if !check.iblhdev && !check.hadmin {
-                    return Err("You need to be at least a `Head Staff Manager` or a `Head Developer` to use this method".into());
-                }
-            }
-            RPCPerms::Admin => {
-                let check =
-                    sqlx::query!("SELECT admin FROM users WHERE user_id = $1", &state.user_id)
-                        .fetch_one(&state.pool)
-                        .await?;
-
-                if !check.admin {
-                    return Err(
-                        "You need to be at least a `Staff Manager` to use this method".into(),
-                    );
-                }
-            }
-            RPCPerms::Staff => {
-                let check =
-                    sqlx::query!("SELECT staff FROM users WHERE user_id = $1", &state.user_id)
-                        .fetch_one(&state.pool)
-                        .await?;
-
-                if !check.staff {
-                    return Err("You need to be a staff member to use this method".into());
-                }
-            }
+        let required_perm = perms::build("rpc", &self.to_string());
+        if !perms::has_perm(&user_perms.perms, &required_perm) {
+            return Err(
+                format!("You need {} permission to use {}", required_perm, &self.to_string()).into()
+            );
         }
 
         // Also ensure that onboarding has happened

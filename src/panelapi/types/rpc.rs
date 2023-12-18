@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 
 use crate::{
     impls::target_types::TargetType,
-    rpc::core::{RPCField, RPCPerms},
+    rpc::core::RPCField,
 };
 
 #[derive(Serialize, Deserialize, ToSchema, TS)]
@@ -20,6 +20,4 @@ pub struct RPCWebAction {
     pub fields: Vec<RPCField>,
     /// Target types supported by the RPC action
     pub supported_target_types: Vec<TargetType>,
-    /// Permissions required to use the RPC action
-    pub needs_perms: RPCPerms,
 }

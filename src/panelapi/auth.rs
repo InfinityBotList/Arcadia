@@ -1,10 +1,7 @@
 use crate::Error;
 use sqlx::PgPool;
 
-use super::types::{
-    webcore::{Capability, PanelPerms},
-    auth::AuthData
-};
+use super::types::auth::AuthData;
 
 /// Checks auth, but does not ensure active sessions
 pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
@@ -62,56 +59,15 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     Ok(rec)
 }
 
-pub async fn get_user_perms(pool: &PgPool, user_id: &str) -> Result<PanelPerms, Error> {
+pub async fn get_user_perms(pool: &PgPool, login_token: &str) -> Result<Vec<String>, Error> {
+    let rec = check_auth(pool, login_token).await?;
+
     let perms = sqlx::query!(
-        "SELECT staff, admin, hadmin, ibldev, iblhdev, owner FROM users WHERE user_id = $1",
-        user_id
+        "SELECT perms FROM staff_members WHERE user_id = $1",
+        rec.user_id
     )
     .fetch_one(pool)
     .await?;
 
-    Ok(PanelPerms {
-        staff: perms.staff,
-        admin: perms.admin,
-        hadmin: perms.hadmin,
-        ibldev: perms.ibldev,
-        iblhdev: perms.iblhdev,
-        owner: perms.owner,
-    })
-}
-
-/// Returns the capabilities of a user
-///
-/// NOTE 1: Server list and bot management capability not enabled right now
-///
-/// NOTE 2: in the future, capabilities can be limited based on user info/perms as well
-pub async fn get_capabilities(pool: &PgPool, token: &str) -> Result<Vec<Capability>, Error> {
-    let auth_data = check_auth(pool, token).await?;
-
-    let perms = get_user_perms(pool, &auth_data.user_id).await?;
-
-    let mut capabilities = Vec::new();
-
-    if perms.staff {
-        capabilities.push(Capability::ViewBotQueue);
-        capabilities.push(Capability::Search);
-        capabilities.push(Capability::Rpc);
-    }
-
-    if perms.admin || perms.ibldev {
-        capabilities.push(Capability::ViewApps);
-        capabilities.push(Capability::ChangelogManagement);
-        capabilities.push(Capability::BlogManagement);
-    }
-
-    if perms.hadmin {
-	capabilities.push(Capability::ManageApps);
-        capabilities.push(Capability::PartnerManagement);
-    }
-
-    if perms.owner {
-        capabilities.push(Capability::CdnManagement);
-    }
-
-    Ok(capabilities)
+    Ok(perms.perms)
 }

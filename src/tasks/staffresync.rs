@@ -8,6 +8,7 @@ use serenity::{
     builder::{CreateEmbed, CreateMessage},
 };
 use sqlx::types::Uuid;
+use kittycat::perms;
 
 use crate::config;
 
@@ -122,11 +123,17 @@ pub async fn staff_resync(
 
     // Also, get the current list of staff members from the db
     let staff = sqlx::query!(
-        "SELECT user_id, positions, perms FROM staff_members WHERE no_autosync = false FOR UPDATE"
+        "SELECT user_id, positions, perm_overrides FROM staff_members WHERE no_autosync = false FOR UPDATE"
     )
     .fetch_all(&mut *tx)
     .await
     .map_err(|e| format!("Error while getting staff members: {:?}", e))?;
+
+    let mut staff_override_perms = HashMap::new();
+
+    for member in staff.iter() {
+        staff_override_perms.insert(member.user_id.clone(), member.perm_overrides.clone());
+    }
 
     // This keeps track of any user_ids not accounted for
     let mut unaccounted_user_ids = {
@@ -216,6 +223,32 @@ pub async fn staff_resync(
             .count()
             > 0
         {
+            // Concatenate the positions
+            let mut user_positions_vec = Vec::new();
+            for pos in user_positions.iter() {
+                user_positions_vec.push(*pos);
+            }
+
+            if is_on_db {
+                sqlx::query!(
+                    "UPDATE staff_members SET positions = $1 WHERE user_id = $2",
+                    &user_positions_vec,
+                    user.user_id.to_string()
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("Error while updating staff member positions: {:?}", e))?;
+            } else {
+                sqlx::query!(
+                    "INSERT INTO staff_members (user_id, positions) VALUES ($1, $2)",
+                    user.user_id.to_string(),
+                    &user_positions_vec,
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(|e: sqlx::Error| format!("Error while inserting staff member positions: {:?}", e))?;
+            }
+
             // Get the position with the highest index
             let mut lowest_index = i32::MAX;
 
@@ -228,48 +261,46 @@ pub async fn staff_resync(
             }
 
             // Positions are different, update the db and set new perms replacing any overrides
-            let mut perms = Vec::new();
+            let mut old_sp = perms::StaffPermissions {
+                user_positions: vec![],
+                perm_overrides: vec![],
+            };
+
+            for pos in user_positions_db.iter() {
+                if let Some(pos) = pos_cache_by_id.get(pos) {
+                    old_sp.user_positions.push(perms::PartialStaffPosition {
+                        id: pos.id.hyphenated().to_string(),
+                        index: pos.index,
+                        perms: pos.perms.clone(),
+                    });
+                }
+            }
+
+            let mut new_sp = perms::StaffPermissions {
+                user_positions: vec![],
+                perm_overrides: vec![],
+            };
 
             for pos in user_positions.iter() {
                 if let Some(pos) = pos_cache_by_id.get(pos) {
-                    for perm in pos.perms.iter() {
-                        if !perms.contains(perm) {
-                            if perm.starts_with('~') && pos.index != lowest_index {
-                                // Skip as its a negator and the position is not the lowest index
-                                continue;
-                            }
-                            perms.push(perm.clone());
-                        }
-                    }
+                    new_sp.user_positions.push(perms::PartialStaffPosition {
+                        id: pos.id.hyphenated().to_string(),
+                        index: pos.index,
+                        perms: pos.perms.clone(),
+                    });
                 }
             }
+
+            // Add in the override_perms
+            if let Some(perms) = staff_override_perms.get(&user.user_id.to_string()) {
+                old_sp.perm_overrides = perms.clone();
+                new_sp.perm_overrides = perms.clone();
+            }            
 
             // Concatenate the positions
             let mut user_positions_vec = Vec::new();
             for pos in user_positions.iter() {
                 user_positions_vec.push(*pos);
-            }
-
-            if is_on_db {
-                sqlx::query!(
-                    "UPDATE staff_members SET positions = $1, perms = $2 WHERE user_id = $3",
-                    &user_positions_vec,
-                    &perms,
-                    user.user_id.to_string()
-                )
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| format!("Error while updating staff member positions: {:?}", e))?;
-            } else {
-                sqlx::query!(
-                    "INSERT INTO staff_members (user_id, positions, perms) VALUES ($1, $2, $3)",
-                    user.user_id.to_string(),
-                    &user_positions_vec,
-                    &perms
-                )
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| format!("Error while inserting staff member positions: {:?}", e))?;
             }
 
             crate::config::CONFIG
@@ -323,15 +354,10 @@ pub async fn staff_resync(
                         .field(
                             "Old Permissions",
                             {
+                                let operms = old_sp.resolve();
                                 let mut perms = Vec::new();
-                                for perm in user_positions_db.iter() {
-                                    if let Some(pos) = pos_cache_by_id.get(perm) {
-                                        for perm in pos.perms.iter() {
-                                            perms.push(format!("- ``{}``", perm));
-                                        }
-                                    } else {
-                                        perms.push(format!("- Unknown Position: {}", perm));
-                                    }
+                                for perm in operms.iter() {
+                                    perms.push(format!("- ``{}``", perm));
                                 }
 
                                 if perms.is_empty() {
@@ -345,16 +371,17 @@ pub async fn staff_resync(
                         .field(
                             "New Permissions",
                             {
-                                let mut nperms = Vec::new();
-                                for perm in perms.iter() {
-                                    nperms.push(format!("- ``{}``", perm));
+                                let nperms = new_sp.resolve();
+                                let mut perms = Vec::new();
+                                for perm in nperms.iter() {
+                                    perms.push(format!("- ``{}``", perm));
                                 }
 
-                                if nperms.is_empty() {
-                                    nperms.push("None".to_string());
+                                if perms.is_empty() {
+                                    perms.push("None".to_string());
                                 }
 
-                                nperms.join("\n")
+                                perms.join("\n")
                             },
                             false,
                         )]),
@@ -372,6 +399,25 @@ pub async fn staff_resync(
             .execute(&mut *tx)
             .await
             .map_err(|e| format!("Error while removing unaccounted staff member: {:?}", e))?;
+
+        let mut old_sp = perms::StaffPermissions {
+            user_positions: vec![],
+            perm_overrides: vec![],
+        };
+
+        for pos in member_pos_cache.get(&user_id).unwrap() {
+            if let Some(pos) = pos_cache_by_id.get(pos) {
+                old_sp.user_positions.push(perms::PartialStaffPosition {
+                    id: pos.id.hyphenated().to_string(),
+                    index: pos.index,
+                    perms: pos.perms.clone(),
+                });
+            }
+        }
+
+        if let Some(perms) = staff_override_perms.get(&user_id) {
+            old_sp.perm_overrides = perms.clone();
+        }            
 
         crate::config::CONFIG.channels.staff_logs.send_message(
             &cache_http.http,
@@ -405,15 +451,10 @@ pub async fn staff_resync(
                     .field(
                         "Old Permissions", 
                         {
+                            let operms = old_sp.resolve();
                             let mut perms = Vec::new();
-                            for perm in member_pos_cache.get(&user_id).unwrap() {
-                                if let Some(pos) = pos_cache_by_id.get(perm) {
-                                    for perm in pos.perms.iter() {
-                                        perms.push(format!("- ``{}``", perm));
-                                    }
-                                } else {
-                                    perms.push(format!("- Unknown Position: {}", perm));
-                                }
+                            for perm in operms.iter() {
+                                perms.push(format!("- ``{}``", perm));
                             }
 
                             if perms.is_empty() {

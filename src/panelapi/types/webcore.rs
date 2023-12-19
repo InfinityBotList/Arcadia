@@ -26,8 +26,10 @@ pub struct StaffMember {
     pub user_id: String,
     /// The positions of the staff member
     pub positions: Vec<StaffPosition>,
-    /// The permissions available to the member
-    pub perms: Vec<String>,
+    /// The permission overrides of the staff member
+    pub perm_overrides: Vec<String>,
+    /// The resolved permissions available to the member
+    pub resolved_perms: Vec<String>,
     /// Whether or not the member is 'frozen' and cannot be updated in resyncs
     pub no_autosync: bool,
     /// When the staff member was created/added

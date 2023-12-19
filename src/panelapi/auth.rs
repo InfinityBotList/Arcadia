@@ -56,16 +56,3 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
 
     Ok(rec)
 }
-
-pub async fn get_user_perms(pool: &PgPool, login_token: &str) -> Result<Vec<String>, Error> {
-    let rec = check_auth(pool, login_token).await?;
-
-    let perms = sqlx::query!(
-        "SELECT perms FROM staff_members WHERE user_id = $1",
-        rec.user_id
-    )
-    .fetch_one(pool)
-    .await?;
-
-    Ok(perms.perms)
-}

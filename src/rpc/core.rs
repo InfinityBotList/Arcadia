@@ -8,7 +8,7 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
 use crate::{
-    impls::{self, target_types::TargetType},
+    impls::{self, target_types::TargetType, utils::get_user_perms},
     Error,
 };
 use kittycat::perms;
@@ -255,15 +255,12 @@ impl RPCMethod {
         }
 
         // Next, ensure we have the permissions needed
-        let user_perms = sqlx::query!(
-            "SELECT perms FROM staff_members WHERE user_id = $1",
-            &state.user_id
-        )
-        .fetch_one(&state.pool)
-        .await?;
+        let user_perms = get_user_perms(&state.pool, &state.user_id)
+        .await?
+        .resolve();
 
         let required_perm = perms::build("rpc", &self.to_string());
-        if !perms::has_perm(&user_perms.perms, &required_perm) {
+        if !perms::has_perm(&user_perms, &required_perm) {
             return Err(format!(
                 "You need {} permission to use {}",
                 required_perm,

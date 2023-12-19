@@ -1,6 +1,6 @@
 use poise::serenity_prelude::GuildId;
 
-use crate::checks;
+use crate::{checks, impls::utils::get_user_perms};
 use kittycat::perms;
 
 type Error = crate::Error;
@@ -195,14 +195,9 @@ pub async fn staff_guildleave(
     ctx: Context<'_>,
     #[description = "The guild ID to leave"] guild: String,
 ) -> Result<(), Error> {
-    let user_perms = sqlx::query!(
-        "SELECT perms FROM staff_members WHERE user_id = $1",
-        ctx.author().id.to_string()
-    )
-    .fetch_one(&ctx.data().pool)
-    .await?;
+    let user_perms = get_user_perms(&ctx.data().pool, &ctx.author().id.to_string()).await?.resolve();
 
-    if !perms::has_perm(&user_perms.perms, &perms::build("arcadia", "leave_guilds")) {
+    if !perms::has_perm(&user_perms, &perms::build("arcadia", "leave_guilds")) {
         return Err("You do not have permission to use this command".into());
     }
 

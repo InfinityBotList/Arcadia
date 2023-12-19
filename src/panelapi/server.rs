@@ -4,9 +4,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::impls::target_types::TargetType;
+use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::impls;
-use kittycat::perms;
+use kittycat::perms::{self, StaffPermissions, PartialStaffPosition};
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
     blog::{BlogAction, BlogPost},
@@ -706,24 +706,30 @@ async fn query(
         }
         PanelQuery::GetUserPerms { user_id } => {
             let data = sqlx::query!(
-                "SELECT positions, perms, no_autosync, created_at FROM staff_members WHERE user_id = $1",
+                "SELECT positions, perm_overrides, no_autosync, created_at FROM staff_members WHERE user_id = $1",
                 user_id
             )
             .fetch_one(&state.pool)
             .await
             .map_err(Error::new)?;
 
+            let pos = sqlx::query!("SELECT id, name, role_id, perms, index, created_at FROM staff_positions WHERE id = ANY($1)", &data.positions)
+            .fetch_all(&state.pool)
+            .await
+            .map_err(|e| format!("Error while getting staff perms of user {}: {}", user_id, e))
+            .map_err(Error::new)?;    
+
             let mut positions = Vec::new();
+            let sp = StaffPermissions {
+                user_positions: pos.iter().map(|p| PartialStaffPosition {
+                    id: p.id.hyphenated().to_string(),
+                    index: p.index,
+                    perms: p.perms.clone(),
+                }).collect(),
+                perm_overrides: data.perm_overrides.clone(),
+            };
 
-            for pos in data.positions {
-                let position_data = sqlx::query!(
-                    "SELECT id, name, role_id, perms, index, created_at FROM staff_positions WHERE id = $1 ORDER BY index ASC",
-                    pos
-                )
-                .fetch_one(&state.pool)
-                .await
-                .map_err(Error::new)?;
-
+            for position_data in pos {
                 positions.push(StaffPosition {
                     id: position_data.id.hyphenated().to_string(),
                     name: position_data.name,
@@ -739,7 +745,8 @@ async fn query(
                 Json(StaffMember {
                     user_id,
                     positions,
-                    perms: data.perms,
+                    perm_overrides: data.perm_overrides,
+                    resolved_perms: sp.resolve(),
                     no_autosync: data.no_autosync,
                     created_at: data.created_at,
                 }),
@@ -858,13 +865,10 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            let user_perms = sqlx::query!(
-                "SELECT perms FROM staff_members WHERE user_id = $1",
-                auth_data.user_id
-            )
-            .fetch_one(&state.pool)
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
             .await
-            .map_err(Error::new)?;
+            .map_err(Error::new)?
+            .resolve();
 
             let mut rpc_methods = Vec::new();
 
@@ -873,7 +877,7 @@ async fn query(
 
                 if filtered {
                     let required_perm = perms::build("rpc", &variant.to_string());
-                    if !perms::has_perm(&user_perms.perms, &required_perm) {
+                    if !perms::has_perm(&user_perms, &required_perm) {
                         continue;
                     }
                 }
@@ -1015,9 +1019,14 @@ async fn query(
             }
         }
         PanelQuery::UploadCdnFileChunk { login_token, chunk } => {
-            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
-                .map_err(Error::new)?;
+                .map_err(Error::new)?
+                .resolve();
 
             if !perms::has_perm(&user_perms, &perms::build("cdn", "upload_chunk")) {
                 return Ok((
@@ -1069,9 +1078,14 @@ async fn query(
                 .into_response())
         }
         PanelQuery::ListCdnScopes { login_token } => {
-            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
+                .await
+                .map_err(Error::new)?
+                .resolve();
 
             if !perms::has_perm(&user_perms, &perms::build("cdn", "list_scopes")) {
                 return Ok((
@@ -1105,9 +1119,14 @@ async fn query(
             action,
             cdn_scope,
         } => {
-            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
-                .map_err(Error::new)?;
+                .map_err(Error::new)?
+                .resolve();
 
             if !perms::has_perm(&user_perms, &perms::build("cdn", "update_asset")) {
                 return Ok((
@@ -1737,9 +1756,14 @@ async fn query(
             login_token,
             action,
         } => {
-            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
-                .map_err(Error::new)?;
+                .map_err(Error::new)?
+                .resolve();
 
             if !perms::has_perm(&user_perms, &perms::build("partners", "update")) {
                 return Ok((
@@ -2022,9 +2046,14 @@ async fn query(
             login_token,
             action,
         } => {
-            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
-                .map_err(Error::new)?;
+                .map_err(Error::new)?
+                .resolve();
 
             if !perms::has_perm(&user_perms, &perms::build("changelog", "update")) {
                 return Ok((
@@ -2186,9 +2215,14 @@ async fn query(
             login_token,
             action,
         } => {
-            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
-                .map_err(Error::new)?;
+                .map_err(Error::new)?
+                .resolve();
 
             if !perms::has_perm(&user_perms, &perms::build("blog", "update")) {
                 return Ok((
@@ -2330,9 +2364,14 @@ async fn query(
             method,
             body,
         } => {
-            let user_perms = super::auth::get_user_perms(&state.pool, &login_token)
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
-                .map_err(Error::new)?;
+                .map_err(Error::new)?
+                .resolve();
 
             let client = reqwest::Client::new();
 

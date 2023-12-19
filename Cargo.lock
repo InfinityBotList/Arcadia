@@ -1313,7 +1313,7 @@ dependencies = [
 [[package]]
 name = "kittycat"
 version = "0.1.0"
-source = "git+https://github.com/infinitybotlist/kittycat?branch=main#9f73d2297574450b7ba34c934a5355653b28d86a"
+source = "git+https://github.com/infinitybotlist/kittycat?branch=main#f9d0978484e5ddc20537f4ec1695ff08b3c888e2"
 dependencies = [
  "indexmap",
 ]

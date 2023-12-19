@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::impls::target_types::TargetType;
-use crate::impls::{self, perms};
+use crate::impls;
+use kittycat::perms;
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
     blog::{BlogAction, BlogPost},

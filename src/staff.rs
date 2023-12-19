@@ -1,6 +1,7 @@
 use poise::serenity_prelude::GuildId;
 
-use crate::{checks, impls::perms};
+use crate::checks;
+use kittycat::perms;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;

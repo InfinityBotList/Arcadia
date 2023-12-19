@@ -8,9 +8,10 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
 use crate::{
-    impls::{self, perms, target_types::TargetType},
+    impls::{self, target_types::TargetType},
     Error,
 };
+use kittycat::perms;
 use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]

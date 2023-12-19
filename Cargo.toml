@@ -47,6 +47,10 @@ git = "https://github.com/serenity-rs/serenity"
 branch = "next"
 features = ["model", "http", "cache", "rustls_backend"]
 
+[dependencies.kittycat]
+git = "https://github.com/infinitybotlist/kittycat"
+branch = "main"
+
 [build-dependencies]
 vergen = "7"
 anyhow = "1.0"

@@ -457,7 +457,7 @@ async fn query(
             .map_err(Error::new)?;
 
             if rec.count.unwrap_or(0) == 0 {
-                return Ok((StatusCode::FORBIDDEN, "You are not staff".to_string()).into_response());
+                return Ok((StatusCode::FORBIDDEN, "You are not a staff member".to_string()).into_response());
             }
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
@@ -507,9 +507,18 @@ async fn query(
                 "SELECT mfa_secret, mfa_verified FROM staff_members WHERE user_id = $1",
                 auth_data.user_id
             )
-            .fetch_one(&mut *tx)
+            .fetch_optional(&mut *tx)
             .await
-            .map_err(Error::new)?;
+            .map_err(|e| Error::new(format!("Failed to fetch staff member mfa_secret/mfa_verified: {}", e)))?;
+
+            if mfa.is_none() {
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "You are not a staff member".to_string(),
+                });
+            }
+
+            let mfa = mfa.unwrap();
 
             if mfa.mfa_secret.is_none() || !mfa.mfa_verified {
                 let temp_secret = thotp::generate_secret(160);
@@ -521,7 +530,7 @@ async fn query(
                     &temp_secret_enc,
                     auth_data.user_id,
                 )
-                .fetch_one(&mut *tx)
+                .execute(&mut *tx)
                 .await
                 .map_err(Error::new)?;
 
@@ -638,6 +647,13 @@ async fn query(
             .await
             .map_err(Error::new)?
             .mfa_secret;
+
+            if secret.is_none() {
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "mfaNotSetup".to_string(),
+                });
+            }
 
             let secret = thotp::encoding::decode(&secret.unwrap(), data_encoding::BASE32)
                 .map_err(Error::new)?;

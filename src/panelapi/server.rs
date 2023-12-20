@@ -373,7 +373,7 @@ async fn query(
             version,
             redirect_url,
         } => {
-            if version != 2 {
+            if version != 3 {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 

@@ -303,8 +303,6 @@ pub enum PanelQuery {
         action: CdnAssetAction,
     },
     /// Updates/handles partners
-    ///
-    /// Needs `partners.update` permission. Not yet granular/action specific
     UpdatePartners {
         /// Login token
         login_token: String,
@@ -312,8 +310,6 @@ pub enum PanelQuery {
         action: PartnerAction,
     },
     /// Updates/handles the changelog of the list
-    ///
-    /// Needs `changelog.update` permission. Not yet granular/action specific
     UpdateChangelog {
         /// Login token
         login_token: String,
@@ -321,8 +317,6 @@ pub enum PanelQuery {
         action: ChangelogAction,
     },
     /// Updates/handles the blog of the list
-    ///
-    /// Needs `blog.update` permission. Not yet granular/action specific
     UpdateBlog {
         /// Login token
         login_token: String,
@@ -1765,14 +1759,6 @@ async fn query(
                 .map_err(Error::new)?
                 .resolve();
 
-            if !perms::has_perm(&user_perms, &perms::build("partners", "update")) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to update partners [partners.update]".to_string(),
-                )
-                    .into_response());
-            }
-
             async fn parse_partner(
                 pool: &PgPool,
                 partner: &CreatePartner,
@@ -1856,7 +1842,7 @@ async fn query(
             }
 
             match action {
-                PartnerAction::List => {
+                PartnerAction::List => {    
                     let prec = sqlx::query!(
                         "SELECT id, name, short, links, type, created_at, user_id FROM partners"
                     )
@@ -1906,6 +1892,14 @@ async fn query(
                         .into_response())
                 }
                 PartnerAction::Create { partner } => {
+                    if !perms::has_perm(&user_perms, &perms::build("partners", "create")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create partners [partners.create]".to_string(),
+                        )
+                            .into_response());
+                    }   
+
                     // Check if partner already exists
                     let partner_exists =
                         sqlx::query!("SELECT id FROM partners WHERE id = $1", partner.id)
@@ -1943,6 +1937,14 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 PartnerAction::Update { partner } => {
+                    if !perms::has_perm(&user_perms, &perms::build("partners", "update")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update partners [partners.update]".to_string(),
+                        )
+                            .into_response());
+                    }   
+
                     // Check if partner already exists
                     let partner_exists =
                         sqlx::query!("SELECT id FROM partners WHERE id = $1", partner.id)
@@ -1980,6 +1982,14 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 PartnerAction::Delete { id } => {
+                    if !perms::has_perm(&user_perms, &perms::build("partners", "delete")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete partners [partners.delete]".to_string(),
+                        )
+                            .into_response());
+                    } 
+
                     // Check if partner exists
                     let partner_exists = sqlx::query!("SELECT id FROM partners WHERE id = $1", id)
                         .fetch_optional(&state.pool)
@@ -2055,15 +2065,6 @@ async fn query(
                 .map_err(Error::new)?
                 .resolve();
 
-            if !perms::has_perm(&user_perms, &perms::build("changelog", "update")) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to update the changelog [changelog.update]"
-                        .to_string(),
-                )
-                    .into_response());
-            }
-
             match action {
                 ChangelogAction::ListEntries => {
                     let rows = sqlx::query!(
@@ -2099,6 +2100,15 @@ async fn query(
                     updated,
                     removed,
                 } => {
+                    if !perms::has_perm(&user_perms, &perms::build("changelogs", "create")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create changelog entries [changelogs.create]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }
+
                     // Check if entry already exists with same vesion
                     if sqlx::query!(
                         "SELECT COUNT(*) FROM changelogs WHERE version = $1",
@@ -2144,6 +2154,15 @@ async fn query(
                     removed,
                     published,
                 } => {
+                    if !perms::has_perm(&user_perms, &perms::build("changelogs", "update")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update changelog entries [changelogs.update]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }
+
                     // Check if entry already exists with same vesion
                     if sqlx::query!(
                         "SELECT COUNT(*) FROM changelogs WHERE version = $1",
@@ -2182,6 +2201,15 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 ChangelogAction::DeleteEntry { version } => {
+                    if !perms::has_perm(&user_perms, &perms::build("changelogs", "delete")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete changelog entries [changelogs.delete]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }
+
                     // Check if entry already exists with same vesion
                     if sqlx::query!(
                         "SELECT COUNT(*) FROM changelogs WHERE version = $1",
@@ -2224,14 +2252,6 @@ async fn query(
                 .map_err(Error::new)?
                 .resolve();
 
-            if !perms::has_perm(&user_perms, &perms::build("blog", "update")) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to update the blog [blog.update]".to_string(),
-                )
-                    .into_response());
-            }
-
             // TODO: Make this not require a wasteful query
             let ad = super::auth::check_auth(&state.pool, &login_token)
                 .await
@@ -2271,6 +2291,14 @@ async fn query(
                     content,
                     tags,
                 } => {
+                    if !perms::has_perm(&user_perms, &perms::build("blog", "create_entry")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create blog entries [blog.create_entry]".to_string(),
+                        )
+                            .into_response());
+                    }        
+
                     // Insert entry
                     sqlx::query!(
                         "INSERT INTO blogs (slug, title, description, content, tags, user_id) VALUES ($1, $2, $3, $4, $5, $6)",
@@ -2296,6 +2324,14 @@ async fn query(
                     tags,
                     draft,
                 } => {
+                    if !perms::has_perm(&user_perms, &perms::build("blog", "update_entry")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update blog entries [blog.update_entry]".to_string(),
+                        )
+                            .into_response());
+                    }        
+
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&itag).map_err(Error::new)?;
 
                     // Check if entry already exists with same vesion
@@ -2331,6 +2367,14 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 BlogAction::DeleteEntry { itag } => {
+                    if !perms::has_perm(&user_perms, &perms::build("blog", "delete_entry")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete blog entries [blog.delete_entry]".to_string(),
+                        )
+                            .into_response());
+                    }        
+
                     // Check if entry already exists with same vesion
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&itag).map_err(Error::new)?;
                     if sqlx::query!("SELECT COUNT(*) FROM blogs WHERE itag = $1", uuid)

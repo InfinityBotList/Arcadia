@@ -2,7 +2,7 @@ use crate::Error;
 use kittycat::perms::{StaffPermissions, PartialStaffPosition};
 use sqlx::PgPool;
 
-use super::types::{auth::AuthData, webcore::{StaffPosition, StaffMember}};
+use super::types::{auth::AuthData, staff_positions::{StaffPosition, StaffMember}};
 
 /// Checks auth, but does not ensure active sessions
 pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {

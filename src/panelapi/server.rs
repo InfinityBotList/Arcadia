@@ -14,7 +14,8 @@ use crate::panelapi::types::{
     entity::{PartialBot, PartialEntity, PartialServer},
     partners::{CreatePartner, Partner, PartnerAction, PartnerType, Partners},
     rpc::RPCWebAction,
-    webcore::{CoreConstants, InstanceConfig, PanelServers, StaffPosition},
+    webcore::{CoreConstants, InstanceConfig, PanelServers},
+    staff_positions::StaffPosition,
 };
 use kittycat::perms;
 use crate::rpc::core::{RPCHandle, RPCMethod};
@@ -2466,7 +2467,7 @@ async fn query(
                     }
 
                     // If either a or b is lower than the lowest index of the member, then error
-                    if index_a < sm_lowest_index || index_b < sm_lowest_index {
+                    if index_a <= sm_lowest_index || index_b <= sm_lowest_index {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "Either 'a' or 'b' is lower than the lowest index of the member".to_string(),

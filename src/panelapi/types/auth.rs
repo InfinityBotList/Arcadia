@@ -18,7 +18,7 @@ pub struct MfaLogin {
     pub info: Option<MfaLoginSecret>,
 }
 
-#[derive(Serialize, Deserialize, TS)]
+#[derive(Serialize, Deserialize, TS, Clone)]
 #[ts(export, export_to = ".generated/AuthData.ts")]
 pub struct AuthData {
     pub user_id: String,

@@ -99,6 +99,11 @@ pub struct PanelConfig {
     pub cdn_scopes: HashMap<String, CdnScopeData>,
     /// Main scope
     pub main_scope: String,
+
+    /// Panel scope, used by frontend for validation. Should be static
+    pub panel_scope: String,
+    /// Panel response scope, used by frontend for validation. Should be static
+    pub panel_response_scope: String,
 }
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone, Default)]

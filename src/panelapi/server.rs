@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::impls;
+use crate::panelapi::types::webcore::{StartAuth, Hello};
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
     blog::{BlogAction, BlogPost},
@@ -41,8 +42,11 @@ use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-
 use super::types::staff_positions::StaffPositionAction;
+
+const HELLO_VERSION: u16 = 4;
+const STARTAUTH_VERSION: u16 = 4;
+
 struct Error {
     status: StatusCode,
     message: String,
@@ -147,14 +151,13 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 #[derive(Serialize, Deserialize, ToSchema, TS, Display, Clone, EnumString, EnumVariantNames)]
 #[ts(export, export_to = ".generated/PanelQuery.ts")]
 pub enum PanelQuery {
-    /// Returns instance configuration and other important information
-    Hello {
-        /// Panel protocol version, should be 3
-        version: u16,
-    },
-    /// Get Login URL
-    GetLoginUrl {
-        /// Login protocol version, should be 2
+    /// Starts the login process given some base data
+    /// 
+    /// Currently only returns a scope and the login url
+    StartAuth {
+        /// Scope of the panel. This is a short identifier to ensure a valid arcadia instance
+        scope: String,
+        /// Login protocol version, should be `STARTAUTH_VERSION`
         version: u16,
         /// Redirect URL
         redirect_url: String,
@@ -190,25 +193,22 @@ pub enum PanelQuery {
         /// Login token
         login_token: String,
     },
-    /// Get Identity (user_id/created_at) for a given login token
-    GetIdentity {
+    /// Returns configuration data for the panel
+    Hello {
         /// Login token
         login_token: String,
+        /// Hello protocol version, should be `HELLO_VERSION`
+        version: u16,
     },
     /// Returns user information given a user id, returning a dovewing PartialUser
-    GetUserDetails {
+    GetUser {
         /// User ID to fetch details for
         user_id: String,
     },
     /// Given a user ID, returns the permissions for that user
-    GetUserPerms {
+    GetStaffMember {
         /// User ID to fetch perms for
         user_id: String,
-    },
-    /// Given a login token, returns core constants for the panel for that user
-    GetCoreConstants {
-        /// Login token
-        login_token: String,
     },
     /// Returns the bot queue
     ///
@@ -238,13 +238,6 @@ pub enum PanelQuery {
         login_token: String,
         /// Filtered
         filtered: bool,
-    },
-    /// Returns a list of the supported RPC entity types
-    ///
-    /// This is public to all staff members
-    GetRpcTargetTypes {
-        /// Login token
-        login_token: String,
     },
     /// Searches for a bot based on a query
     ///
@@ -363,37 +356,32 @@ async fn query(
     Json(req): Json<PanelQuery>,
 ) -> Result<impl IntoResponse, Error> {
     match req {
-        PanelQuery::Hello { version } => {
-            if version != 3 {
-                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
-            }
-
-            Ok((
-                StatusCode::OK,
-                Json(InstanceConfig {
-                    description: "Arcadia Production Panel Instance".to_string(),
-                    warnings: vec![
-                        "The panel is currently undergoing large-scale changes while it is being rewritten. Please report any bugs you find to the staff team.".to_string(),
-                    ],
-                }),
-            )
-                .into_response())
-        }
-        PanelQuery::GetLoginUrl {
+        PanelQuery::StartAuth {
+            scope,
             version,
             redirect_url,
         } => {
-            if version != 3 {
+            if version != STARTAUTH_VERSION {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
+            }
+
+            if scope != crate::config::CONFIG.panel.panel_scope {
+                return Ok((StatusCode::BAD_REQUEST, "Invalid scope".to_string()).into_response());
             }
 
             Ok(
                 (
                     StatusCode::OK,
-                    format!(
-                        "https://discord.com/api/oauth2/authorize?client_id={client_id}&redirect_uri={redirect_url}&response_type=code&scope=identify",
-                        client_id = crate::config::CONFIG.panel.client_id,
-                        redirect_url = redirect_url
+                    Json(
+                        StartAuth {
+                            login_url: format!(
+                                "https://discord.com/api/oauth2/authorize?client_id={client_id}&redirect_uri={redirect_url}&response_type=code&scope=identify",
+                                client_id = crate::config::CONFIG.panel.client_id,
+                                redirect_url = redirect_url
+                            ),
+                            scope: crate::config::CONFIG.panel.panel_scope.clone(),
+                            response_scope: crate::config::CONFIG.panel.panel_response_scope.clone(),
+                        }
                     )
                 ).into_response()
             )
@@ -710,21 +698,70 @@ async fn query(
 
             Ok((StatusCode::OK, row.rows_affected().to_string()).into_response())
         }
-        PanelQuery::GetIdentity { login_token } => {
+        PanelQuery::Hello { login_token, version } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
+            .await
+            .map_err(Error::new)?;
 
-            Ok((StatusCode::OK, Json(auth_data)).into_response())
+            if version != HELLO_VERSION {
+                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
+            }
+
+            let user = crate::impls::dovewing::get_partial_user(&state.pool, &auth_data.user_id)
+            .await
+            .map_err(Error::new)?;
+
+            // Get permissions
+            let staff_member = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+            .await
+            .map_err(Error::new)?;
+
+            let mut target_types: Vec<TargetType> = Vec::new();
+
+            for target_type in TargetType::VARIANTS {
+                let variant = TargetType::from_str(target_type).map_err(Error::new)?;
+                target_types.push(variant);
+            }
+
+            Ok((
+                StatusCode::OK,
+                Json(
+                    Hello {
+                        instance_config: InstanceConfig {
+                            description: "Arcadia Production Panel Instance".to_string(),
+                            warnings: vec![
+                                "The panel is currently undergoing large-scale changes while it is being rewritten. Please report any bugs you find to the staff team.".to_string(),
+                            ],
+                        },
+                        auth_data,
+                        user,
+                        staff_member,
+                        core_constants: CoreConstants {
+                            frontend_url: crate::config::CONFIG.frontend_url.clone(),
+                            infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
+                            popplio_url: crate::config::CONFIG.popplio_url.clone(),
+                            htmlsanitize_url: crate::config::CONFIG.htmlsanitize_url.clone(),
+                            cdn_url: crate::config::CONFIG.cdn_url.clone(),
+                            servers: PanelServers {
+                                main: crate::config::CONFIG.servers.main.to_string(),
+                                staff: crate::config::CONFIG.servers.staff.to_string(),
+                                testing: crate::config::CONFIG.servers.testing.to_string(),
+                            },
+                        },
+                        target_types,
+                    }
+                )
+            )
+                .into_response())
         }
-        PanelQuery::GetUserDetails { user_id } => {
+        PanelQuery::GetUser { user_id } => {
             let user = crate::impls::dovewing::get_partial_user(&state.pool, &user_id)
                 .await
                 .map_err(Error::new)?;
 
             Ok((StatusCode::OK, Json(user)).into_response())
         }
-        PanelQuery::GetUserPerms { user_id } => {
+        PanelQuery::GetStaffMember { user_id } => {
             // Get permissions
             let sm = super::auth::get_staff_member(&state.pool, &user_id)
                 .await
@@ -733,29 +770,6 @@ async fn query(
             Ok((
                 StatusCode::OK,
                 Json(sm),
-            )
-                .into_response())
-        }
-        PanelQuery::GetCoreConstants { login_token } => {
-            // Ensure auth is valid, that's all that matters here
-            super::auth::check_auth(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-
-            Ok((
-                StatusCode::OK,
-                Json(CoreConstants {
-                    frontend_url: crate::config::CONFIG.frontend_url.clone(),
-                    infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
-                    popplio_url: crate::config::CONFIG.popplio_url.clone(),
-                    htmlsanitize_url: crate::config::CONFIG.htmlsanitize_url.clone(),
-                    cdn_url: crate::config::CONFIG.cdn_url.clone(),
-                    servers: PanelServers {
-                        main: crate::config::CONFIG.servers.main.to_string(),
-                        staff: crate::config::CONFIG.servers.staff.to_string(),
-                        testing: crate::config::CONFIG.servers.testing.to_string(),
-                    },
-                }),
             )
                 .into_response())
         }
@@ -877,12 +891,6 @@ async fn query(
             }
 
             Ok((StatusCode::OK, Json(rpc_methods)).into_response())
-        }
-        PanelQuery::GetRpcTargetTypes { login_token } => {
-            super::auth::check_auth(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-            Ok((StatusCode::OK, Json(TargetType::VARIANTS)).into_response())
         }
         PanelQuery::SearchEntitys {
             login_token,

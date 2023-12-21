@@ -1,4 +1,5 @@
 use kittycat::perms::{StaffPermissions, PartialStaffPosition};
+
 use sqlx::PgPool;
 
 use super::target_types::TargetType;
@@ -238,3 +239,4 @@ pub async fn get_user_perms(pool: &PgPool, user_id: &str) -> Result<StaffPermiss
         perm_overrides: rec.perm_overrides,
     })
 }
+

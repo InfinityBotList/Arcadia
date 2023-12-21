@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::impls;
-use kittycat::perms::{self, StaffPermissions, PartialStaffPosition};
 use crate::panelapi::types::{
     auth::{MfaLogin, MfaLoginSecret},
     blog::{BlogAction, BlogPost},
@@ -15,8 +14,9 @@ use crate::panelapi::types::{
     entity::{PartialBot, PartialEntity, PartialServer},
     partners::{CreatePartner, Partner, PartnerAction, PartnerType, Partners},
     rpc::RPCWebAction,
-    webcore::{CoreConstants, InstanceConfig, PanelServers, StaffMember, StaffPosition},
+    webcore::{CoreConstants, InstanceConfig, PanelServers, StaffPosition},
 };
+use kittycat::perms;
 use crate::rpc::core::{RPCHandle, RPCMethod};
 use axum::body::StreamBody;
 use axum::extract::DefaultBodyLimit;
@@ -40,6 +40,8 @@ use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
+
+use super::types::staff_positions::StaffPositionAction;
 struct Error {
     status: StatusCode,
     message: String,
@@ -322,6 +324,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: BlogAction,
+    },
+    /// Fetch and modify staff positions
+    UpdateStaffPositions {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: StaffPositionAction,
     },
     /// Create a request to a/an Popplio staff endpoint
     PopplioStaff {
@@ -715,51 +724,14 @@ async fn query(
             Ok((StatusCode::OK, Json(user)).into_response())
         }
         PanelQuery::GetUserPerms { user_id } => {
-            let data = sqlx::query!(
-                "SELECT positions, perm_overrides, no_autosync, created_at FROM staff_members WHERE user_id = $1",
-                user_id
-            )
-            .fetch_one(&state.pool)
-            .await
-            .map_err(Error::new)?;
-
-            let pos = sqlx::query!("SELECT id, name, role_id, perms, index, created_at FROM staff_positions WHERE id = ANY($1)", &data.positions)
-            .fetch_all(&state.pool)
-            .await
-            .map_err(|e| format!("Error while getting staff perms of user {}: {}", user_id, e))
-            .map_err(Error::new)?;    
-
-            let mut positions = Vec::new();
-            let sp = StaffPermissions {
-                user_positions: pos.iter().map(|p| PartialStaffPosition {
-                    id: p.id.hyphenated().to_string(),
-                    index: p.index,
-                    perms: p.perms.clone(),
-                }).collect(),
-                perm_overrides: data.perm_overrides.clone(),
-            };
-
-            for position_data in pos {
-                positions.push(StaffPosition {
-                    id: position_data.id.hyphenated().to_string(),
-                    name: position_data.name,
-                    role_id: position_data.role_id,
-                    perms: position_data.perms,
-                    index: position_data.index,
-                    created_at: position_data.created_at,
-                });
-            }
+            // Get permissions
+            let sm = super::auth::get_staff_member(&state.pool, &user_id)
+                .await
+                .map_err(Error::new)?;
 
             Ok((
                 StatusCode::OK,
-                Json(StaffMember {
-                    user_id,
-                    positions,
-                    perm_overrides: data.perm_overrides,
-                    resolved_perms: sp.resolve(),
-                    no_autosync: data.no_autosync,
-                    created_at: data.created_at,
-                }),
+                Json(sm),
             )
                 .into_response())
         }
@@ -2417,7 +2389,110 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        }
+        },
+        PanelQuery::UpdateStaffPositions {
+            login_token,
+            action
+        } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            match action {
+                StaffPositionAction::ListPositions => {        
+                    let pos = sqlx::query!("SELECT id, name, role_id, perms, index, created_at FROM staff_positions ORDER BY index ASC")
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(|e| format!("Error while getting staff positions {}", e))
+                    .map_err(Error::new)?;    
+        
+                    let mut positions = Vec::new();
+        
+                    for position_data in pos {
+                        positions.push(StaffPosition {
+                            id: position_data.id.hyphenated().to_string(),
+                            name: position_data.name,
+                            role_id: position_data.role_id,
+                            perms: position_data.perms,
+                            index: position_data.index,
+                            created_at: position_data.created_at,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(positions)).into_response())        
+                },
+                StaffPositionAction::SwapIndex { a, b } => {
+                    // Get permissions
+                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    .await
+                    .map_err(Error::new)?;
+
+                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "swap_index")) && !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "manage")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to swap indexes of staff positions [staff_positions.swap_index, staff_positions.manage]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Get the lowest index permission of the member
+                    let mut sm_lowest_index = i32::MAX;
+
+                    for perm in &sm.positions {
+                        if perm.index < sm_lowest_index {
+                            sm_lowest_index = perm.index;
+                        }
+                    }
+
+                    let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+                    let index_a = sqlx::query!("SELECT index FROM staff_positions WHERE id::text = $1", a)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while getting lower position {}", e))
+                    .map_err(Error::new)?
+                    .index;
+
+                    // Get the higher staff positions index
+                    let index_b = sqlx::query!("SELECT index FROM staff_positions WHERE id::text = $1", b)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while getting higher position {}", e))
+                    .map_err(Error::new)?
+                    .index;
+
+                    if index_a == index_b {
+                        return Ok((StatusCode::BAD_REQUEST, "Positions have the same index".to_string()).into_response());
+                    }
+
+                    // If either a or b is lower than the lowest index of the member, then error
+                    if index_a < sm_lowest_index || index_b < sm_lowest_index {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "Either 'a' or 'b' is lower than the lowest index of the member".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Swap the indexes
+                    sqlx::query!("UPDATE staff_positions SET index = $1 WHERE id::text = $2", index_b, a)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while updating lower position {}", e))
+                    .map_err(Error::new)?;
+
+                    sqlx::query!("UPDATE staff_positions SET index = $1 WHERE id::text = $2", index_a, b)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while updating higher position {}", e))
+                    .map_err(Error::new)?;
+
+                    tx.commit().await.map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+            }
+        },
         PanelQuery::PopplioStaff {
             login_token,
             path,

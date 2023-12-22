@@ -51,15 +51,15 @@ pub async fn is_staff(ctx: Context<'_>) -> Result<bool, Error> {
 }
 
 pub async fn needs_onboarding(ctx: Context<'_>) -> Result<bool, Error> {
-    let staff = sqlx::query!(
-        "SELECT staff_onboard_state FROM users WHERE user_id = $1",
-        ctx.author().id.to_string()
+    if sqlx::query!(
+        "SELECT COUNT(*) FROM staff_onboardings WHERE user_id = $1 AND state = 'completed' AND NOW() - created_at < INTERVAL '1 month'",
+        &ctx.author().id.to_string(),
     )
     .fetch_one(&ctx.data().pool)
-    .await?;
-
-    if staff.staff_onboard_state != "completed" {
-        return Err("You need to complete onboarding to use this command!".into());
+    .await?
+    .count
+    .unwrap_or(0) == 0 {
+        return Err("You need to complete onboarding to use this command".into());
     }
 
     Ok(true)

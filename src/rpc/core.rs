@@ -270,15 +270,15 @@ impl RPCMethod {
         }
 
         // Also ensure that onboarding has happened
-        let onboard_state = sqlx::query!(
-            "SELECT staff_onboard_state FROM users WHERE user_id = $1",
-            &state.user_id
+        if sqlx::query!(
+            "SELECT COUNT(*) FROM staff_onboardings WHERE user_id = $1 AND state = 'completed' AND NOW() - created_at < INTERVAL '1 month'",
+            &state.user_id,
         )
         .fetch_one(&state.pool)
-        .await?;
-
-        if onboard_state.staff_onboard_state != "completed" {
-            return Err("You need to complete onboarding in order to use RPC!".into());
+        .await?
+        .count
+        .unwrap_or(0) == 0 {
+            return Err("You need to have completed onboarding in order to use RPC!".into());
         }
 
         // Insert into rpc_logs

@@ -492,6 +492,7 @@ async fn query(
             let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
+            
             if auth_data.state != "pending" {
                 return Err(Error {
                     status: StatusCode::BAD_REQUEST,
@@ -580,6 +581,13 @@ async fn query(
             let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
+
+            if auth_data.state != "pending" {
+                return Err(Error {
+                    status: StatusCode::BAD_REQUEST,
+                    message: "sessionAlreadyActive".to_string(),
+                });
+            }
 
             let mut tx = state.pool.begin().await.map_err(Error::new)?;
 

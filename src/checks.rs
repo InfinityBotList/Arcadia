@@ -52,7 +52,7 @@ pub async fn is_staff(ctx: Context<'_>) -> Result<bool, Error> {
 
 pub async fn needs_onboarding(ctx: Context<'_>) -> Result<bool, Error> {
     if sqlx::query!(
-        "SELECT COUNT(*) FROM staff_onboardings WHERE user_id = $1 AND state = 'completed' AND NOW() - created_at < INTERVAL '1 month'",
+        "SELECT COUNT(*) FROM staff_onboardings WHERE user_id = $1 AND void = false AND state = 'completed' AND NOW() - created_at < INTERVAL '1 month'",
         &ctx.author().id.to_string(),
     )
     .fetch_one(&ctx.data().pool)

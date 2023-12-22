@@ -271,7 +271,7 @@ impl RPCMethod {
 
         // Also ensure that onboarding has happened
         if sqlx::query!(
-            "SELECT COUNT(*) FROM staff_onboardings WHERE user_id = $1 AND state = 'completed' AND NOW() - created_at < INTERVAL '1 month'",
+            "SELECT COUNT(*) FROM staff_onboardings WHERE user_id = $1 AND void = false AND state = 'completed' AND NOW() - created_at < INTERVAL '1 month'",
             &state.user_id,
         )
         .fetch_one(&state.pool)

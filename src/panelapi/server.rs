@@ -2547,6 +2547,14 @@ async fn query(
                             .into_response());
                     }
 
+                    // Shift indexes one lower
+                    let mut tx = state.pool.begin().await.map_err(Error::new)?;
+                    sqlx::query!("UPDATE staff_positions SET index = index + 1 WHERE index >= $1", index)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while shifting indexes {}", e))
+                    .map_err(Error::new)?;
+
                     // Ensure role id exists on the staff server
                     let role_id_snow = role_id.parse::<RoleId>().map_err(Error::new)?;
                     let role_exists = {
@@ -2565,14 +2573,16 @@ async fn query(
                             "Role does not exist on the staff server".to_string(),
                         )
                             .into_response());
-                    }
+                    }                    
 
                     // Update the position
                     sqlx::query!("INSERT INTO staff_positions (name, perms, role_id, index) VALUES ($1, $2, $3, $4)", name, &perms, role_id, index)
-                    .execute(&state.pool)
+                    .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while updating position {}", e))
                     .map_err(Error::new)?;
+
+                    tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
@@ -2659,6 +2669,76 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
+                StaffPositionAction::DeletePosition { id } => {
+                    let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
+                    
+                    // Get permissions
+                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    .await
+                    .map_err(Error::new)?;
+
+                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "delete")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete staff positions [staff_positions.delete]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Get the lowest index permission of the member
+                    let mut sm_lowest_index = i32::MAX;
+
+                    for perm in &sm.positions {
+                        if perm.index < sm_lowest_index {
+                            sm_lowest_index = perm.index;
+                        }
+                    }
+
+                    let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+                    // Get the index and current permissions of the position
+                    let index = sqlx::query!("SELECT perms, index, role_id FROM staff_positions WHERE id = $1", uuid)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while getting position {}", e))
+                    .map_err(Error::new)?;
+
+                    // If the index is lower than the lowest index of the member, then error
+                    if index.index <= sm_lowest_index {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "Index is lower than the lowest index of the member".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check perms
+                    if let Err(e) = perms::check_patch_changes(&sm.resolved_perms, &index.perms, &Vec::new()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            format!("You do not have permission to edit the following perms [neeed to delete position]: {}", e),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete the position
+                    sqlx::query!("DELETE FROM staff_positions WHERE id = $1", uuid)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while deleting position {}", e))
+                    .map_err(Error::new)?;
+
+                    // Shift back indexes one lower
+                    sqlx::query!("UPDATE staff_positions SET index = index - 1 WHERE index > $1", index.index)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while shifting indexes {}", e))
+                    .map_err(Error::new)?;
+
+                    tx.commit().await.map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
             }
         },
         PanelQuery::PopplioStaff {

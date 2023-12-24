@@ -51,6 +51,11 @@ pub enum StaffPositionAction {
         /// The preset permissions of this position
         perms: Vec<String>,
     },
+    /// Delete a staff position
+    DeletePosition {
+        /// The ID of the position
+        id: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, TS, Clone)]

@@ -2508,6 +2508,74 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
+                StaffPositionAction::CreatePosition { name, role_id, perms, index } => {
+                    // Get permissions
+                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    .await
+                    .map_err(Error::new)?;
+
+                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "create")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create staff positions [staff_positions.create]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if index < 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Index cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Get the lowest index permission of the member
+                    let mut sm_lowest_index = i32::MAX;
+
+                    for perm in &sm.positions {
+                        if perm.index < sm_lowest_index {
+                            sm_lowest_index = perm.index;
+                        }
+                    }
+
+                    if index <= sm_lowest_index {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "Index is lower than or equal to the lowest index of the member".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Ensure role id exists on the staff server
+                    let role_id_snow = role_id.parse::<RoleId>().map_err(Error::new)?;
+                    let role_exists = {
+                        let guild = state.cache_http.cache.guild(crate::config::CONFIG.servers.staff);
+
+                        if let Some(guild) = guild {
+                            guild.roles.get(&role_id_snow).is_some()
+                        } else {
+                            false
+                        }
+                    };
+
+                    if !role_exists {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Role does not exist on the staff server".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Update the position
+                    sqlx::query!("INSERT INTO staff_positions (name, perms, role_id, index) VALUES ($1, $2, $3, $4)", name, &perms, role_id, index)
+                    .execute(&state.pool)
+                    .await
+                    .map_err(|e| format!("Error while updating position {}", e))
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
                 StaffPositionAction::EditPosition { id, name, role_id, perms } => {
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
                     

@@ -27,6 +27,17 @@ pub enum StaffPositionAction {
         /// Staff Position B
         b: String,
     },
+    /// Create a new staff position
+    CreatePosition {
+        /// The name of the position
+        name: String,
+        /// The role id associated with this position on Discord
+        role_id: String,
+        /// The preset permissions of this position
+        perms: Vec<String>,
+        /// The index of the position, higher means further down on hierarchy
+        index: i32,
+    },
     /// Edit staff position
     /// 
     /// To edit index, use the `SwapIndex` action
@@ -53,7 +64,7 @@ pub struct StaffPosition {
     pub role_id: String,
     /// The preset permissions of this position
     pub perms: Vec<String>,
-    /// The index of the position, higher means further up
+    /// The index of the position, higher means further down on hierarchy
     pub index: i32,
     /// When the staff position was created/added
     pub created_at: chrono::DateTime<chrono::Utc>,

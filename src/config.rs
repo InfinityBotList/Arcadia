@@ -29,12 +29,6 @@ impl Default for Servers {
 
 #[derive(Serialize, Deserialize)]
 pub struct Roles {
-    pub developer: RoleId,
-    pub head_developer: RoleId,
-    pub staff_manager: RoleId,
-    pub head_manager: RoleId,
-    pub web_moderator: RoleId,
-    pub owner: RoleId,
     pub awaiting_staff: RoleId,
     pub bot_developer: RoleId,
     pub certified_developer: RoleId,
@@ -45,12 +39,6 @@ pub struct Roles {
 impl Default for Roles {
     fn default() -> Self {
         Self {
-            developer: RoleId::new(870950609291972625),
-            head_developer: RoleId::new(870950609317150732),
-            staff_manager: RoleId::new(870950609291972626),
-            head_manager: RoleId::new(870950609291972627),
-            web_moderator: RoleId::new(870950609291972622),
-            owner: RoleId::new(870950609317150734),
             awaiting_staff: RoleId::new(1029058929361174678),
             bot_developer: RoleId::new(758756147313246209),
             certified_developer: RoleId::new(759468303344992266),

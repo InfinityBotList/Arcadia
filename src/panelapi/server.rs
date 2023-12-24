@@ -31,7 +31,7 @@ use axum::{extract::State, http::StatusCode, Router};
 use log::info;
 use moka::future::Cache;
 use rand::Rng;
-use serenity::all::User;
+use serenity::all::{User, RoleId};
 use sqlx::PgPool;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tower_http::cors::{Any, CorsLayer};
@@ -2510,7 +2510,7 @@ async fn query(
                 },
                 StaffPositionAction::EditPosition { id, name, role_id, perms } => {
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
-
+                    
                     // Get permissions
                     let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
                     .await
@@ -2536,7 +2536,7 @@ async fn query(
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
                     // Get the index and current permissions of the position
-                    let index = sqlx::query!("SELECT perms, index FROM staff_positions WHERE id = $1", uuid)
+                    let index = sqlx::query!("SELECT perms, index, role_id FROM staff_positions WHERE id = $1", uuid)
                     .fetch_one(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while getting position {}", e))
@@ -2556,6 +2556,26 @@ async fn query(
                         return Ok((
                             StatusCode::FORBIDDEN,
                             format!("You do not have permission to edit the following perms: {}", e),
+                        )
+                            .into_response());
+                    }
+
+                    // Ensure role id exists on the staff server
+                    let role_id_snow = role_id.parse::<RoleId>().map_err(Error::new)?;
+                    let role_exists = {
+                        let guild = state.cache_http.cache.guild(crate::config::CONFIG.servers.staff);
+
+                        if let Some(guild) = guild {
+                            guild.roles.get(&role_id_snow).is_some()
+                        } else {
+                            false
+                        }
+                    };
+
+                    if !role_exists {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Role does not exist on the staff server".to_string(),
                         )
                             .into_response());
                     }

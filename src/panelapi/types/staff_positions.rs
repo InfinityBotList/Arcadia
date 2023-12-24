@@ -26,7 +26,20 @@ pub enum StaffPositionAction {
         a: String,
         /// Staff Position B
         b: String,
-    }
+    },
+    /// Edit staff position
+    /// 
+    /// To edit index, use the `SwapIndex` action
+    EditPosition {
+        /// The ID of the position
+        id: String,
+        /// The name of the position
+        name: String,
+        /// The role id associated with this position on Discord
+        role_id: String,
+        /// The preset permissions of this position
+        perms: Vec<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, TS, Clone)]

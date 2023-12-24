@@ -2444,10 +2444,10 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "swap_index")) && !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "manage")) {
+                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "swap_index")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "You do not have permission to swap indexes of staff positions [staff_positions.swap_index, staff_positions.manage]".to_string(),
+                            "You do not have permission to swap indexes of staff positions [staff_positions.swap_index]".to_string(),
                         )
                             .into_response());
                     }
@@ -2507,7 +2507,70 @@ async fn query(
                     tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                }
+                },
+                StaffPositionAction::EditPosition { id, name, role_id, perms } => {
+                    let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
+
+                    // Get permissions
+                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    .await
+                    .map_err(Error::new)?;
+
+                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "edit")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to edit staff positions [staff_positions.edit]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Get the lowest index permission of the member
+                    let mut sm_lowest_index = i32::MAX;
+
+                    for perm in &sm.positions {
+                        if perm.index < sm_lowest_index {
+                            sm_lowest_index = perm.index;
+                        }
+                    }
+
+                    let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+                    // Get the index and current permissions of the position
+                    let index = sqlx::query!("SELECT perms, index FROM staff_positions WHERE id = $1", uuid)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while getting position {}", e))
+                    .map_err(Error::new)?;
+
+                    // If the index is lower than the lowest index of the member, then error
+                    if index.index <= sm_lowest_index {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "Index is lower than the lowest index of the member".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check perms
+                    if let Err(e) = perms::check_patch_changes(&sm.resolved_perms, &index.perms, &perms) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            format!("You do not have permission to edit the following perms: {}", e),
+                        )
+                            .into_response());
+                    }
+
+                    // Update the position
+                    sqlx::query!("UPDATE staff_positions SET name = $1, perms = $2, role_id = $3 WHERE id = $4", name, &perms, role_id, uuid)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while updating position {}", e))
+                    .map_err(Error::new)?;
+
+                    tx.commit().await.map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
             }
         },
         PanelQuery::PopplioStaff {

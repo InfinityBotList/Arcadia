@@ -3,6 +3,8 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
 
+use crate::impls::link::Link;
+
 #[derive(
     Serialize,
     Deserialize,
@@ -31,8 +33,10 @@ pub enum StaffPositionAction {
     CreatePosition {
         /// The name of the position
         name: String,
-        /// The role id associated with this position on Discord
+        /// The role id associated with this position on Discord [staff server]
         role_id: String,
+        /// The corresponding role on discord
+        corresponding_roles: Vec<Link>,
         /// The preset permissions of this position
         perms: Vec<String>,
         /// The index of the position, higher means further down on hierarchy
@@ -48,6 +52,8 @@ pub enum StaffPositionAction {
         name: String,
         /// The role id associated with this position on Discord
         role_id: String,
+        /// The corresponding role on discord
+        corresponding_roles: Vec<Link>,
         /// The preset permissions of this position
         perms: Vec<String>,
     },
@@ -69,6 +75,8 @@ pub struct StaffPosition {
     pub role_id: String,
     /// The preset permissions of this position
     pub perms: Vec<String>,
+    /// Corresponding roles of the position
+    pub corresponding_roles: Vec<Link>,
     /// The index of the position, higher means further down on hierarchy
     pub index: i32,
     /// When the staff position was created/added

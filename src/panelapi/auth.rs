@@ -68,7 +68,7 @@ pub async fn get_staff_member(pool: &PgPool, user_id: &str) -> Result<StaffMembe
     .await
     .map_err(|e: sqlx::Error| format!("Error while getting staff perms of user {}: {}", user_id, e))?;
 
-    let pos = sqlx::query!("SELECT id, name, role_id, perms, index, created_at FROM staff_positions WHERE id = ANY($1)", &data.positions)
+    let pos = sqlx::query!("SELECT id, name, role_id, perms, corresponding_roles, index, created_at FROM staff_positions WHERE id = ANY($1)", &data.positions)
     .fetch_all(pool)
     .await
     .map_err(|e: sqlx::Error| format!("Error while getting positions of user {}: {}", user_id, e))?;
@@ -89,6 +89,7 @@ pub async fn get_staff_member(pool: &PgPool, user_id: &str) -> Result<StaffMembe
             name: position_data.name,
             role_id: position_data.role_id,
             perms: position_data.perms,
+            corresponding_roles: serde_json::from_value(position_data.corresponding_roles.clone()).unwrap_or_default(),
             index: position_data.index,
             created_at: position_data.created_at,
         });

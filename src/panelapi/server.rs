@@ -31,7 +31,7 @@ use axum::{extract::State, http::StatusCode, Router};
 use log::info;
 use moka::future::Cache;
 use rand::Rng;
-use serenity::all::{User, RoleId};
+use serenity::all::{User, RoleId, GuildId};
 use sqlx::PgPool;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tower_http::cors::{Any, CorsLayer};
@@ -2417,7 +2417,7 @@ async fn query(
 
             match action {
                 StaffPositionAction::ListPositions => {        
-                    let pos = sqlx::query!("SELECT id, name, role_id, perms, index, created_at FROM staff_positions ORDER BY index ASC")
+                    let pos = sqlx::query!("SELECT id, name, role_id, perms, corresponding_roles, index, created_at FROM staff_positions ORDER BY index ASC")
                     .fetch_all(&state.pool)
                     .await
                     .map_err(|e| format!("Error while getting staff positions {}", e))
@@ -2431,6 +2431,7 @@ async fn query(
                             name: position_data.name,
                             role_id: position_data.role_id,
                             perms: position_data.perms,
+                            corresponding_roles: serde_json::from_value(position_data.corresponding_roles).map_err(Error::new)?,
                             index: position_data.index,
                             created_at: position_data.created_at,
                         });
@@ -2508,7 +2509,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
-                StaffPositionAction::CreatePosition { name, role_id, perms, index } => {
+                StaffPositionAction::CreatePosition { name, role_id, perms, index, corresponding_roles } => {
                     // Get permissions
                     let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
                     .await
@@ -2573,10 +2574,41 @@ async fn query(
                             "Role does not exist on the staff server".to_string(),
                         )
                             .into_response());
-                    }                    
+                    }   
 
-                    // Update the position
-                    sqlx::query!("INSERT INTO staff_positions (name, perms, role_id, index) VALUES ($1, $2, $3, $4)", name, &perms, role_id, index)
+                    // Ensure all corresponding_roles exist on the named server if
+                    for role in corresponding_roles.iter() {
+                        let guild_id_snow = role.name.parse::<GuildId>().map_err(Error::new)?;
+                        let role_id_snow = role.value.parse::<RoleId>().map_err(Error::new)?;
+
+                        let role_exists = {
+                            let guild = state.cache_http.cache.guild(guild_id_snow);
+
+                            if let Some(guild) = guild {
+                                guild.roles.get(&role_id_snow).is_some()
+                            } else {
+                                false
+                            }
+                        };
+
+                        if !role_exists {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                format!("Role {} does not exist on the server {}", role_id_snow, guild_id_snow),
+                            )
+                                .into_response());
+                        }
+                    }                 
+
+                    // Create the position
+                    sqlx::query!(
+                        "INSERT INTO staff_positions (name, perms, corresponding_roles, role_id, index) VALUES ($1, $2, $3, $4, $5)",
+                        name, 
+                        &perms, 
+                        serde_json::to_value(corresponding_roles).map_err(Error::new)?,
+                        role_id, 
+                        index,
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while updating position {}", e))
@@ -2586,7 +2618,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
-                StaffPositionAction::EditPosition { id, name, role_id, perms } => {
+                StaffPositionAction::EditPosition { id, name, role_id, perms, corresponding_roles } => {
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
                     
                     // Get permissions
@@ -2658,8 +2690,39 @@ async fn query(
                             .into_response());
                     }
 
+                    // Ensure all corresponding_roles exist on the named server if
+                    for role in corresponding_roles.iter() {
+                        let guild_id_snow = role.name.parse::<GuildId>().map_err(Error::new)?;
+                        let role_id_snow = role.value.parse::<RoleId>().map_err(Error::new)?;
+
+                        let role_exists = {
+                            let guild = state.cache_http.cache.guild(guild_id_snow);
+
+                            if let Some(guild) = guild {
+                                guild.roles.get(&role_id_snow).is_some()
+                            } else {
+                                false
+                            }
+                        };
+
+                        if !role_exists {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                format!("Role {} does not exist on the server {}", role_id_snow, guild_id_snow),
+                            )
+                                .into_response());
+                        }
+                    }
+
                     // Update the position
-                    sqlx::query!("UPDATE staff_positions SET name = $1, perms = $2, role_id = $3 WHERE id = $4", name, &perms, role_id, uuid)
+                    sqlx::query!(
+                        "UPDATE staff_positions SET name = $1, perms = $2, corresponding_roles = $3, role_id = $4 WHERE id = $5", 
+                        name, 
+                        &perms, 
+                        serde_json::to_value(corresponding_roles).map_err(Error::new)?,
+                        role_id, 
+                        uuid
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while updating position {}", e))

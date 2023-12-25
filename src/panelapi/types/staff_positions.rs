@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
+use std::str::FromStr;
 
 use crate::impls::link::Link;
 
@@ -98,4 +99,44 @@ pub struct StaffMember {
     pub no_autosync: bool,
     /// When the staff member was created/added
     pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TS,
+    EnumVariantNames,
+    Display,
+    Clone,
+    PartialEq,
+)]
+#[ts(export, export_to = ".generated/CorrespondingServer.ts")]
+pub enum CorrespondingServer {
+    Main,
+    Testing,
+    Staff,
+}
+
+impl FromStr for CorrespondingServer {
+    type Err = crate::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "main" => Ok(CorrespondingServer::Main),
+            "testing" => Ok(CorrespondingServer::Testing),
+            "staff" => Ok(CorrespondingServer::Staff),
+            _ => Err(format!("Invalid corresponding server: {}", s).into()),
+        }
+    }
+}
+
+impl CorrespondingServer {
+    pub fn get_id(&self) -> serenity::all::GuildId {
+        match self {
+            CorrespondingServer::Main => crate::config::CONFIG.servers.main,
+            CorrespondingServer::Testing => crate::config::CONFIG.servers.testing,
+            CorrespondingServer::Staff => crate::config::CONFIG.servers.staff,
+        }
+    }
 }

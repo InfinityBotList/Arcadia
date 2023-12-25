@@ -31,7 +31,7 @@ use axum::{extract::State, http::StatusCode, Router};
 use log::info;
 use moka::future::Cache;
 use rand::Rng;
-use serenity::all::{User, RoleId, GuildId};
+use serenity::all::{User, RoleId};
 use sqlx::PgPool;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tower_http::cors::{Any, CorsLayer};
@@ -42,7 +42,7 @@ use strum::VariantNames;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use super::types::staff_positions::StaffPositionAction;
+use super::types::staff_positions::{StaffPositionAction, CorrespondingServer};
 
 const HELLO_VERSION: u16 = 4;
 const STARTAUTH_VERSION: u16 = 4;
@@ -2578,11 +2578,17 @@ async fn query(
 
                     // Ensure all corresponding_roles exist on the named server if
                     for role in corresponding_roles.iter() {
-                        let guild_id_snow = role.name.parse::<GuildId>().map_err(Error::new)?;
+                        let Ok(corr_server) = CorrespondingServer::from_str(&role.name) else {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                format!("Server {} is not a supported corresponding role. Supported: {:#?}", role.name, CorrespondingServer::VARIANTS),
+                            )
+                                .into_response());
+                        };
                         let role_id_snow = role.value.parse::<RoleId>().map_err(Error::new)?;
 
                         let role_exists = {
-                            let guild = state.cache_http.cache.guild(guild_id_snow);
+                            let guild = state.cache_http.cache.guild(corr_server.get_id());
 
                             if let Some(guild) = guild {
                                 guild.roles.get(&role_id_snow).is_some()
@@ -2594,7 +2600,7 @@ async fn query(
                         if !role_exists {
                             return Ok((
                                 StatusCode::BAD_REQUEST,
-                                format!("Role {} does not exist on the server {}", role_id_snow, guild_id_snow),
+                                format!("Role {} does not exist on the server {}", role_id_snow, corr_server.get_id()),
                             )
                                 .into_response());
                         }
@@ -2692,11 +2698,17 @@ async fn query(
 
                     // Ensure all corresponding_roles exist on the named server if
                     for role in corresponding_roles.iter() {
-                        let guild_id_snow = role.name.parse::<GuildId>().map_err(Error::new)?;
+                        let Ok(corr_server) = CorrespondingServer::from_str(&role.name) else {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                format!("Server {} is not a supported corresponding role. Supported: {:#?}", role.name, CorrespondingServer::VARIANTS),
+                            )
+                                .into_response());
+                        };
                         let role_id_snow = role.value.parse::<RoleId>().map_err(Error::new)?;
 
                         let role_exists = {
-                            let guild = state.cache_http.cache.guild(guild_id_snow);
+                            let guild = state.cache_http.cache.guild(corr_server.get_id());
 
                             if let Some(guild) = guild {
                                 guild.roles.get(&role_id_snow).is_some()
@@ -2708,11 +2720,11 @@ async fn query(
                         if !role_exists {
                             return Ok((
                                 StatusCode::BAD_REQUEST,
-                                format!("Role {} does not exist on the server {}", role_id_snow, guild_id_snow),
+                                format!("Role {} does not exist on the server {}", role_id_snow, corr_server.get_id()),
                             )
                                 .into_response());
                         }
-                    }
+                    }                 
 
                     // Update the position
                     sqlx::query!(

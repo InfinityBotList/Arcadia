@@ -2577,6 +2577,8 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
                 StaffPositionAction::SetIndex { id, index } => {
+                    let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
+
                     // Get permissions
                     let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
                     .await
@@ -2617,18 +2619,18 @@ async fn query(
 
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
-                    let index = sqlx::query!("SELECT index FROM staff_positions WHERE id::text = $1", id)
+                    let curr_index = sqlx::query!("SELECT index FROM staff_positions WHERE id = $1", uuid)
                     .fetch_one(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while getting position {}", e))
                     .map_err(Error::new)?  
                     .index;
 
-                    // If the index is lower than the lowest index of the member, then error
-                    if index <= sm_lowest_index {
+                    // If the current index is lower than the lowest index of the member, then error
+                    if curr_index <= sm_lowest_index {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "Index of position is lower than or equal to the lowest index of the staff member".to_string(),
+                            "Current index of position is lower than or equal to the lowest index of the staff member".to_string(),
                         )
                             .into_response());
                     }
@@ -2638,10 +2640,10 @@ async fn query(
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while shifting indexes {}", e))
-                    .map_err(Error::new)?;
+                    .map_err(Error::new)?;                
 
                     // Set the index
-                    sqlx::query!("UPDATE staff_positions SET index = $1 WHERE id::text = $2", index, id)
+                    sqlx::query!("UPDATE staff_positions SET index = $1 WHERE id = $2", index, uuid)
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while updating position {}", e))

@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 
 use crate::impls::{dovewing::PartialUser, target_types::TargetType};
 
-use super::{staff_positions::StaffMember, auth::AuthData};
+use super::{staff_members::StaffMember, auth::AuthData};
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
 #[ts(export, export_to = ".generated/InstanceConfig.ts")]

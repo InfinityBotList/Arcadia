@@ -43,6 +43,7 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
 use super::types::staff_positions::{StaffPositionAction, CorrespondingServer};
+use super::types::staff_members::StaffMemberAction;
 
 const HELLO_VERSION: u16 = 4;
 const STARTAUTH_VERSION: u16 = 4;
@@ -325,6 +326,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: StaffPositionAction,
+    },
+    /// Fetch and modify staff members
+    UpdateStaffMembers {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: StaffMemberAction,
     },
     /// Create a request to a/an Popplio staff endpoint
     PopplioStaff {
@@ -2568,6 +2576,81 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
+                StaffPositionAction::SetIndex { id, index } => {
+                    // Get permissions
+                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    .await
+                    .map_err(Error::new)?;
+
+                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "set_index")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to set the indexes of staff positions [staff_positions.set_index]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if index < 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Index cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Get the lowest index permission of the member
+                    let mut sm_lowest_index = i32::MAX;
+
+                    for perm in &sm.positions {
+                        if perm.index < sm_lowest_index {
+                            sm_lowest_index = perm.index;
+                        }
+                    }
+
+                    if index <= sm_lowest_index {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "Index to set is lower than or equal to the lowest index of the staff member".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+                    let index = sqlx::query!("SELECT index FROM staff_positions WHERE id::text = $1", id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while getting position {}", e))
+                    .map_err(Error::new)?  
+                    .index;
+
+                    // If the index is lower than the lowest index of the member, then error
+                    if index <= sm_lowest_index {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "Index of position is lower than or equal to the lowest index of the staff member".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Shift indexes one lower
+                    sqlx::query!("UPDATE staff_positions SET index = index + 1 WHERE index >= $1", index)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while shifting indexes {}", e))
+                    .map_err(Error::new)?;
+
+                    // Set the index
+                    sqlx::query!("UPDATE staff_positions SET index = $1 WHERE id::text = $2", index, id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while updating position {}", e))
+                    .map_err(Error::new)?;
+
+                    tx.commit().await.map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
                 StaffPositionAction::CreatePosition { name, role_id, perms, index, corresponding_roles } => {
                     // Get permissions
                     let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
@@ -2602,7 +2685,7 @@ async fn query(
                     if index <= sm_lowest_index {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "Index is lower than or equal to the lowest index of the member".to_string(),
+                            "Index is lower than or equal to the lowest index of the staff member".to_string(),
                         )
                             .into_response());
                     }
@@ -2873,6 +2956,36 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
+            }
+        },
+        PanelQuery::UpdateStaffMembers {
+            login_token,
+            action
+        } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            match action {
+                StaffMemberAction::ListMembers => {
+                    let ids = sqlx::query!("SELECT user_id FROM staff_members")
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(|e| format!("Error while getting staff members {}", e))
+                    .map_err(Error::new)?;
+
+                    let mut members = Vec::new();
+
+                    for id in ids {
+                        let member = super::auth::get_staff_member(&state.pool, &id.user_id)
+                        .await
+                        .map_err(Error::new)?;
+
+                        members.push(member);
+                    }
+
+                    Ok((StatusCode::OK, Json(members)).into_response())
+                },
             }
         },
         PanelQuery::PopplioStaff {

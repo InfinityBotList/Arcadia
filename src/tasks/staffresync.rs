@@ -123,13 +123,15 @@ pub async fn staff_resync(
 
     // Also, get the current list of staff members from the db
     let staff = sqlx::query!(
-        "SELECT user_id, positions, perm_overrides FROM staff_members WHERE no_autosync = false FOR UPDATE"
+        "SELECT user_id, positions, perm_overrides, no_autosync, unaccounted FROM staff_members FOR UPDATE"
     )
     .fetch_all(&mut *tx)
     .await
     .map_err(|e| format!("Error while getting staff members: {:?}", e))?;
 
     let mut staff_override_perms = HashMap::new();
+    let mut staff_noautosync = HashSet::new();
+    let mut staff_unaccounted = HashSet::new();
 
     for member in staff.iter() {
         staff_override_perms.insert(member.user_id.clone(), member.perm_overrides.clone());
@@ -140,6 +142,16 @@ pub async fn staff_resync(
         let mut unaccounted_user_ids = HashSet::new();
 
         for user in staff.iter() {
+            if user.no_autosync {
+                staff_noautosync.insert(user.user_id.clone());
+                continue;
+            }
+
+            // Known unaccounted (but may have been reaccepted)
+            if user.unaccounted {
+                staff_unaccounted.insert(user.user_id.clone());                
+            }
+
             unaccounted_user_ids.insert(user.user_id.clone());
         }
 
@@ -151,6 +163,10 @@ pub async fn staff_resync(
         let mut member_pos_cache = HashMap::new();
 
         for member in staff {
+            if member.no_autosync {
+                continue;
+            }
+
             let mut positions = Vec::new();
 
             for pos in member.positions {
@@ -164,6 +180,11 @@ pub async fn staff_resync(
     };
 
     for user in staff_resync {
+        // Skip if the user is in the noautosync list
+        if staff_noautosync.contains(&user.user_id.to_string()) {
+            continue;
+        }
+
         let mut is_on_db: bool = true;
         let user_positions_db = match member_pos_cache.get(&user.user_id.to_string()) {
             Some(p) => {
@@ -231,7 +252,7 @@ pub async fn staff_resync(
 
             if is_on_db {
                 sqlx::query!(
-                    "UPDATE staff_members SET positions = $1 WHERE user_id = $2",
+                    "UPDATE staff_members SET positions = $1, unaccounted = false WHERE user_id = $2",
                     &user_positions_vec,
                     user.user_id.to_string()
                 )
@@ -395,10 +416,28 @@ pub async fn staff_resync(
 
     // Now, remove any unaccounted users
     for user_id in unaccounted_user_ids {
-        sqlx::query!("DELETE FROM staff_members WHERE user_id = $1", user_id)
+        // Skip if the user is in the noautosync list *OR* if they are known unaccounted
+        if staff_noautosync.contains(&user_id) || staff_unaccounted.contains(&user_id) {
+            continue;
+        }
+
+        let delete = if let Some(p) = staff_override_perms.get(&user_id) {
+            p.is_empty()
+        } else {
+            true
+        };
+
+        if delete {
+            sqlx::query!("DELETE FROM staff_members WHERE user_id = $1", user_id)
             .execute(&mut *tx)
             .await
             .map_err(|e| format!("Error while removing unaccounted staff member: {:?}", e))?;
+        } else {
+            sqlx::query!("UPDATE staff_members SET positions = '{}', unaccounted = true WHERE user_id = $1", user_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Error while updating unaccounted staff member: {:?}", e))?;
+        }
 
         let mut old_sp = perms::StaffPermissions {
             user_positions: vec![],
@@ -419,56 +458,109 @@ pub async fn staff_resync(
             old_sp.perm_overrides = perms.clone();
         }            
 
-        crate::config::CONFIG.channels.staff_logs.send_message(
-            &cache_http.http,
-                CreateMessage::new().embeds(vec![
-                    CreateEmbed::new()
-                    .title("Staff Permissions Resync")
-                    .description(format!(
-                        "Removed unaccounted staff member <@{}> as they are no longer in the staff server.",
-                        user_id
-                    ))
-                    .field(
-                        "Old Positions", 
-                        {
-                            let mut positions = Vec::new();
-                            for pos in member_pos_cache.get(&user_id).unwrap() {
-                                if let Some(pos) = pos_cache_by_id.get(pos) {
-                                    positions.push(format!("- ``{}``", pos));
-                                } else {
-                                    positions.push(format!("- Unknown Position: {}", pos));
+        if delete {
+            crate::config::CONFIG.channels.staff_logs.send_message(
+                &cache_http.http,
+                    CreateMessage::new().embeds(vec![
+                        CreateEmbed::new()
+                        .title("Staff Permissions Resync")
+                        .description(format!(
+                            "Removed unaccounted staff member <@{}> as they are no longer in the staff server.",
+                            user_id
+                        ))
+                        .field(
+                            "Old Positions", 
+                            {
+                                let mut positions = Vec::new();
+                                for pos in member_pos_cache.get(&user_id).unwrap() {
+                                    if let Some(pos) = pos_cache_by_id.get(pos) {
+                                        positions.push(format!("- ``{}``", pos));
+                                    } else {
+                                        positions.push(format!("- Unknown Position: {}", pos));
+                                    }
                                 }
-                            }
-
-                            if positions.is_empty() {
-                                positions.push("None".to_string());
-                            }
-                            
-                            positions.join("\n")
-                        },
-                        false
-                    )
-                    .field(
-                        "Old Permissions", 
-                        {
-                            let operms = old_sp.resolve();
-                            let mut perms = Vec::new();
-                            for perm in operms.iter() {
-                                perms.push(format!("- ``{}``", perm));
-                            }
-
-                            if perms.is_empty() {
-                                perms.push("None".to_string());
-                            }
-                            
-                           perms.join("\n")
-                        },
-                        false
-                    )
-                ]),
-        )
-        .await
-        .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;
+    
+                                if positions.is_empty() {
+                                    positions.push("None".to_string());
+                                }
+                                
+                                positions.join("\n")
+                            },
+                            false
+                        )
+                        .field(
+                            "Old Permissions", 
+                            {
+                                let operms = old_sp.resolve();
+                                let mut perms = Vec::new();
+                                for perm in operms.iter() {
+                                    perms.push(format!("- ``{}``", perm));
+                                }
+    
+                                if perms.is_empty() {
+                                    perms.push("None".to_string());
+                                }
+                                
+                               perms.join("\n")
+                            },
+                            false
+                        )
+                    ]),
+            )
+            .await
+            .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;    
+        } else {
+            crate::config::CONFIG.channels.staff_logs.send_message(
+                &cache_http.http,
+                    CreateMessage::new().embeds(vec![
+                        CreateEmbed::new()
+                        .title("Staff Permissions Resync")
+                        .description(format!(
+                            "Updated unaccounted staff member <@{}> as they are no longer in the staff server but have permission overrides.",
+                            user_id
+                        ))
+                        .field(
+                            "Old Positions", 
+                            {
+                                let mut positions = Vec::new();
+                                for pos in member_pos_cache.get(&user_id).unwrap() {
+                                    if let Some(pos) = pos_cache_by_id.get(pos) {
+                                        positions.push(format!("- ``{}``", pos));
+                                    } else {
+                                        positions.push(format!("- Unknown Position: {}", pos));
+                                    }
+                                }
+    
+                                if positions.is_empty() {
+                                    positions.push("None".to_string());
+                                }
+                                
+                                positions.join("\n")
+                            },
+                            false
+                        )
+                        .field(
+                            "Old Permissions", 
+                            {
+                                let operms = old_sp.resolve();
+                                let mut perms = Vec::new();
+                                for perm in operms.iter() {
+                                    perms.push(format!("- ``{}``", perm));
+                                }
+    
+                                if perms.is_empty() {
+                                    perms.push("None".to_string());
+                                }
+                                
+                               perms.join("\n")
+                            },
+                            false
+                        )
+                    ]),
+            )
+            .await
+            .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;    
+        }
     }
 
     // Commit the transaction

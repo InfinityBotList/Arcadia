@@ -2,7 +2,7 @@ use crate::Error;
 use kittycat::perms::{StaffPermissions, PartialStaffPosition};
 use sqlx::PgPool;
 
-use super::types::{auth::AuthData, staff_positions::{StaffPosition, StaffMember}};
+use super::types::{auth::AuthData, staff_positions::StaffPosition, staff_members::StaffMember};
 
 /// Checks auth, but does not ensure active sessions
 pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
@@ -61,7 +61,7 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
 /// Returns the data of a staff member
 pub async fn get_staff_member(pool: &PgPool, user_id: &str) -> Result<StaffMember, Error> {
     let data = sqlx::query!(
-        "SELECT positions, perm_overrides, no_autosync, created_at FROM staff_members WHERE user_id = $1",
+        "SELECT positions, perm_overrides, no_autosync, unaccounted, created_at FROM staff_members WHERE user_id = $1",
         user_id
     )
     .fetch_one(pool)
@@ -102,6 +102,7 @@ pub async fn get_staff_member(pool: &PgPool, user_id: &str) -> Result<StaffMembe
             perm_overrides: data.perm_overrides,
             resolved_perms: sp.resolve(),
             no_autosync: data.no_autosync,
+            unaccounted: data.unaccounted,
             created_at: data.created_at,
         }
     )    

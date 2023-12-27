@@ -30,6 +30,13 @@ pub enum StaffPositionAction {
         /// Staff Position B
         b: String,
     },
+    /// Sets the new index of a staff position
+    SetIndex {
+        /// The ID of the position
+        id: String,
+        /// The new index of the position
+        index: i32,
+    },
     /// Create a new staff position
     CreatePosition {
         /// The name of the position
@@ -81,23 +88,6 @@ pub struct StaffPosition {
     /// The index of the position, higher means further down on hierarchy
     pub index: i32,
     /// When the staff position was created/added
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Serialize, Deserialize, TS, Clone)]
-#[ts(export, export_to = ".generated/StaffMember.ts")]
-pub struct StaffMember {
-    /// The id of the user
-    pub user_id: String,
-    /// The positions of the staff member
-    pub positions: Vec<StaffPosition>,
-    /// The permission overrides of the staff member
-    pub perm_overrides: Vec<String>,
-    /// The resolved permissions available to the member
-    pub resolved_perms: Vec<String>,
-    /// Whether or not the member is 'frozen' and cannot be updated in resyncs
-    pub no_autosync: bool,
-    /// When the staff member was created/added
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 

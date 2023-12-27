@@ -339,6 +339,11 @@ pub enum PanelQuery {
     },
 }
 
+/// CDN granularity: Check for [cdn].[permission] or [cdn#scope].[permission]
+fn has_cdn_perm(user_perms: &[String], cdn_scope: &str, perm: &str) -> bool {
+    perms::has_perm(user_perms, &perms::build(&("cdn#".to_string()+cdn_scope), perm)) || perms::has_perm(user_perms, &perms::build("cdn", perm))
+}
+
 /// Make Panel Query
 #[utoipa::path(
     post,
@@ -1191,10 +1196,6 @@ async fn query(
             } else {
                 format!("{}/{}", asset_path, name)
             };
-
-            fn has_cdn_perm(user_perms: &[String], cdn_scope: &str, perm: &str) -> bool {
-                perms::has_perm(user_perms, &perms::build(&("cdn#".to_string()+cdn_scope), perm)) || perms::has_perm(user_perms, &perms::build("cdn", perm))
-            }
 
             match action {
                 CdnAssetAction::ListPath => {

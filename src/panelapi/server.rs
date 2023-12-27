@@ -1127,15 +1127,6 @@ async fn query(
                 .map_err(Error::new)?
                 .resolve();
 
-            if !perms::has_perm(&user_perms, &perms::build("cdn", "update_asset")) {
-                return Ok((
-                    StatusCode::FORBIDDEN,
-                    "You do not have permission to update CDN assets right now [cdn.update_asset]"
-                        .to_string(),
-                )
-                    .into_response());
-            }
-
             // Get cdn path from cdn_scope hashmap
             let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&cdn_scope) else {
                 return Ok(
@@ -1201,8 +1192,21 @@ async fn query(
                 format!("{}/{}", asset_path, name)
             };
 
+            fn has_cdn_perm(user_perms: &[String], cdn_scope: &str, perm: &str) -> bool {
+                perms::has_perm(user_perms, &perms::build(&("cdn#".to_string()+cdn_scope), perm)) || perms::has_perm(user_perms, &perms::build("cdn", perm))
+            }
+
             match action {
                 CdnAssetAction::ListPath => {
+                    if !has_cdn_perm(&user_perms, &cdn_scope, "list") {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to list CDN assets right now [list]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }        
+
                     match std::fs::metadata(&asset_path) {
                         Ok(m) => {
                             if !m.is_dir() {
@@ -1257,6 +1261,15 @@ async fn query(
                     Ok((StatusCode::OK, Json(files)).into_response())
                 }
                 CdnAssetAction::ReadFile => {
+                    if !has_cdn_perm(&user_perms, &cdn_scope, "read_file") {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to read CDN files right now [read_file]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }       
+
                     match std::fs::metadata(&asset_final_path) {
                         Ok(m) => {
                             if !m.is_file() {
@@ -1295,6 +1308,15 @@ async fn query(
                     Ok((headers, body).into_response())
                 }
                 CdnAssetAction::CreateFolder => {
+                    if !has_cdn_perm(&user_perms, &cdn_scope, "create_folder") {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create CDN folders right now [create_folder]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }       
+
                     match std::fs::metadata(&asset_final_path) {
                         Ok(_) => {
                             return Ok((
@@ -1329,6 +1351,15 @@ async fn query(
                     chunks,
                     sha512,
                 } => {
+                    if !has_cdn_perm(&user_perms, &cdn_scope, "add_file") {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to add CDN files right now [cdn.add_file]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }       
+
                     if chunks.is_empty() {
                         return Ok((
                             StatusCode::BAD_REQUEST,
@@ -1488,6 +1519,15 @@ async fn query(
                     delete_original,
                     copy_to,
                 } => {
+                    if !has_cdn_perm(&user_perms, &cdn_scope, "copy_file") {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to copy files right now [copy_file]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }    
+
                     validate_path(&copy_to).map_err(Error::new)?;
 
                     let copy_to = if copy_to.is_empty() {
@@ -1615,6 +1655,15 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 CdnAssetAction::Delete => {
+                    if !has_cdn_perm(&user_perms, &cdn_scope, "delete") {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete CDN assets right now [delete]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }    
+
                     // Check if the asset exists
                     match std::fs::metadata(&asset_final_path) {
                         Ok(m) => {
@@ -1639,6 +1688,15 @@ async fn query(
                     message,
                     current_dir,
                 } => {
+                    if !has_cdn_perm(&user_perms, &cdn_scope, "persist_git") {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to persist CDN git right now [cdn.persist_git]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }    
+
                     let mut cmd_output = indexmap::IndexMap::new();
 
                     // Use git rev-parse --show-toplevel to get the root of the repo

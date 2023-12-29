@@ -47,7 +47,7 @@ use super::types::staff_members::StaffMemberAction;
 use crate::impls::dovewing::DovewingSource;
 
 const HELLO_VERSION: u16 = 5;
-const STARTAUTH_VERSION: u16 = 5;
+const AUTH_VERSION: u16 = 5;
 
 struct Error {
     status: StatusCode,
@@ -155,6 +155,9 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
 pub enum PanelQuery {
     /// Authorization-related commands
     Authorize {
+        /// Authorize protocol version, should be `AUTH_VERSION`
+        version: u16,
+        /// Action to take
         action: AuthorizeAction,
     },
     /// Returns configuration data for the panel
@@ -330,18 +333,18 @@ async fn query(
 ) -> Result<impl IntoResponse, Error> {
     match req {
         PanelQuery::Authorize {
-            action
+            action,
+            version,
         } => {
+            if version != AUTH_VERSION {
+                return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
+            }
+
             match action {
                 AuthorizeAction::Begin {
                     scope,
-                    version,
                     redirect_url
                 } => {
-                    if version != STARTAUTH_VERSION {
-                        return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
-                    }
-        
                     if scope != crate::config::CONFIG.panel.panel_scope {
                         return Ok((StatusCode::BAD_REQUEST, "Invalid scope".to_string()).into_response());
                     }

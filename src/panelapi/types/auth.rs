@@ -22,8 +22,6 @@ pub enum AuthorizeAction {
     Begin {
         /// Scope of the panel. This is a short identifier to ensure a valid arcadia instance
         scope: String,
-        /// Login protocol version, should be `STARTAUTH_VERSION`
-        version: u16,
         /// Redirect URL
         redirect_url: String,
     },

@@ -207,11 +207,6 @@ pub enum PanelQuery {
         /// User ID to fetch details for
         user_id: String,
     },
-    /// Given a user ID, returns the permissions for that user
-    GetStaffMember {
-        /// User ID to fetch perms for
-        user_id: String,
-    },
     /// Returns the bot queue
     ///
     /// This is public to all staff members
@@ -729,12 +724,8 @@ async fn query(
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 
-            let user = crate::impls::dovewing::get_platform_user(&state.pool, DovewingSource::Discord(state.cache_http.clone()), &auth_data.user_id)
-            .await
-            .map_err(Error::new)?;
-
             // Get permissions
-            let staff_member = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+            let staff_member = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
             .await
             .map_err(Error::new)?;
 
@@ -756,7 +747,6 @@ async fn query(
                             ],
                         },
                         auth_data,
-                        user,
                         staff_member,
                         core_constants: CoreConstants {
                             frontend_url: crate::config::CONFIG.frontend_url.clone(),
@@ -782,18 +772,6 @@ async fn query(
                 .map_err(Error::new)?;
 
             Ok((StatusCode::OK, Json(user)).into_response())
-        }
-        PanelQuery::GetStaffMember { user_id } => {
-            // Get permissions
-            let sm = super::auth::get_staff_member(&state.pool, &user_id)
-                .await
-                .map_err(Error::new)?;
-
-            Ok((
-                StatusCode::OK,
-                Json(sm),
-            )
-                .into_response())
         }
         PanelQuery::BotQueue { login_token } => {
             super::auth::check_auth(&state.pool, &login_token)
@@ -2509,7 +2487,7 @@ async fn query(
                 },
                 StaffPositionAction::SwapIndex { a, b } => {
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
                     .await
                     .map_err(Error::new)?;
 
@@ -2581,7 +2559,7 @@ async fn query(
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
 
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
                     .await
                     .map_err(Error::new)?;
 
@@ -2656,7 +2634,7 @@ async fn query(
                 },
                 StaffPositionAction::CreatePosition { name, role_id, perms, index, corresponding_roles } => {
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
                     .await
                     .map_err(Error::new)?;
 
@@ -2773,7 +2751,7 @@ async fn query(
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
                     
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
                     .await
                     .map_err(Error::new)?;
 
@@ -2893,7 +2871,7 @@ async fn query(
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
                     
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
                     .await
                     .map_err(Error::new)?;
 
@@ -2980,7 +2958,7 @@ async fn query(
                     let mut members = Vec::new();
 
                     for id in ids {
-                        let member = super::auth::get_staff_member(&state.pool, &id.user_id)
+                        let member = super::auth::get_staff_member(&state.pool, &state.cache_http, &id.user_id)
                         .await
                         .map_err(Error::new)?;
 

@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
+use crate::impls::dovewing::PlatformUser;
+
 use super::staff_positions::StaffPosition;
 
 #[derive(
@@ -28,6 +30,8 @@ pub enum StaffMemberAction {
 pub struct StaffMember {
     /// The id of the user
     pub user_id: String,
+    /// The user object of the staff member
+    pub user: PlatformUser,
     /// The positions of the staff member
     pub positions: Vec<StaffPosition>,
     /// The permission overrides of the staff member

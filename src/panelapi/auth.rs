@@ -59,7 +59,7 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
 }
 
 /// Returns the data of a staff member
-pub async fn get_staff_member(pool: &PgPool, user_id: &str) -> Result<StaffMember, Error> {
+pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::CacheHttpImpl, user_id: &str) -> Result<StaffMember, Error> {
     let data = sqlx::query!(
         "SELECT positions, perm_overrides, no_autosync, unaccounted, created_at FROM staff_members WHERE user_id = $1",
         user_id
@@ -98,6 +98,7 @@ pub async fn get_staff_member(pool: &PgPool, user_id: &str) -> Result<StaffMembe
     Ok(
         StaffMember {
             user_id: user_id.to_string().clone(),
+            user: crate::impls::dovewing::get_platform_user(pool, crate::impls::dovewing::DovewingSource::Discord(cache_http.clone()), user_id).await?,
             positions,
             perm_overrides: data.perm_overrides,
             resolved_perms: sp.resolve(),

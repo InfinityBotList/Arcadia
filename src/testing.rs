@@ -1,3 +1,4 @@
+use crate::impls::dovewing::DovewingSource;
 use crate::impls::target_types::TargetType;
 use crate::{checks, config};
 use futures_util::StreamExt;
@@ -179,7 +180,7 @@ pub async fn queue(
     let owners =
         crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool).await?;
 
-    let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
+    let bot_partial = crate::impls::dovewing::get_platform_user(&data.pool, DovewingSource::Discord(data.cache_http.clone()), &bot.bot_id).await?;
 
     let mut msg = ctx
         .send(_queue_bot(InternalQueueBot {
@@ -236,7 +237,7 @@ pub async fn queue(
             crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool)
                 .await?;
 
-        let bot_partial = crate::impls::dovewing::get_partial_user(&data.pool, &bot.bot_id).await?;
+        let bot_partial = crate::impls::dovewing::get_platform_user(&data.pool, DovewingSource::Discord(data.cache_http.clone()), &bot.bot_id).await?;
 
         msg.edit(
             ctx,
@@ -252,7 +253,7 @@ pub async fn queue(
                 owner: owners.mention_users(),
                 invite: bot.invite.clone(),
             })
-            .to_prefix_edit(),
+            .to_prefix_edit(poise::serenity_prelude::EditMessage::default()),
         )
         .await?;
     }
@@ -319,7 +320,7 @@ pub async fn claim(
 
         msg.edit(
             ctx.serenity_context(),
-            builder.to_prefix_edit().components(vec![]),
+            builder.to_prefix_edit(poise::serenity_prelude::EditMessage::default()).components(vec![]),
         )
         .await?; // remove buttons after button press
 

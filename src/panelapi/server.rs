@@ -44,6 +44,7 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 use super::types::staff_positions::{StaffPositionAction, CorrespondingServer};
 use super::types::staff_members::StaffMemberAction;
+use crate::impls::dovewing::DovewingSource;
 
 const HELLO_VERSION: u16 = 4;
 const STARTAUTH_VERSION: u16 = 4;
@@ -728,7 +729,7 @@ async fn query(
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 
-            let user = crate::impls::dovewing::get_partial_user(&state.pool, &auth_data.user_id)
+            let user = crate::impls::dovewing::get_platform_user(&state.pool, DovewingSource::Discord(state.cache_http.clone()), &auth_data.user_id)
             .await
             .map_err(Error::new)?;
 
@@ -776,7 +777,7 @@ async fn query(
                 .into_response())
         }
         PanelQuery::GetUser { user_id } => {
-            let user = crate::impls::dovewing::get_partial_user(&state.pool, &user_id)
+            let user = crate::impls::dovewing::get_platform_user(&state.pool, DovewingSource::Discord(state.cache_http.clone()), &user_id)
                 .await
                 .map_err(Error::new)?;
 
@@ -819,7 +820,7 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-                let user = crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id)
+                let user = crate::impls::dovewing::get_platform_user(&state.pool, DovewingSource::Discord(state.cache_http.clone()), &bot.bot_id)
                     .await
                     .map_err(Error::new)?;
 
@@ -950,7 +951,7 @@ async fn query(
                         .map_err(Error::new)?;
 
                         let user =
-                            crate::impls::dovewing::get_partial_user(&state.pool, &bot.bot_id)
+                            crate::impls::dovewing::get_platform_user(&state.pool, DovewingSource::Discord(state.cache_http.clone()), &bot.bot_id)
                                 .await
                                 .map_err(Error::new)?;
 

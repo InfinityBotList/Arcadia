@@ -14,12 +14,12 @@ use crate::impls::target_types::TargetType;
 use crate::rpc::core::{FieldType, RPCMethod};
 use crate::{Context, Error};
 
-async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<poise::AutocompleteChoice<String>> {
+async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<serenity::all::AutocompleteChoice> {
     let mut choices = Vec::new();
 
     for m in crate::rpc::core::RPCMethod::VARIANTS {
         if partial.is_empty() || m.contains(partial) {
-            choices.push(poise::slash_argument::AutocompleteChoice::new_with_value(
+            choices.push(serenity::all::AutocompleteChoice::new(
                 m.to_string(),
                 m.to_string(),
             ));
@@ -81,7 +81,7 @@ pub async fn rpclist(ctx: Context<'_>) -> Result<(), Error> {
     }
 
     ctx.send(
-        CreateReply::new().embed(
+        CreateReply::default().embed(
             CreateEmbed::new()
                 .title("RPC Commands")
                 .description(commands.join("\n\n")),
@@ -138,7 +138,7 @@ pub async fn rpc(
 
             msg.edit(
                 ctx.serenity_context(),
-                builder.to_prefix_edit().components(vec![]),
+                builder.to_prefix_edit(poise::serenity_prelude::EditMessage::default()).components(vec![]),
             )
             .await?; // remove buttons after button press
 
@@ -239,7 +239,7 @@ pub async fn rpc(
         } else {
             msg.edit(
                 ctx.serenity_context(),
-                builder.to_prefix_edit().components(vec![]),
+                builder.to_prefix_edit(poise::serenity_prelude::EditMessage::default()).components(vec![]),
             )
             .await?; // remove buttons after timeout
             return Ok(());

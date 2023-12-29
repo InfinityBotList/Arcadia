@@ -60,7 +60,7 @@ pub async fn premium_remove(
 
         bot_data.push(BotData {
             bot_id,
-            bot_username,
+            bot_username: bot_username.to_string(),
             bot_type: row.r#type,
         });
     }

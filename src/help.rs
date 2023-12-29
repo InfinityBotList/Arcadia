@@ -69,7 +69,7 @@ async fn _embed_help(
 
             let _ = writeln!(
                 menu,
-                "/{cmd_name} | ibb!{cmd_name} - {desc}",
+                "/{cmd_name} - {desc}",
                 cmd_name = command.name,
                 desc = command
                     .description
@@ -202,7 +202,7 @@ async fn _help_send_index(
                             http,
                             old_msg.message_id,
                             _create_reply(data, l_data, index, prev_disabled, next_disabled)
-                                .to_prefix_edit(),
+                                .to_prefix_edit(serenity::EditMessage::new()),
                         )
                         .await?;
                 } else {
@@ -212,7 +212,7 @@ async fn _help_send_index(
                         .edit_response(
                             http,
                             _create_reply(data, l_data, index, prev_disabled, next_disabled)
-                                .to_slash_initial_response_edit(),
+                                .to_slash_initial_response_edit(poise::serenity_prelude::EditInteractionResponse::new()),
                         )
                         .await?;
                 }
@@ -253,7 +253,7 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                     .map(|p| {
                         format!(
                             "{} - {}",
-                            p.name.as_deref().unwrap_or("No name available yet"),
+                            p.name,
                             p.description
                                 .as_deref()
                                 .unwrap_or("No description available yet")
@@ -286,7 +286,7 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                                 .iter()
                                 .map(|p| format!(
                                     "*{}* - {}",
-                                    p.name.as_deref().unwrap_or("No name available yet"),
+                                    p.name.as_str(),
                                     p.description
                                         .as_deref()
                                         .unwrap_or("No description available yet")
@@ -298,7 +298,7 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
                     );
                 }
 
-                ctx.send(CreateReply::new().embed(embed)).await?;
+                ctx.send(CreateReply::default().embed(embed)).await?;
 
                 return Ok(());
             }

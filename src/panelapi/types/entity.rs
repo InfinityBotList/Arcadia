@@ -1,4 +1,4 @@
-use crate::impls::dovewing::PartialUser;
+use crate::impls::dovewing::PlatformUser;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumVariantNames};
 use ts_rs::TS;
@@ -8,7 +8,7 @@ use utoipa::ToSchema;
 #[ts(export, export_to = ".generated/PartialBot.ts")]
 pub struct PartialBot {
     pub bot_id: String,
-    pub user: PartialUser,
+    pub user: PlatformUser,
     pub short: String,
     pub r#type: String,
     pub votes: i32,

@@ -1,8 +1,5 @@
 use crate::{Context, Error};
-use poise::{
-    serenity_prelude::{CreateInputText, CreateQuickModal, InputTextStyle},
-    CommandOrAutocompleteInteraction,
-};
+use poise::serenity_prelude::{CreateInputText, CreateQuickModal, InputTextStyle};
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
 
 /// Unlocks RPC for a 10 minutes, is logged
@@ -12,23 +9,18 @@ pub async fn modaltest(ctx: Context<'_>) -> Result<(), Error> {
         CreateQuickModal::new("Test").field(CreateInputText::new(InputTextStyle::Short, "HI", "h"));
 
     match ctx {
-        poise::structs::Context::Application(a) => match a.interaction {
-            CommandOrAutocompleteInteraction::Command(c) => {
-                if let Some(resp) = c.quick_modal(ctx.serenity_context(), qm).await? {
-                    let inputs = resp.inputs;
-                    let h = &inputs[0];
+        poise::structs::Context::Application(a) => {
+            if let Some(resp) = a.interaction.quick_modal(ctx.serenity_context(), qm).await? {
+                let inputs = resp.inputs;
+                let h = &inputs[0];
 
-                    c.create_response(
-                        ctx,
-                        CreateInteractionResponse::Message(
-                            CreateInteractionResponseMessage::default().content(h),
-                        ),
-                    )
-                    .await?;
-                }
-            }
-            _ => {
-                return Err("Not a command".into());
+                a.interaction.create_response(
+                    ctx,
+                    CreateInteractionResponse::Message(
+                        CreateInteractionResponseMessage::default().content(h.to_string()),
+                    ),
+                )
+                .await?;
             }
         },
         _ => {

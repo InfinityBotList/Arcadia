@@ -107,16 +107,14 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
     match event {
         FullEvent::InteractionCreate {
             interaction,
-            ctx: _,
         } => {
             info!("Interaction received: {:?}", interaction.id());
         }
-        FullEvent::CacheReady { ctx: _, guilds } => {
+        FullEvent::CacheReady { guilds } => {
             info!("Cache ready with {} guilds", guilds.len());
         }
         FullEvent::Ready {
             data_about_bot,
-            ctx: _,
         } => {
             info!(
                 "{} is ready! Doing some minor DB fixes",
@@ -140,10 +138,11 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 user_data.cache_http.clone(),
             ));
         }
-        FullEvent::GuildMemberAddition { new_member, ctx } => {
+        FullEvent::GuildMemberAddition { new_member } => {
             if new_member.guild_id == config::CONFIG.servers.main && new_member.user.bot {
                 // Check if new member is in testing server
-                let member_exists_in_test_server = ctx
+                let member_exists_in_test_server = user_data
+                    .cache_http
                     .cache
                     .member(config::CONFIG.servers.testing, new_member.user.id)
                     .is_some();
@@ -153,14 +152,14 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                     config::CONFIG
                         .servers
                         .testing
-                        .kick_with_reason(&ctx, new_member.user.id, "Added to main server")
+                        .kick_with_reason(&user_data.cache_http.http, new_member.user.id, "Added to main server")
                         .await?;
                 }
 
                 // Send member join message
                 config::CONFIG.channels.system
                 .send_message(
-                    &ctx,
+                    &user_data.cache_http.http,
                     CreateMessage::new()
                     .embed(
                         CreateEmbed::default()
@@ -180,7 +179,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 .await?;
 
                 // Give bot role
-                ctx.http
+                user_data.cache_http.http
                     .add_member_role(
                         config::CONFIG.servers.main,
                         new_member.user.id,
@@ -194,7 +193,7 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 // Send member join message
                 config::CONFIG.channels.system
                 .send_message(
-                    &ctx,
+                    &user_data.cache_http,
                     CreateMessage::new()
                     .embed(
                         CreateEmbed::default()
@@ -245,7 +244,7 @@ async fn main() {
                 prefix: Some("ibb!".into()),
                 ..poise::PrefixFrameworkOptions::default()
             },
-            event_handler: |event, _ctx, user_data| Box::pin(event_listener(event, user_data)),
+            event_handler: |_ctx, event, _fc, user_data| Box::pin(event_listener(event, user_data)),
             commands: vec![
                 age(),
                 register(),

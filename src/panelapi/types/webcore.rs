@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use utoipa::ToSchema;
 
-use crate::impls::{dovewing::PartialUser, target_types::TargetType};
+use crate::impls::{dovewing::PlatformUser, target_types::TargetType};
 
 use super::{staff_members::StaffMember, auth::AuthData};
 
@@ -60,7 +60,7 @@ pub struct StartAuth {
 pub struct Hello {
     pub instance_config: InstanceConfig,
     pub auth_data: AuthData,
-    pub user: PartialUser,
+    pub user: PlatformUser,
     pub staff_member: StaffMember,
     pub core_constants: CoreConstants,
     pub target_types: Vec<TargetType>,

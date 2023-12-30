@@ -2751,7 +2751,7 @@ async fn query(
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
                     // Get the index and current permissions of the position
-                    let index = sqlx::query!("SELECT perms, index, role_id FROM staff_positions WHERE id = $1", uuid)
+                    let index = sqlx::query!("SELECT perms, index, role_id FROM staff_positions WHERE id = $1 FOR UPDATE", uuid)
                     .fetch_one(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while getting position {}", e))
@@ -2871,7 +2871,7 @@ async fn query(
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
                     // Get the index and current permissions of the position
-                    let index = sqlx::query!("SELECT perms, index, role_id FROM staff_positions WHERE id = $1", uuid)
+                    let index = sqlx::query!("SELECT perms, index, role_id FROM staff_positions WHERE id = $1 FOR UPDATE", uuid)
                     .fetch_one(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while getting position {}", e))
@@ -2943,6 +2943,93 @@ async fn query(
 
                     Ok((StatusCode::OK, Json(members)).into_response())
                 },
+                StaffMemberAction::EditMember { user_id, perm_overrides, no_autosync, unaccounted } => {
+                    // Get permissions
+                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
+                    .await
+                    .map_err(Error::new)?;
+
+                    // Get permissions of target
+                    let sm_target = super::auth::get_staff_member(&state.pool, &state.cache_http, &user_id)
+                    .await
+                    .map_err(Error::new)?;
+
+                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_members", "edit")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to edit staff members [staff_members.edit]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Get the lowest index permission of the member
+                    let mut sm_lowest_index = i32::MAX;
+
+                    for perm in &sm.positions {
+                        if perm.index < sm_lowest_index {
+                            sm_lowest_index = perm.index;
+                        }
+                    }
+
+                    // Get the lowest index permission of the target
+                    let mut sm_target_lowest_index = i32::MAX;
+
+                    for perm in &sm_target.positions {
+                        if perm.index < sm_target_lowest_index {
+                            sm_target_lowest_index = perm.index;
+                        }
+                    }
+
+                    // If the target has a lower index than the member, then error
+                    if sm_target_lowest_index < sm_lowest_index {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "Target has a lower index than the member".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check perms currently with override versus perms without override
+                    let mut resolved_perms_without_overrides = sm_target.resolved_perms.clone();
+
+                    for perm in &perm_overrides {
+                        resolved_perms_without_overrides.retain(|p| p != perm);
+                    }
+
+                    if let Err(e) = perms::check_patch_changes(&sm.resolved_perms, &sm_target.resolved_perms, &resolved_perms_without_overrides) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            format!("You do not have permission to edit the following perms: {}", e),
+                        )
+                            .into_response());
+                    }
+
+                    // Then update
+                    let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
+                    // Lock the member for update
+                    sqlx::query!("SELECT perm_overrides, no_autosync, unaccounted FROM staff_members WHERE user_id = $1 FOR UPDATE", user_id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while getting member {}", e))
+                    .map_err(Error::new)?;
+
+                    // Update the member
+                    sqlx::query!("UPDATE staff_members SET perm_overrides = $1, no_autosync = $2, unaccounted = $3 WHERE user_id = $4",
+                        &perm_overrides,
+                        no_autosync,
+                        unaccounted,
+                        user_id
+                    )
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Error while updating member {}", e))
+                    .map_err(Error::new)?;
+                    
+                    tx.commit().await.map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
             }
         },
         PanelQuery::PopplioStaff {

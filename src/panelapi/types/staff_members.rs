@@ -23,6 +23,21 @@ pub enum StaffMemberAction {
     /// List all current members
     #[default]
     ListMembers,
+
+    /// Edit a staff member
+    EditMember {
+        /// The user id of the member
+        user_id: String,
+        
+        /// The permission overrides of the staff member
+        perm_overrides: Vec<String>,
+
+        /// Whether or not to autosync the member
+        no_autosync: bool,
+
+        /// Whether or not the member is 'known' to be 'unaccounted' for
+        unaccounted: bool,
+    }
 }
 
 #[derive(Serialize, Deserialize, TS, Clone)]
@@ -42,6 +57,8 @@ pub struct StaffMember {
     pub no_autosync: bool,
     /// Whether or not the member is 'known' to be 'unaccounted' for
     pub unaccounted: bool,
+    /// Whether or not the members MFA is verified or not
+    pub mfa_verified: bool,
     /// When the staff member was created/added
     pub created_at: chrono::DateTime<chrono::Utc>,
 }

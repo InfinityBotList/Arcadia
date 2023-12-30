@@ -61,7 +61,7 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
 /// Returns the data of a staff member
 pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::CacheHttpImpl, user_id: &str) -> Result<StaffMember, Error> {
     let data = sqlx::query!(
-        "SELECT positions, perm_overrides, no_autosync, unaccounted, created_at FROM staff_members WHERE user_id = $1",
+        "SELECT positions, perm_overrides, no_autosync, unaccounted, mfa_verified, created_at FROM staff_members WHERE user_id = $1",
         user_id
     )
     .fetch_one(pool)
@@ -104,6 +104,7 @@ pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::C
             resolved_perms: sp.resolve(),
             no_autosync: data.no_autosync,
             unaccounted: data.unaccounted,
+            mfa_verified: data.mfa_verified,
             created_at: data.created_at,
         }
     )    

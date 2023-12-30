@@ -38,6 +38,21 @@ pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData,
     .fetch_one(pool)
     .await?;
 
+    let prec = sqlx::query!(
+        "SELECT positions FROM staff_members WHERE user_id = $1",
+        rec.user_id
+    )
+    .fetch_optional(pool)
+    .await?;
+    
+    let Some(positions) = prec else {
+        return Err("identityExpired".into());
+    };
+
+    if positions.positions.is_empty() {
+        return Err("identityExpired".into());
+    }
+
     Ok(AuthData {
         user_id: rec.user_id,
         created_at: rec.created_at.timestamp(),

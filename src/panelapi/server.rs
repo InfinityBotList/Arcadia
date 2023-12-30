@@ -426,15 +426,19 @@ async fn query(
                     let user = user_resp.json::<User>().await.map_err(Error::new)?;
     
                     let rec = sqlx::query!(
-                        "SELECT COUNT(*) FROM staff_members WHERE user_id = $1",
+                        "SELECT positions FROM staff_members WHERE user_id = $1",
                         user.id.to_string()
                     )
-                    .fetch_one(&state.pool)
+                    .fetch_optional(&state.pool)
                     .await
                     .map_err(Error::new)?;
-        
-                    if rec.count.unwrap_or(0) == 0 {
-                        return Ok((StatusCode::FORBIDDEN, "You are not a staff member".to_string()).into_response());
+                    
+                    let Some(positions) = rec else {
+                        return Ok((StatusCode::FORBIDDEN, "You are not a staff member [not in db]".to_string()).into_response());
+                    };
+
+                    if positions.positions.is_empty() {
+                        return Ok((StatusCode::FORBIDDEN, "You are not a staff member [no positions]".to_string()).into_response());
                     }
         
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
@@ -475,7 +479,7 @@ async fn query(
                     if auth_data.state != "pending" && auth_data.state != "active" {
                         return Err(Error {
                             status: StatusCode::BAD_REQUEST,
-                            message: "This endpoint can only be used by pending/active sessions".to_string(),
+                            message: "This endpoint can only be used by pending and active sessions".to_string(),
                         });
                     }
 

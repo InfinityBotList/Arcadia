@@ -296,6 +296,7 @@ dependencies = [
  "kittycat",
  "log",
  "moka",
+ "num-traits",
  "once_cell",
  "poise",
  "rand",
@@ -1311,7 +1312,7 @@ dependencies = [
 [[package]]
 name = "kittycat"
 version = "0.1.0"
-source = "git+https://github.com/infinitybotlist/kittycat?branch=main#ffeaac5f0ab2ca5f6b3247160579d4a1f043223f"
+source = "git+https://github.com/infinitybotlist/kittycat?branch=main#626a657bee8b0ec9b95331e441f803a60ed9d038"
 dependencies = [
  "indexmap",
 ]

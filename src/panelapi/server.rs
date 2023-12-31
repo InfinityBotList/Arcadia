@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::impls;
+use crate::panelapi::types::staff_disciplinary::StaffDisciplinaryType;
 use crate::panelapi::types::webcore::{StartAuth, Hello};
 use crate::panelapi::types::{
     auth::{AuthorizeAction, MfaLogin, MfaLoginSecret},
@@ -17,6 +18,7 @@ use crate::panelapi::types::{
     rpc::RPCWebAction,
     webcore::{CoreConstants, InstanceConfig, PanelServers},
     staff_positions::StaffPosition,
+    staff_disciplinary::StaffDisciplinaryTypeAction
 };
 use kittycat::perms;
 use crate::rpc::core::{RPCHandle, RPCMethod};
@@ -296,6 +298,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: StaffMemberAction,
+    },
+    /// Fetch and update staff disciplinary types
+    UpdateStaffDisciplinaryType {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: StaffDisciplinaryTypeAction,
     },
     /// Create a request to a/an Popplio staff endpoint
     PopplioStaff {
@@ -3031,6 +3040,164 @@ async fn query(
                     .map_err(Error::new)?;
                     
                     tx.commit().await.map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+            }
+        },
+        PanelQuery::UpdateStaffDisciplinaryType {
+            login_token,
+            action
+        } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+            .await
+            .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
+                .await
+                .map_err(Error::new)?
+                .resolve();
+
+            match action {
+                StaffDisciplinaryTypeAction::ListDisciplinaryTypes => {
+                    let rows = sqlx::query!(
+                        "SELECT id, description, self_assignable, perm_limits, additory, created_at FROM staff_disciplinary_types ORDER BY created_at DESC"
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut entries = Vec::new();
+
+                    for row in rows {
+                        entries.push(StaffDisciplinaryType {
+                            id: row.id,
+                            description: row.description,
+                            self_assignable: row.self_assignable,
+                            perm_limits: row.perm_limits,
+                            additory: row.additory,
+                            created_at: row.created_at,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(entries)).into_response())
+                },
+                StaffDisciplinaryTypeAction::CreateDisciplinaryType { id, description, self_assignable, perm_limits, additory } => {
+                    if !perms::has_perm(&user_perms, &perms::build("staff_disciplinary_types", "create")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create staff disciplinary types [staff_disciplinary_types.create]".to_string(),
+                        )
+                            .into_response());
+                    }        
+
+                    if let Err(e) = perms::check_patch_changes(&user_perms, &Vec::new(), &perm_limits) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            format!("You do not have permission to edit the following perms: {}", e),
+                        )
+                            .into_response());
+                    }
+
+                    // Insert entry
+                    sqlx::query!(
+                        "INSERT INTO staff_disciplinary_types (id, description, self_assignable, perm_limits, additory) VALUES ($1, $2, $3, $4, $5)",
+                        id,
+                        description,
+                        self_assignable,
+                        &perm_limits,
+                        additory,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
+                StaffDisciplinaryTypeAction::EditDisciplinaryType { id, description, self_assignable, perm_limits, additory } => {
+                    if !perms::has_perm(&user_perms, &perms::build("staff_disciplinary_types", "update")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update staff disciplinary types [staff_disciplinary_types.update]".to_string(),
+                        )
+                            .into_response());
+                    }        
+
+                    if let Err(e) = perms::check_patch_changes(&user_perms, &Vec::new(), &perm_limits) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            format!("You do not have permission to edit the following perms: {}", e),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM staff_disciplinary_types WHERE id = $1",
+                        id
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Update entry
+                    sqlx::query!(
+                        "UPDATE staff_disciplinary_types SET description = $2, self_assignable = $3, perm_limits = $4, additory = $5 WHERE id = $1",
+                        id,
+                        description,
+                        self_assignable,
+                        &perm_limits,
+                        additory
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                },
+                StaffDisciplinaryTypeAction::DeleteDisciplinaryType { id } => {
+                    if !perms::has_perm(&user_perms, &perms::build("staff_disciplinary_types", "delete")) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete staff disciplinary types [staff_disciplinary_types.delete]".to_string(),
+                        )
+                            .into_response());
+                    }        
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM staff_disciplinary_types WHERE id = $1",
+                        id
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete entry
+                    sqlx::query!("DELETE FROM staff_disciplinary_types WHERE id = $1", id)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }

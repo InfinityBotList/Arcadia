@@ -36,6 +36,7 @@ moka = { version = "0.11", default-features = true, features = ["future", "loggi
 thotp = "0.1.11"
 tokio-util = "0.7.8"
 sha2 = "0.10.7"
+num-traits = "0.2.14"
 
 [dependencies.tokio]
 version = "1"

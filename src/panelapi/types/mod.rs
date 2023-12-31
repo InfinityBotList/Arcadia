@@ -8,3 +8,4 @@ pub mod rpc;
 pub mod webcore;
 pub mod staff_positions;
 pub mod staff_members;
+pub mod staff_disciplinary;

@@ -1,8 +1,11 @@
-use crate::Error;
+use std::collections::HashMap;
+
+use crate::{Error, panelapi::types::staff_disciplinary::StaffDisciplinaryType};
 use kittycat::perms::{StaffPermissions, PartialStaffPosition};
 use sqlx::PgPool;
+use num_traits::cast::ToPrimitive;
 
-use super::types::{auth::AuthData, staff_positions::StaffPosition, staff_members::StaffMember};
+use super::types::{auth::AuthData, staff_positions::StaffPosition, staff_members::StaffMember, staff_disciplinary::StaffDisciplinary};
 
 /// Checks auth, but does not ensure active sessions
 pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
@@ -73,6 +76,120 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     Ok(rec)
 }
 
+pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool) -> Result<Vec<StaffDisciplinary>, Error> {
+    struct TRecord {
+        id: String,
+        created_at: chrono::DateTime<chrono::Utc>,
+        expiry: Option<i64>,
+        title: String,
+        description: String,
+        r#type: String,
+    }
+    
+    let rec = {
+        if active {
+            let r = sqlx::query!(
+                "SELECT id, created_at, EXTRACT(epoch FROM expiry) as expiry, title, description, type FROM staff_disciplinary WHERE user_id = $1 AND NOW() - created_at < expiry",
+                user_id
+            )
+            .fetch_all(pool)
+            .await?;
+
+            let mut trec = Vec::new();
+
+            for rec in r {
+                trec.push(TRecord {
+                    id: rec.id.hyphenated().to_string(),
+                    created_at: rec.created_at,
+                    expiry: rec.expiry.map(|d| {
+                        // Convert to i64
+                        d.to_i64().unwrap_or_default()
+                    }),
+                    title: rec.title,
+                    description: rec.description,
+                    r#type: rec.r#type,
+                });
+            }
+
+            trec
+        } else {
+            let r = sqlx::query!(
+                "SELECT id, created_at, EXTRACT(epoch FROM expiry) as expiry, title, description, type FROM staff_disciplinary WHERE user_id = $1",
+                user_id
+            )
+            .fetch_all(pool)
+            .await?;
+
+            let mut trec = Vec::new();
+
+            for rec in r {
+                trec.push(TRecord {
+                    id: rec.id.hyphenated().to_string(),
+                    created_at: rec.created_at,
+                    expiry: rec.expiry.map(|d| {
+                        // Convert to i64
+                        d.to_i64().unwrap_or_default()
+                    }),
+                    title: rec.title,
+                    description: rec.description,
+                    r#type: rec.r#type,
+                });
+            }
+
+            trec
+        }
+    };
+    
+    let mut disc_type_cache: HashMap<String, StaffDisciplinaryType> = HashMap::new();
+    let mut disciplinaries = Vec::new();
+
+    for disciplinary in rec {
+        let disciplinary_type = {
+            if let Some(disc_type) = disc_type_cache.get(&disciplinary.r#type) {
+                disc_type.clone()
+            } else {
+                let disc_type = sqlx::query!(
+                    "SELECT description, self_assignable, perm_limits, additory FROM staff_disciplinary_types WHERE id = $1",
+                    disciplinary.r#type
+                )
+                .fetch_one(pool)
+                .await?;
+
+                let dt = StaffDisciplinaryType {
+                    id: disciplinary.r#type.clone(),
+                    description: disc_type.description,
+                    self_assignable: disc_type.self_assignable,
+                    perm_limits: disc_type.perm_limits,
+                    additory: disc_type.additory,
+                    created_at: disciplinary.created_at,
+                };
+
+                disc_type_cache.insert(disciplinary.r#type.clone(), dt.clone());
+                dt
+            }
+        };
+
+        disciplinaries.push(StaffDisciplinary {
+            id: disciplinary.id,
+            user_id: user_id.to_string().clone(),
+            created_at: disciplinary.created_at,
+            expires_at: disciplinary.expiry,
+            title: disciplinary.title,
+            description: disciplinary.description,
+            r#type: StaffDisciplinaryType {
+                id: disciplinary.r#type,
+                description: disciplinary_type.description,
+                self_assignable: disciplinary_type.self_assignable,
+                perm_limits: disciplinary_type.perm_limits,
+                additory: disciplinary_type.additory,
+                created_at: disciplinary.created_at,
+            },
+        });
+    }
+
+    Ok(disciplinaries)
+}
+
 /// Returns the data of a staff member
 pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::CacheHttpImpl, user_id: &str) -> Result<StaffMember, Error> {
     let data = sqlx::query!(
@@ -110,13 +227,41 @@ pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::C
         });
     }
 
+    let disciplinaries = get_staff_disciplinaries(pool, user_id, true).await?;
+
+    let resolved_perms = {
+        if disciplinaries.is_empty() {
+            sp.resolve()
+        } else {
+            let mut virtual_sp = sp.clone();
+            let mut added_ids = Vec::new();
+            for disc in &disciplinaries {
+                // Add oermissions to virtual_sp as a index 0 position
+                virtual_sp.user_positions.push(PartialStaffPosition {
+                    id: disc.id.clone(),
+                    index: 0,
+                    perms: disc.r#type.perm_limits.clone(),
+                });
+                added_ids.push(disc.id.clone());
+
+                if !disc.r#type.additory {
+                    // Remove all not in added_ids
+                    virtual_sp.user_positions.retain(|p| added_ids.contains(&p.id));
+                }
+            }
+
+            virtual_sp.resolve()
+        }
+    };
+
     Ok(
         StaffMember {
             user_id: user_id.to_string().clone(),
             user: crate::impls::dovewing::get_platform_user(pool, crate::impls::dovewing::DovewingSource::Discord(cache_http.clone()), user_id).await?,
             positions,
+            disciplinaries,
             perm_overrides: data.perm_overrides,
-            resolved_perms: sp.resolve(),
+            resolved_perms,
             no_autosync: data.no_autosync,
             unaccounted: data.unaccounted,
             mfa_verified: data.mfa_verified,

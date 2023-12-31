@@ -3,6 +3,7 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
 use crate::impls::dovewing::PlatformUser;
+use super::staff_disciplinary::StaffDisciplinary;
 
 use super::staff_positions::StaffPosition;
 
@@ -49,6 +50,8 @@ pub struct StaffMember {
     pub user: PlatformUser,
     /// The positions of the staff member
     pub positions: Vec<StaffPosition>,
+    /// The disciplinary actions recieved by the member
+    pub disciplinaries: Vec<StaffDisciplinary>,
     /// The permission overrides of the staff member
     pub perm_overrides: Vec<String>,
     /// The resolved permissions available to the member

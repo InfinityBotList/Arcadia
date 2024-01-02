@@ -26,6 +26,9 @@ pub enum StaffDisciplinaryTypeAction {
         /// The id of the action
         id: String,
 
+	/// Name of the action
+	name: String,
+
         /// Description of the action
         description: String,
 
@@ -39,6 +42,12 @@ pub enum StaffDisciplinaryTypeAction {
         /// 
         /// E.g. do the perms get combined with the users perms, or do they replace them
         additory: bool,
+
+	/// Whether or not this type needs approval
+	needs_approval: bool,
+
+	/// Maximum expiry in seconds of the action/type
+	max_expiry: Option<f64>,
     },
 
     /// Edit a staff disciplinary types
@@ -46,6 +55,9 @@ pub enum StaffDisciplinaryTypeAction {
         /// The id of the action
         id: String,
 
+        /// Name of the action
+        name: String,
+
         /// Description of the action
         description: String,
 
@@ -59,6 +71,12 @@ pub enum StaffDisciplinaryTypeAction {
         /// 
         /// E.g. do the perms get combined with the users perms, or do they replace them
         additory: bool,
+
+        /// Whether or not this type needs approval
+        needs_approval: bool,
+
+        /// Maximum expiry in seconds of the action/type
+        max_expiry: Option<f64>,
     },
 
     /// Delete a staff disciplinary type
@@ -74,6 +92,9 @@ pub struct StaffDisciplinaryType {
     /// The id of the type
     pub id: String,
 
+    /// Name of the action
+    pub name: String,
+
     /// Description of the type
     pub description: String,
 
@@ -87,6 +108,12 @@ pub struct StaffDisciplinaryType {
     /// 
     /// E.g. do the perms get combined with the users perms, or do they replace them
     pub additory: bool,
+
+    /// Whether or not this type needs approval
+    pub needs_approval: bool,
+
+    /// Maximum expiry in seconds of the action/type
+    pub max_expiry: Option<f64>,
 
     /// When the staff disciplinary type was created/added
     pub created_at: chrono::DateTime<chrono::Utc>,

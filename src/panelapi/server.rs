@@ -48,6 +48,8 @@ use super::types::staff_positions::{StaffPositionAction, CorrespondingServer};
 use super::types::staff_members::StaffMemberAction;
 use crate::impls::dovewing::DovewingSource;
 
+use num_traits::ToPrimitive;
+
 const HELLO_VERSION: u16 = 5;
 const AUTH_VERSION: u16 = 5;
 
@@ -3061,7 +3063,7 @@ async fn query(
             match action {
                 StaffDisciplinaryTypeAction::ListDisciplinaryTypes => {
                     let rows = sqlx::query!(
-                        "SELECT id, description, self_assignable, perm_limits, additory, created_at FROM staff_disciplinary_types ORDER BY created_at DESC"
+                        "SELECT id, name, description, self_assignable, perm_limits, additory, needs_approval, EXTRACT(epoch FROM max_expiry) AS max_expiry, created_at FROM staff_disciplinary_types ORDER BY created_at DESC"
                     )
                     .fetch_all(&state.pool)
                     .await
@@ -3072,17 +3074,23 @@ async fn query(
                     for row in rows {
                         entries.push(StaffDisciplinaryType {
                             id: row.id,
+			    name: row.name,
                             description: row.description,
                             self_assignable: row.self_assignable,
                             perm_limits: row.perm_limits,
                             additory: row.additory,
+                            needs_approval: row.needs_approval,
+                            max_expiry: row.max_expiry.map(|d| {
+                                // Convert to i64
+                                d.to_f64().unwrap_or_default()
+                            }),
                             created_at: row.created_at,
                         });
                     }
 
                     Ok((StatusCode::OK, Json(entries)).into_response())
                 },
-                StaffDisciplinaryTypeAction::CreateDisciplinaryType { id, description, self_assignable, perm_limits, additory } => {
+                StaffDisciplinaryTypeAction::CreateDisciplinaryType { id, name, description, self_assignable, perm_limits, additory, needs_approval, max_expiry } => {
                     if !perms::has_perm(&user_perms, &perms::build("staff_disciplinary_types", "create")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
@@ -3101,12 +3109,15 @@ async fn query(
 
                     // Insert entry
                     sqlx::query!(
-                        "INSERT INTO staff_disciplinary_types (id, description, self_assignable, perm_limits, additory) VALUES ($1, $2, $3, $4, $5)",
+                        "INSERT INTO staff_disciplinary_types (id, name, description, self_assignable, perm_limits, additory, needs_approval, max_expiry) VALUES ($1, $2, $3, $4, $5, $6, $7, make_interval(secs => $8))",
                         id,
-                        description,
+                        name,
+			description,
                         self_assignable,
                         &perm_limits,
                         additory,
+			needs_approval,
+			max_expiry,
                     )
                     .execute(&state.pool)
                     .await
@@ -3114,7 +3125,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
-                StaffDisciplinaryTypeAction::EditDisciplinaryType { id, description, self_assignable, perm_limits, additory } => {
+                StaffDisciplinaryTypeAction::EditDisciplinaryType { id, name, description, self_assignable, perm_limits, additory, needs_approval, max_expiry } => {
                     if !perms::has_perm(&user_perms, &perms::build("staff_disciplinary_types", "update")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
@@ -3152,12 +3163,15 @@ async fn query(
 
                     // Update entry
                     sqlx::query!(
-                        "UPDATE staff_disciplinary_types SET description = $2, self_assignable = $3, perm_limits = $4, additory = $5 WHERE id = $1",
-                        id,
+                        "UPDATE staff_disciplinary_types SET name = $1, description = $2, self_assignable = $3, perm_limits = $4, additory = $5, needs_approval = $6, max_expiry = make_interval(secs => $7) WHERE id = $8",
+                        name,
                         description,
                         self_assignable,
                         &perm_limits,
-                        additory
+                        additory,
+			needs_approval,
+			max_expiry,
+			id,
                     )
                     .execute(&state.pool)
                     .await

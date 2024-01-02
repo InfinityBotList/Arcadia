@@ -149,7 +149,7 @@ pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool
                 disc_type.clone()
             } else {
                 let disc_type = sqlx::query!(
-                    "SELECT description, self_assignable, perm_limits, additory FROM staff_disciplinary_types WHERE id = $1",
+                    "SELECT name, description, self_assignable, perm_limits, additory, needs_approval,  EXTRACT(epoch FROM max_expiry) AS max_expiry FROM staff_disciplinary_types WHERE id = $1",
                     disciplinary.r#type
                 )
                 .fetch_one(pool)
@@ -157,11 +157,17 @@ pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool
 
                 let dt = StaffDisciplinaryType {
                     id: disciplinary.r#type.clone(),
+		    name: disc_type.name,
                     description: disc_type.description,
                     self_assignable: disc_type.self_assignable,
                     perm_limits: disc_type.perm_limits,
                     additory: disc_type.additory,
-                    created_at: disciplinary.created_at,
+		    needs_approval: disc_type.needs_approval,
+           	    max_expiry: disc_type.max_expiry.map(|d| {
+                        // Convert to f64
+                        d.to_f64().unwrap_or_default()
+                    }),
+		    created_at: disciplinary.created_at,
                 };
 
                 disc_type_cache.insert(disciplinary.r#type.clone(), dt.clone());
@@ -176,14 +182,7 @@ pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool
             expires_at: disciplinary.expiry,
             title: disciplinary.title,
             description: disciplinary.description,
-            r#type: StaffDisciplinaryType {
-                id: disciplinary.r#type,
-                description: disciplinary_type.description,
-                self_assignable: disciplinary_type.self_assignable,
-                perm_limits: disciplinary_type.perm_limits,
-                additory: disciplinary_type.additory,
-                created_at: disciplinary.created_at,
-            },
+            r#type: disciplinary_type,
         });
     }
 

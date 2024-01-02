@@ -31,7 +31,7 @@ impl Task {
             Task::AutoUnclaim => true,
             Task::StaffResync => true,
             Task::PremiumRemove => true,
-            Task::SpecRoleSync => true,
+            Task::SpecRoleSync => false,
             Task::TeamCleaner => true,
             Task::GenericCleaner => true,
             Task::AssetCleaner => true,

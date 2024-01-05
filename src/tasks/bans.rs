@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 
 use serenity::builder::{CreateMessage, CreateEmbed};
 use serenity::all::Color;
@@ -16,7 +16,7 @@ pub async fn bans_sync(
         .await
         .map_err(|e| format!("Error while fetching bans: {}", e))?;
 
-    let db_ban_records = sqlx::query!("SELECT user_id FROM users WHERE banned = true")
+    let db_records = sqlx::query!("SELECT user_id FROM users WHERE banned = true")
         .fetch_all(pool)
         .await
         .map_err(|e| format!("Error while fetching bans from database: {}", e))?;
@@ -32,25 +32,34 @@ pub async fn bans_sync(
     // If a member is in db_bans but not in bans, they should be unbanned
     let mut server_bans = HashSet::new();
     let mut db_bans = HashSet::new();
-    let mut user_banned_map = HashMap::new();
+    let mut user_banned_map = Vec::new();
 
     for ban in bans {
         server_bans.insert(ban.user.id.to_string());
-        user_banned_map.insert(ban.user.id.to_string(), true);
+        user_banned_map.push(ban.user.id.to_string());
     }
 
-    for ban in db_ban_records {
+    for ban in db_records {
         db_bans.insert(ban.user_id);
     }
 
     let to_modify = server_bans.symmetric_difference(&db_bans);
 
+    log::warn!("Bans to modify: {:?}", &to_modify);
+
     for user_id in to_modify {
-        let is_banned = *user_banned_map.get(user_id).unwrap_or(&false);
-        sqlx::query!("UPDATE users SET banned = $1 WHERE user_id = $2", is_banned, user_id)
+        let is_banned = user_banned_map.contains(&user_id);
+        let res = sqlx::query!("UPDATE users SET banned = $1 WHERE user_id = $2", is_banned, user_id)
             .execute(pool)
             .await
             .map_err(|e| format!("Error while updating user {} in database: {:?}", user_id, e))?;
+
+        if res.rows_affected() == 0 {
+            sqlx::query!("INSERT INTO users (user_id, banned, api_token) VALUES ($1, $2, $3)", user_id, is_banned, crate::impls::crypto::gen_random(512))
+                .execute(pool)
+                .await
+                .map_err(|e| format!("Error while inserting user {} into database: {:?}", user_id, e))?;
+        }
 
         if is_banned {
             crate::config::CONFIG.channels.mod_logs.send_message(

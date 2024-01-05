@@ -1,3 +1,8 @@
+use std::collections::{HashSet, HashMap};
+
+use serenity::builder::{CreateMessage, CreateEmbed};
+use serenity::all::Color;
+
 use crate::config;
 
 pub async fn bans_sync(
@@ -11,53 +16,68 @@ pub async fn bans_sync(
         .await
         .map_err(|e| format!("Error while fetching bans: {}", e))?;
 
-    // Create a transaction
-    let mut tx = pool
-        .begin()
+    let db_ban_records = sqlx::query!("SELECT user_id FROM users WHERE banned = true")
+        .fetch_all(pool)
         .await
-        .map_err(|e| format!("Error creating transaction: {}", e))?;
+        .map_err(|e| format!("Error while fetching bans from database: {}", e))?;
 
-    // First unset all bans
-    sqlx::query!("UPDATE users SET banned = false")
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| format!("Error while updating users in database: {}", e))?;
+    let mut ping_users = "".to_string();
+    for user in &crate::config::CONFIG.owners {
+        ping_users.push_str(&format!("<@{}>", user));
+    }
+
+    // Next find the symmetric difference between bans and db_bans
+    //
+    // If a member is in bans but not in db_bans, they should be banned
+    // If a member is in db_bans but not in bans, they should be unbanned
+    let mut server_bans = HashSet::new();
+    let mut db_bans = HashSet::new();
+    let mut user_banned_map = HashMap::new();
 
     for ban in bans {
-        let user_id = ban.user.id.to_string();
-        sqlx::query!("UPDATE users SET banned = true WHERE user_id = $1", user_id)
-            .execute(&mut *tx)
+        server_bans.insert(ban.user.id.to_string());
+        user_banned_map.insert(ban.user.id.to_string(), true);
+    }
+
+    for ban in db_ban_records {
+        db_bans.insert(ban.user_id);
+    }
+
+    let to_modify = server_bans.symmetric_difference(&db_bans);
+
+    for user_id in to_modify {
+        let is_banned = *user_banned_map.get(user_id).unwrap_or(&false);
+        sqlx::query!("UPDATE users SET banned = $1 WHERE user_id = $2", is_banned, user_id)
+            .execute(pool)
             .await
             .map_err(|e| format!("Error while updating user {} in database: {:?}", user_id, e))?;
 
-        let owned_bots = sqlx::query!("SELECT bot_id FROM bots WHERE owner = $1", user_id)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(|e| {
-                format!(
-                    "Error while fetching owned bots for user {}: {:?}",
-                    user_id, e
-                )
-            })?;
-
-        for bot in owned_bots {
-            let bot_id = bot.bot_id;
-            sqlx::query!("DELETE FROM bots WHERE bot_id = $1", bot_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| {
-                    format!(
-                        "Error while deleting banned user's bot {} in database: {:?}",
-                        bot_id, e
-                    )
-                })?;
+        if is_banned {
+            crate::config::CONFIG.channels.mod_logs.send_message(
+                &cache_http.http,
+                    CreateMessage::new()
+                    .content(&ping_users)
+                    .embeds(vec![
+                        CreateEmbed::new()
+                        .title("User Ban")
+                        .description(format!("User {} was banned", user_id))
+                        .color(Color::RED)
+                    ])
+            ).await?;
+        } else {
+            crate::config::CONFIG.channels.mod_logs.send_message(
+                &cache_http.http,
+                    CreateMessage::new()
+                    .content(&ping_users)
+                    .embeds(vec![
+                        CreateEmbed::new()
+                        .title("User Unban")
+                        .description(format!("User {} was unbanned", user_id))
+                        .color(Color::BLURPLE)
+                    ])
+            ).await?;
         }
     }
-
-    // Commit the transaction
-    tx.commit()
-        .await
-        .map_err(|e| format!("Error while committing transaction: {}", e))?;
 
     Ok(())
 }

@@ -301,12 +301,11 @@ impl RPCMethod {
         .map_err(|_| "Failed to get ratelimit count")?;
 
         let count = res.count.unwrap_or_default();
-
+        
         if count > 5 {
             sqlx::query!(
-                "UPDATE users SET api_token = $2 WHERE user_id = $1",
+                "DELETE FROM staffpanel__authchain WHERE user_id = $1",
                 &state.user_id,
-                impls::crypto::gen_random(136)
             )
             .execute(&state.pool)
             .await

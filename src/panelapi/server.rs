@@ -2454,7 +2454,7 @@ async fn query(
 
             match action {
                 StaffPositionAction::ListPositions => {        
-                    let pos = sqlx::query!("SELECT id, name, role_id, perms, corresponding_roles, index, created_at FROM staff_positions ORDER BY index ASC")
+                    let pos = sqlx::query!("SELECT id, name, role_id, perms, corresponding_roles, icon, index, created_at FROM staff_positions ORDER BY index ASC")
                     .fetch_all(&state.pool)
                     .await
                     .map_err(|e| format!("Error while getting staff positions {}", e))
@@ -2469,6 +2469,7 @@ async fn query(
                             role_id: position_data.role_id,
                             perms: position_data.perms,
                             corresponding_roles: serde_json::from_value(position_data.corresponding_roles).map_err(Error::new)?,
+                            icon: position_data.icon,
                             index: position_data.index,
                             created_at: position_data.created_at,
                         });
@@ -2623,7 +2624,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
-                StaffPositionAction::CreatePosition { name, role_id, perms, index, corresponding_roles } => {
+                StaffPositionAction::CreatePosition { name, role_id, perms, index, corresponding_roles, icon } => {
                     // Get permissions
                     let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
                     .await
@@ -2722,10 +2723,11 @@ async fn query(
 
                     // Create the position
                     sqlx::query!(
-                        "INSERT INTO staff_positions (name, perms, corresponding_roles, role_id, index) VALUES ($1, $2, $3, $4, $5)",
+                        "INSERT INTO staff_positions (name, perms, corresponding_roles, icon, role_id, index) VALUES ($1, $2, $3, $4, $5, $6)",
                         name, 
                         &perms, 
                         serde_json::to_value(corresponding_roles).map_err(Error::new)?,
+                        icon,
                         role_id, 
                         index,
                     )
@@ -2738,7 +2740,7 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 },
-                StaffPositionAction::EditPosition { id, name, role_id, perms, corresponding_roles } => {
+                StaffPositionAction::EditPosition { id, name, role_id, perms, corresponding_roles, icon } => {
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
                     
                     // Get permissions
@@ -2842,11 +2844,12 @@ async fn query(
 
                     // Update the position
                     sqlx::query!(
-                        "UPDATE staff_positions SET name = $1, perms = $2, corresponding_roles = $3, role_id = $4 WHERE id = $5", 
+                        "UPDATE staff_positions SET name = $1, perms = $2, corresponding_roles = $3, role_id = $4, icon = $5 WHERE id = $6", 
                         name, 
                         &perms, 
                         serde_json::to_value(corresponding_roles).map_err(Error::new)?,
                         role_id, 
+                        icon,
                         uuid
                     )
                     .execute(&mut *tx)

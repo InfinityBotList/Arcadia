@@ -47,6 +47,8 @@ pub enum StaffPositionAction {
         corresponding_roles: Vec<Link>,
         /// The preset permissions of this position
         perms: Vec<String>,
+        /// The icon of the position
+        icon: String,
         /// The index of the position, higher means further down on hierarchy
         index: i32,
     },
@@ -64,6 +66,8 @@ pub enum StaffPositionAction {
         corresponding_roles: Vec<Link>,
         /// The preset permissions of this position
         perms: Vec<String>,
+        /// The icon of the position
+        icon: String,
     },
     /// Delete a staff position
     DeletePosition {
@@ -85,6 +89,8 @@ pub struct StaffPosition {
     pub perms: Vec<String>,
     /// Corresponding roles of the position
     pub corresponding_roles: Vec<Link>,
+    /// The icon of the position
+    pub icon: String,
     /// The index of the position, higher means further down on hierarchy
     pub index: i32,
     /// When the staff position was created/added

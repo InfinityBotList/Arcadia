@@ -3230,11 +3230,6 @@ async fn query(
             .await
             .map_err(Error::new)?;
 
-            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
-                .await
-                .map_err(Error::new)?
-                .resolve();
-
             let client = reqwest::Client::new();
 
             let Ok(method) = reqwest::Method::from_bytes(&method.into_bytes()) else {
@@ -3257,17 +3252,12 @@ async fn query(
             .await
             .map_err(Error::new)?;
 
-            let user_perms_str = user_perms
-                .iter()
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>();
-
             let res = client
                 .request(method, crate::config::CONFIG.popplio_url.clone() + &path)
                 .header("User-Agent", "arcadia")
                 .header("X-Forwarded-For", &path)
                 .header("X-Staff-Auth-Token", &query.popplio_token)
-                .header("X-User-Perms", user_perms_str.join(","))
+                .header("X-User-ID", &auth_data.user_id)
                 .body(body)
                 .send()
                 .await

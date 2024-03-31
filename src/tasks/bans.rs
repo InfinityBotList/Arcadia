@@ -48,7 +48,7 @@ pub async fn bans_sync(
     log::warn!("Bans to modify: {:?}", &to_modify);
 
     for user_id in to_modify {
-        let is_banned = user_banned_map.contains(&user_id);
+        let is_banned = user_banned_map.contains(user_id);
         let res = sqlx::query!("UPDATE users SET banned = $1 WHERE user_id = $2", is_banned, user_id)
             .execute(pool)
             .await

@@ -3077,7 +3077,7 @@ async fn query(
                     for row in rows {
                         entries.push(StaffDisciplinaryType {
                             id: row.id,
-			    name: row.name,
+			                name: row.name,
                             description: row.description,
                             self_assignable: row.self_assignable,
                             perm_limits: row.perm_limits,

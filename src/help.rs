@@ -181,7 +181,7 @@ async fn _help_send_index(
     ctx: Option<Context<'_>>,
     old_msg: Option<MsgInfo>,
     http: &Arc<serenity::Http>,
-    l_data: &Vec<EmbedHelp>,
+    l_data: &[EmbedHelp],
     index: usize,
     interaction: Option<Arc<ComponentInteraction>>,
 ) -> Result<Option<serenity::Message>, crate::Error> {

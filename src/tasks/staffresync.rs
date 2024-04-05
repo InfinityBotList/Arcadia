@@ -2,6 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::{Display, Formatter},
 };
+use crate::impls::link::Link;
 
 use serenity::{
     all::UserId,
@@ -24,6 +25,8 @@ struct CachedPosition {
     index: i32,
     /// The preset permissions of this position
     perms: Vec<String>,
+    /// The corresponding roles of the permission
+    corresponding_roles: Vec<Link>,
 }
 
 impl Display for CachedPosition {
@@ -38,6 +41,71 @@ struct StaffResync {
     user_id: UserId,
     /// The list of roles the user has
     roles: Vec<String>,
+}
+
+async fn modify_corresponding_roles(cache_http: crate::impls::cache::CacheHttpImpl, pos_cache_by_id: HashMap<Uuid, CachedPosition>, user: UserId, remove_ids: HashSet<Uuid>, add_ids: HashSet<Uuid>) -> Result<(), crate::Error> {
+    let mut add = HashMap::new();
+    let mut remove = HashMap::new();
+    for remove_id in remove_ids {
+        let Some(pos) = pos_cache_by_id.get(&remove_id) else {
+            continue
+        };
+
+        for link in pos.corresponding_roles.iter() {
+            let server_id = match link.name.as_str() {
+                "main" => config::CONFIG.servers.main,
+                "staff" => config::CONFIG.servers.staff,
+                _ => {
+                    log::warn!("Unknown corresponding server: {}", link.name);
+                    continue;
+                },
+            };
+            
+            let role_id = link.value.parse::<serenity::all::RoleId>()?;
+
+            // Check if guild id exists
+            let entry = remove.entry(server_id).or_insert_with(Vec::new);
+            entry.push(role_id);
+        }
+    }
+
+    for add_id in add_ids {
+        let Some(pos) = pos_cache_by_id.get(&add_id) else {
+            continue
+        };
+
+        for link in pos.corresponding_roles.iter() {
+            let server_id = match link.name.as_str() {
+                "main" => config::CONFIG.servers.main,
+                "staff" => config::CONFIG.servers.staff,
+                _ => {
+                    log::warn!("Unknown corresponding server: {}", link.name);
+                    continue
+                },
+            };
+            
+            let role_id = link.value.parse::<serenity::all::RoleId>()?;
+
+            // Check if guild id exists
+            let entry = add.entry(server_id).or_insert_with(Vec::new);
+            entry.push(role_id);
+        }
+    }
+    
+    let http = &cache_http.http;
+    for (server_id, roles) in remove {
+        for role in roles.iter() {
+            http.remove_member_role(server_id, user, *role, Some("Removing corresponding role")).await?;
+        }
+    }
+
+    for (server_id, roles) in add {
+        for role in roles.iter() {
+            http.add_member_role(server_id, user, *role, Some("Adding corresponding role")).await?;
+        }
+    }
+
+    Ok(())
 }
 
 pub async fn staff_resync(
@@ -76,7 +144,7 @@ pub async fn staff_resync(
         .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
     // First get list of positions from db
-    let positions = sqlx::query!("SELECT id, name, role_id, index, perms FROM staff_positions")
+    let positions = sqlx::query!("SELECT id, name, role_id, index, perms, corresponding_roles FROM staff_positions")
         .fetch_all(&mut *tx)
         .await
         .map_err(|e| format!("Error while getting staff positions: {:?}", e))?;
@@ -95,6 +163,7 @@ pub async fn staff_resync(
                 role_id: pos.role_id.clone(),
                 index: pos.index,
                 perms: pos.perms.clone(),
+                corresponding_roles: serde_json::from_value(pos.corresponding_roles.clone())?,
             },
         );
 
@@ -106,6 +175,7 @@ pub async fn staff_resync(
                 role_id: pos.role_id.clone(),
                 index: pos.index,
                 perms: pos.perms.clone(),
+                corresponding_roles: serde_json::from_value(pos.corresponding_roles.clone())?
             },
         );
 
@@ -117,6 +187,7 @@ pub async fn staff_resync(
                 role_id: pos.role_id.clone(),
                 index: pos.index,
                 perms: pos.perms.clone(),
+                corresponding_roles: serde_json::from_value(pos.corresponding_roles)?
             },
         );
     }
@@ -409,6 +480,8 @@ pub async fn staff_resync(
                 )
                 .await
                 .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;
+
+                modify_corresponding_roles(cache_http.clone(), pos_cache_by_id.clone(), user.user_id, user_positions_db.clone(), user_positions.clone()).await?;
         }
 
         unaccounted_user_ids.remove(&user.user_id.to_string());
@@ -508,7 +581,15 @@ pub async fn staff_resync(
                     ]),
             )
             .await
-            .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;    
+            .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;
+
+            // Remove corresponding roles, all of them
+            let mut remove_pos = HashSet::new();
+            for pos in member_pos_cache.get(&user_id).unwrap() {
+                remove_pos.insert(*pos);
+            }
+            modify_corresponding_roles(cache_http.clone(), pos_cache_by_id.clone(), user_id.parse::<serenity::all::UserId>()?, remove_pos, HashSet::new()).await?;
+            
         } else {
             crate::config::CONFIG.channels.staff_logs.send_message(
                 &cache_http.http,
@@ -560,6 +641,13 @@ pub async fn staff_resync(
             )
             .await
             .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;    
+        
+            // Remove corresponding roles, all of them
+            let mut remove_pos = HashSet::new();
+            for pos in member_pos_cache.get(&user_id).unwrap() {
+                remove_pos.insert(*pos);
+            }
+            modify_corresponding_roles(cache_http.clone(), pos_cache_by_id.clone(), user_id.parse::<serenity::all::UserId>()?, remove_pos, HashSet::new()).await?;
         }
     }
 

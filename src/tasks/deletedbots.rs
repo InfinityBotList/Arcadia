@@ -47,7 +47,7 @@ pub async fn deleted_bots(
             continue;
         };
 
-        if res.username.starts_with("Deleted User") {
+        if res.username.starts_with("Deleted User") || res.username.starts_with("deleted_user") {
             info!(
                 "Bot {} is potentially deleted, checking with Discord API",
                 bot_id

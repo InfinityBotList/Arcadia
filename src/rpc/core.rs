@@ -531,7 +531,7 @@ impl RPCMethod {
                     let member = guild.members.contains_key(&target_id.parse()?);
 
                     if !member {
-                        return Err("Entity is not in testing server. Please ensure this bot is in the testing server when approving. It will then be kicked by Arcadia when added to main server".into());
+                        return Err("Entity is not in testing server. Please ensure this bot is in the testing server when approving. It will then be kicked when added to a cache server".into());
                     }
                 }
 
@@ -549,6 +549,26 @@ impl RPCMethod {
                 .execute(&state.pool)
                 .await?;
 
+                // Add to cache server using borealis
+                #[derive(serde::Serialize, serde::Deserialize)]
+                struct BorealisCacheServer {
+                    guild_id: String,
+                    name: String,
+                    invite_code: String,
+                    added: bool,
+                }
+
+                let csr = reqwest::Client::new()
+                .post(format!(
+                    "{}/addBotToCacheServer?bot_id={}&ignore_bot_type=true",
+                    crate::config::CONFIG.borealis_url, target_id
+                ))
+                .header("Authorization", crate::config::CONFIG.token.clone())
+                .send()
+                .await?
+                .json::<BorealisCacheServer>()
+                .await?;
+
                 let msg = CreateMessage::default()
                     .content(owners.mention_users())
                     .embed(
@@ -563,6 +583,7 @@ impl RPCMethod {
                                 "<@!{}> has approved <@!{}>",
                                 &state.user_id, target_id
                             ))
+                            .field("Cache Server", format!("[{}](https://discord.gg/{})", csr.name, csr.invite_code), true)
                             .field("Feedback", reason, true)
                             .field("Moderator", "<@!".to_string() + &state.user_id + ">", true)
                             .field("", "<@!".to_string() + target_id + ">", true)
@@ -618,9 +639,10 @@ impl RPCMethod {
                 Ok(
                     RPCSuccess::Content(
                         format!(
-                            "https://discord.com/api/v10/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot%20applications.commands&guild_id={guild_id}", 
+                            "**Cache Server Invite:** {csr_invite}\n**Invite URL:** https://discord.com/api/v10/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot%20applications.commands&guild_id={guild_id}", 
+                            csr_invite = "https://discord.gg".to_string() + &csr.invite_code,
                             client_id = invite_data.client_id,
-                            guild_id = crate::config::CONFIG.servers.main
+                            guild_id = csr.guild_id
                         )
                     )
                 )

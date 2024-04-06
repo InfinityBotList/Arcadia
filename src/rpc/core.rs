@@ -640,7 +640,7 @@ impl RPCMethod {
                     RPCSuccess::Content(
                         format!(
                             "**Cache Server Invite:** {csr_invite}\n**Invite URL:** https://discord.com/api/v10/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot%20applications.commands&guild_id={guild_id}", 
-                            csr_invite = "https://discord.gg".to_string() + &csr.invite_code,
+                            csr_invite = "https://discord.gg/".to_string() + &csr.invite_code,
                             client_id = invite_data.client_id,
                             guild_id = csr.guild_id
                         )

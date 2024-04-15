@@ -1,23 +1,15 @@
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 use strum_macros::{Display, EnumString, EnumVariantNames};
+use ts_rs::TS;
 use utoipa::ToSchema;
 
 #[derive(
-    Serialize,
-    Deserialize,
-    ToSchema,
-    TS,
-    EnumString,
-    EnumVariantNames,
-    Display,
-    Clone,
-    PartialEq,
+    Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone, PartialEq,
 )]
 #[ts(export, export_to = ".generated/AuthorizeAction.ts")]
 pub enum AuthorizeAction {
     /// Begin begins an authorization request
-    /// 
+    ///
     /// Currently only returns a scope and the login url
     Begin {
         /// Scope of the panel. This is a short identifier to ensure a valid arcadia instance
@@ -25,9 +17,9 @@ pub enum AuthorizeAction {
         /// Redirect URL
         redirect_url: String,
     },
-    
+
     /// CreateSession creates a new 'pending' session for the staff member returning a login token
-    /// 
+    ///
     /// Note that MFA/other login methods are needed to 'activate' the session
     CreateSession {
         /// Discord OAuth2 code
@@ -37,7 +29,7 @@ pub enum AuthorizeAction {
     },
 
     /// CheckMFA checks and returns any needed/useful MFA-related information
-    /// 
+    ///
     /// This is the only endpoint that works on both pending and active sessions
     CheckMfaState {
         /// Login Token

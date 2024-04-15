@@ -18,7 +18,7 @@ use utoipa::ToSchema;
 #[ts(export, export_to = ".generated/ChangelogAction.ts")]
 pub enum ChangelogAction {
     /// List changelog entries
-    /// 
+    ///
     /// Note that all staff members can list the changelog
     #[default]
     ListEntries,

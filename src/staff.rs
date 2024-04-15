@@ -170,7 +170,7 @@ pub async fn staff_guildlist(ctx: Context<'_>) -> Result<(), Error> {
 
     for guild in guilds.iter() {
         let name = guild
-            .name(ctx.serenity_context())
+            .name(&ctx.serenity_context().cache)
             .unwrap_or_else(|| "Unknown".to_string())
             + " ("
             + &guild.to_string()
@@ -195,7 +195,9 @@ pub async fn staff_guildleave(
     ctx: Context<'_>,
     #[description = "The guild ID to leave"] guild: String,
 ) -> Result<(), Error> {
-    let user_perms = get_user_perms(&ctx.data().pool, &ctx.author().id.to_string()).await?.resolve();
+    let user_perms = get_user_perms(&ctx.data().pool, &ctx.author().id.to_string())
+        .await?
+        .resolve();
 
     if !perms::has_perm(&user_perms, &perms::build("arcadia", "leave_guilds")) {
         return Err("You do not have permission to use this command".into());

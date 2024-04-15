@@ -21,7 +21,7 @@ pub async fn spec_role_sync(
     {
         if let Some(guild) = cache_http.cache.guild(config::CONFIG.servers.main) {
             // Get all members with the bug hunter role
-            for (_, member) in guild.members.iter() {
+            for member in guild.members.iter() {
                 if member.roles.contains(&config::CONFIG.roles.bug_hunters) {
                     resync.push(SpecRoleSync {
                         user_id: member.user.id,

@@ -1,5 +1,5 @@
 use log::error;
-use poise::serenity_prelude::{CreateEmbed, CreateEmbedFooter, CreateMessage, UserId};
+use serenity::all::{CreateEmbed, CreateEmbedFooter, CreateMessage, GuildId, UserId};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serenity::model::Color;
@@ -13,6 +13,19 @@ use crate::{
 };
 use kittycat::perms;
 use utoipa::ToSchema;
+
+/// Helper function to check if a member is on a server, returning a boolean
+pub fn member_on_guild(
+    cache_http: &crate::impls::cache::CacheHttpImpl,
+    guild_id: GuildId,
+    user_id: UserId,
+) -> bool {
+    if let Some(guild) = cache_http.cache.guild(guild_id) {
+        guild.members.get(&user_id).is_some()
+    } else {
+        false
+    }
+}
 
 #[derive(Serialize, Deserialize, ToSchema, TS, EnumString, EnumVariantNames, Display, Clone)]
 #[ts(export, export_to = ".generated/RPCMethod.ts")]
@@ -255,9 +268,7 @@ impl RPCMethod {
         }
 
         // Next, ensure we have the permissions needed
-        let user_perms = get_user_perms(&state.pool, &state.user_id)
-        .await?
-        .resolve();
+        let user_perms = get_user_perms(&state.pool, &state.user_id).await?.resolve();
 
         let required_perm = perms::build("rpc", &self.to_string());
         if !perms::has_perm(&user_perms, &required_perm) {
@@ -301,7 +312,7 @@ impl RPCMethod {
         .map_err(|_| "Failed to get ratelimit count")?;
 
         let count = res.count.unwrap_or_default();
-        
+
         if count > 5 {
             sqlx::query!(
                 "DELETE FROM staffpanel__authchain WHERE user_id = $1",
@@ -559,15 +570,16 @@ impl RPCMethod {
                 }
 
                 let csr = reqwest::Client::new()
-                .post(format!(
-                    "{}/addBotToCacheServer?bot_id={}&ignore_bot_type=true",
-                    crate::config::CONFIG.borealis_url, target_id
-                ))
-                .header("Authorization", crate::config::CONFIG.token.clone())
-                .send()
-                .await?
-                .json::<BorealisCacheServer>()
-                .await?;
+                    .post(format!(
+                        "{}/addBotToCacheServer?bot_id={}&ignore_bot_type=true",
+                        crate::config::CONFIG.borealis_url,
+                        target_id
+                    ))
+                    .header("Authorization", crate::config::CONFIG.token.clone())
+                    .send()
+                    .await?
+                    .json::<BorealisCacheServer>()
+                    .await?;
 
                 let msg = CreateMessage::default()
                     .content(owners.mention_users())
@@ -583,7 +595,11 @@ impl RPCMethod {
                                 "<@!{}> has approved <@!{}>",
                                 &state.user_id, target_id
                             ))
-                            .field("Cache Server", format!("[{}](https://discord.gg/{})", csr.name, csr.invite_code), true)
+                            .field(
+                                "Cache Server",
+                                format!("[{}](https://discord.gg/{})", csr.name, csr.invite_code),
+                                true,
+                            )
                             .field("Feedback", reason, true)
                             .field("Moderator", "<@!".to_string() + &state.user_id + ">", true)
                             .field("", "<@!".to_string() + target_id + ">", true)
@@ -608,12 +624,11 @@ impl RPCMethod {
                 for owner in owners {
                     let owner_snow = owner.parse::<UserId>()?;
 
-                    if state
-                        .cache_http
-                        .cache
-                        .member(crate::config::CONFIG.servers.main, owner_snow)
-                        .is_some()
-                    {
+                    if member_on_guild(
+                        &state.cache_http, 
+                        crate::config::CONFIG.servers.main, 
+                        owner_snow
+                    ) {
                         // Add role to user
                         if let Err(e) = state
                             .cache_http
@@ -1082,11 +1097,11 @@ impl RPCMethod {
 
                 if *kick {
                     // Check that the bot is in the server
-                    let bot_in_server = state
-                        .cache_http
-                        .cache
-                        .member(crate::config::CONFIG.servers.main, target_id_snow)
-                        .is_some();
+                    let bot_in_server = member_on_guild(
+                        &state.cache_http, 
+                        crate::config::CONFIG.servers.main, 
+                        target_id_snow
+                    );
 
                     if bot_in_server {
                         state

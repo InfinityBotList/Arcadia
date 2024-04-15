@@ -33,34 +33,19 @@ pub async fn premium_remove(
     for row in res {
         let bot_id = row
             .bot_id
-            .parse()
+            .parse::<UserId>()
             .map_err(|e| format!("Error while parsing bot id: {}", e))?;
 
-        let bot_username = {
-            let bot_cref = {
-                if let Some(bot) = cache_http
-                    .cache
-                    .member(crate::config::CONFIG.servers.main, bot_id)
-                {
-                    Some(bot.user.name.clone())
-                } else {
-                    None
-                }
-            };
-
-            if let Some(name) = bot_cref {
-                name
-            } else {
-                // Get bot from API
-                let bot = cache_http.http.get_user(bot_id).await?;
-
-                bot.name
-            }
-        };
+        let bot_partial = crate::impls::dovewing::get_platform_user(
+            pool,
+            crate::impls::dovewing::DovewingSource::Discord(cache_http.clone()),
+            &bot_id.to_string(),
+        )
+        .await?;    
 
         bot_data.push(BotData {
             bot_id,
-            bot_username: bot_username.to_string(),
+            bot_username: bot_partial.username.to_string(),
             bot_type: row.r#type,
         });
     }

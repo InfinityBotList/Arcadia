@@ -4,10 +4,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::impls;
+use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::panelapi::types::staff_disciplinary::StaffDisciplinaryType;
-use crate::panelapi::types::webcore::{StartAuth, Hello};
+use crate::panelapi::types::webcore::{Hello, StartAuth};
 use crate::panelapi::types::{
     auth::{AuthorizeAction, MfaLogin, MfaLoginSecret},
     blog::{BlogAction, BlogPost},
@@ -16,16 +16,16 @@ use crate::panelapi::types::{
     entity::{PartialBot, PartialEntity, PartialServer},
     partners::{CreatePartner, Partner, PartnerAction, PartnerType, Partners},
     rpc::RPCWebAction,
-    webcore::{CoreConstants, InstanceConfig, PanelServers},
+    staff_disciplinary::StaffDisciplinaryTypeAction,
     staff_positions::StaffPosition,
-    staff_disciplinary::StaffDisciplinaryTypeAction
+    webcore::{CoreConstants, InstanceConfig, PanelServers},
 };
-use kittycat::perms;
 use crate::rpc::core::{RPCHandle, RPCMethod};
 use axum::body::StreamBody;
 use axum::extract::DefaultBodyLimit;
 use axum::http::HeaderMap;
 use axum::Json;
+use kittycat::perms;
 
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -33,20 +33,20 @@ use axum::{extract::State, http::StatusCode, Router};
 use log::info;
 use moka::future::Cache;
 use rand::Rng;
-use serenity::all::{User, RoleId};
+use serenity::all::{RoleId, User};
 use sqlx::PgPool;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tower_http::cors::{Any, CorsLayer};
 
+use super::types::staff_members::StaffMemberAction;
+use super::types::staff_positions::{CorrespondingServer, StaffPositionAction};
+use crate::impls::dovewing::DovewingSource;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
 use strum::VariantNames;
 use strum_macros::{Display, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use super::types::staff_positions::{StaffPositionAction, CorrespondingServer};
-use super::types::staff_members::StaffMemberAction;
-use crate::impls::dovewing::DovewingSource;
 
 use num_traits::ToPrimitive;
 
@@ -323,7 +323,10 @@ pub enum PanelQuery {
 
 /// CDN granularity: Check for [cdn].[permission] or [cdn#scope].[permission]
 fn has_cdn_perm(user_perms: &[String], cdn_scope: &str, perm: &str) -> bool {
-    perms::has_perm(user_perms, &perms::build(&("cdn#".to_string()+cdn_scope), perm)) || perms::has_perm(user_perms, &perms::build("cdn", perm))
+    perms::has_perm(
+        user_perms,
+        &perms::build(&("cdn#".to_string() + cdn_scope), perm),
+    ) || perms::has_perm(user_perms, &perms::build("cdn", perm))
 }
 
 /// Make Panel Query
@@ -343,10 +346,7 @@ async fn query(
     Json(req): Json<PanelQuery>,
 ) -> Result<impl IntoResponse, Error> {
     match req {
-        PanelQuery::Authorize {
-            action,
-            version,
-        } => {
+        PanelQuery::Authorize { action, version } => {
             if version != AUTH_VERSION {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
@@ -354,10 +354,12 @@ async fn query(
             match action {
                 AuthorizeAction::Begin {
                     scope,
-                    redirect_url
+                    redirect_url,
                 } => {
                     if scope != crate::config::CONFIG.panel.panel_scope {
-                        return Ok((StatusCode::BAD_REQUEST, "Invalid scope".to_string()).into_response());
+                        return Ok(
+                            (StatusCode::BAD_REQUEST, "Invalid scope".to_string()).into_response()
+                        );
                     }
 
                     Ok(
@@ -376,22 +378,24 @@ async fn query(
                             )
                         ).into_response()
                     )
-                },
+                }
                 AuthorizeAction::CreateSession { code, redirect_url } => {
                     if !crate::config::CONFIG
                         .panel
                         .redirect_url
-                        .contains(&redirect_url) {
+                        .contains(&redirect_url)
+                    {
                         return Ok(
-                            (StatusCode::BAD_REQUEST, "Invalid redirect url".to_string()).into_response(),
+                            (StatusCode::BAD_REQUEST, "Invalid redirect url".to_string())
+                                .into_response(),
                         );
                     }
-    
+
                     let client = reqwest::Client::builder()
                         .timeout(Duration::from_secs(10))
                         .build()
                         .map_err(Error::new)?;
-        
+
                     let resp = client
                         .post("https://discord.com/api/oauth2/token")
                         .header("Content-Type", "application/x-www-form-urlencoded")
@@ -412,14 +416,14 @@ async fn query(
                         .map_err(Error::new)?
                         .error_for_status()
                         .map_err(Error::new)?;
-        
+
                     #[derive(Deserialize)]
                     struct Oauth2 {
                         access_token: String,
                     }
-    
+
                     let oauth2 = resp.json::<Oauth2>().await.map_err(Error::new)?;
-        
+
                     let user_resp = client
                         .get("https://discord.com/api/users/@me")
                         .header(
@@ -433,9 +437,9 @@ async fn query(
                         .map_err(Error::new)?
                         .error_for_status()
                         .map_err(Error::new)?;
-        
+
                     let user = user_resp.json::<User>().await.map_err(Error::new)?;
-    
+
                     let rec = sqlx::query!(
                         "SELECT positions FROM staff_members WHERE user_id = $1",
                         user.id.to_string()
@@ -443,17 +447,25 @@ async fn query(
                     .fetch_optional(&state.pool)
                     .await
                     .map_err(Error::new)?;
-                    
+
                     let Some(positions) = rec else {
-                        return Ok((StatusCode::FORBIDDEN, "You are not a staff member [not in db]".to_string()).into_response());
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You are not a staff member [not in db]".to_string(),
+                        )
+                            .into_response());
                     };
 
                     if positions.positions.is_empty() {
-                        return Ok((StatusCode::FORBIDDEN, "You are not a staff member [no positions]".to_string()).into_response());
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You are not a staff member [no positions]".to_string(),
+                        )
+                            .into_response());
                     }
-        
+
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
-        
+
                     sqlx::query!(
                         "DELETE FROM staffpanel__authchain WHERE user_id = $1",
                         user.id.to_string()
@@ -461,12 +473,12 @@ async fn query(
                     .execute(&mut *tx)
                     .await
                     .map_err(Error::new)?;
-        
+
                     // Create a random number between 4196 and 6000 for the token
                     let tlength = rand::thread_rng().gen_range(4196..6000);
-        
+
                     let token = crate::impls::crypto::gen_random(tlength as usize);
-    
+
                     sqlx::query!(
                         "INSERT INTO staffpanel__authchain (user_id, token, popplio_token, state) VALUES ($1, $2, $3, $4)",
                         user.id.to_string(),
@@ -477,20 +489,22 @@ async fn query(
                     .execute(&mut *tx)
                     .await
                     .map_err(Error::new)?;
-        
+
                     tx.commit().await.map_err(Error::new)?;
-        
+
                     Ok((StatusCode::OK, token).into_response())
-                },
+                }
                 AuthorizeAction::CheckMfaState { login_token } => {
                     let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token)
-                    .await
-                    .map_err(Error::new)?;
+                        .await
+                        .map_err(Error::new)?;
 
                     if auth_data.state != "pending" && auth_data.state != "active" {
                         return Err(Error {
                             status: StatusCode::BAD_REQUEST,
-                            message: "This endpoint can only be used by pending and active sessions".to_string(),
+                            message:
+                                "This endpoint can only be used by pending and active sessions"
+                                    .to_string(),
                         });
                     }
 
@@ -502,22 +516,28 @@ async fn query(
                     )
                     .fetch_optional(&mut *tx)
                     .await
-                    .map_err(|e| Error::new(format!("Failed to fetch staff member mfa_secret/mfa_verified: {}", e)))?;
-        
+                    .map_err(|e| {
+                        Error::new(format!(
+                            "Failed to fetch staff member mfa_secret/mfa_verified: {}",
+                            e
+                        ))
+                    })?;
+
                     if mfa.is_none() {
                         return Err(Error {
                             status: StatusCode::BAD_REQUEST,
                             message: "You are not a staff member".to_string(),
                         });
                     }
-        
+
                     let mfa = mfa.unwrap();
-        
+
                     if mfa.mfa_secret.is_none() || !mfa.mfa_verified {
                         let temp_secret = thotp::generate_secret(160);
-        
-                        let temp_secret_enc = thotp::encoding::encode(&temp_secret, data_encoding::BASE32);
-        
+
+                        let temp_secret_enc =
+                            thotp::encoding::encode(&temp_secret, data_encoding::BASE32);
+
                         sqlx::query!(
                             "UPDATE staff_members SET mfa_secret = $1 WHERE user_id = $2",
                             &temp_secret_enc,
@@ -526,7 +546,7 @@ async fn query(
                         .execute(&mut *tx)
                         .await
                         .map_err(Error::new)?;
-        
+
                         let qr_code_uri = thotp::qr::otp_uri(
                             // Type of otp
                             "totp",
@@ -540,7 +560,7 @@ async fn query(
                             None,
                         )
                         .map_err(Error::new)?;
-        
+
                         let qr = thotp::qr::generate_code_svg(
                             &qr_code_uri,
                             // The qr code width (None defaults to 200)
@@ -551,9 +571,9 @@ async fn query(
                             thotp::qr::EcLevel::M,
                         )
                         .map_err(Error::new)?;
-        
+
                         tx.commit().await.map_err(Error::new)?;
-        
+
                         Ok((
                             StatusCode::OK,
                             Json(MfaLogin {
@@ -567,17 +587,17 @@ async fn query(
                             .into_response())
                     } else {
                         tx.rollback().await.map_err(Error::new)?;
-        
+
                         Ok((StatusCode::OK, Json(MfaLogin { info: None })).into_response())
                     }
-                },
+                }
                 AuthorizeAction::ResetMfaTotp { login_token, otp } => {
                     let auth_data = super::auth::check_auth(&state.pool, &login_token)
                         .await
                         .map_err(Error::new)?;
-        
+
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
-        
+
                     let secret = sqlx::query!(
                         "SELECT mfa_secret FROM staff_members WHERE user_id = $1",
                         auth_data.user_id
@@ -586,26 +606,26 @@ async fn query(
                     .await
                     .map_err(Error::new)?
                     .mfa_secret;
-        
+
                     if secret.is_none() {
                         return Err(Error {
                             status: StatusCode::BAD_REQUEST,
                             message: "mfaNotSetup".to_string(),
                         });
                     }
-        
+
                     let secret = thotp::encoding::decode(&secret.unwrap(), data_encoding::BASE32)
                         .map_err(Error::new)?;
-        
+
                     let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
-        
+
                     if !result {
                         return Err(Error {
                             status: StatusCode::BAD_REQUEST,
                             message: "Invalid OTP Entered".to_string(),
                         });
                     }
-        
+
                     sqlx::query!(
                         "UPDATE staff_members SET mfa_secret = NULL, mfa_verified = FALSE WHERE user_id = $1",
                         auth_data.user_id
@@ -613,7 +633,7 @@ async fn query(
                     .execute(&mut *tx)
                     .await
                     .map_err(Error::new)?;
-        
+
                     // Revoke existing sessions
                     sqlx::query!(
                         "DELETE FROM staffpanel__authchain WHERE user_id = $1",
@@ -622,16 +642,16 @@ async fn query(
                     .execute(&mut *tx)
                     .await
                     .map_err(Error::new)?;
-        
+
                     tx.commit().await.map_err(Error::new)?;
-        
+
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 AuthorizeAction::ActivateSession { login_token, otp } => {
                     let auth_data = super::auth::check_auth_insecure(&state.pool, &login_token)
-                    .await
-                    .map_err(Error::new)?;
-    
+                        .await
+                        .map_err(Error::new)?;
+
                     if auth_data.state != "pending" {
                         return Err(Error {
                             status: StatusCode::BAD_REQUEST,
@@ -648,26 +668,27 @@ async fn query(
                     .fetch_one(&mut *tx)
                     .await
                     .map_err(Error::new)?;
-        
+
                     if mfa.mfa_secret.is_none() {
                         return Err(Error {
                             status: StatusCode::BAD_REQUEST,
                             message: "mfaNotSetup".to_string(),
                         });
                     }
-        
-                    let secret = thotp::encoding::decode(&mfa.mfa_secret.unwrap(), data_encoding::BASE32)
-                        .map_err(Error::new)?;
-        
+
+                    let secret =
+                        thotp::encoding::decode(&mfa.mfa_secret.unwrap(), data_encoding::BASE32)
+                            .map_err(Error::new)?;
+
                     let (result, _discrepancy) = thotp::verify_totp(&otp, &secret, 0).unwrap();
-        
+
                     if !result {
                         return Err(Error {
                             status: StatusCode::BAD_REQUEST,
                             message: "Invalid OTP entered".to_string(),
                         });
                     }
-        
+
                     sqlx::query!(
                         "UPDATE staffpanel__authchain SET state = 'active' WHERE token = $1",
                         login_token
@@ -675,7 +696,7 @@ async fn query(
                     .execute(&mut *tx)
                     .await
                     .map_err(Error::new)?;
-        
+
                     sqlx::query!(
                         "UPDATE staff_members SET mfa_verified = TRUE WHERE user_id = $1",
                         auth_data.user_id
@@ -683,11 +704,11 @@ async fn query(
                     .execute(&mut *tx)
                     .await
                     .map_err(Error::new)?;
-        
+
                     tx.commit().await.map_err(Error::new)?;
-        
+
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
                 AuthorizeAction::Logout { login_token } => {
                     // Just delete the auth, no point in even erroring if it doesn't exist
                     let row = sqlx::query!(
@@ -702,19 +723,23 @@ async fn query(
                 }
             }
         }
-        PanelQuery::Hello { login_token, version } => {
+        PanelQuery::Hello {
+            login_token,
+            version,
+        } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             if version != HELLO_VERSION {
                 return Ok((StatusCode::BAD_REQUEST, "Invalid version".to_string()).into_response());
             }
 
             // Get permissions
-            let staff_member = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
-            .await
-            .map_err(Error::new)?;
+            let staff_member =
+                super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
+                    .await
+                    .map_err(Error::new)?;
 
             let mut target_types: Vec<TargetType> = Vec::new();
 
@@ -753,14 +778,21 @@ async fn query(
             )
                 .into_response())
         }
-        PanelQuery::GetUser { login_token, user_id } => {
+        PanelQuery::GetUser {
+            login_token,
+            user_id,
+        } => {
             super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
-
-            let user = crate::impls::dovewing::get_platform_user(&state.pool, DovewingSource::Discord(state.cache_http.clone()), &user_id)
                 .await
                 .map_err(Error::new)?;
+
+            let user = crate::impls::dovewing::get_platform_user(
+                &state.pool,
+                DovewingSource::Discord(state.cache_http.clone()),
+                &user_id,
+            )
+            .await
+            .map_err(Error::new)?;
 
             Ok((StatusCode::OK, Json(user)).into_response())
         }
@@ -789,9 +821,13 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-                let user = crate::impls::dovewing::get_platform_user(&state.pool, DovewingSource::Discord(state.cache_http.clone()), &bot.bot_id)
-                    .await
-                    .map_err(Error::new)?;
+                let user = crate::impls::dovewing::get_platform_user(
+                    &state.pool,
+                    DovewingSource::Discord(state.cache_http.clone()),
+                    &bot.bot_id,
+                )
+                .await
+                .map_err(Error::new)?;
 
                 bots.push(PartialEntity::Bot(PartialBot {
                     bot_id: bot.bot_id,
@@ -854,9 +890,9 @@ async fn query(
                 .map_err(Error::new)?;
 
             let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
-            .await
-            .map_err(Error::new)?
-            .resolve();
+                .await
+                .map_err(Error::new)?
+                .resolve();
 
             let mut rpc_methods = Vec::new();
 
@@ -919,10 +955,13 @@ async fn query(
                         .await
                         .map_err(Error::new)?;
 
-                        let user =
-                            crate::impls::dovewing::get_platform_user(&state.pool, DovewingSource::Discord(state.cache_http.clone()), &bot.bot_id)
-                                .await
-                                .map_err(Error::new)?;
+                        let user = crate::impls::dovewing::get_platform_user(
+                            &state.pool,
+                            DovewingSource::Discord(state.cache_http.clone()),
+                            &bot.bot_id,
+                        )
+                        .await
+                        .map_err(Error::new)?;
 
                         bots.push(PartialEntity::Bot(PartialBot {
                             bot_id: bot.bot_id,
@@ -1002,8 +1041,8 @@ async fn query(
         }
         PanelQuery::UploadCdnFileChunk { login_token, chunk } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
@@ -1102,8 +1141,8 @@ async fn query(
             cdn_scope,
         } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
@@ -1184,7 +1223,7 @@ async fn query(
                                 .to_string(),
                         )
                             .into_response());
-                    }        
+                    }
 
                     match std::fs::metadata(&asset_path) {
                         Ok(m) => {
@@ -1247,7 +1286,7 @@ async fn query(
                                 .to_string(),
                         )
                             .into_response());
-                    }       
+                    }
 
                     match std::fs::metadata(&asset_final_path) {
                         Ok(m) => {
@@ -1294,7 +1333,7 @@ async fn query(
                                 .to_string(),
                         )
                             .into_response());
-                    }       
+                    }
 
                     match std::fs::metadata(&asset_final_path) {
                         Ok(_) => {
@@ -1337,7 +1376,7 @@ async fn query(
                                 .to_string(),
                         )
                             .into_response());
-                    }       
+                    }
 
                     if chunks.is_empty() {
                         return Ok((
@@ -1505,7 +1544,7 @@ async fn query(
                                 .to_string(),
                         )
                             .into_response());
-                    }    
+                    }
 
                     validate_path(&copy_to).map_err(Error::new)?;
 
@@ -1641,7 +1680,7 @@ async fn query(
                                 .to_string(),
                         )
                             .into_response());
-                    }    
+                    }
 
                     // Check if the asset exists
                     match std::fs::metadata(&asset_final_path) {
@@ -1674,7 +1713,7 @@ async fn query(
                                 .to_string(),
                         )
                             .into_response());
-                    }    
+                    }
 
                     let mut cmd_output = indexmap::IndexMap::new();
 
@@ -1793,8 +1832,8 @@ async fn query(
             action,
         } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
@@ -1884,7 +1923,7 @@ async fn query(
             }
 
             match action {
-                PartnerAction::List => {    
+                PartnerAction::List => {
                     let prec = sqlx::query!(
                         "SELECT id, name, short, links, type, created_at, user_id FROM partners"
                     )
@@ -1937,10 +1976,11 @@ async fn query(
                     if !perms::has_perm(&user_perms, &perms::build("partners", "create")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "You do not have permission to create partners [partners.create]".to_string(),
+                            "You do not have permission to create partners [partners.create]"
+                                .to_string(),
                         )
                             .into_response());
-                    }   
+                    }
 
                     // Check if partner already exists
                     let partner_exists =
@@ -1982,10 +2022,11 @@ async fn query(
                     if !perms::has_perm(&user_perms, &perms::build("partners", "update")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "You do not have permission to update partners [partners.update]".to_string(),
+                            "You do not have permission to update partners [partners.update]"
+                                .to_string(),
                         )
                             .into_response());
-                    }   
+                    }
 
                     // Check if partner already exists
                     let partner_exists =
@@ -2027,10 +2068,11 @@ async fn query(
                     if !perms::has_perm(&user_perms, &perms::build("partners", "delete")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "You do not have permission to delete partners [partners.delete]".to_string(),
+                            "You do not have permission to delete partners [partners.delete]"
+                                .to_string(),
                         )
                             .into_response());
-                    } 
+                    }
 
                     // Check if partner exists
                     let partner_exists = sqlx::query!("SELECT id FROM partners WHERE id = $1", id)
@@ -2099,8 +2141,8 @@ async fn query(
             action,
         } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
@@ -2286,8 +2328,8 @@ async fn query(
             action,
         } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
@@ -2336,10 +2378,11 @@ async fn query(
                     if !perms::has_perm(&user_perms, &perms::build("blog", "create_entry")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "You do not have permission to create blog entries [blog.create_entry]".to_string(),
+                            "You do not have permission to create blog entries [blog.create_entry]"
+                                .to_string(),
                         )
                             .into_response());
-                    }        
+                    }
 
                     // Insert entry
                     sqlx::query!(
@@ -2369,10 +2412,11 @@ async fn query(
                     if !perms::has_perm(&user_perms, &perms::build("blog", "update_entry")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "You do not have permission to update blog entries [blog.update_entry]".to_string(),
+                            "You do not have permission to update blog entries [blog.update_entry]"
+                                .to_string(),
                         )
                             .into_response());
-                    }        
+                    }
 
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&itag).map_err(Error::new)?;
 
@@ -2412,10 +2456,11 @@ async fn query(
                     if !perms::has_perm(&user_perms, &perms::build("blog", "delete_entry")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "You do not have permission to delete blog entries [blog.delete_entry]".to_string(),
+                            "You do not have permission to delete blog entries [blog.delete_entry]"
+                                .to_string(),
                         )
                             .into_response());
-                    }        
+                    }
 
                     // Check if entry already exists with same vesion
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&itag).map_err(Error::new)?;
@@ -2443,47 +2488,57 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        },
+        }
         PanelQuery::UpdateStaffPositions {
             login_token,
-            action
+            action,
         } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             match action {
-                StaffPositionAction::ListPositions => {        
+                StaffPositionAction::ListPositions => {
                     let pos = sqlx::query!("SELECT id, name, role_id, perms, corresponding_roles, icon, index, created_at FROM staff_positions ORDER BY index ASC")
                     .fetch_all(&state.pool)
                     .await
                     .map_err(|e| format!("Error while getting staff positions {}", e))
-                    .map_err(Error::new)?;    
-        
+                    .map_err(Error::new)?;
+
                     let mut positions = Vec::new();
-        
+
                     for position_data in pos {
                         positions.push(StaffPosition {
                             id: position_data.id.hyphenated().to_string(),
                             name: position_data.name,
                             role_id: position_data.role_id,
                             perms: position_data.perms,
-                            corresponding_roles: serde_json::from_value(position_data.corresponding_roles).map_err(Error::new)?,
+                            corresponding_roles: serde_json::from_value(
+                                position_data.corresponding_roles,
+                            )
+                            .map_err(Error::new)?,
                             icon: position_data.icon,
                             index: position_data.index,
                             created_at: position_data.created_at,
                         });
                     }
 
-                    Ok((StatusCode::OK, Json(positions)).into_response())        
-                },
+                    Ok((StatusCode::OK, Json(positions)).into_response())
+                }
                 StaffPositionAction::SwapIndex { a, b } => {
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(
+                        &state.pool,
+                        &state.cache_http,
+                        &auth_data.user_id,
+                    )
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "swap_index")) {
+                    if !perms::has_perm(
+                        &sm.resolved_perms,
+                        &perms::build("staff_positions", "swap_index"),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to swap indexes of staff positions [staff_positions.swap_index]".to_string(),
@@ -2502,42 +2557,57 @@ async fn query(
 
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
-                    let index_a = sqlx::query!("SELECT index FROM staff_positions WHERE id::text = $1", a)
-                    .fetch_one(&mut *tx)
-                    .await
-                    .map_err(|e| format!("Error while getting lower position {}", e))
-                    .map_err(Error::new)?
-                    .index;
+                    let index_a =
+                        sqlx::query!("SELECT index FROM staff_positions WHERE id::text = $1", a)
+                            .fetch_one(&mut *tx)
+                            .await
+                            .map_err(|e| format!("Error while getting lower position {}", e))
+                            .map_err(Error::new)?
+                            .index;
 
                     // Get the higher staff positions index
-                    let index_b = sqlx::query!("SELECT index FROM staff_positions WHERE id::text = $1", b)
-                    .fetch_one(&mut *tx)
-                    .await
-                    .map_err(|e| format!("Error while getting higher position {}", e))
-                    .map_err(Error::new)?
-                    .index;
+                    let index_b =
+                        sqlx::query!("SELECT index FROM staff_positions WHERE id::text = $1", b)
+                            .fetch_one(&mut *tx)
+                            .await
+                            .map_err(|e| format!("Error while getting higher position {}", e))
+                            .map_err(Error::new)?
+                            .index;
 
                     if index_a == index_b {
-                        return Ok((StatusCode::BAD_REQUEST, "Positions have the same index".to_string()).into_response());
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Positions have the same index".to_string(),
+                        )
+                            .into_response());
                     }
 
                     // If either a or b is lower than the lowest index of the member, then error
                     if index_a <= sm_lowest_index || index_b <= sm_lowest_index {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "Either 'a' or 'b' is lower than the lowest index of the member".to_string(),
+                            "Either 'a' or 'b' is lower than the lowest index of the member"
+                                .to_string(),
                         )
                             .into_response());
                     }
 
                     // Swap the indexes
-                    sqlx::query!("UPDATE staff_positions SET index = $1 WHERE id::text = $2", index_b, a)
+                    sqlx::query!(
+                        "UPDATE staff_positions SET index = $1 WHERE id::text = $2",
+                        index_b,
+                        a
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while updating lower position {}", e))
                     .map_err(Error::new)?;
 
-                    sqlx::query!("UPDATE staff_positions SET index = $1 WHERE id::text = $2", index_a, b)
+                    sqlx::query!(
+                        "UPDATE staff_positions SET index = $1 WHERE id::text = $2",
+                        index_a,
+                        b
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while updating higher position {}", e))
@@ -2546,16 +2616,23 @@ async fn query(
                     tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
                 StaffPositionAction::SetIndex { id, index } => {
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
 
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(
+                        &state.pool,
+                        &state.cache_http,
+                        &auth_data.user_id,
+                    )
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "set_index")) {
+                    if !perms::has_perm(
+                        &sm.resolved_perms,
+                        &perms::build("staff_positions", "set_index"),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to set the indexes of staff positions [staff_positions.set_index]".to_string(),
@@ -2590,12 +2667,13 @@ async fn query(
 
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
 
-                    let curr_index = sqlx::query!("SELECT index FROM staff_positions WHERE id = $1", uuid)
-                    .fetch_one(&mut *tx)
-                    .await
-                    .map_err(|e| format!("Error while getting position {}", e))
-                    .map_err(Error::new)?  
-                    .index;
+                    let curr_index =
+                        sqlx::query!("SELECT index FROM staff_positions WHERE id = $1", uuid)
+                            .fetch_one(&mut *tx)
+                            .await
+                            .map_err(|e| format!("Error while getting position {}", e))
+                            .map_err(Error::new)?
+                            .index;
 
                     // If the current index is lower than the lowest index of the member, then error
                     if curr_index <= sm_lowest_index {
@@ -2607,14 +2685,21 @@ async fn query(
                     }
 
                     // Shift indexes one lower
-                    sqlx::query!("UPDATE staff_positions SET index = index + 1 WHERE index >= $1", index)
+                    sqlx::query!(
+                        "UPDATE staff_positions SET index = index + 1 WHERE index >= $1",
+                        index
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while shifting indexes {}", e))
-                    .map_err(Error::new)?;                
+                    .map_err(Error::new)?;
 
                     // Set the index
-                    sqlx::query!("UPDATE staff_positions SET index = $1 WHERE id = $2", index, uuid)
+                    sqlx::query!(
+                        "UPDATE staff_positions SET index = $1 WHERE id = $2",
+                        index,
+                        uuid
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while updating position {}", e))
@@ -2623,14 +2708,28 @@ async fn query(
                     tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
-                StaffPositionAction::CreatePosition { name, role_id, perms, index, corresponding_roles, icon } => {
+                }
+                StaffPositionAction::CreatePosition {
+                    name,
+                    role_id,
+                    perms,
+                    index,
+                    corresponding_roles,
+                    icon,
+                } => {
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(
+                        &state.pool,
+                        &state.cache_http,
+                        &auth_data.user_id,
+                    )
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "create")) {
+                    if !perms::has_perm(
+                        &sm.resolved_perms,
+                        &perms::build("staff_positions", "create"),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create staff positions [staff_positions.create]".to_string(),
@@ -2658,14 +2757,18 @@ async fn query(
                     if index <= sm_lowest_index {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "Index is lower than or equal to the lowest index of the staff member".to_string(),
+                            "Index is lower than or equal to the lowest index of the staff member"
+                                .to_string(),
                         )
                             .into_response());
                     }
 
                     // Shift indexes one lower
                     let mut tx = state.pool.begin().await.map_err(Error::new)?;
-                    sqlx::query!("UPDATE staff_positions SET index = index + 1 WHERE index >= $1", index)
+                    sqlx::query!(
+                        "UPDATE staff_positions SET index = index + 1 WHERE index >= $1",
+                        index
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while shifting indexes {}", e))
@@ -2674,7 +2777,10 @@ async fn query(
                     // Ensure role id exists on the staff server
                     let role_id_snow = role_id.parse::<RoleId>().map_err(Error::new)?;
                     let role_exists = {
-                        let guild = state.cache_http.cache.guild(crate::config::CONFIG.servers.staff);
+                        let guild = state
+                            .cache_http
+                            .cache
+                            .guild(crate::config::CONFIG.servers.staff);
 
                         if let Some(guild) = guild {
                             guild.roles.get(&role_id_snow).is_some()
@@ -2689,7 +2795,7 @@ async fn query(
                             "Role does not exist on the staff server".to_string(),
                         )
                             .into_response());
-                    }   
+                    }
 
                     // Ensure all corresponding_roles exist on the named server if
                     for role in corresponding_roles.iter() {
@@ -2715,20 +2821,24 @@ async fn query(
                         if !role_exists {
                             return Ok((
                                 StatusCode::BAD_REQUEST,
-                                format!("Role {} does not exist on the server {}", role_id_snow, corr_server.get_id()),
+                                format!(
+                                    "Role {} does not exist on the server {}",
+                                    role_id_snow,
+                                    corr_server.get_id()
+                                ),
                             )
                                 .into_response());
                         }
-                    }                 
+                    }
 
                     // Create the position
                     sqlx::query!(
                         "INSERT INTO staff_positions (name, perms, corresponding_roles, icon, role_id, index) VALUES ($1, $2, $3, $4, $5, $6)",
-                        name, 
-                        &perms, 
+                        name,
+                        &perms,
                         serde_json::to_value(corresponding_roles).map_err(Error::new)?,
                         icon,
-                        role_id, 
+                        role_id,
                         index,
                     )
                     .execute(&mut *tx)
@@ -2739,16 +2849,30 @@ async fn query(
                     tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
-                StaffPositionAction::EditPosition { id, name, role_id, perms, corresponding_roles, icon } => {
+                }
+                StaffPositionAction::EditPosition {
+                    id,
+                    name,
+                    role_id,
+                    perms,
+                    corresponding_roles,
+                    icon,
+                } => {
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
-                    
+
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(
+                        &state.pool,
+                        &state.cache_http,
+                        &auth_data.user_id,
+                    )
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "edit")) {
+                    if !perms::has_perm(
+                        &sm.resolved_perms,
+                        &perms::build("staff_positions", "edit"),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to edit staff positions [staff_positions.edit]".to_string(),
@@ -2784,10 +2908,15 @@ async fn query(
                     }
 
                     // Check perms
-                    if let Err(e) = perms::check_patch_changes(&sm.resolved_perms, &index.perms, &perms) {
+                    if let Err(e) =
+                        perms::check_patch_changes(&sm.resolved_perms, &index.perms, &perms)
+                    {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            format!("You do not have permission to edit the following perms: {}", e),
+                            format!(
+                                "You do not have permission to edit the following perms: {}",
+                                e
+                            ),
                         )
                             .into_response());
                     }
@@ -2795,7 +2924,10 @@ async fn query(
                     // Ensure role id exists on the staff server
                     let role_id_snow = role_id.parse::<RoleId>().map_err(Error::new)?;
                     let role_exists = {
-                        let guild = state.cache_http.cache.guild(crate::config::CONFIG.servers.staff);
+                        let guild = state
+                            .cache_http
+                            .cache
+                            .guild(crate::config::CONFIG.servers.staff);
 
                         if let Some(guild) = guild {
                             guild.roles.get(&role_id_snow).is_some()
@@ -2836,19 +2968,23 @@ async fn query(
                         if !role_exists {
                             return Ok((
                                 StatusCode::BAD_REQUEST,
-                                format!("Role {} does not exist on the server {}", role_id_snow, corr_server.get_id()),
+                                format!(
+                                    "Role {} does not exist on the server {}",
+                                    role_id_snow,
+                                    corr_server.get_id()
+                                ),
                             )
                                 .into_response());
                         }
-                    }                 
+                    }
 
                     // Update the position
                     sqlx::query!(
                         "UPDATE staff_positions SET name = $1, perms = $2, corresponding_roles = $3, role_id = $4, icon = $5 WHERE id = $6", 
-                        name, 
-                        &perms, 
+                        name,
+                        &perms,
                         serde_json::to_value(corresponding_roles).map_err(Error::new)?,
-                        role_id, 
+                        role_id,
                         icon,
                         uuid
                     )
@@ -2860,16 +2996,23 @@ async fn query(
                     tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
                 StaffPositionAction::DeletePosition { id } => {
                     let uuid = sqlx::types::uuid::Uuid::parse_str(&id).map_err(Error::new)?;
-                    
+
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(
+                        &state.pool,
+                        &state.cache_http,
+                        &auth_data.user_id,
+                    )
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_positions", "delete")) {
+                    if !perms::has_perm(
+                        &sm.resolved_perms,
+                        &perms::build("staff_positions", "delete"),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete staff positions [staff_positions.delete]".to_string(),
@@ -2905,7 +3048,9 @@ async fn query(
                     }
 
                     // Check perms
-                    if let Err(e) = perms::check_patch_changes(&sm.resolved_perms, &index.perms, &Vec::new()) {
+                    if let Err(e) =
+                        perms::check_patch_changes(&sm.resolved_perms, &index.perms, &Vec::new())
+                    {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             format!("You do not have permission to edit the following perms [neeed to delete position]: {}", e),
@@ -2915,13 +3060,16 @@ async fn query(
 
                     // Delete the position
                     sqlx::query!("DELETE FROM staff_positions WHERE id = $1", uuid)
-                    .execute(&mut *tx)
-                    .await
-                    .map_err(|e| format!("Error while deleting position {}", e))
-                    .map_err(Error::new)?;
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(|e| format!("Error while deleting position {}", e))
+                        .map_err(Error::new)?;
 
                     // Shift back indexes one lower
-                    sqlx::query!("UPDATE staff_positions SET index = index - 1 WHERE index > $1", index.index)
+                    sqlx::query!(
+                        "UPDATE staff_positions SET index = index - 1 WHERE index > $1",
+                        index.index
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| format!("Error while shifting indexes {}", e))
@@ -2932,27 +3080,31 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        },
+        }
         PanelQuery::UpdateStaffMembers {
             login_token,
-            action
+            action,
         } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             match action {
                 StaffMemberAction::ListMembers => {
                     let ids = sqlx::query!("SELECT user_id FROM staff_members")
-                    .fetch_all(&state.pool)
-                    .await
-                    .map_err(|e| format!("Error while getting staff members {}", e))
-                    .map_err(Error::new)?;
+                        .fetch_all(&state.pool)
+                        .await
+                        .map_err(|e| format!("Error while getting staff members {}", e))
+                        .map_err(Error::new)?;
 
                     let mut members = Vec::new();
 
                     for id in ids {
-                        let member = super::auth::get_staff_member(&state.pool, &state.cache_http, &id.user_id)
+                        let member = super::auth::get_staff_member(
+                            &state.pool,
+                            &state.cache_http,
+                            &id.user_id,
+                        )
                         .await
                         .map_err(Error::new)?;
 
@@ -2960,22 +3112,34 @@ async fn query(
                     }
 
                     Ok((StatusCode::OK, Json(members)).into_response())
-                },
-                StaffMemberAction::EditMember { user_id, perm_overrides, no_autosync, unaccounted } => {
+                }
+                StaffMemberAction::EditMember {
+                    user_id,
+                    perm_overrides,
+                    no_autosync,
+                    unaccounted,
+                } => {
                     // Get permissions
-                    let sm = super::auth::get_staff_member(&state.pool, &state.cache_http, &auth_data.user_id)
+                    let sm = super::auth::get_staff_member(
+                        &state.pool,
+                        &state.cache_http,
+                        &auth_data.user_id,
+                    )
                     .await
                     .map_err(Error::new)?;
 
                     // Get permissions of target
-                    let sm_target = super::auth::get_staff_member(&state.pool, &state.cache_http, &user_id)
-                    .await
-                    .map_err(Error::new)?;
+                    let sm_target =
+                        super::auth::get_staff_member(&state.pool, &state.cache_http, &user_id)
+                            .await
+                            .map_err(Error::new)?;
 
-                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_members", "edit")) {
+                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_members", "edit"))
+                    {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            "You do not have permission to edit staff members [staff_members.edit]".to_string(),
+                            "You do not have permission to edit staff members [staff_members.edit]"
+                                .to_string(),
                         )
                             .into_response());
                     }
@@ -3014,10 +3178,17 @@ async fn query(
                         resolved_perms_without_overrides.retain(|p| p != perm);
                     }
 
-                    if let Err(e) = perms::check_patch_changes(&sm.resolved_perms, &sm_target.resolved_perms, &resolved_perms_without_overrides) {
+                    if let Err(e) = perms::check_patch_changes(
+                        &sm.resolved_perms,
+                        &sm_target.resolved_perms,
+                        &resolved_perms_without_overrides,
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            format!("You do not have permission to edit the following perms: {}", e),
+                            format!(
+                                "You do not have permission to edit the following perms: {}",
+                                e
+                            ),
                         )
                             .into_response());
                     }
@@ -3043,20 +3214,20 @@ async fn query(
                     .await
                     .map_err(|e| format!("Error while updating member {}", e))
                     .map_err(Error::new)?;
-                    
+
                     tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        },
+        }
         PanelQuery::UpdateStaffDisciplinaryType {
             login_token,
-            action
+            action,
         } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
                 .await
@@ -3077,7 +3248,7 @@ async fn query(
                     for row in rows {
                         entries.push(StaffDisciplinaryType {
                             id: row.id,
-			                name: row.name,
+                            name: row.name,
                             description: row.description,
                             self_assignable: row.self_assignable,
                             perm_limits: row.perm_limits,
@@ -3092,20 +3263,37 @@ async fn query(
                     }
 
                     Ok((StatusCode::OK, Json(entries)).into_response())
-                },
-                StaffDisciplinaryTypeAction::CreateDisciplinaryType { id, name, description, self_assignable, perm_limits, additory, needs_approval, max_expiry } => {
-                    if !perms::has_perm(&user_perms, &perms::build("staff_disciplinary_types", "create")) {
+                }
+                StaffDisciplinaryTypeAction::CreateDisciplinaryType {
+                    id,
+                    name,
+                    description,
+                    self_assignable,
+                    perm_limits,
+                    additory,
+                    needs_approval,
+                    max_expiry,
+                } => {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("staff_disciplinary_types", "create"),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create staff disciplinary types [staff_disciplinary_types.create]".to_string(),
                         )
                             .into_response());
-                    }        
+                    }
 
-                    if let Err(e) = perms::check_patch_changes(&user_perms, &Vec::new(), &perm_limits) {
+                    if let Err(e) =
+                        perms::check_patch_changes(&user_perms, &Vec::new(), &perm_limits)
+                    {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            format!("You do not have permission to edit the following perms: {}", e),
+                            format!(
+                                "You do not have permission to edit the following perms: {}",
+                                e
+                            ),
                         )
                             .into_response());
                     }
@@ -3127,20 +3315,37 @@ async fn query(
                     .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
-                StaffDisciplinaryTypeAction::EditDisciplinaryType { id, name, description, self_assignable, perm_limits, additory, needs_approval, max_expiry } => {
-                    if !perms::has_perm(&user_perms, &perms::build("staff_disciplinary_types", "update")) {
+                }
+                StaffDisciplinaryTypeAction::EditDisciplinaryType {
+                    id,
+                    name,
+                    description,
+                    self_assignable,
+                    perm_limits,
+                    additory,
+                    needs_approval,
+                    max_expiry,
+                } => {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("staff_disciplinary_types", "update"),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update staff disciplinary types [staff_disciplinary_types.update]".to_string(),
                         )
                             .into_response());
-                    }        
+                    }
 
-                    if let Err(e) = perms::check_patch_changes(&user_perms, &Vec::new(), &perm_limits) {
+                    if let Err(e) =
+                        perms::check_patch_changes(&user_perms, &Vec::new(), &perm_limits)
+                    {
                         return Ok((
                             StatusCode::FORBIDDEN,
-                            format!("You do not have permission to edit the following perms: {}", e),
+                            format!(
+                                "You do not have permission to edit the following perms: {}",
+                                e
+                            ),
                         )
                             .into_response());
                     }
@@ -3181,15 +3386,18 @@ async fn query(
                     .map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
-                },
+                }
                 StaffDisciplinaryTypeAction::DeleteDisciplinaryType { id } => {
-                    if !perms::has_perm(&user_perms, &perms::build("staff_disciplinary_types", "delete")) {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("staff_disciplinary_types", "delete"),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete staff disciplinary types [staff_disciplinary_types.delete]".to_string(),
                         )
                             .into_response());
-                    }        
+                    }
 
                     // Check if entry already exists with same vesion
                     if sqlx::query!(
@@ -3219,7 +3427,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        },
+        }
         PanelQuery::PopplioStaff {
             login_token,
             path,
@@ -3227,8 +3435,8 @@ async fn query(
             body,
         } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
-            .await
-            .map_err(Error::new)?;
+                .await
+                .map_err(Error::new)?;
 
             let client = reqwest::Client::new();
 

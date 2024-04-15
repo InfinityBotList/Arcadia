@@ -143,18 +143,20 @@ fn _create_select_menu(data: &[EmbedHelp], index: usize) -> serenity::builder::C
 
     serenity::builder::CreateSelectMenu::new(
         "hnav:selectmenu",
-        serenity::builder::CreateSelectMenuKind::String { options },
+        serenity::builder::CreateSelectMenuKind::String {
+            options: options.into(),
+        },
     )
     .custom_id("hnav:selectmenu")
 }
 
-fn _create_reply(
-    data: &EmbedHelp,
-    l_data: &[EmbedHelp],
+fn _create_reply<'a>(
+    data: &'a EmbedHelp,
+    l_data: &'a [EmbedHelp],
     index: usize,
     prev_disabled: bool,
     next_disabled: bool,
-) -> CreateReply {
+) -> CreateReply<'a> {
     CreateReply::default()
         .embed(
             CreateEmbed::default()
@@ -212,7 +214,9 @@ async fn _help_send_index(
                         .edit_response(
                             http,
                             _create_reply(data, l_data, index, prev_disabled, next_disabled)
-                                .to_slash_initial_response_edit(poise::serenity_prelude::EditInteractionResponse::new()),
+                                .to_slash_initial_response_edit(
+                                    poise::serenity_prelude::EditInteractionResponse::new(),
+                                ),
                         )
                         .await?;
                 }
@@ -315,21 +319,21 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<(), Error
     if let Some(msg) = msg {
         // Create a collector
         let interaction = msg
-            .await_component_interactions(ctx.serenity_context())
+            .await_component_interactions(ctx.serenity_context().shard.clone())
             .author_id(ctx.author().id)
             .timeout(Duration::from_secs(120));
 
         let mut collect_stream = interaction.stream();
 
         while let Some(item) = collect_stream.next().await {
-            item.defer(&ctx.serenity_context()).await?;
+            item.defer(&ctx.serenity_context().http).await?;
 
             let id = &item.data.custom_id;
 
             info!("Received interaction: {}", id);
 
             if id == "hnav:cancel" {
-                item.delete_response(ctx.serenity_context()).await?;
+                item.delete_response(&ctx.serenity_context().http).await?;
                 return Ok(());
             }
 

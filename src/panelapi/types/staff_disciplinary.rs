@@ -26,8 +26,8 @@ pub enum StaffDisciplinaryTypeAction {
         /// The id of the action
         id: String,
 
-	/// Name of the action
-	name: String,
+        /// Name of the action
+        name: String,
 
         /// Description of the action
         description: String,
@@ -39,15 +39,15 @@ pub enum StaffDisciplinaryTypeAction {
         perm_limits: Vec<String>,
 
         /// Whether the perm_limits of the disciplinary are 'additory'
-        /// 
+        ///
         /// E.g. do the perms get combined with the users perms, or do they replace them
         additory: bool,
 
-	/// Whether or not this type needs approval
-	needs_approval: bool,
+        /// Whether or not this type needs approval
+        needs_approval: bool,
 
-	/// Maximum expiry in seconds of the action/type
-	max_expiry: Option<f64>,
+        /// Maximum expiry in seconds of the action/type
+        max_expiry: Option<f64>,
     },
 
     /// Edit a staff disciplinary types
@@ -68,7 +68,7 @@ pub enum StaffDisciplinaryTypeAction {
         perm_limits: Vec<String>,
 
         /// Whether the perm_limits of the disciplinary are 'additory'
-        /// 
+        ///
         /// E.g. do the perms get combined with the users perms, or do they replace them
         additory: bool,
 
@@ -105,7 +105,7 @@ pub struct StaffDisciplinaryType {
     pub perm_limits: Vec<String>,
 
     /// Whether the perm_limits of the disciplinary are 'additory'
-    /// 
+    ///
     /// E.g. do the perms get combined with the users perms, or do they replace them
     pub additory: bool,
 
@@ -141,5 +141,5 @@ pub struct StaffDisciplinary {
     pub description: String,
 
     /// The type of the disciplinary
-    pub r#type: StaffDisciplinaryType,    
+    pub r#type: StaffDisciplinaryType,
 }

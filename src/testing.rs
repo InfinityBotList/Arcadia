@@ -5,17 +5,11 @@ use futures_util::StreamExt;
 use log::info;
 use poise::serenity_prelude::{CreateActionRow, CreateButton, CreateEmbed, User};
 use poise::{serenity_prelude as serenity, CreateReply};
-use serde::Serialize;
 use serde_json::json;
 use std::time::Duration;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
-
-#[derive(Serialize)]
-struct Reason {
-    reason: String,
-}
 
 /// Gets the invite to a bot
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
@@ -88,7 +82,7 @@ struct InternalQueueBot {
     invite: String,
 }
 
-fn _queue_bot(qb: InternalQueueBot) -> CreateReply {
+fn _queue_bot<'a>(qb: InternalQueueBot) -> CreateReply<'a> {
     let reply = if qb.text_msg {
         let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}\n**Owner:** {owner}\n**Invite:** {invite}", 
             name = qb.queue_name,
@@ -180,7 +174,12 @@ pub async fn queue(
     let owners =
         crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool).await?;
 
-    let bot_partial = crate::impls::dovewing::get_platform_user(&data.pool, DovewingSource::Discord(data.cache_http.clone()), &bot.bot_id).await?;
+    let bot_partial: crate::impls::dovewing::PlatformUser = crate::impls::dovewing::get_platform_user(
+        &data.pool,
+        DovewingSource::Discord(crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context())),
+        &bot.bot_id,
+    )
+    .await?;
 
     let mut msg = ctx
         .send(_queue_bot(InternalQueueBot {
@@ -200,20 +199,20 @@ pub async fn queue(
         .await?;
 
     let mut interaction = msg
-        .await_component_interactions(ctx.serenity_context())
+        .await_component_interactions(ctx.serenity_context().shard.clone())
         .author_id(ctx.author().id)
         .timeout(Duration::from_secs(120))
         .stream();
 
     while let Some(item) = interaction.next().await {
-        item.defer(&ctx.serenity_context()).await?;
+        item.defer(&ctx.serenity_context().http).await?;
 
         let id = &item.data.custom_id;
 
         info!("Received interaction: {}", id);
 
         if id == "q:cancel" {
-            item.delete_response(ctx.serenity_context()).await?;
+            item.delete_response(&ctx.serenity_context().http).await?;
             return Ok(());
         }
 
@@ -237,7 +236,12 @@ pub async fn queue(
             crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool)
                 .await?;
 
-        let bot_partial = crate::impls::dovewing::get_platform_user(&data.pool, DovewingSource::Discord(data.cache_http.clone()), &bot.bot_id).await?;
+        let bot_partial = crate::impls::dovewing::get_platform_user(
+            &data.pool,
+            DovewingSource::Discord(crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context())),
+            &bot.bot_id,
+        )
+        .await?;
 
         msg.edit(
             ctx,
@@ -314,13 +318,15 @@ pub async fn claim(
         let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
         let interaction = msg
-            .await_component_interaction(ctx.serenity_context())
+            .await_component_interaction(ctx.serenity_context().shard.clone())
             .author_id(ctx.author().id)
             .await;
 
         msg.edit(
             ctx.serenity_context(),
-            builder.to_prefix_edit(poise::serenity_prelude::EditMessage::default()).components(vec![]),
+            builder
+                .to_prefix_edit(poise::serenity_prelude::EditMessage::default())
+                .components(vec![]),
         )
         .await?; // remove buttons after button press
 
@@ -362,7 +368,7 @@ pub async fn claim(
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
-        cache_http: data.cache_http.clone(),
+        cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
         user_id: ctx.author().id.to_string(),
         target_type: TargetType::Bot,
     })
@@ -402,7 +408,7 @@ pub async fn unclaim(
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
-        cache_http: data.cache_http.clone(),
+        cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
         user_id: ctx.author().id.to_string(),
         target_type: TargetType::Bot,
     })
@@ -442,7 +448,7 @@ pub async fn approve(
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
-        cache_http: data.cache_http.clone(),
+        cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
         user_id: ctx.author().id.to_string(),
         target_type: TargetType::Bot,
     })
@@ -485,7 +491,7 @@ pub async fn deny(
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
-        cache_http: data.cache_http.clone(),
+        cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
         user_id: ctx.author().id.to_string(),
         target_type: TargetType::Bot,
     })

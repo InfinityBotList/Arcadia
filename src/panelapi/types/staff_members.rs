@@ -1,9 +1,9 @@
+use super::staff_disciplinary::StaffDisciplinary;
+use crate::impls::dovewing::PlatformUser;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use crate::impls::dovewing::PlatformUser;
-use super::staff_disciplinary::StaffDisciplinary;
 
 use super::staff_positions::StaffPosition;
 
@@ -29,7 +29,7 @@ pub enum StaffMemberAction {
     EditMember {
         /// The user id of the member
         user_id: String,
-        
+
         /// The permission overrides of the staff member
         perm_overrides: Vec<String>,
 
@@ -38,7 +38,7 @@ pub enum StaffMemberAction {
 
         /// Whether or not the member is 'known' to be 'unaccounted' for
         unaccounted: bool,
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, TS, Clone)]

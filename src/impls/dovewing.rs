@@ -25,7 +25,7 @@ impl PartialEq for PlatformUser {
 
 #[derive(Clone)]
 pub enum DovewingSource {
-    Discord(CacheHttpImpl)
+    Discord(CacheHttpImpl),
 }
 
 impl DovewingSource {
@@ -45,57 +45,60 @@ impl DovewingSource {
                     return Err("Invalid user id".into());
                 };
 
-                for gid in c.cache.guilds() {
-                    if let Some(member) = c.cache.member(gid, uid) {
-                        // Check precenses for status
-                        let p = {
-                            let guild = c.cache.guild(gid);
-
-                            if let Some(guild) = guild {
-                                let p = guild.presences.get(&uid);
-                                p.cloned()
-                            } else {
-                                None
-                            }
-                        };
-                        
-                        return Ok(Some(PlatformUser {
-                            id: user_id.to_string(),
-                            username: member.user.name.clone().to_string(),
-                            display_name: {
-                                if let Some(ref display_name) = member.user.global_name {
-                                    display_name.clone()
+                for gid in c.cache.guilds() {                    
+                    if let Some(guild) = c.cache.guild(gid) {
+                        if let Some(member) = guild.members.get(&uid) {
+                            // Check precenses for status
+                            let p = {
+                                let guild = c.cache.guild(gid);
+    
+                                if let Some(guild) = guild {
+                                    let p = guild.presences.get(&uid);
+                                    p.cloned()
                                 } else {
-                                    member.user.name.clone()
+                                    None
                                 }
-                            }.to_string(),
-                            bot: member.user.bot,
-                            avatar: member.user.face(),
-                            status: if let Some(p) = p {
-                                match p.status {
-                                    serenity::model::user::OnlineStatus::Online => "online",
-                                    serenity::model::user::OnlineStatus::Idle => "idle",
-                                    serenity::model::user::OnlineStatus::DoNotDisturb => "dnd",
-                                    serenity::model::user::OnlineStatus::Invisible => "invisible",
-                                    serenity::model::user::OnlineStatus::Offline => "offline",
-                                    _ => "offline",
-                                }.to_string()
-                            } else {
-                                "offline".to_string()
-                            },
-                        }));
+                            };
+    
+                            return Ok(Some(PlatformUser {
+                                id: user_id.to_string(),
+                                username: member.user.name.clone().to_string(),
+                                display_name: {
+                                    if let Some(ref display_name) = member.user.global_name {
+                                        display_name.clone()
+                                    } else {
+                                        member.user.name.clone()
+                                    }
+                                }
+                                .to_string(),
+                                bot: member.user.bot(),
+                                avatar: member.user.face(),
+                                status: if let Some(p) = p {
+                                    match p.status {
+                                        serenity::model::user::OnlineStatus::Online => "online",
+                                        serenity::model::user::OnlineStatus::Idle => "idle",
+                                        serenity::model::user::OnlineStatus::DoNotDisturb => "dnd",
+                                        serenity::model::user::OnlineStatus::Invisible => "invisible",
+                                        serenity::model::user::OnlineStatus::Offline => "offline",
+                                        _ => "offline",
+                                    }
+                                    .to_string()
+                                } else {
+                                    "offline".to_string()
+                                },
+                            }));
+                        }
                     }
                 }
-                
+
                 Ok(None)
-            },
+            }
         }
     }
 
     pub async fn http_user(&self, user_id: &str) -> Result<PlatformUser, crate::Error> {
         match self {
             DovewingSource::Discord(c) => {
-
                 let Ok(uid) = user_id.parse::<UserId>() else {
                     return Err("Invalid user id".into());
                 };
@@ -111,8 +114,9 @@ impl DovewingSource {
                         } else {
                             user.name.clone()
                         }
-                    }.to_string(),
-                    bot: user.bot,
+                    }
+                    .to_string(),
+                    bot: user.bot(),
                     avatar: user.face(),
                     status: "offline".to_string(),
                 })
@@ -121,7 +125,11 @@ impl DovewingSource {
     }
 }
 
-pub async fn get_platform_user(pool: &PgPool, src: DovewingSource, user_id: &str) -> Result<PlatformUser, crate::Error> {
+pub async fn get_platform_user(
+    pool: &PgPool,
+    src: DovewingSource,
+    user_id: &str,
+) -> Result<PlatformUser, crate::Error> {
     // First check cache_http
     let cached_uid = src.cached_user(user_id)?;
 

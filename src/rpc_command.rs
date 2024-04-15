@@ -14,7 +14,7 @@ use crate::impls::target_types::TargetType;
 use crate::rpc::core::{FieldType, RPCMethod};
 use crate::{Context, Error};
 
-async fn autocomplete(_ctx: Context<'_>, partial: &str) -> Vec<serenity::all::AutocompleteChoice> {
+async fn autocomplete<'a>(_ctx: Context<'_>, partial: &str) -> Vec<serenity::all::AutocompleteChoice<'a>> {
     let mut choices = Vec::new();
 
     for m in crate::rpc::core::RPCMethod::VARIANTS {
@@ -128,7 +128,7 @@ pub async fn rpc(
         let mut msg = ctx.send(builder.clone()).await?.into_message().await?;
 
         let interaction = msg
-            .await_component_interaction(ctx)
+            .await_component_interaction(ctx.serenity_context().shard.clone())
             .author_id(ctx.author().id)
             .timeout(Duration::from_secs(120))
             .await;
@@ -138,7 +138,9 @@ pub async fn rpc(
 
             msg.edit(
                 ctx.serenity_context(),
-                builder.to_prefix_edit(poise::serenity_prelude::EditMessage::default()).components(vec![]),
+                builder
+                    .to_prefix_edit(poise::serenity_prelude::EditMessage::default())
+                    .components(vec![]),
             )
             .await?; // remove buttons after button press
 
@@ -239,7 +241,9 @@ pub async fn rpc(
         } else {
             msg.edit(
                 ctx.serenity_context(),
-                builder.to_prefix_edit(poise::serenity_prelude::EditMessage::default()).components(vec![]),
+                builder
+                    .to_prefix_edit(poise::serenity_prelude::EditMessage::default())
+                    .components(vec![]),
             )
             .await?; // remove buttons after timeout
             return Ok(());
@@ -251,7 +255,7 @@ pub async fn rpc(
     match rpc_method
         .method
         .handle(crate::rpc::core::RPCHandle {
-            cache_http: data.cache_http.clone(),
+            cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
             pool: data.pool.clone(),
             user_id: ctx.author().id.to_string(),
             target_type: target_type.into(),
@@ -263,7 +267,7 @@ pub async fn rpc(
                 rpc_method
                     .interaction
                     .create_response(
-                        ctx,
+                        &ctx.serenity_context().http,
                         CreateInteractionResponse::Message(
                             CreateInteractionResponseMessage::default().content(format!(
                                 "Successfully performed the operation required: `{}`",
@@ -279,7 +283,7 @@ pub async fn rpc(
                 rpc_method
                     .interaction
                     .create_response(
-                        ctx,
+                        &ctx.serenity_context().http,
                         CreateInteractionResponse::Message(
                             CreateInteractionResponseMessage::default().content(format!(
                                 "Successfully performed the operation required: `{}`\n**{}**",
@@ -295,7 +299,7 @@ pub async fn rpc(
             rpc_method
                 .interaction
                 .create_response(
-                    ctx,
+                    &ctx.serenity_context().http,
                     CreateInteractionResponse::Message(
                         CreateInteractionResponseMessage::default().content(format!(
                             "Error performing `{}`: **{}**",

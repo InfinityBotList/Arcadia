@@ -1,15 +1,15 @@
+use crate::impls::link::Link;
 use std::{
     collections::{HashMap, HashSet},
     fmt::{Display, Formatter},
 };
-use crate::impls::link::Link;
 
+use kittycat::perms;
 use serenity::{
     all::UserId,
     builder::{CreateEmbed, CreateMessage},
 };
 use sqlx::types::Uuid;
-use kittycat::perms;
 
 use crate::config;
 
@@ -43,12 +43,18 @@ struct StaffResync {
     roles: Vec<String>,
 }
 
-async fn modify_corresponding_roles(cache_http: crate::impls::cache::CacheHttpImpl, pos_cache_by_id: HashMap<Uuid, CachedPosition>, user: UserId, remove_ids: HashSet<Uuid>, add_ids: HashSet<Uuid>) -> Result<(), crate::Error> {
+async fn modify_corresponding_roles(
+    cache_http: crate::impls::cache::CacheHttpImpl,
+    pos_cache_by_id: HashMap<Uuid, CachedPosition>,
+    user: UserId,
+    remove_ids: HashSet<Uuid>,
+    add_ids: HashSet<Uuid>,
+) -> Result<(), crate::Error> {
     let mut add = HashMap::new();
     let mut remove = HashMap::new();
     for remove_id in remove_ids {
         let Some(pos) = pos_cache_by_id.get(&remove_id) else {
-            continue
+            continue;
         };
 
         for link in pos.corresponding_roles.iter() {
@@ -58,9 +64,9 @@ async fn modify_corresponding_roles(cache_http: crate::impls::cache::CacheHttpIm
                 _ => {
                     log::warn!("Unknown corresponding server: {}", link.name);
                     continue;
-                },
+                }
             };
-            
+
             let role_id = link.value.parse::<serenity::all::RoleId>()?;
 
             // Check if guild id exists
@@ -71,7 +77,7 @@ async fn modify_corresponding_roles(cache_http: crate::impls::cache::CacheHttpIm
 
     for add_id in add_ids {
         let Some(pos) = pos_cache_by_id.get(&add_id) else {
-            continue
+            continue;
         };
 
         for link in pos.corresponding_roles.iter() {
@@ -80,10 +86,10 @@ async fn modify_corresponding_roles(cache_http: crate::impls::cache::CacheHttpIm
                 "staff" => config::CONFIG.servers.staff,
                 _ => {
                     log::warn!("Unknown corresponding server: {}", link.name);
-                    continue
-                },
+                    continue;
+                }
             };
-            
+
             let role_id = link.value.parse::<serenity::all::RoleId>()?;
 
             // Check if guild id exists
@@ -91,17 +97,19 @@ async fn modify_corresponding_roles(cache_http: crate::impls::cache::CacheHttpIm
             entry.push(role_id);
         }
     }
-    
+
     let http = &cache_http.http;
     for (server_id, roles) in remove {
         for role in roles.iter() {
-            http.remove_member_role(server_id, user, *role, Some("Removing corresponding role")).await?;
+            http.remove_member_role(server_id, user, *role, Some("Removing corresponding role"))
+                .await?;
         }
     }
 
     for (server_id, roles) in add {
         for role in roles.iter() {
-            http.add_member_role(server_id, user, *role, Some("Adding corresponding role")).await?;
+            http.add_member_role(server_id, user, *role, Some("Adding corresponding role"))
+                .await?;
         }
     }
 
@@ -117,7 +125,7 @@ pub async fn staff_resync(
         if let Some(guild) = cache_http.cache.guild(config::CONFIG.servers.staff) {
             let mut staff_resync = Vec::new();
 
-            for (_, member) in guild.members.iter() {
+            for member in guild.members.iter() {
                 let mut roles = Vec::new();
 
                 for role in member.roles.iter() {
@@ -144,10 +152,12 @@ pub async fn staff_resync(
         .map_err(|e| format!("Error creating transaction: {:?}", e))?;
 
     // First get list of positions from db
-    let positions = sqlx::query!("SELECT id, name, role_id, index, perms, corresponding_roles FROM staff_positions")
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(|e| format!("Error while getting staff positions: {:?}", e))?;
+    let positions = sqlx::query!(
+        "SELECT id, name, role_id, index, perms, corresponding_roles FROM staff_positions"
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|e| format!("Error while getting staff positions: {:?}", e))?;
 
     // To speed up operations, make a map of id/role_id and perms
     let mut pos_cache_by_id = HashMap::new();
@@ -175,7 +185,7 @@ pub async fn staff_resync(
                 role_id: pos.role_id.clone(),
                 index: pos.index,
                 perms: pos.perms.clone(),
-                corresponding_roles: serde_json::from_value(pos.corresponding_roles.clone())?
+                corresponding_roles: serde_json::from_value(pos.corresponding_roles.clone())?,
             },
         );
 
@@ -187,7 +197,7 @@ pub async fn staff_resync(
                 role_id: pos.role_id.clone(),
                 index: pos.index,
                 perms: pos.perms.clone(),
-                corresponding_roles: serde_json::from_value(pos.corresponding_roles)?
+                corresponding_roles: serde_json::from_value(pos.corresponding_roles)?,
             },
         );
     }
@@ -220,7 +230,7 @@ pub async fn staff_resync(
 
             // Known unaccounted (but may have been reaccepted)
             if user.unaccounted {
-                staff_unaccounted.insert(user.user_id.clone());                
+                staff_unaccounted.insert(user.user_id.clone());
             }
 
             unaccounted_user_ids.insert(user.user_id.clone());
@@ -338,7 +348,9 @@ pub async fn staff_resync(
                 )
                 .execute(&mut *tx)
                 .await
-                .map_err(|e: sqlx::Error| format!("Error while inserting staff member positions: {:?}", e))?;
+                .map_err(|e: sqlx::Error| {
+                    format!("Error while inserting staff member positions: {:?}", e)
+                })?;
             }
 
             // Get the position with the highest index
@@ -385,9 +397,9 @@ pub async fn staff_resync(
 
             // Add in the override_perms
             if let Some(perms) = staff_override_perms.get(&user.user_id.to_string()) {
-                old_sp.perm_overrides = perms.clone();
-                new_sp.perm_overrides = perms.clone();
-            }            
+                old_sp.perm_overrides.clone_from(perms);
+                new_sp.perm_overrides.clone_from(perms);
+            }
 
             // Concatenate the positions
             let mut user_positions_vec = Vec::new();
@@ -481,7 +493,14 @@ pub async fn staff_resync(
                 .await
                 .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;
 
-                modify_corresponding_roles(cache_http.clone(), pos_cache_by_id.clone(), user.user_id, user_positions_db.clone(), user_positions.clone()).await?;
+            modify_corresponding_roles(
+                cache_http.clone(),
+                pos_cache_by_id.clone(),
+                user.user_id,
+                user_positions_db.clone(),
+                user_positions.clone(),
+            )
+            .await?;
         }
 
         unaccounted_user_ids.remove(&user.user_id.to_string());
@@ -502,11 +521,14 @@ pub async fn staff_resync(
 
         if delete {
             sqlx::query!("DELETE FROM staff_members WHERE user_id = $1", user_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| format!("Error while removing unaccounted staff member: {:?}", e))?;
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("Error while removing unaccounted staff member: {:?}", e))?;
         } else {
-            sqlx::query!("UPDATE staff_members SET positions = '{}', unaccounted = true WHERE user_id = $1", user_id)
+            sqlx::query!(
+                "UPDATE staff_members SET positions = '{}', unaccounted = true WHERE user_id = $1",
+                user_id
+            )
             .execute(&mut *tx)
             .await
             .map_err(|e| format!("Error while updating unaccounted staff member: {:?}", e))?;
@@ -528,8 +550,8 @@ pub async fn staff_resync(
         }
 
         if let Some(perms) = staff_override_perms.get(&user_id) {
-            old_sp.perm_overrides = perms.clone();
-        }            
+            old_sp.perm_overrides.clone_from(perms)
+        }
 
         if delete {
             crate::config::CONFIG.channels.staff_logs.send_message(
@@ -552,11 +574,11 @@ pub async fn staff_resync(
                                         positions.push(format!("- Unknown Position: {}", pos));
                                     }
                                 }
-    
+
                                 if positions.is_empty() {
                                     positions.push("None".to_string());
                                 }
-                                
+                          
                                 positions.join("\n")
                             },
                             false
@@ -588,8 +610,14 @@ pub async fn staff_resync(
             for pos in member_pos_cache.get(&user_id).unwrap() {
                 remove_pos.insert(*pos);
             }
-            modify_corresponding_roles(cache_http.clone(), pos_cache_by_id.clone(), user_id.parse::<serenity::all::UserId>()?, remove_pos, HashSet::new()).await?;
-            
+            modify_corresponding_roles(
+                cache_http.clone(),
+                pos_cache_by_id.clone(),
+                user_id.parse::<serenity::all::UserId>()?,
+                remove_pos,
+                HashSet::new(),
+            )
+            .await?;
         } else {
             crate::config::CONFIG.channels.staff_logs.send_message(
                 &cache_http.http,
@@ -640,14 +668,21 @@ pub async fn staff_resync(
                     ]),
             )
             .await
-            .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;    
-        
+            .map_err(|e| format!("Error while sending staff logs message: {:?}", e))?;
+
             // Remove corresponding roles, all of them
             let mut remove_pos = HashSet::new();
             for pos in member_pos_cache.get(&user_id).unwrap() {
                 remove_pos.insert(*pos);
             }
-            modify_corresponding_roles(cache_http.clone(), pos_cache_by_id.clone(), user_id.parse::<serenity::all::UserId>()?, remove_pos, HashSet::new()).await?;
+            modify_corresponding_roles(
+                cache_http.clone(),
+                pos_cache_by_id.clone(),
+                user_id.parse::<serenity::all::UserId>()?,
+                remove_pos,
+                HashSet::new(),
+            )
+            .await?;
         }
     }
 

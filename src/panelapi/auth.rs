@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
-use crate::{Error, panelapi::types::staff_disciplinary::StaffDisciplinaryType};
-use kittycat::perms::{StaffPermissions, PartialStaffPosition};
-use sqlx::PgPool;
+use crate::{panelapi::types::staff_disciplinary::StaffDisciplinaryType, Error};
+use kittycat::perms::{PartialStaffPosition, StaffPermissions};
 use num_traits::cast::ToPrimitive;
+use sqlx::PgPool;
 
-use super::types::{auth::AuthData, staff_positions::StaffPosition, staff_members::StaffMember, staff_disciplinary::StaffDisciplinary};
+use super::types::{
+    auth::AuthData, staff_disciplinary::StaffDisciplinary, staff_members::StaffMember,
+    staff_positions::StaffPosition,
+};
 
 /// Checks auth, but does not ensure active sessions
 pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
@@ -47,7 +50,7 @@ pub async fn check_auth_insecure(pool: &PgPool, token: &str) -> Result<AuthData,
     )
     .fetch_optional(pool)
     .await?;
-    
+
     let Some(positions) = prec else {
         return Err("identityExpired".into());
     };
@@ -76,7 +79,11 @@ pub async fn check_auth(pool: &PgPool, token: &str) -> Result<AuthData, Error> {
     Ok(rec)
 }
 
-pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool) -> Result<Vec<StaffDisciplinary>, Error> {
+pub async fn get_staff_disciplinaries(
+    pool: &PgPool,
+    user_id: &str,
+    active: bool,
+) -> Result<Vec<StaffDisciplinary>, Error> {
     struct TRecord {
         id: String,
         created_at: chrono::DateTime<chrono::Utc>,
@@ -85,7 +92,7 @@ pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool
         description: String,
         r#type: String,
     }
-    
+
     let rec = {
         if active {
             let r = sqlx::query!(
@@ -139,7 +146,7 @@ pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool
             trec
         }
     };
-    
+
     let mut disc_type_cache: HashMap<String, StaffDisciplinaryType> = HashMap::new();
     let mut disciplinaries = Vec::new();
 
@@ -157,17 +164,17 @@ pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool
 
                 let dt = StaffDisciplinaryType {
                     id: disciplinary.r#type.clone(),
-		    name: disc_type.name,
+                    name: disc_type.name,
                     description: disc_type.description,
                     self_assignable: disc_type.self_assignable,
                     perm_limits: disc_type.perm_limits,
                     additory: disc_type.additory,
-		    needs_approval: disc_type.needs_approval,
-           	    max_expiry: disc_type.max_expiry.map(|d| {
+                    needs_approval: disc_type.needs_approval,
+                    max_expiry: disc_type.max_expiry.map(|d| {
                         // Convert to f64
                         d.to_f64().unwrap_or_default()
                     }),
-		    created_at: disciplinary.created_at,
+                    created_at: disciplinary.created_at,
                 };
 
                 disc_type_cache.insert(disciplinary.r#type.clone(), dt.clone());
@@ -190,7 +197,11 @@ pub async fn get_staff_disciplinaries(pool: &PgPool, user_id: &str, active: bool
 }
 
 /// Returns the data of a staff member
-pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::CacheHttpImpl, user_id: &str) -> Result<StaffMember, Error> {
+pub async fn get_staff_member(
+    pool: &PgPool,
+    cache_http: &crate::impls::cache::CacheHttpImpl,
+    user_id: &str,
+) -> Result<StaffMember, Error> {
     let data = sqlx::query!(
         "SELECT positions, perm_overrides, no_autosync, unaccounted, mfa_verified, created_at FROM staff_members WHERE user_id = $1",
         user_id
@@ -206,11 +217,14 @@ pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::C
 
     let mut positions = Vec::new();
     let sp = StaffPermissions {
-        user_positions: pos.iter().map(|p| PartialStaffPosition {
-            id: p.id.hyphenated().to_string(),
-            index: p.index,
-            perms: p.perms.clone(),
-        }).collect(),
+        user_positions: pos
+            .iter()
+            .map(|p| PartialStaffPosition {
+                id: p.id.hyphenated().to_string(),
+                index: p.index,
+                perms: p.perms.clone(),
+            })
+            .collect(),
         perm_overrides: data.perm_overrides.clone(),
     };
 
@@ -220,7 +234,8 @@ pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::C
             name: position_data.name,
             role_id: position_data.role_id,
             perms: position_data.perms,
-            corresponding_roles: serde_json::from_value(position_data.corresponding_roles.clone()).unwrap_or_default(),
+            corresponding_roles: serde_json::from_value(position_data.corresponding_roles.clone())
+                .unwrap_or_default(),
             icon: position_data.icon,
             index: position_data.index,
             created_at: position_data.created_at,
@@ -246,7 +261,9 @@ pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::C
 
                 if !disc.r#type.additory {
                     // Remove all not in added_ids
-                    virtual_sp.user_positions.retain(|p| added_ids.contains(&p.id));
+                    virtual_sp
+                        .user_positions
+                        .retain(|p| added_ids.contains(&p.id));
                 }
             }
 
@@ -254,18 +271,21 @@ pub async fn get_staff_member(pool: &PgPool, cache_http: &crate::impls::cache::C
         }
     };
 
-    Ok(
-        StaffMember {
-            user_id: user_id.to_string().clone(),
-            user: crate::impls::dovewing::get_platform_user(pool, crate::impls::dovewing::DovewingSource::Discord(cache_http.clone()), user_id).await?,
-            positions,
-            disciplinaries,
-            perm_overrides: data.perm_overrides,
-            resolved_perms,
-            no_autosync: data.no_autosync,
-            unaccounted: data.unaccounted,
-            mfa_verified: data.mfa_verified,
-            created_at: data.created_at,
-        }
-    )    
+    Ok(StaffMember {
+        user_id: user_id.to_string().clone(),
+        user: crate::impls::dovewing::get_platform_user(
+            pool,
+            crate::impls::dovewing::DovewingSource::Discord(cache_http.clone()),
+            user_id,
+        )
+        .await?,
+        positions,
+        disciplinaries,
+        perm_overrides: data.perm_overrides,
+        resolved_perms,
+        no_autosync: data.no_autosync,
+        unaccounted: data.unaccounted,
+        mfa_verified: data.mfa_verified,
+        created_at: data.created_at,
+    })
 }

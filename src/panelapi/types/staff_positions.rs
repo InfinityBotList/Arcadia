@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use std::str::FromStr;
 
 use crate::impls::link::Link;
 
@@ -53,7 +53,7 @@ pub enum StaffPositionAction {
         index: i32,
     },
     /// Edit staff position
-    /// 
+    ///
     /// To edit index, use the `SwapIndex` action
     EditPosition {
         /// The ID of the position
@@ -97,16 +97,7 @@ pub struct StaffPosition {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(
-    Serialize,
-    Deserialize,
-    ToSchema,
-    TS,
-    EnumVariantNames,
-    Display,
-    Clone,
-    PartialEq,
-)]
+#[derive(Serialize, Deserialize, ToSchema, TS, EnumVariantNames, Display, Clone, PartialEq)]
 #[ts(export, export_to = ".generated/CorrespondingServer.ts")]
 pub enum CorrespondingServer {
     Main,

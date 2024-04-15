@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 
 use crate::impls::target_types::TargetType;
 
-use super::{staff_members::StaffMember, auth::AuthData};
+use super::{auth::AuthData, staff_members::StaffMember};
 
 #[derive(Serialize, Deserialize, TS, ToSchema, Clone)]
 #[ts(export, export_to = ".generated/InstanceConfig.ts")]

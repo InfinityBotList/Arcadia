@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use serenity::builder::{CreateMessage, CreateEmbed};
 use serenity::all::Color;
+use serenity::builder::{CreateEmbed, CreateMessage};
 
 use crate::config;
 
@@ -49,42 +49,60 @@ pub async fn bans_sync(
 
     for user_id in to_modify {
         let is_banned = user_banned_map.contains(user_id);
-        let res = sqlx::query!("UPDATE users SET banned = $1 WHERE user_id = $2", is_banned, user_id)
-            .execute(pool)
-            .await
-            .map_err(|e| format!("Error while updating user {} in database: {:?}", user_id, e))?;
+        let res = sqlx::query!(
+            "UPDATE users SET banned = $1 WHERE user_id = $2",
+            is_banned,
+            user_id
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| format!("Error while updating user {} in database: {:?}", user_id, e))?;
 
         if res.rows_affected() == 0 {
-            sqlx::query!("INSERT INTO users (user_id, banned, api_token) VALUES ($1, $2, $3)", user_id, is_banned, crate::impls::crypto::gen_random(512))
-                .execute(pool)
-                .await
-                .map_err(|e| format!("Error while inserting user {} into database: {:?}", user_id, e))?;
+            sqlx::query!(
+                "INSERT INTO users (user_id, banned, api_token) VALUES ($1, $2, $3)",
+                user_id,
+                is_banned,
+                crate::impls::crypto::gen_random(512)
+            )
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                format!(
+                    "Error while inserting user {} into database: {:?}",
+                    user_id, e
+                )
+            })?;
         }
 
         if is_banned {
-            crate::config::CONFIG.channels.mod_logs.send_message(
-                &cache_http.http,
+            crate::config::CONFIG
+                .channels
+                .mod_logs
+                .send_message(
+                    &cache_http.http,
                     CreateMessage::new()
-                    .content(&ping_users)
-                    .embeds(vec![
-                        CreateEmbed::new()
-                        .title("User Ban")
-                        .description(format!("User {} was banned", user_id))
-                        .color(Color::RED)
-                    ])
-            ).await?;
+                        .content(&ping_users)
+                        .embeds(vec![CreateEmbed::new()
+                            .title("User Ban")
+                            .description(format!("User {} was banned", user_id))
+                            .color(Color::RED)]),
+                )
+                .await?;
         } else {
-            crate::config::CONFIG.channels.mod_logs.send_message(
-                &cache_http.http,
+            crate::config::CONFIG
+                .channels
+                .mod_logs
+                .send_message(
+                    &cache_http.http,
                     CreateMessage::new()
-                    .content(&ping_users)
-                    .embeds(vec![
-                        CreateEmbed::new()
-                        .title("User Unban")
-                        .description(format!("User {} was unbanned", user_id))
-                        .color(Color::BLURPLE)
-                    ])
-            ).await?;
+                        .content(&ping_users)
+                        .embeds(vec![CreateEmbed::new()
+                            .title("User Unban")
+                            .description(format!("User {} was unbanned", user_id))
+                            .color(Color::BLURPLE)]),
+                )
+                .await?;
         }
     }
 

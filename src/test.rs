@@ -10,19 +10,24 @@ pub async fn modaltest(ctx: Context<'_>) -> Result<(), Error> {
 
     match ctx {
         poise::structs::Context::Application(a) => {
-            if let Some(resp) = a.interaction.quick_modal(ctx.serenity_context(), qm).await? {
+            if let Some(resp) = a
+                .interaction
+                .quick_modal(ctx.serenity_context(), qm)
+                .await?
+            {
                 let inputs = resp.inputs;
                 let h = &inputs[0];
 
-                a.interaction.create_response(
-                    ctx,
-                    CreateInteractionResponse::Message(
-                        CreateInteractionResponseMessage::default().content(h.to_string()),
-                    ),
-                )
-                .await?;
+                a.interaction
+                    .create_response(
+                        &ctx.serenity_context().http,
+                        CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::default().content(h.to_string()),
+                        ),
+                    )
+                    .await?;
             }
-        },
+        }
         _ => {
             return Err("Not an application context".into());
         }

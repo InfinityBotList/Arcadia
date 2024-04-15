@@ -18,7 +18,7 @@ use utoipa::ToSchema;
 #[ts(export, export_to = ".generated/BlogAction.ts")]
 pub enum BlogAction {
     /// List blog entries
-    /// 
+    ///
     /// Note that all staff members can list all blog entries
     #[default]
     ListEntries,

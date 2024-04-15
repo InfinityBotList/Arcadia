@@ -2,9 +2,9 @@ use log::{error, info};
 use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp};
 use sqlx::postgres::PgPoolOptions;
 
+use std::sync::Arc;
 use crate::impls::cache::CacheHttpImpl;
 
-mod admin;
 mod botowners;
 mod checks;
 mod config;
@@ -27,7 +27,6 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pool: sqlx::PgPool,
-    cache_http: CacheHttpImpl,
 }
 
 /// Displays your or another user's account creation date
@@ -53,7 +52,6 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     // They are many errors that can occur, so we only handle the ones we want to customize
     // and forward the rest to the default handler
     match error {
-        poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
         poise::FrameworkError::Command { error, ctx, .. } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
             let err = ctx
@@ -103,19 +101,19 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     }
 }
 
-async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error> {
+async fn event_listener<'a>(
+    ctx: poise::FrameworkContext<'a, Data, Error>,
+    event: &FullEvent,
+) -> Result<(), Error> {
+    let user_data = ctx.serenity_context.data::<Data>();
     match event {
-        FullEvent::InteractionCreate {
-            interaction,
-        } => {
+        FullEvent::InteractionCreate { interaction } => {
             info!("Interaction received: {:?}", interaction.id());
         }
         FullEvent::CacheReady { guilds } => {
             info!("Cache ready with {} guilds", guilds.len());
         }
-        FullEvent::Ready {
-            data_about_bot,
-        } => {
+        FullEvent::Ready { data_about_bot } => {
             info!(
                 "{} is ready! Doing some minor DB fixes",
                 data_about_bot.user.name
@@ -128,38 +126,32 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
             .await?;
 
             // Start RPC
+            let cache_http_papi = CacheHttpImpl {
+                http: ctx.serenity_context.http.clone(),
+                cache: ctx.serenity_context.cache.clone(),
+            };
+
             tokio::task::spawn(panelapi::server::init_panelapi(
                 user_data.pool.clone(),
-                user_data.cache_http.clone(),
+                cache_http_papi,
             ));
+
+            let cache_http_taskcat = CacheHttpImpl {
+                http: ctx.serenity_context.http.clone(),
+                cache: ctx.serenity_context.cache.clone(),
+            };
 
             tokio::task::spawn(crate::tasks::taskcat::start_all_tasks(
                 user_data.pool.clone(),
-                user_data.cache_http.clone(),
+                cache_http_taskcat,
             ));
         }
         FullEvent::GuildMemberAddition { new_member } => {
-            if new_member.guild_id == config::CONFIG.servers.main && new_member.user.bot {
-                // Check if new member is in testing server
-                let member_exists_in_test_server = user_data
-                    .cache_http
-                    .cache
-                    .member(config::CONFIG.servers.testing, new_member.user.id)
-                    .is_some();
-
-                if member_exists_in_test_server {
-                    // If so, move them to main server
-                    config::CONFIG
-                        .servers
-                        .testing
-                        .kick_with_reason(&user_data.cache_http.http, new_member.user.id, "Added to main server")
-                        .await?;
-                }
-
+            if new_member.guild_id == config::CONFIG.servers.main && new_member.user.bot() {
                 // Send member join message
                 config::CONFIG.channels.system
                 .send_message(
-                    &user_data.cache_http.http,
+                    &ctx.serenity_context,
                     CreateMessage::new()
                     .embed(
                         CreateEmbed::default()
@@ -179,21 +171,22 @@ async fn event_listener(event: &FullEvent, user_data: &Data) -> Result<(), Error
                 .await?;
 
                 // Give bot role
-                user_data.cache_http.http
-                    .add_member_role(
-                        config::CONFIG.servers.main,
-                        new_member.user.id,
-                        config::CONFIG.roles.bot_role,
-                        Some("Bot added to server"),
-                    )
-                    .await?;
+                ctx.serenity_context
+                .http
+                .add_member_role(
+                    config::CONFIG.servers.main,
+                    new_member.user.id,
+                    config::CONFIG.roles.bot_role,
+                    Some("Bot added to server"),
+                )
+                .await?;
             }
 
-            if new_member.guild_id == config::CONFIG.servers.main && !new_member.user.bot {
+            if new_member.guild_id == config::CONFIG.servers.main && !new_member.user.bot() {
                 // Send member join message
                 config::CONFIG.channels.system
                 .send_message(
-                    &user_data.cache_http,
+                    &ctx.serenity_context,
                     CreateMessage::new()
                     .embed(
                         CreateEmbed::default()
@@ -229,13 +222,22 @@ async fn main() {
 
     info!("Proxy URL: {}", config::CONFIG.proxy_url);
 
-    let http = serenity::HttpBuilder::new(&config::CONFIG.token)
+    let http = Arc::new(serenity::HttpBuilder::new(&config::CONFIG.token)
         .proxy(config::CONFIG.proxy_url.clone())
         .ratelimiter_disabled(true)
-        .build();
+        .build()
+    );
 
     let client_builder =
         serenity::ClientBuilder::new_with_http(http, serenity::GatewayIntents::all());
+
+    let data = Data {
+        pool: PgPoolOptions::new()
+            .max_connections(MAX_CONNECTIONS)
+            .connect(&config::CONFIG.database_url)
+            .await
+            .expect("Could not initialize connection"),
+    };
 
     let framework = poise::Framework::new(
         poise::FrameworkOptions {
@@ -244,7 +246,7 @@ async fn main() {
                 prefix: Some("ibb!".into()),
                 ..poise::PrefixFrameworkOptions::default()
             },
-            event_handler: |_ctx, event, _fc, user_data| Box::pin(event_listener(event, user_data)),
+            event_handler: |ctx, event| Box::pin(event_listener(ctx, event)),
             commands: vec![
                 age(),
                 register(),
@@ -260,10 +262,6 @@ async fn main() {
                 testing::approve(),
                 testing::deny(),
                 testing::staffguide(),
-                admin::protectdeploy(),
-                admin::unprotectdeploy(),
-                admin::updprod(),
-                admin::uninvitedbots(),
                 stats::stats(),
                 botowners::getbotroles(),
                 rpc_command::rpc(),
@@ -295,25 +293,11 @@ async fn main() {
             on_error: |error| Box::pin(on_error(error)),
             ..Default::default()
         },
-        move |ctx, _ready, _framework| {
-            Box::pin(async move {
-                Ok(Data {
-                    cache_http: CacheHttpImpl {
-                        cache: ctx.cache.clone(),
-                        http: ctx.http.clone(),
-                    },
-                    pool: PgPoolOptions::new()
-                        .max_connections(MAX_CONNECTIONS)
-                        .connect(&config::CONFIG.database_url)
-                        .await
-                        .expect("Could not initialize connection"),
-                })
-            })
-        },
     );
 
     let mut client = client_builder
         .framework(framework)
+        .data(Arc::new(data))
         .await
         .expect("Error creating client");
 

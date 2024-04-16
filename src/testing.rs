@@ -457,7 +457,7 @@ pub async fn approve(
     let content = res.content().ok_or("RPC did not return as expected???")?;
 
     ctx.say(
-        format!("Approved bot\nNext invite it to the main server and it should be removed from this server\n{}", content)
+        format!("Approved bot!\nPlease invite the bot, to the Caching Server provided down below!\n{}", content)
     ).await?;
 
     Ok(())

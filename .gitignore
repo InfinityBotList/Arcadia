@@ -8,3 +8,4 @@ api/api.new
 **/config.yaml
 **/config.yaml.sample
 .generated
+bot

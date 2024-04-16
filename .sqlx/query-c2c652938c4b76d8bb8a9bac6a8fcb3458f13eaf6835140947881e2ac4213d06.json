@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bot_whitelist SET reason = $1 WHERE bot_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c2c652938c4b76d8bb8a9bac6a8fcb3458f13eaf6835140947881e2ac4213d06"
+}

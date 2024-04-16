@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::impls;
+use crate::impls::{self, link::Link};
 use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::panelapi::types::staff_disciplinary::StaffDisciplinaryType;
 use crate::panelapi::types::webcore::{Hello, StartAuth};
@@ -92,12 +92,15 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
             TargetType,
             CdnAssetAction,
             PartnerAction,
+            CreatePartner,
+            AuthorizeAction,
             ChangelogAction,
             BlogAction,
             StaffPositionAction,
             StaffMemberAction,
             StaffDisciplinaryTypeAction,
             VoteCreditTierAction,
+            Link,
         ))
     )]
     struct ApiDoc;

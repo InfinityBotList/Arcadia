@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bots SET premium = false WHERE bot_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1b005e4796556afef4ad908fd20f79813819de5b16942835599e5b800fbc750a"
+}

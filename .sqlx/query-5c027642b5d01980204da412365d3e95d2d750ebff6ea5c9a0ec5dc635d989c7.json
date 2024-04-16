@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE staffpanel__authchain SET state = 'active' WHERE token = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5c027642b5d01980204da412365d3e95d2d750ebff6ea5c9a0ec5dc635d989c7"
+}

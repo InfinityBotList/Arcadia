@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT perms, index, role_id FROM staff_positions WHERE id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "perms",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 1,
+        "name": "index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "role_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "ee08365afbb4543b884e3031db7479415a30598598312c819982d5627485f841"
+}

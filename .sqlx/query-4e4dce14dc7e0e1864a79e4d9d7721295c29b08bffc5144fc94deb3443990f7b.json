@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bots SET type = 'certified' WHERE bot_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4e4dce14dc7e0e1864a79e4d9d7721295c29b08bffc5144fc94deb3443990f7b"
+}

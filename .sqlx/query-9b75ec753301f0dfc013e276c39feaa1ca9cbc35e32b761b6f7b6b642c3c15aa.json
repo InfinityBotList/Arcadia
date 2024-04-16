@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE teams SET votes = 0",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "9b75ec753301f0dfc013e276c39feaa1ca9cbc35e32b761b6f7b6b642c3c15aa"
+}

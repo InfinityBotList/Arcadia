@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "LOCK TABLE entity_votes IN EXCLUSIVE MODE",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "e8bc4ab35fb7419b62570ca5aaa1898c82026ddaf9e4f9c9b1925b8102023285"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id, mentionable FROM team_members WHERE team_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "mentionable",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "88f7bb8b609a56f9fcbf9b5930e9097c06ac1efc44432aa60062838db232fb25"
+}

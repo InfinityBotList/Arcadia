@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT bot_id, claimed_by, last_claimed FROM bots WHERE claimed_by IS NOT NULL AND NOW() - last_claimed > INTERVAL '1 hour' FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bot_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "claimed_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_claimed",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "d84bcde631eeef58fd0c7c06945a6aa42b70f493cac4ddb03c5ac00b3fcae64b"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bots SET last_claimed = NOW(), claimed_by = $1 WHERE bot_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1c655334dae8334788e81b6bec44a0935b6f6e4d6459cc227fa161a9d6a0c8d7"
+}

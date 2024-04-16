@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO staff_members (user_id, positions) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "45296c6de55223e88f5b0ac8bdf3f622e833642d5828753fe2202e5f75615d71"
+}

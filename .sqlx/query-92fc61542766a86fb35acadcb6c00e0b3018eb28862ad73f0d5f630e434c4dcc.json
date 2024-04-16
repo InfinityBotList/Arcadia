@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT name, description, self_assignable, perm_limits, additory, needs_approval,  EXTRACT(epoch FROM max_expiry) AS max_expiry FROM staff_disciplinary_types WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "self_assignable",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "perm_limits",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "additory",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "needs_approval",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "max_expiry",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "92fc61542766a86fb35acadcb6c00e0b3018eb28862ad73f0d5f630e434c4dcc"
+}

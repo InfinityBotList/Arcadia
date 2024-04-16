@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bots SET votes = 0 WHERE bot_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e1dc3bfa288bef1e46b9958067f9fe01feeb13c55d860c418785dfb5e231c2f6"
+}

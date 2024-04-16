@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT positions, perm_overrides, no_autosync, unaccounted, mfa_verified, created_at FROM staff_members WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "positions",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 1,
+        "name": "perm_overrides",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 2,
+        "name": "no_autosync",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "unaccounted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "mfa_verified",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c0b3bae2d5669ed4666cf9cc797407ae4700fdb56d96cd31cd61314248384943"
+}

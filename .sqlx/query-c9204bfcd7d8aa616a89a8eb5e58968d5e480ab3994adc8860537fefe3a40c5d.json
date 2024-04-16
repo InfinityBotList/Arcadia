@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE servers SET votes = 0",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "c9204bfcd7d8aa616a89a8eb5e58968d5e480ab3994adc8860537fefe3a40c5d"
+}

@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, name, role_id, index, perms, corresponding_roles FROM staff_positions",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "role_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "perms",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 5,
+        "name": "corresponding_roles",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bd19d7412f48bb8bd5adc7466d553cdfe8b16519c9fd11a9ab96defff325c8b3"
+}

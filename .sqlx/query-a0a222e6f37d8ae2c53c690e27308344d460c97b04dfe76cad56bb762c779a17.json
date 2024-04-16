@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT positions, perm_overrides FROM staff_members WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "positions",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 1,
+        "name": "perm_overrides",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "a0a222e6f37d8ae2c53c690e27308344d460c97b04dfe76cad56bb762c779a17"
+}

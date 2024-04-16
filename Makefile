@@ -1,6 +1,7 @@
 all:
 	cargo build --release
 restartwebserver:
+	cargo sqlx prepare
 	make all
 	make restartwebserver_nobuild
 

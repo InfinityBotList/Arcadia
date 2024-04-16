@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bots SET type = 'approved', claimed_by = NULL WHERE bot_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b7544f56b3ea870a62c0b249a69a3aee6b34c21db6ec7fb7078f0ffdc9d5011c"
+}

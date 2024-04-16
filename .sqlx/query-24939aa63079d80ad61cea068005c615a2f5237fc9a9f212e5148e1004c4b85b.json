@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT bot_id, start_premium_period, premium_period_length, type FROM bots \n\t\tWHERE (\n\t\t\tpremium = true\n\t\t\tAND (\n\t\t\t\t(type != 'approved' AND type != 'certified')\n\t\t\t\tOR (start_premium_period + premium_period_length) < NOW()\n\t\t\t)\n\t\t)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bot_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "start_premium_period",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "premium_period_length",
+        "type_info": "Interval"
+      },
+      {
+        "ordinal": 3,
+        "name": "type",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "24939aa63079d80ad61cea068005c615a2f5237fc9a9f212e5148e1004c4b85b"
+}

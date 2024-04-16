@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bots SET type = 'denied', claimed_by = NULL WHERE bot_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "72f2118fa0e18363998218890bd70b9723f690a9e7bdc28ba5b75bb1fa7b9e9c"
+}

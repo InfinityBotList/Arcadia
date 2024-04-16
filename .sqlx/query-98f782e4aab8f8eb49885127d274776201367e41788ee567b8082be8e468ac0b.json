@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id, positions, perm_overrides, no_autosync, unaccounted FROM staff_members FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "positions",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 2,
+        "name": "perm_overrides",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 3,
+        "name": "no_autosync",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "unaccounted",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "98f782e4aab8f8eb49885127d274776201367e41788ee567b8082be8e468ac0b"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE staff_members SET positions = array_remove(positions, $1) WHERE user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3067052e12100e8e7098454a7ebb995d6043c9980e2db99cde7d2e08a3e260ed"
+}

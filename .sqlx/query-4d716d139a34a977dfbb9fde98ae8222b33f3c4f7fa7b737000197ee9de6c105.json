@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT mfa_secret, mfa_verified FROM staff_members WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mfa_secret",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "mfa_verified",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "4d716d139a34a977dfbb9fde98ae8222b33f3c4f7fa7b737000197ee9de6c105"
+}

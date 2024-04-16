@@ -1,0 +1,101 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        SELECT bot_id, client_id, type, votes, shards, library, invite_clicks, clicks,\n                        servers, last_claimed, claimed_by, approval_note, short, invite FROM bots \n                        INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id\n                        WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at\n                        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bot_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "client_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "votes",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "shards",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "library",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "invite_clicks",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "clicks",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "servers",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_claimed",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "claimed_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "approval_note",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "short",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "invite",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b6fd85b458e49c77c7387264133d14db771e6d58014f5f49fac1d5a6b82d6070"
+}

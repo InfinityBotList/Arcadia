@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM staff_positions WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b9ebda0c79103a9f3479c3f0e6c71f863bd3ac1f5b4ddfcd17a5c8801b8ce542"
+}

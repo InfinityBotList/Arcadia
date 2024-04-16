@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "CREATE TABLE IF NOT EXISTS staffpanel__authchain (\n            itag UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4(),\n            user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,\n            token TEXT NOT NULL,\n            popplio_token TEXT NOT NULL, -- The popplio_token is sent to Popplio etc. to validate such requests. It is not visible or disclosed to the client\n            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),\n            state TEXT NOT NULL DEFAULT 'pending'\n        )",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "b654963542a8cd2812cc265727829f00567bca84285d780c61ca23fea14a061c"
+}

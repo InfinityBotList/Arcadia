@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET bug_hunters = false",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "57eec26930c4eaa3c15891017f9d9933f4c1cb46b0f44ac6cc653459425710a8"
+}

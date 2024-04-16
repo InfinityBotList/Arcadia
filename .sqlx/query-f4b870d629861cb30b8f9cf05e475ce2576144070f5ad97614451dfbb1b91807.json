@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, created_at, EXTRACT(epoch FROM expiry) as expiry, title, description, type FROM staff_disciplinary WHERE user_id = $1 AND NOW() - created_at < expiry",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "expiry",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "type",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f4b870d629861cb30b8f9cf05e475ce2576144070f5ad97614451dfbb1b91807"
+}

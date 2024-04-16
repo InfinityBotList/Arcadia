@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT type, claimed_by, last_claimed FROM bots WHERE bot_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "claimed_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_claimed",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "6c9f83468b943077785e4df3ca03aef83297c522ae2efe4bf56c4be0db42cc5e"
+}

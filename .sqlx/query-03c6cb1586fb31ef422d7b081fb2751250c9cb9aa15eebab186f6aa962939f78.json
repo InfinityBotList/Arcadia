@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE staff_members SET mfa_verified = TRUE WHERE user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "03c6cb1586fb31ef422d7b081fb2751250c9cb9aa15eebab186f6aa962939f78"
+}

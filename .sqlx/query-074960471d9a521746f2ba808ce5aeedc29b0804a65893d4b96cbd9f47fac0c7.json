@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select table_name from information_schema.columns where column_name = 'target_id'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "table_name",
+        "type_info": "Name"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "074960471d9a521746f2ba808ce5aeedc29b0804a65893d4b96cbd9f47fac0c7"
+}

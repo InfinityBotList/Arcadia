@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE blogs SET slug = $2, title = $3, description = $4, content = $5, tags = $6, draft = $7 WHERE itag = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "TextArray",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5c7c5768c586aa8463cb41b8fd3c91ae812b1b2ad63822d745318b6f3c4642a5"
+}

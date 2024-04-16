@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE staff_disciplinary_types SET name = $1, description = $2, self_assignable = $3, perm_limits = $4, additory = $5, needs_approval = $6, max_expiry = make_interval(secs => $7) WHERE id = $8",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Bool",
+        "TextArray",
+        "Bool",
+        "Bool",
+        "Float8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b313d72b599ea83e3efe9ba3b21b5ff193eb02ddb5f8efde447b63055195d483"
+}

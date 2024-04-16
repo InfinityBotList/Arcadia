@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bots SET claimed_by = NULL, type = 'pending' WHERE bot_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d5d472d9091247efccdf87499a67ed27512b462b3e71c39c4f81f6ccb03e4bdf"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO automated_vote_resets (created_at) VALUES (NOW())",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "e1b2166a0bb258f040cfc1fad4522ba2127efbde3e04e4829b1ef4ef3306f94e"
+}

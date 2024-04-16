@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, name, description, self_assignable, perm_limits, additory, needs_approval, EXTRACT(epoch FROM max_expiry) AS max_expiry, created_at FROM staff_disciplinary_types ORDER BY created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "self_assignable",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "perm_limits",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 5,
+        "name": "additory",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "needs_approval",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "max_expiry",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "ab3906663053af459f700e216cf36ec934c2f5b1a1f3f22ea3efe22103109b74"
+}

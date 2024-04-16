@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE users SET bug_hunters = true WHERE user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "83b773e21e77de19ee45656b6dd59d7bca293d169ab2bdab81932bc10c04b517"
+}

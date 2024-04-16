@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE team_members SET flags = $1, data_holder = $2 WHERE team_id = $3 AND user_id = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Bool",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fec34da29d8d9403715ccb697a84b84cf997b5cf8b90004e189ffcc1bebc7701"
+}

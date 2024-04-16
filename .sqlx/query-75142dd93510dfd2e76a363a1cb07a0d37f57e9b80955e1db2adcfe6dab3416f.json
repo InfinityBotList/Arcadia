@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) FROM staff_onboardings WHERE user_id = $1 AND void = false AND state = 'completed' AND NOW() - created_at < INTERVAL '1 month'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "75142dd93510dfd2e76a363a1cb07a0d37f57e9b80955e1db2adcfe6dab3416f"
+}

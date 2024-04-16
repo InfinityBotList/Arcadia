@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT claimed_by, bot_id, approval_note, short, invite FROM bots WHERE type = 'pending' ORDER BY created_at ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "claimed_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "bot_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "approval_note",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "short",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "invite",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8ba7de0cc2a59a9c0ae680b482c51d4665d0467bba86224f754ed1c0b3ae5744"
+}

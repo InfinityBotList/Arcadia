@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE staff_positions SET index = index - 1 WHERE index > $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bf15bc4e4376c96fb679ce50e9e0b06e5c98feeb3539d527d528ff78226f7ba6"
+}

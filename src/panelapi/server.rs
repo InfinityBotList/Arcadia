@@ -85,7 +85,20 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
     #[derive(OpenApi)]
     #[openapi(
         paths(query),
-        components(schemas(PanelQuery, InstanceConfig, RPCMethod, TargetType))
+        components(schemas(
+            PanelQuery, 
+            InstanceConfig, 
+            RPCMethod, 
+            TargetType,
+            CdnAssetAction,
+            PartnerAction,
+            ChangelogAction,
+            BlogAction,
+            StaffPositionAction,
+            StaffMemberAction,
+            StaffDisciplinaryTypeAction,
+            VoteCreditTierAction,
+        ))
     )]
     struct ApiDoc;
 

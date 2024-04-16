@@ -18,6 +18,7 @@ use crate::panelapi::types::{
     rpc::RPCWebAction,
     staff_disciplinary::StaffDisciplinaryTypeAction,
     staff_positions::StaffPosition,
+    vote_credit_tiers::{VoteCreditTier, VoteCreditTierAction},
     webcore::{CoreConstants, InstanceConfig, PanelServers},
 };
 use crate::rpc::core::{RPCHandle, RPCMethod};
@@ -307,6 +308,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: StaffDisciplinaryTypeAction,
+    },
+    /// Fetch and update/modify vote credit tiers
+    UpdateVoteCreditTiers {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: VoteCreditTierAction,
     },
     /// Create a request to a/an Popplio staff endpoint
     PopplioStaff {
@@ -3303,12 +3311,12 @@ async fn query(
                         "INSERT INTO staff_disciplinary_types (id, name, description, self_assignable, perm_limits, additory, needs_approval, max_expiry) VALUES ($1, $2, $3, $4, $5, $6, $7, make_interval(secs => $8))",
                         id,
                         name,
-			description,
+			            description,
                         self_assignable,
                         &perm_limits,
                         additory,
-			needs_approval,
-			max_expiry,
+			            needs_approval,
+			            max_expiry,
                     )
                     .execute(&state.pool)
                     .await
@@ -3377,9 +3385,9 @@ async fn query(
                         self_assignable,
                         &perm_limits,
                         additory,
-			needs_approval,
-			max_expiry,
-			id,
+			            needs_approval,
+			            max_expiry,
+			            id,
                     )
                     .execute(&state.pool)
                     .await
@@ -3427,7 +3435,194 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        }
+        },
+        PanelQuery::UpdateVoteCreditTiers { login_token, action } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
+                .await
+                .map_err(Error::new)?
+                .resolve();
+
+            match action {
+                VoteCreditTierAction::ListTiers => {
+                    let rows = sqlx::query!(
+                        "SELECT id, position, cents, votes, created_at FROM vote_credit_tiers ORDER BY created_at DESC"
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut entries = Vec::new();
+
+                    for row in rows {
+                        entries.push(VoteCreditTier {
+                            id: row.id,
+                            position: row.position,
+                            cents: row.cents,
+                            votes: row.votes,
+                            created_at: row.created_at,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(entries)).into_response())
+                }
+                VoteCreditTierAction::CreateTier {
+                    id,
+                    position,
+                    cents,
+                    votes,
+                } => {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("vote_credit_tiers", "create"),
+                    ) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create vote credit tiers [vote_credit_tiers.create]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if cents < 0.0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Cents cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if votes < 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Votes cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Insert entry
+                    sqlx::query!(
+                        "INSERT INTO vote_credit_tiers (id, position, cents, votes) VALUES ($1, $2, $3, $4)",
+                        id,
+                        position,
+                        cents,
+                        votes,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                VoteCreditTierAction::EditTier {
+                    id,
+                    position,
+                    cents,
+                    votes,
+                } => {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("vote_credit_tiers", "update"),
+                    ) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update vote credit tiers [vote_credit_tiers.update]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM vote_credit_tiers WHERE id = $1",
+                        id
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if cents < 0.0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Cents cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if votes < 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Votes cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Update entry
+                    sqlx::query!(
+                        "UPDATE vote_credit_tiers SET position = $1, cents = $2, votes = $3 WHERE id = $4",
+                        position,
+                        cents,
+                        votes,
+                        id,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                VoteCreditTierAction::DeleteTier { id } => {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("vote_credit_tiers", "delete"),
+                    ) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete vote credit tiers [vote_credit_tiers.delete]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM vote_credit_tiers WHERE id = $1",
+                        id
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete entry
+                    sqlx::query!("DELETE FROM vote_credit_tiers WHERE id = $1", id)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+            }
+        },
         PanelQuery::PopplioStaff {
             login_token,
             path,

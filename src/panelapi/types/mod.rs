@@ -8,4 +8,5 @@ pub mod rpc;
 pub mod staff_disciplinary;
 pub mod staff_members;
 pub mod staff_positions;
+pub mod vote_credit_tiers;
 pub mod webcore;

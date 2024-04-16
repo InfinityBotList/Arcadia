@@ -457,24 +457,8 @@ pub async fn approve(
     let content = res.content().ok_or("RPC did not return as expected???")?;
 
     ctx.say(
-        format!("Approved bot!\nPlease invite the bot, to the Caching Server provided down below!\n{}", content)
+        format!("Approved bot!\nPlease invite the bot to the caching server provided down below!\n{}", content)
     ).await?;
-
-    // Check if bot is still in testing server.
-    let member_exists_in_test_server = user_data
-        .cache_http
-        .cache
-        .member(config::CONFIG.servers.testing, bot.user_id.to_string())
-        .is_some();
-
-    if member_exists_in_test_server {
-        // If so, kick them from test server as no longer needed.
-        config::CONFIG
-            .servers
-            .testing
-            .kick_with_reason(&user_data.cache_http.http, new_member.user.id, "Approved!")
-            .await?;
-    }
 
     Ok(())
 }
@@ -514,22 +498,6 @@ pub async fn deny(
     .await?;
 
     ctx.say("Okay! The bot has been denied.").await?;
-
-    // Check if bot is still in testing server.
-    let member_exists_in_test_server = user_data
-        .cache_http
-        .cache
-        .member(config::CONFIG.servers.testing, bot.user_id.to_string())
-        .is_some();
-
-    if member_exists_in_test_server {
-        // If so, kick them from test server as no longer needed.
-        config::CONFIG
-            .servers
-            .testing
-            .kick_with_reason(&user_data.cache_http.http, new_member.user.id, "Denied!")
-            .await?;
-    }
 
     Ok(())
 }

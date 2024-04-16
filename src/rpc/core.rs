@@ -532,18 +532,12 @@ impl RPCMethod {
                 }
 
                 // Find bot in testing server
-                {
-                    let guild = state
-                        .cache_http
-                        .cache
-                        .guild(crate::config::CONFIG.servers.testing)
-                        .ok_or("Failed to find guild")?;
-
-                    let member = guild.members.contains_key(&target_id.parse()?);
-
-                    if !member {
-                        return Err("Entity is not in testing server. Please ensure this bot is in the testing server when approving. It will then be kicked when added to a cache server".into());
-                    }
+                if !member_on_guild(
+                    &state.cache_http,
+                    crate::config::CONFIG.servers.testing,
+                    target_id.parse()?,
+                ) {
+                    return Err("Entity is not in testing server. Please ensure this bot is in the testing server when approving so it can be kicked".into());
                 }
 
                 let owners = crate::impls::utils::get_entity_managers(
@@ -646,6 +640,22 @@ impl RPCMethod {
                     }
                 }
 
+                // Kick the bot from the testing server
+                if member_on_guild(
+                    &state.cache_http,
+                    crate::config::CONFIG.servers.testing,
+                    target_id.parse()?,
+                ) {
+                    if let Err(e) = state
+                        .cache_http
+                        .http
+                        .kick_member(crate::config::CONFIG.servers.testing, target_id.parse()?, Some("Bot approved"))
+                        .await
+                    {
+                        error!("Failed to kick bot from testing server: {}", e);
+                    }
+                }
+
                 let invite_data =
                     sqlx::query!("SELECT client_id FROM bots WHERE bot_id = $1", target_id)
                         .fetch_one(&state.pool)
@@ -723,6 +733,22 @@ impl RPCMethod {
                         ))
                         .color(0x00ff00),
                 );
+
+                // Kick the bot from the testing server
+                if member_on_guild(
+                    &state.cache_http,
+                    crate::config::CONFIG.servers.testing,
+                    target_id.parse()?,
+                ) {
+                    if let Err(e) = state
+                        .cache_http
+                        .http
+                        .kick_member(crate::config::CONFIG.servers.testing, target_id.parse()?, Some("Bot denied"))
+                        .await
+                    {
+                        error!("Failed to kick bot from testing server: {}", e);
+                    }
+                }
 
                 crate::config::CONFIG
                     .channels

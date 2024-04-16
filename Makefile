@@ -1,3 +1,5 @@
+CDN_PATH := /silverpelt/cdn/ibl
+
 all:
 	cargo build --release
 restartwebserver:
@@ -11,3 +13,7 @@ restartwebserver_nobuild:
 	cp -v target/release/bot bot
 	sudo systemctl start arcadia
 
+ts:
+	rm -rvf $(CDN_PATH)/dev/bindings/arcadia
+	cargo test
+	cp -rf .generated $(CDN_PATH)/dev/bindings/arcadia

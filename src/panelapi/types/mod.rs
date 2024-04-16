@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod blog;
+pub mod bot_whitelist;
 pub mod cdn;
 pub mod changelogs;
 pub mod entity;

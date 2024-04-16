@@ -11,6 +11,7 @@ use crate::panelapi::types::webcore::{Hello, StartAuth};
 use crate::panelapi::types::{
     auth::{AuthorizeAction, MfaLogin, MfaLoginSecret},
     blog::{BlogAction, BlogPost},
+    bot_whitelist::{BotWhitelist, BotWhitelistAction},
     cdn::{CdnAssetAction, CdnAssetItem},
     changelogs::{ChangelogAction, ChangelogEntry},
     entity::{PartialBot, PartialEntity, PartialServer},
@@ -100,6 +101,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl
             StaffMemberAction,
             StaffDisciplinaryTypeAction,
             VoteCreditTierAction,
+            BotWhitelistAction,
             Link,
         ))
     )]
@@ -331,6 +333,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: VoteCreditTierAction,
+    },
+    /// Fetch and update/modify bot whitelist
+    UpdateBotWhitelist {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: BotWhitelistAction,
     },
     /// Create a request to a/an Popplio staff endpoint
     PopplioStaff {
@@ -3631,6 +3640,151 @@ async fn query(
 
                     // Delete entry
                     sqlx::query!("DELETE FROM vote_credit_tiers WHERE id = $1", id)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+            }
+        },
+        PanelQuery::UpdateBotWhitelist { login_token, action } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
+                .await
+                .map_err(Error::new)?
+                .resolve();
+
+            match action {
+                BotWhitelistAction::List => {
+                    let rows = sqlx::query!(
+                        "SELECT bot_id, reason, created_at FROM bot_whitelist ORDER BY created_at DESC"
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut entries = Vec::new();
+
+                    for row in rows {
+                        entries.push(BotWhitelist {
+                            bot_id: row.bot_id,
+                            reason: row.reason,
+                            created_at: row.created_at,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(entries)).into_response())
+                }
+                BotWhitelistAction::Add {
+                    bot_id,
+                    reason
+                } => {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("bot_whitelist", "create"),
+                    ) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to add to the bot whitelist (bot_whitelist.create)".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Insert entry
+                    sqlx::query!(
+                        "INSERT INTO bot_whitelist (bot_id, reason) VALUES ($1, $2)",
+                        bot_id,
+                        reason,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                BotWhitelistAction::Edit {
+                    bot_id,
+                    reason,
+                } => {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("bot_whitelist", "update"),
+                    ) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update bot whitelist (bot_whitelist.update)".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM bot_whitelist WHERE bot_id = $1",
+                        bot_id
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Update entry
+                    sqlx::query!(
+                        "UPDATE bot_whitelist SET reason = $1 WHERE bot_id = $2",
+                        reason,
+                        bot_id,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                BotWhitelistAction::Delete { bot_id } => {
+                    if !perms::has_perm(
+                        &user_perms,
+                        &perms::build("bot_whitelist", "delete"),
+                    ) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete bot whitelist entries (bot_whitelist.delete)".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM bot_whitelist WHERE bot_id = $1",
+                        bot_id
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete entry
+                    sqlx::query!("DELETE FROM bot_whitelist WHERE bot_id = $1", bot_id)
                         .execute(&state.pool)
                         .await
                         .map_err(Error::new)?;

@@ -331,13 +331,12 @@ dependencies = [
 [[package]]
 name = "botox"
 version = "0.1.0"
-source = "git+https://github.com/infinitybotlist/botox?branch=main#de4f7baca6212bbe7ca8a6cc49ce12165d730660"
+source = "git+https://github.com/infinitybotlist/botox?branch=main#7e091bf705ab5e13554c6cef510b8d9dd9d3f406"
 dependencies = [
  "futures",
  "futures-util",
  "indexmap",
  "log",
- "once_cell",
  "poise",
  "rand",
  "serenity",

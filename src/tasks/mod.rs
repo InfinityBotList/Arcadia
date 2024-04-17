@@ -79,7 +79,7 @@ pub fn tasks() -> Vec<Task> {
         },
         Task {
             name: "staff_resync",
-            description: "Checking for claimed bots greater than 1 hour claim interval",
+            description: "Resyncing staff permissions",
             enabled: true,
             duration: std::time::Duration::from_secs(45),
             run: Box::new(move |ctx| {

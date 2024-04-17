@@ -331,7 +331,7 @@ dependencies = [
 [[package]]
 name = "botox"
 version = "0.1.0"
-source = "git+https://github.com/infinitybotlist/botox?branch=main#7e091bf705ab5e13554c6cef510b8d9dd9d3f406"
+source = "git+https://github.com/infinitybotlist/botox?branch=main#c2495f2e538d30cdb14a2b513648a4f4cade24de"
 dependencies = [
  "futures",
  "futures-util",

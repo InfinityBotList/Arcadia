@@ -217,9 +217,6 @@ pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, 
 }
 
 /// Get the permissions of a user
-///
-/// Note that while this should be in kittycat, this is not being done right now to avoid coupling
-/// kittycat with the database and to contain the database logic in one place.
 pub async fn get_user_perms(
     pool: &PgPool,
     user_id: &str,

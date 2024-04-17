@@ -6,13 +6,15 @@ use serenity::builder::{CreateEmbed, CreateMessage};
 use crate::config;
 
 pub async fn bans_sync(
-    pool: &sqlx::PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    ctx: &serenity::all::Context
 ) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+
     let bans = config::CONFIG
         .servers
         .main
-        .bans(&cache_http.http, None, None)
+        .bans(&ctx.http, None, None)
         .await
         .map_err(|e| format!("Error while fetching bans: {}", e))?;
 
@@ -63,7 +65,7 @@ pub async fn bans_sync(
                 "INSERT INTO users (user_id, banned, api_token) VALUES ($1, $2, $3)",
                 user_id,
                 is_banned,
-                crate::impls::crypto::gen_random(512)
+                botox::crypto::gen_random(512)
             )
             .execute(pool)
             .await
@@ -80,7 +82,7 @@ pub async fn bans_sync(
                 .channels
                 .mod_logs
                 .send_message(
-                    &cache_http.http,
+                    &ctx,
                     CreateMessage::new()
                         .content(&ping_users)
                         .embeds(vec![CreateEmbed::new()
@@ -94,7 +96,7 @@ pub async fn bans_sync(
                 .channels
                 .mod_logs
                 .send_message(
-                    &cache_http.http,
+                    &ctx,
                     CreateMessage::new()
                         .content(&ping_users)
                         .embeds(vec![CreateEmbed::new()

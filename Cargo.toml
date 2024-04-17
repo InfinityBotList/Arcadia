@@ -23,7 +23,7 @@ futures-util = "0.3"
 ring = "0.16"
 data-encoding = "2.3"
 indexmap = { version = "2.1", features = ["serde"] }
-ts-rs = { version = "7.0", features = ["chrono-impl"] }
+ts-rs = { version = "8", features = ["chrono-impl"] }
 axum = { version = "0.6", default-features = true, features = [ "headers" ] }
 tower-http = { version = "0.3", features = ["cors"] }
 rand = "0.8"
@@ -50,6 +50,10 @@ features = ["model", "http", "cache", "rustls_backend"]
 
 [dependencies.kittycat]
 git = "https://github.com/infinitybotlist/kittycat"
+branch = "main"
+
+[dependencies.botox]
+git = "https://github.com/infinitybotlist/botox"
 branch = "main"
 
 [build-dependencies]

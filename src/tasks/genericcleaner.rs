@@ -43,7 +43,10 @@ impl Entity {
     }
 }
 
-pub async fn generic_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
+pub async fn generic_cleaner(ctx: &serenity::all::Context) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+
     let mut table_names = sqlx::query!(
         "select table_name from information_schema.columns where column_name = 'target_id'"
     )

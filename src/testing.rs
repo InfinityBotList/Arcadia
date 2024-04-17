@@ -176,7 +176,7 @@ pub async fn queue(
 
     let bot_partial: crate::impls::dovewing::PlatformUser = crate::impls::dovewing::get_platform_user(
         &data.pool,
-        DovewingSource::Discord(crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context())),
+        DovewingSource::Discord(botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context())),
         &bot.bot_id,
     )
     .await?;
@@ -238,7 +238,7 @@ pub async fn queue(
 
         let bot_partial = crate::impls::dovewing::get_platform_user(
             &data.pool,
-            DovewingSource::Discord(crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context())),
+            DovewingSource::Discord(botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context())),
             &bot.bot_id,
         )
         .await?;
@@ -368,7 +368,7 @@ pub async fn claim(
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
-        cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
+        cache_http: botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
         user_id: ctx.author().id.to_string(),
         target_type: TargetType::Bot,
     })
@@ -408,7 +408,7 @@ pub async fn unclaim(
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
-        cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
+        cache_http: botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
         user_id: ctx.author().id.to_string(),
         target_type: TargetType::Bot,
     })
@@ -448,7 +448,7 @@ pub async fn approve(
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
-        cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
+        cache_http: botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
         user_id: ctx.author().id.to_string(),
         target_type: TargetType::Bot,
     })
@@ -491,7 +491,7 @@ pub async fn deny(
     }
     .handle(crate::rpc::core::RPCHandle {
         pool: data.pool.clone(),
-        cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
+        cache_http: botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
         user_id: ctx.author().id.to_string(),
         target_type: TargetType::Bot,
     })

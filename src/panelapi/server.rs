@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::impls::{self, link::Link};
+use crate::impls::link::Link;
 use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::panelapi::types::staff_disciplinary::StaffDisciplinaryType;
 use crate::panelapi::types::webcore::{Hello, StartAuth};
@@ -76,12 +76,12 @@ impl IntoResponse for Error {
 }
 
 pub struct AppState {
-    pub cache_http: impls::cache::CacheHttpImpl,
+    pub cache_http: botox::cache::CacheHttpImpl,
     pub pool: PgPool,
     pub cdn_file_chunks_cache: Cache<String, Vec<u8>>,
 }
 
-pub async fn init_panelapi(pool: PgPool, cache_http: impls::cache::CacheHttpImpl) {
+pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
     #[derive(OpenApi)]
     #[openapi(
@@ -510,13 +510,13 @@ async fn query(
                     // Create a random number between 4196 and 6000 for the token
                     let tlength = rand::thread_rng().gen_range(4196..6000);
 
-                    let token = crate::impls::crypto::gen_random(tlength as usize);
+                    let token = botox::crypto::gen_random(tlength as usize);
 
                     sqlx::query!(
                         "INSERT INTO staffpanel__authchain (user_id, token, popplio_token, state) VALUES ($1, $2, $3, $4)",
                         user.id.to_string(),
                         token,
-                        crate::impls::crypto::gen_random(2048),
+                        botox::crypto::gen_random(2048),
                         "pending"
                     )
                     .execute(&mut *tx)
@@ -1107,7 +1107,7 @@ async fn query(
             }
 
             // Create chunk ID
-            let chunk_id = crate::impls::crypto::gen_random(32);
+            let chunk_id = botox::crypto::gen_random(32);
 
             // Keep looping until we get a free chunk ID
             let mut tries = 0;
@@ -1501,7 +1501,7 @@ async fn query(
                     {
                         let tmp_file_path = format!(
                             "/tmp/arcadia-cdn-file{}@{}",
-                            crate::impls::crypto::gen_random(32),
+                            botox::crypto::gen_random(32),
                             asset_final_path.replace('/', ">")
                         );
 

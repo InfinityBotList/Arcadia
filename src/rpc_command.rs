@@ -255,7 +255,7 @@ pub async fn rpc(
     match rpc_method
         .method
         .handle(crate::rpc::core::RPCHandle {
-            cache_http: crate::impls::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
+            cache_http: botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context()),
             pool: data.pool.clone(),
             user_id: ctx.author().id.to_string(),
             target_type: target_type.into(),

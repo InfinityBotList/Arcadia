@@ -3,7 +3,7 @@ use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, Full
 use sqlx::postgres::PgPoolOptions;
 
 use std::sync::Arc;
-use crate::impls::cache::CacheHttpImpl;
+use botox::cache::CacheHttpImpl;
 
 mod botowners;
 mod checks;
@@ -136,14 +136,9 @@ async fn event_listener<'a>(
                 cache_http_papi,
             ));
 
-            let cache_http_taskcat = CacheHttpImpl {
-                http: ctx.serenity_context.http.clone(),
-                cache: ctx.serenity_context.cache.clone(),
-            };
-
-            tokio::task::spawn(crate::tasks::taskcat::start_all_tasks(
-                user_data.pool.clone(),
-                cache_http_taskcat,
+            tokio::task::spawn(botox::taskman::start_all_tasks(
+                crate::tasks::tasks(),
+                ctx.serenity_context.clone(),
             ));
         }
         FullEvent::GuildMemberAddition { new_member } => {

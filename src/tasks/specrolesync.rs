@@ -12,14 +12,16 @@ struct SpecRoleSync {
 }
 
 pub async fn spec_role_sync(
-    pool: &sqlx::PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    ctx: &serenity::client::Context,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+
     // Now actually resync
     let mut resync = Vec::new();
 
     {
-        if let Some(guild) = cache_http.cache.guild(config::CONFIG.servers.main) {
+        if let Some(guild) = ctx.cache.guild(config::CONFIG.servers.main) {
             // Get all members with the bug hunter role
             for member in guild.members.iter() {
                 if member.roles.contains(&config::CONFIG.roles.bug_hunters) {

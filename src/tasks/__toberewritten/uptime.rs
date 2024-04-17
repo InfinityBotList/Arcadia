@@ -5,7 +5,7 @@ use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateEmbedFooter, CreateM
 
 pub async fn uptime_checker(
     pool: &sqlx::PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    cache_http: &botox::cache::CacheHttpImpl,
 ) -> Result<(), crate::Error> {
     let subject_rows = sqlx::query!(
         "SELECT bot_id, uptime, total_uptime FROM bots WHERE (type = 'approved' OR type = 'certified') AND (NOW() - uptime_last_checked > interval '30 minutes')"

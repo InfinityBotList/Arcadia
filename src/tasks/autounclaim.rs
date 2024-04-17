@@ -10,9 +10,11 @@ struct AutoUnclaimNotification {
 }
 
 pub async fn auto_unclaim(
-    pool: &sqlx::PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    ctx: &serenity::all::Context,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+
     let mut tx = pool
         .begin()
         .await
@@ -109,7 +111,7 @@ pub async fn auto_unclaim(
         config::CONFIG
             .channels
             .testing_lounge
-            .send_message(&cache_http, msg)
+            .send_message(ctx, msg)
             .await
             .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
 
@@ -119,7 +121,7 @@ pub async fn auto_unclaim(
 
         config::CONFIG.channels.mod_logs
         .send_message(
-            &cache_http,
+            ctx,
             CreateMessage::default()
             .content(owners.mention_users())
             .embed(

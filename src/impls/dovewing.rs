@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use ts_rs::TS;
 use utoipa::ToSchema;
 
-use super::cache::CacheHttpImpl;
+use botox::cache::CacheHttpImpl;
 
 #[derive(Clone, Serialize, Deserialize, TS, ToSchema)]
 #[ts(export, export_to = ".generated/PlatformUser.ts")]

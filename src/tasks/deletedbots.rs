@@ -4,9 +4,11 @@ use serenity::builder::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 use crate::impls::target_types::TargetType;
 
 pub async fn deleted_bots(
-    pool: &sqlx::PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    ctx: &serenity::client::Context,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+
     let bot_ids = sqlx::query!("SELECT bot_id FROM bots")
         .fetch_all(pool)
         .await
@@ -116,7 +118,7 @@ pub async fn deleted_bots(
             crate::config::CONFIG
                 .channels
                 .mod_logs
-                .send_message(&cache_http, msg)
+                .send_message(ctx, msg)
                 .await?;
 
             tx.commit().await?;

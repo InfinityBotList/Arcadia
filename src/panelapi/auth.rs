@@ -199,7 +199,7 @@ pub async fn get_staff_disciplinaries(
 /// Returns the data of a staff member
 pub async fn get_staff_member(
     pool: &PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    cache_http: &botox::cache::CacheHttpImpl,
     user_id: &str,
 ) -> Result<StaffMember, Error> {
     let data = sqlx::query!(

@@ -1,6 +1,9 @@
 use log::{info, warn};
 
-pub async fn team_cleaner(pool: &sqlx::PgPool) -> Result<(), crate::Error> {
+pub async fn team_cleaner(ctx: &serenity::all::Context) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+    
     // Create a transaction
     let mut tx = pool
         .begin()

@@ -44,7 +44,7 @@ struct StaffResync {
 }
 
 async fn modify_corresponding_roles(
-    cache_http: crate::impls::cache::CacheHttpImpl,
+    cache_http: botox::cache::CacheHttpImpl,
     pos_cache_by_id: HashMap<Uuid, CachedPosition>,
     user: UserId,
     remove_ids: HashSet<Uuid>,
@@ -117,9 +117,12 @@ async fn modify_corresponding_roles(
 }
 
 pub async fn staff_resync(
-    pool: &sqlx::PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    ctx: &serenity::client::Context,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+    let cache_http = botox::cache::CacheHttpImpl::from_ctx(ctx);
+
     // Before doing anything else, get the current list of users with their roles from Discord
     let staff_resync = {
         if let Some(guild) = cache_http.cache.guild(config::CONFIG.servers.staff) {

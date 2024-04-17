@@ -10,9 +10,11 @@ struct BotData {
 }
 
 pub async fn premium_remove(
-    pool: &sqlx::PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    ctx: &serenity::client::Context,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+
     let res = sqlx::query!(
         "
         SELECT bot_id, start_premium_period, premium_period_length, type FROM bots 
@@ -38,7 +40,9 @@ pub async fn premium_remove(
 
         let bot_partial = crate::impls::dovewing::get_platform_user(
             pool,
-            crate::impls::dovewing::DovewingSource::Discord(cache_http.clone()),
+            crate::impls::dovewing::DovewingSource::Discord(
+                botox::cache::CacheHttpImpl::from_ctx(ctx)
+            ),
             &bot_id.to_string(),
         )
         .await?;    
@@ -94,7 +98,7 @@ pub async fn premium_remove(
         crate::config::CONFIG
             .channels
             .mod_logs
-            .send_message(&cache_http, CreateMessage::new().content(msg))
+            .send_message(ctx, CreateMessage::new().content(msg))
             .await?;
     }
 

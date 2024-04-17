@@ -8,7 +8,7 @@ use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
 
 use crate::{
-    impls::{self, target_types::TargetType, utils::get_user_perms},
+    impls::{target_types::TargetType, utils::get_user_perms},
     Error,
 };
 use kittycat::perms;
@@ -16,7 +16,7 @@ use utoipa::ToSchema;
 
 /// Helper function to check if a member is on a server, returning a boolean
 pub fn member_on_guild(
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    cache_http: &botox::cache::CacheHttpImpl,
     guild_id: GuildId,
     user_id: UserId,
 ) -> bool {
@@ -170,7 +170,7 @@ pub enum FieldType {
 
 pub struct RPCHandle {
     pub pool: PgPool,
-    pub cache_http: impls::cache::CacheHttpImpl,
+    pub cache_http: botox::cache::CacheHttpImpl,
     pub user_id: String,
     pub target_type: TargetType,
 }

@@ -3,9 +3,11 @@ use serenity::builder::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 const ENTITY_TYPES: [&str; 4] = ["bots", "servers", "teams", "packs"];
 
 pub async fn vote_resetter(
-    pool: &sqlx::PgPool,
-    cache_http: &crate::impls::cache::CacheHttpImpl,
+    ctx: &serenity::client::Context,
 ) -> Result<(), crate::Error> {
+    let data = ctx.data::<crate::Data>();
+    let pool = &data.pool;
+
     let mut tx = pool.begin().await?;
 
     // Check that the last automated vote was 1 month ago
@@ -57,7 +59,7 @@ pub async fn vote_resetter(
     crate::config::CONFIG
         .channels
         .mod_logs
-        .send_message(cache_http, msg)
+        .send_message(ctx, msg)
         .await?;
 
     Ok(())

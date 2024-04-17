@@ -4,10 +4,12 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, TS, Clone)]
-#[ts(export, export_to = ".generated/VoteCreditTier.ts")]
+#[ts(export, export_to = ".generated/BotWhitelist.ts")]
 pub struct BotWhitelist {
     /// The Bot's ID
     pub bot_id: String,
+    /// The user id who added the bot to the whitelist
+    pub user_id: String,
     /// The reason
     pub reason: String,
     /// The time the tier was created

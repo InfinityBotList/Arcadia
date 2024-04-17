@@ -3661,7 +3661,7 @@ async fn query(
             match action {
                 BotWhitelistAction::List => {
                     let rows = sqlx::query!(
-                        "SELECT bot_id, reason, created_at FROM bot_whitelist ORDER BY created_at DESC"
+                        "SELECT bot_id, user_id, reason, created_at FROM bot_whitelist ORDER BY created_at DESC"
                     )
                     .fetch_all(&state.pool)
                     .await
@@ -3672,6 +3672,7 @@ async fn query(
                     for row in rows {
                         entries.push(BotWhitelist {
                             bot_id: row.bot_id,
+                            user_id: row.user_id,
                             reason: row.reason,
                             created_at: row.created_at,
                         });
@@ -3696,7 +3697,8 @@ async fn query(
 
                     // Insert entry
                     sqlx::query!(
-                        "INSERT INTO bot_whitelist (bot_id, reason) VALUES ($1, $2)",
+                        "INSERT INTO bot_whitelist (user_id, bot_id, reason) VALUES ($1, $2, $3)",
+                        &auth_data.user_id,
                         bot_id,
                         reason,
                     )

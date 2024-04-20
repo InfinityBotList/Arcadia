@@ -4,14 +4,14 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 
 /// Vote credits are tier based through slabs
-/// (e.g.)For the following tiers 
-/// 
-/// - Tier 1: 100 votes at 0.10 cents 
-/// - Tier 2: 200 votes at 0.05 cents 
+/// (e.g.)For the following tiers
+///
+/// - Tier 1: 100 votes at 0.10 cents
+/// - Tier 2: 200 votes at 0.05 cents
 /// - Tier 3: 50 votes at 0.025 cents
-/// 
+///
 /// Would mean 625 votes would be split as the following:
-/// 
+///
 /// 100 votes: 0.10 cents [Tier 1]
 /// Next 200 votes: 0.05 cents [Tier 2]
 /// Next 50 votes: 0.025 cents [Tier 3]
@@ -77,7 +77,6 @@ pub enum VoteCreditTierAction {
         /// The ID of the tier
         id: String,
     },
-
     /*
         /// Swap the index of two vote credit tiers (A and B) such that the indexes change from (Ia, Ib) -> (Ib, Ia)
     SwapIndex {

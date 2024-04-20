@@ -45,13 +45,13 @@ impl DovewingSource {
                     return Err("Invalid user id".into());
                 };
 
-                for gid in c.cache.guilds() {                    
+                for gid in c.cache.guilds() {
                     if let Some(guild) = c.cache.guild(gid) {
                         if let Some(member) = guild.members.get(&uid) {
                             // Check precenses for status
                             let p = {
                                 let guild = c.cache.guild(gid);
-    
+
                                 if let Some(guild) = guild {
                                     let p = guild.presences.get(&uid);
                                     p.cloned()
@@ -59,7 +59,7 @@ impl DovewingSource {
                                     None
                                 }
                             };
-    
+
                             return Ok(Some(PlatformUser {
                                 id: user_id.to_string(),
                                 username: member.user.name.clone().to_string(),
@@ -78,7 +78,9 @@ impl DovewingSource {
                                         serenity::model::user::OnlineStatus::Online => "online",
                                         serenity::model::user::OnlineStatus::Idle => "idle",
                                         serenity::model::user::OnlineStatus::DoNotDisturb => "dnd",
-                                        serenity::model::user::OnlineStatus::Invisible => "invisible",
+                                        serenity::model::user::OnlineStatus::Invisible => {
+                                            "invisible"
+                                        }
                                         serenity::model::user::OnlineStatus::Offline => "offline",
                                         _ => "offline",
                                     }

@@ -9,9 +9,7 @@ struct BotData {
     bot_type: String,
 }
 
-pub async fn premium_remove(
-    ctx: &serenity::client::Context,
-) -> Result<(), crate::Error> {
+pub async fn premium_remove(ctx: &serenity::client::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
     let pool = &data.pool;
 
@@ -40,12 +38,12 @@ pub async fn premium_remove(
 
         let bot_partial = crate::impls::dovewing::get_platform_user(
             pool,
-            crate::impls::dovewing::DovewingSource::Discord(
-                botox::cache::CacheHttpImpl::from_ctx(ctx)
-            ),
+            crate::impls::dovewing::DovewingSource::Discord(botox::cache::CacheHttpImpl::from_ctx(
+                ctx,
+            )),
             &bot_id.to_string(),
         )
-        .await?;    
+        .await?;
 
         bot_data.push(BotData {
             bot_id,

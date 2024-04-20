@@ -2,9 +2,7 @@ use serenity::builder::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 
 const ENTITY_TYPES: [&str; 4] = ["bots", "servers", "teams", "packs"];
 
-pub async fn vote_resetter(
-    ctx: &serenity::client::Context,
-) -> Result<(), crate::Error> {
+pub async fn vote_resetter(ctx: &serenity::client::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
     let pool = &data.pool;
 

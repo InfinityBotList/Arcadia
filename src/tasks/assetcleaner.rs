@@ -1,11 +1,9 @@
 use log::{error, info, warn};
 
-pub async fn asset_cleaner(
-    ctx: &serenity::all::Context
-) -> Result<(), crate::Error> {
+pub async fn asset_cleaner(ctx: &serenity::all::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
     let pool = &data.pool;
-    
+
     let type_id_map = indexmap::indexmap! {
         "bots" => "bot_id",
         "servers" => "server_id",

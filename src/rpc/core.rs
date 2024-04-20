@@ -1,7 +1,7 @@
 use log::error;
-use serenity::all::{CreateEmbed, CreateEmbedFooter, CreateMessage, GuildId, UserId};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use serenity::all::{CreateEmbed, CreateEmbedFooter, CreateMessage, GuildId, UserId};
 use serenity::model::Color;
 use sqlx::{types::Uuid, PgPool};
 use strum_macros::{Display, EnumString, EnumVariantNames};
@@ -619,9 +619,9 @@ impl RPCMethod {
                     let owner_snow = owner.parse::<UserId>()?;
 
                     if member_on_guild(
-                        &state.cache_http, 
-                        crate::config::CONFIG.servers.main, 
-                        owner_snow
+                        &state.cache_http,
+                        crate::config::CONFIG.servers.main,
+                        owner_snow,
                     ) {
                         // Add role to user
                         if let Err(e) = state
@@ -649,7 +649,11 @@ impl RPCMethod {
                     if let Err(e) = state
                         .cache_http
                         .http
-                        .kick_member(crate::config::CONFIG.servers.testing, target_id.parse()?, Some("Bot approved"))
+                        .kick_member(
+                            crate::config::CONFIG.servers.testing,
+                            target_id.parse()?,
+                            Some("Bot approved"),
+                        )
                         .await
                     {
                         error!("Failed to kick bot from testing server: {}", e);
@@ -743,7 +747,11 @@ impl RPCMethod {
                     if let Err(e) = state
                         .cache_http
                         .http
-                        .kick_member(crate::config::CONFIG.servers.testing, target_id.parse()?, Some("Bot denied"))
+                        .kick_member(
+                            crate::config::CONFIG.servers.testing,
+                            target_id.parse()?,
+                            Some("Bot denied"),
+                        )
                         .await
                     {
                         error!("Failed to kick bot from testing server: {}", e);
@@ -1124,9 +1132,9 @@ impl RPCMethod {
                 if *kick {
                     // Check that the bot is in the server
                     let bot_in_server = member_on_guild(
-                        &state.cache_http, 
-                        crate::config::CONFIG.servers.main, 
-                        target_id_snow
+                        &state.cache_http,
+                        crate::config::CONFIG.servers.main,
+                        target_id_snow,
                     );
 
                     if bot_in_server {

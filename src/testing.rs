@@ -174,12 +174,15 @@ pub async fn queue(
     let owners =
         crate::impls::utils::get_entity_managers(TargetType::Bot, &bot.bot_id, &data.pool).await?;
 
-    let bot_partial: crate::impls::dovewing::PlatformUser = crate::impls::dovewing::get_platform_user(
-        &data.pool,
-        DovewingSource::Discord(botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context())),
-        &bot.bot_id,
-    )
-    .await?;
+    let bot_partial: crate::impls::dovewing::PlatformUser =
+        crate::impls::dovewing::get_platform_user(
+            &data.pool,
+            DovewingSource::Discord(botox::cache::CacheHttpImpl::from_ctx(
+                ctx.serenity_context(),
+            )),
+            &bot.bot_id,
+        )
+        .await?;
 
     let mut msg = ctx
         .send(_queue_bot(InternalQueueBot {
@@ -238,7 +241,9 @@ pub async fn queue(
 
         let bot_partial = crate::impls::dovewing::get_platform_user(
             &data.pool,
-            DovewingSource::Discord(botox::cache::CacheHttpImpl::from_ctx(ctx.serenity_context())),
+            DovewingSource::Discord(botox::cache::CacheHttpImpl::from_ctx(
+                ctx.serenity_context(),
+            )),
             &bot.bot_id,
         )
         .await?;
@@ -456,9 +461,11 @@ pub async fn approve(
 
     let content = res.content().ok_or("RPC did not return as expected???")?;
 
-    ctx.say(
-        format!("Approved bot!\nPlease invite the bot to the caching server provided down below!\n{}", content)
-    ).await?;
+    ctx.say(format!(
+        "Approved bot!\nPlease invite the bot to the caching server provided down below!\n{}",
+        content
+    ))
+    .await?;
 
     Ok(())
 }

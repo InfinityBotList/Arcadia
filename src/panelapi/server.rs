@@ -9,6 +9,7 @@ use crate::impls::{target_types::TargetType, utils::get_user_perms};
 use crate::panelapi::types::staff_disciplinary::StaffDisciplinaryType;
 use crate::panelapi::types::webcore::{Hello, StartAuth};
 use crate::panelapi::types::{
+    analytics::BaseAnalytics,
     auth::{AuthorizeAction, MfaLogin, MfaLoginSecret},
     blog::{BlogAction, BlogPost},
     bot_whitelist::{BotWhitelist, BotWhitelistAction},
@@ -87,9 +88,9 @@ pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl
     #[openapi(
         paths(query),
         components(schemas(
-            PanelQuery, 
-            InstanceConfig, 
-            RPCMethod, 
+            PanelQuery,
+            InstanceConfig,
+            RPCMethod,
             TargetType,
             CdnAssetAction,
             PartnerAction,
@@ -189,6 +190,11 @@ pub enum PanelQuery {
         login_token: String,
         /// Hello protocol version, should be `HELLO_VERSION`
         version: u16,
+    },
+    /// Returns base analytics
+    BaseAnalytics {
+        /// Login token
+        login_token: String,
     },
     /// Returns user information given a user id, returning a dovewing PartialUser
     GetUser {
@@ -808,6 +814,57 @@ async fn query(
                         target_types,
                     }
                 )
+            )
+                .into_response())
+        }
+        PanelQuery::BaseAnalytics { login_token } => {
+            super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            let bot_counts = sqlx::query!("SELECT type, COUNT(*) FROM bots GROUP BY type")
+                .fetch_all(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+            let server_counts = sqlx::query!("SELECT type, COUNT(*) FROM servers GROUP BY type")
+                .fetch_all(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+            let ticket_counts = sqlx::query!("SELECT open, COUNT(*) FROM tickets GROUP BY open")
+                .fetch_all(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+            let total_users = sqlx::query!("SELECT COUNT(*) FROM users")
+                .fetch_one(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+            let total_changelogs = sqlx::query!("SELECT COUNT(*) FROM changelogs")
+                .fetch_one(&state.pool)
+                .await
+                .map_err(Error::new)?;
+
+            Ok((
+                StatusCode::OK,
+                Json(BaseAnalytics {
+                    bot_counts: bot_counts
+                        .iter()
+                        .map(|b| (b.r#type.clone(), b.count.unwrap_or_default()))
+                        .collect(),
+                    server_counts: server_counts
+                        .iter()
+                        .map(|s| (s.r#type.clone(), s.count.unwrap_or_default()))
+                        .collect(),
+                    ticket_counts: ticket_counts
+                        .iter()
+                        .map(|t| (t.open, t.count.unwrap_or_default()))
+                        .collect(),
+                    total_users: total_users.count.unwrap_or_default(),
+                    changelogs_count: total_changelogs.count.unwrap_or_default(),
+                }),
             )
                 .into_response())
         }
@@ -3460,8 +3517,11 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        },
-        PanelQuery::UpdateVoteCreditTiers { login_token, action } => {
+        }
+        PanelQuery::UpdateVoteCreditTiers {
+            login_token,
+            action,
+        } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -3500,10 +3560,7 @@ async fn query(
                     cents,
                     votes,
                 } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("vote_credit_tiers", "create"),
-                    ) {
+                    if !perms::has_perm(&user_perms, &perms::build("vote_credit_tiers", "create")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create vote credit tiers [vote_credit_tiers.create]".to_string(),
@@ -3547,10 +3604,7 @@ async fn query(
                     cents,
                     votes,
                 } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("vote_credit_tiers", "update"),
-                    ) {
+                    if !perms::has_perm(&user_perms, &perms::build("vote_credit_tiers", "update")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update vote credit tiers [vote_credit_tiers.update]".to_string(),
@@ -3559,15 +3613,12 @@ async fn query(
                     }
 
                     // Check if entry already exists with same vesion
-                    if sqlx::query!(
-                        "SELECT COUNT(*) FROM vote_credit_tiers WHERE id = $1",
-                        id
-                    )
-                    .fetch_one(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .count
-                    .unwrap_or(0)
+                    if sqlx::query!("SELECT COUNT(*) FROM vote_credit_tiers WHERE id = $1", id)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
                         == 0
                     {
                         return Ok((
@@ -3608,10 +3659,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 VoteCreditTierAction::DeleteTier { id } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("vote_credit_tiers", "delete"),
-                    ) {
+                    if !perms::has_perm(&user_perms, &perms::build("vote_credit_tiers", "delete")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete vote credit tiers [vote_credit_tiers.delete]".to_string(),
@@ -3620,15 +3668,12 @@ async fn query(
                     }
 
                     // Check if entry already exists with same vesion
-                    if sqlx::query!(
-                        "SELECT COUNT(*) FROM vote_credit_tiers WHERE id = $1",
-                        id
-                    )
-                    .fetch_one(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .count
-                    .unwrap_or(0)
+                    if sqlx::query!("SELECT COUNT(*) FROM vote_credit_tiers WHERE id = $1", id)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
                         == 0
                     {
                         return Ok((
@@ -3647,8 +3692,11 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        },
-        PanelQuery::UpdateBotWhitelist { login_token, action } => {
+        }
+        PanelQuery::UpdateBotWhitelist {
+            login_token,
+            action,
+        } => {
             let auth_data = super::auth::check_auth(&state.pool, &login_token)
                 .await
                 .map_err(Error::new)?;
@@ -3680,14 +3728,8 @@ async fn query(
 
                     Ok((StatusCode::OK, Json(entries)).into_response())
                 }
-                BotWhitelistAction::Add {
-                    bot_id,
-                    reason
-                } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("bot_whitelist", "create"),
-                    ) {
+                BotWhitelistAction::Add { bot_id, reason } => {
+                    if !perms::has_perm(&user_perms, &perms::build("bot_whitelist", "create")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to add to the bot whitelist (bot_whitelist.create)".to_string(),
@@ -3708,14 +3750,8 @@ async fn query(
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
-                BotWhitelistAction::Edit {
-                    bot_id,
-                    reason,
-                } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("bot_whitelist", "update"),
-                    ) {
+                BotWhitelistAction::Edit { bot_id, reason } => {
+                    if !perms::has_perm(&user_perms, &perms::build("bot_whitelist", "update")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update bot whitelist (bot_whitelist.update)".to_string(),
@@ -3755,10 +3791,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 BotWhitelistAction::Delete { bot_id } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("bot_whitelist", "delete"),
-                    ) {
+                    if !perms::has_perm(&user_perms, &perms::build("bot_whitelist", "delete")) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete bot whitelist entries (bot_whitelist.delete)".to_string(),
@@ -3794,7 +3827,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
             }
-        },
+        }
         PanelQuery::PopplioStaff {
             login_token,
             path,

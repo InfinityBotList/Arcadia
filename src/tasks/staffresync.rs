@@ -116,9 +116,7 @@ async fn modify_corresponding_roles(
     Ok(())
 }
 
-pub async fn staff_resync(
-    ctx: &serenity::client::Context,
-) -> Result<(), crate::Error> {
+pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
     let pool = &data.pool;
     let cache_http = botox::cache::CacheHttpImpl::from_ctx(ctx);

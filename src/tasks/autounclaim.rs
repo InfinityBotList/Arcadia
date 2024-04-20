@@ -9,9 +9,7 @@ struct AutoUnclaimNotification {
     last_claimed: chrono::DateTime<chrono::Utc>,
 }
 
-pub async fn auto_unclaim(
-    ctx: &serenity::all::Context,
-) -> Result<(), crate::Error> {
+pub async fn auto_unclaim(ctx: &serenity::all::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
     let pool = &data.pool;
 

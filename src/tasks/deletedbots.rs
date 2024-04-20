@@ -3,9 +3,7 @@ use serenity::builder::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 
 use crate::impls::target_types::TargetType;
 
-pub async fn deleted_bots(
-    ctx: &serenity::client::Context,
-) -> Result<(), crate::Error> {
+pub async fn deleted_bots(ctx: &serenity::client::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
     let pool = &data.pool;
 

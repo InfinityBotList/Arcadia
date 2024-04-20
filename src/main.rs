@@ -2,8 +2,8 @@ use log::{error, info};
 use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp};
 use sqlx::postgres::PgPoolOptions;
 
-use std::sync::Arc;
 use botox::cache::CacheHttpImpl;
+use std::sync::Arc;
 
 mod botowners;
 mod checks;
@@ -167,14 +167,14 @@ async fn event_listener<'a>(
 
                 // Give bot role
                 ctx.serenity_context
-                .http
-                .add_member_role(
-                    config::CONFIG.servers.main,
-                    new_member.user.id,
-                    config::CONFIG.roles.bot_role,
-                    Some("Bot added to server"),
-                )
-                .await?;
+                    .http
+                    .add_member_role(
+                        config::CONFIG.servers.main,
+                        new_member.user.id,
+                        config::CONFIG.roles.bot_role,
+                        Some("Bot added to server"),
+                    )
+                    .await?;
             }
 
             if new_member.guild_id == config::CONFIG.servers.main && !new_member.user.bot() {
@@ -217,10 +217,11 @@ async fn main() {
 
     info!("Proxy URL: {}", config::CONFIG.proxy_url);
 
-    let http = Arc::new(serenity::HttpBuilder::new(&config::CONFIG.token)
-        .proxy(config::CONFIG.proxy_url.clone())
-        .ratelimiter_disabled(true)
-        .build()
+    let http = Arc::new(
+        serenity::HttpBuilder::new(&config::CONFIG.token)
+            .proxy(config::CONFIG.proxy_url.clone())
+            .ratelimiter_disabled(true)
+            .build(),
     );
 
     let client_builder =
@@ -234,61 +235,59 @@ async fn main() {
             .expect("Could not initialize connection"),
     };
 
-    let framework = poise::Framework::new(
-        poise::FrameworkOptions {
-            initialize_owners: true,
-            prefix_options: poise::PrefixFrameworkOptions {
-                prefix: Some("ibb!".into()),
-                ..poise::PrefixFrameworkOptions::default()
-            },
-            event_handler: |ctx, event| Box::pin(event_listener(ctx, event)),
-            commands: vec![
-                age(),
-                register(),
-                help::simplehelp(),
-                help::help(),
-                explain::explainme(),
-                staff::staff(),
-                testing::invite(),
-                testing::invitesafe(),
-                testing::claim(),
-                testing::unclaim(),
-                testing::queue(),
-                testing::approve(),
-                testing::deny(),
-                testing::staffguide(),
-                stats::stats(),
-                botowners::getbotroles(),
-                rpc_command::rpc(),
-                rpc_command::rpclist(),
-                test::modaltest(),
-            ],
-            // This code is run before every command
-            pre_command: |ctx| {
-                Box::pin(async move {
-                    info!(
-                        "Executing command {} for user {} ({})...",
-                        ctx.command().qualified_name,
-                        ctx.author().name,
-                        ctx.author().id
-                    );
-                })
-            },
-            // This code is run after every command returns Ok
-            post_command: |ctx| {
-                Box::pin(async move {
-                    info!(
-                        "Done executing command {} for user {} ({})...",
-                        ctx.command().qualified_name,
-                        ctx.author().name,
-                        ctx.author().id
-                    );
-                })
-            },
-            on_error: |error| Box::pin(on_error(error)),
-            ..Default::default()
+    let framework = poise::Framework::new(poise::FrameworkOptions {
+        initialize_owners: true,
+        prefix_options: poise::PrefixFrameworkOptions {
+            prefix: Some("ibb!".into()),
+            ..poise::PrefixFrameworkOptions::default()
         },
-    );
+        event_handler: |ctx, event| Box::pin(event_listener(ctx, event)),
+        commands: vec![
+            age(),
+            register(),
+            help::simplehelp(),
+            help::help(),
+            explain::explainme(),
+            staff::staff(),
+            testing::invite(),
+            testing::invitesafe(),
+            testing::claim(),
+            testing::unclaim(),
+            testing::queue(),
+            testing::approve(),
+            testing::deny(),
+            testing::staffguide(),
+            stats::stats(),
+            botowners::getbotroles(),
+            rpc_command::rpc(),
+            rpc_command::rpclist(),
+            test::modaltest(),
+        ],
+        // This code is run before every command
+        pre_command: |ctx| {
+            Box::pin(async move {
+                info!(
+                    "Executing command {} for user {} ({})...",
+                    ctx.command().qualified_name,
+                    ctx.author().name,
+                    ctx.author().id
+                );
+            })
+        },
+        // This code is run after every command returns Ok
+        post_command: |ctx| {
+            Box::pin(async move {
+                info!(
+                    "Done executing command {} for user {} ({})...",
+                    ctx.command().qualified_name,
+                    ctx.author().name,
+                    ctx.author().id
+                );
+            })
+        },
+        on_error: |error| Box::pin(on_error(error)),
+        ..Default::default()
+    });
 
     let mut client = client_builder
         .framework(framework)

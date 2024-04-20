@@ -14,7 +14,10 @@ use crate::impls::target_types::TargetType;
 use crate::rpc::core::{FieldType, RPCMethod};
 use crate::{Context, Error};
 
-async fn autocomplete<'a>(_ctx: Context<'_>, partial: &str) -> Vec<serenity::all::AutocompleteChoice<'a>> {
+async fn autocomplete<'a>(
+    _ctx: Context<'_>,
+    partial: &str,
+) -> Vec<serenity::all::AutocompleteChoice<'a>> {
     let mut choices = Vec::new();
 
     for m in crate::rpc::core::RPCMethod::VARIANTS {

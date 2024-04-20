@@ -5,9 +5,7 @@ use serenity::builder::{CreateEmbed, CreateMessage};
 
 use crate::config;
 
-pub async fn bans_sync(
-    ctx: &serenity::all::Context
-) -> Result<(), crate::Error> {
+pub async fn bans_sync(ctx: &serenity::all::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
     let pool = &data.pool;
 

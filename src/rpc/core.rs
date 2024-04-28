@@ -434,6 +434,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::Unclaim { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Check if its claimed by someone
                 let claimed = sqlx::query!(
                     "SELECT type, claimed_by, owner FROM bots WHERE bot_id = $1",
@@ -502,6 +506,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::Approve { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 let claimed = sqlx::query!(
                     "SELECT type, claimed_by, last_claimed FROM bots WHERE bot_id = $1",
                     target_id
@@ -522,13 +530,6 @@ impl RPCMethod {
                         target_id
                     )
                     .into());
-                }
-
-                let start_time = chrono::offset::Utc::now();
-                let last_claimed = claimed.last_claimed.unwrap();
-
-                if (start_time - last_claimed).num_minutes() < 5 {
-                    return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
                 }
 
                 // Find bot in testing server
@@ -677,6 +678,10 @@ impl RPCMethod {
                 )
             }
             RPCMethod::Deny { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 let claimed = sqlx::query!(
                     "SELECT type, claimed_by, owner, last_claimed FROM bots WHERE bot_id = $1",
                     target_id
@@ -697,13 +702,6 @@ impl RPCMethod {
                         target_id
                     )
                     .into());
-                }
-
-                let start_time = chrono::offset::Utc::now();
-                let last_claimed = claimed.last_claimed.unwrap();
-
-                if (start_time - last_claimed).num_minutes() < 5 {
-                    return Err("Whoa there! You need to test this bot for at least 5 minutes (recommended: 10-20 minutes) before being able to approve/deny it!".into());
                 }
 
                 let owners = crate::impls::utils::get_entity_managers(
@@ -767,6 +765,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::Unverify { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -814,6 +816,10 @@ impl RPCMethod {
                 reason,
                 time_period_hours,
             } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -855,6 +861,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::PremiumRemove { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -895,6 +905,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::VoteBanAdd { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -934,6 +948,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::VoteBanRemove { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -973,6 +991,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::VoteReset { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 let mut tx = state.pool.begin().await?;
 
                 // Clear any entity specific caches
@@ -1031,6 +1053,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::VoteResetAll { reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 let mut tx = state.pool.begin().await?;
 
                 // Clear any entity specific caches
@@ -1086,6 +1112,10 @@ impl RPCMethod {
                 reason,
                 kick,
             } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -1153,6 +1183,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::CertifyAdd { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -1190,6 +1224,10 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::CertifyRemove { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -1233,6 +1271,10 @@ impl RPCMethod {
                 new_owner,
                 reason,
             } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)
@@ -1287,6 +1329,10 @@ impl RPCMethod {
                 new_team,
                 reason,
             } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
                 // Ensure the bot actually exists
                 let bot = sqlx::query!("SELECT COUNT(*) FROM bots WHERE bot_id = $1", target_id)
                     .fetch_one(&state.pool)

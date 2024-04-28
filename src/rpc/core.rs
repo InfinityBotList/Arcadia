@@ -548,11 +548,13 @@ impl RPCMethod {
                 )
                 .await?;
 
+                let mut tx = state.pool.begin().await?;
+
                 sqlx::query!(
                     "UPDATE bots SET type = 'approved', claimed_by = NULL WHERE bot_id = $1",
                     target_id
                 )
-                .execute(&state.pool)
+                .execute(&mut *tx)
                 .await?;
 
                 // Add to cache server using borealis
@@ -606,6 +608,8 @@ impl RPCMethod {
                     .mod_logs
                     .send_message(&state.cache_http, msg)
                     .await?;
+
+                tx.commit().await?;
 
                 let owners = crate::impls::utils::get_entity_managers(
                     TargetType::Bot,

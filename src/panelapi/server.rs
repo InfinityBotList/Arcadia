@@ -792,7 +792,13 @@ async fn query(
                 Json(
                     Hello {
                         instance_config: InstanceConfig {
-                            description: "Arcadia Production Panel Instance".to_string(),
+                            description: {
+                                if *crate::config::CURRENT_ENV == "staging" {
+                                    "Arcadia Staging Panel Instance".to_string()
+                                } else {
+                                    "Arcadia Production Panel Instance".to_string()
+                                }
+                            },
                             warnings: vec![
                                 "The panel is currently undergoing large-scale changes while it is being rewritten. Please report any bugs you find to the staff team.".to_string(),
                             ],

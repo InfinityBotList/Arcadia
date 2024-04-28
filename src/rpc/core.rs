@@ -583,7 +583,7 @@ impl RPCMethod {
                             .title(" Approved!")
                             .url(format!(
                                 "{}/bots/{}",
-                                crate::config::CONFIG.frontend_url,
+                                crate::config::CONFIG.frontend_url.get(),
                                 target_id
                             ))
                             .description(format!(
@@ -723,7 +723,7 @@ impl RPCMethod {
                         .title(" Denied!")
                         .url(format!(
                             "{}/bots/{}",
-                            crate::config::CONFIG.frontend_url,
+                            crate::config::CONFIG.frontend_url.get(),
                             target_id
                         ))
                         .description(format!("<@{}> has denied <@{}>", &state.user_id, target_id))

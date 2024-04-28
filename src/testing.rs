@@ -63,7 +63,7 @@ pub async fn staffguide(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say(
         format!(
             "The staff guide can be found at {}/staff/guide. Please **do not** bookmark this page as the URL may change in the future",
-            config::CONFIG.frontend_url
+            config::CONFIG.frontend_url.get()
     )).await?;
 
     Ok(())
@@ -138,7 +138,7 @@ fn _queue_bot<'a>(qb: InternalQueueBot) -> CreateReply<'a> {
         ]),
         CreateActionRow::Buttons(vec![
             CreateButton::new_link(qb.invite).label("Invite"),
-            CreateButton::new_link(config::CONFIG.frontend_url.clone() + "/bots/" + &qb.bot_id)
+            CreateButton::new_link(config::CONFIG.frontend_url.get().clone() + "/bots/" + &qb.bot_id)
                 .label("View Page"),
         ]),
     ])

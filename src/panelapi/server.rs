@@ -160,7 +160,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl
                 .allow_headers(Any),
         );
 
-    let addr = "127.0.0.1:3010"
+    let addr = format!("127.0.0.1:{}", crate::config::CONFIG.server_port.get())
         .parse()
         .expect("Invalid RPC server address");
 
@@ -800,7 +800,7 @@ async fn query(
                         auth_data,
                         staff_member,
                         core_constants: CoreConstants {
-                            frontend_url: crate::config::CONFIG.frontend_url.clone(),
+                            frontend_url: crate::config::CONFIG.frontend_url.get().clone(),
                             infernoplex_url: crate::config::CONFIG.infernoplex_url.clone(),
                             popplio_url: crate::config::CONFIG.popplio_url.clone(),
                             htmlsanitize_url: crate::config::CONFIG.htmlsanitize_url.clone(),
@@ -1208,7 +1208,7 @@ async fn query(
 
             Ok((
                 StatusCode::OK,
-                Json(crate::config::CONFIG.panel.cdn_scopes.clone()),
+                Json(crate::config::CONFIG.panel.cdn_scopes.get().clone()),
             )
                 .into_response())
         }
@@ -1240,7 +1240,8 @@ async fn query(
                 .resolve();
 
             // Get cdn path from cdn_scope hashmap
-            let Some(cdn_path) = crate::config::CONFIG.panel.cdn_scopes.get(&cdn_scope) else {
+            let cdn_scopes = crate::config::CONFIG.panel.cdn_scopes.get();
+            let Some(cdn_path) = cdn_scopes.get(&cdn_scope) else {
                 return Ok(
                     (StatusCode::BAD_REQUEST, "Invalid CDN scope".to_string()).into_response()
                 );
@@ -1947,9 +1948,12 @@ async fn query(
 
                 // Ensure that image has been uploaded to CDN
                 // Get cdn path from cdn_scope hashmap
-                let Some(cdn_path) = crate::config::CONFIG
-                    .panel
-                    .cdn_scopes
+                let cdn_scopes = crate::config::CONFIG
+                .panel
+                .cdn_scopes
+                .get();
+
+                let Some(cdn_path) = cdn_scopes
                     .get(&crate::config::CONFIG.panel.main_scope)
                 else {
                     return Err("Main scope not found".into());
@@ -2181,9 +2185,12 @@ async fn query(
 
                     // Ensure that image has been uploaded to CDN
                     // Get cdn path from cdn_scope hashmap
-                    let Some(cdn_path) = crate::config::CONFIG
-                        .panel
-                        .cdn_scopes
+                    let cdn_scopes = crate::config::CONFIG
+                    .panel
+                    .cdn_scopes
+                    .get();
+
+                    let Some(cdn_path) = cdn_scopes
                         .get(&crate::config::CONFIG.panel.main_scope)
                     else {
                         return Ok(

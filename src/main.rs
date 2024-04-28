@@ -136,12 +136,18 @@ async fn event_listener<'a>(
                 cache_http_papi,
             ));
 
-            tokio::task::spawn(botox::taskman::start_all_tasks(
-                crate::tasks::tasks(),
-                ctx.serenity_context.clone(),
-            ));
+            if *crate::config::CURRENT_ENV != "staging" {
+                tokio::task::spawn(botox::taskman::start_all_tasks(
+                    crate::tasks::tasks(),
+                    ctx.serenity_context.clone(),
+                ));
+            }
         }
         FullEvent::GuildMemberAddition { new_member } => {
+            if *crate::config::CURRENT_ENV == "staging" {
+                return Ok(());
+            }
+
             if new_member.guild_id == config::CONFIG.servers.main && new_member.user.bot() {
                 // Send member join message
                 config::CONFIG.channels.system
@@ -235,10 +241,12 @@ async fn main() {
             .expect("Could not initialize connection"),
     };
 
+    let prefix = crate::config::CONFIG.prefix.get();
+
     let framework = poise::Framework::new(poise::FrameworkOptions {
         initialize_owners: true,
         prefix_options: poise::PrefixFrameworkOptions {
-            prefix: Some("ibb!".into()),
+            prefix: Some(prefix.into()),
             ..poise::PrefixFrameworkOptions::default()
         },
         event_handler: |ctx, event| Box::pin(event_listener(ctx, event)),

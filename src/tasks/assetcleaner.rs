@@ -14,9 +14,11 @@ pub async fn asset_cleaner(ctx: &serenity::all::Context) -> Result<(), crate::Er
 
     let assets = ["avatars", "banners", "blobs"];
 
-    let Some(cdn_path) = crate::config::CONFIG
-        .panel
-        .cdn_scopes
+    let cdn_scopes = crate::config::CONFIG
+    .panel
+    .cdn_scopes
+    .get();
+    let Some(cdn_path) = cdn_scopes
         .get(&crate::config::CONFIG.panel.main_scope)
     else {
         return Err("No CDN scope for main scope".into());

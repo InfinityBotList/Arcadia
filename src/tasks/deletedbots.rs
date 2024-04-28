@@ -99,7 +99,7 @@ pub async fn deleted_bots(ctx: &serenity::client::Context) -> Result<(), crate::
                         .title("Bot Deleted From Discord!")
                         .url(format!(
                             "{}/bots/{}",
-                            crate::config::CONFIG.frontend_url,
+                            crate::config::CONFIG.frontend_url.get(),
                             bot_id
                         ))
                         .description(format!(

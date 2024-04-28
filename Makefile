@@ -13,6 +13,15 @@ restartwebserver_nobuild:
 	cp -v target/release/bot bot
 	sudo systemctl start arcadia
 
+promoteprod:
+	rm -rf ../prod2
+	cd .. && cp -rf staging prod2
+	echo "prod" > ../prod2/current-env
+	cd ../prod2 && make && rm -rf ../prod && mv -vf ../prod2 ../prod && sudo systemctl restart arcadia-prod
+	cd ../prod && make ts
+	# Git push to "current-prod" branch
+	cd ../prod && git branch current-prod && git add -v . && git commit -m "Promote staging to prod" && git push -u origin HEAD:current-prod --force
+
 ts:
 	rm -rvf $(CDN_PATH)/dev/bindings/arcadia
 	cargo test

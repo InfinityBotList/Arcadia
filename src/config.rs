@@ -4,11 +4,42 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::Write};
 use ts_rs::TS;
 use utoipa::ToSchema;
-
 use crate::Error;
+
+pub static CURRENT_ENV: Lazy<&str> = Lazy::new(
+    || {
+        let current_env = include_bytes!(
+            "../current-env"
+        );
+
+        std::str::from_utf8(current_env).unwrap()
+    }
+);
 
 /// Global config object
 pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load().expect("Failed to load config"));
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct Differs<T: Default + Clone> {
+    staging: T,
+    prod: T,
+}
+
+impl<T: Default + Clone> Differs<T> {
+    /// Get the value for a given environment
+    pub fn get_for_env(&self, env: &str) -> T {
+        if env == "staging" {
+            self.staging.clone()
+        } else {
+            self.prod.clone()
+        }
+    }
+
+    /// Get the value for the current environment
+    pub fn get(&self) -> T {
+        self.get_for_env(*CURRENT_ENV)
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Servers {
@@ -84,7 +115,8 @@ pub struct PanelConfig {
     ///
     /// Currently the panel uses the following scopes:
     /// - ibl@main
-    pub cdn_scopes: HashMap<String, CdnScopeData>,
+    pub cdn_scopes: Differs<HashMap<String, CdnScopeData>>,
+
     /// Main scope
     pub main_scope: String,
 
@@ -105,12 +137,14 @@ pub struct CdnScopeData {
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
+    pub server_port: Differs<u16>,
+    pub prefix: Differs<String>,
     pub database_url: String,
     pub token: String,
     pub servers: Servers,
     pub roles: Roles,
     pub channels: Channels,
-    pub frontend_url: String,
+    pub frontend_url: Differs<String>,
     pub infernoplex_url: String,
     pub htmlsanitize_url: String,
     pub borealis_url: String,
@@ -125,12 +159,23 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            server_port: Differs {
+                staging: 3011,
+                prod: 3010,
+            },
+            prefix: Differs {
+                staging: String::from("ibb!"),
+                prod: String::from("ibs!"),
+            },
             database_url: String::from(""),
             token: String::from(""),
             servers: Servers::default(),
             roles: Roles::default(),
             channels: Channels::default(),
-            frontend_url: String::from("https://infinitybots.gg"),
+            frontend_url: Differs {
+                staging: String::from("https://reedwhisker.infinitybots.gg"),
+                prod: String::from("https://infinitybots.gg"),
+            },
             infernoplex_url: String::from("https://infernoplex.infinitybots.gg"),
             borealis_url: String::from("http://localhost:2837"),
             popplio_url: String::from("https://spider-staging.infinitybots.gg"),

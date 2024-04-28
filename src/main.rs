@@ -224,7 +224,7 @@ async fn main() {
     info!("Proxy URL: {}", config::CONFIG.proxy_url);
 
     let http = Arc::new(
-        serenity::HttpBuilder::new(&config::CONFIG.token)
+        serenity::HttpBuilder::new(&config::CONFIG.token.get())
             .proxy(config::CONFIG.proxy_url.clone())
             .ratelimiter_disabled(true)
             .build(),

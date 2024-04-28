@@ -1,5 +1,8 @@
 CDN_PATH := /silverpelt/cdn/ibl
 
+# Read current env from current-env file
+CURRENT_ENV := $(shell cat current-env)
+
 all:
 	cargo build --release
 restartwebserver:
@@ -8,16 +11,16 @@ restartwebserver:
 	make restartwebserver_nobuild
 
 restartwebserver_nobuild:
-	sudo systemctl stop arcadia
+	sudo systemctl stop arcadia-${CURRENT_ENV}
 	sleep 3 # Give time for it to stop
 	cp -v target/release/bot bot
-	sudo systemctl start arcadia
+	sudo systemctl start arcadia-${CURRENT_ENV}
 
 promoteprod:
 	rm -rf ../prod2
 	cd .. && cp -rf staging prod2
 	echo "prod" > ../prod2/current-env
-	cd ../prod2 && make && rm -rf ../prod && mv -vf ../prod2 ../prod && sudo systemctl restart arcadia-prod
+	cd ../prod2 && make restartwebserver && rm -rf ../prod && mv -vf ../prod2 ../prod && sudo systemctl restart arcadia-prod
 	cd ../prod && make ts
 	# Git push to "current-prod" branch
 	cd ../prod && git branch current-prod && git add -v . && git commit -m "Promote staging to prod" && git push -u origin HEAD:current-prod --force

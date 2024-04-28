@@ -570,7 +570,6 @@ impl RPCMethod {
                         crate::config::CONFIG.borealis_url,
                         target_id
                     ))
-                    .header("Authorization", crate::config::CONFIG.token.clone())
                     .send()
                     .await?
                     .json::<BorealisCacheServer>()

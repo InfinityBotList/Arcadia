@@ -140,7 +140,7 @@ pub struct Config {
     pub server_port: Differs<u16>,
     pub prefix: Differs<String>,
     pub database_url: String,
-    pub token: String,
+    pub token: Differs<String>,
     pub servers: Servers,
     pub roles: Roles,
     pub channels: Channels,
@@ -168,7 +168,10 @@ impl Default for Config {
                 prod: String::from("ibs!"),
             },
             database_url: String::from(""),
-            token: String::from(""),
+            token: Differs {
+                staging: String::from(""),
+                prod: String::from("")
+            },
             servers: Servers::default(),
             roles: Roles::default(),
             channels: Channels::default(),

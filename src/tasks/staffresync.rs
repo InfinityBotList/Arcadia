@@ -408,6 +408,28 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
                 user_positions_vec.push(*pos);
             }
 
+            // Check if the user exists in the users table
+            let user_exists = sqlx::query!(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)",
+                user.user_id.to_string()
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| format!("Error while checking if user exists: {:?}", e))?
+            .exists
+            .unwrap_or(false);
+
+            if !user_exists {
+                sqlx::query!(
+                    "INSERT INTO users (user_id, api_token) VALUES ($1, $2)",
+                    user.user_id.to_string(),
+                    botox::crypto::gen_random(512)
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| format!("Error while inserting user: {:?}", e))?;
+            }
+
             crate::config::CONFIG
                 .channels
                 .staff_logs

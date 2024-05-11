@@ -3364,7 +3364,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09d3fa4606cdab1e9b668cc65ce2545941d01f52bc27536a195c66c55b91cb84"
 dependencies = [
  "chrono",
- "serde_json",
  "thiserror",
  "ts-rs-macros",
 ]

@@ -14,6 +14,7 @@ pub struct RPCLogEntry {
     /// The state/status of the rpc action
     pub state: String,
     /// The data provided
+    #[ts(type = "any")]
     pub data: serde_json::Value,
     /// When the entry was created at
     pub created_at: chrono::DateTime<chrono::Utc>,

@@ -80,7 +80,7 @@ pub async fn bans_sync(ctx: &serenity::all::Context) -> Result<(), crate::Error>
                 .channels
                 .mod_logs
                 .send_message(
-                    &ctx,
+                    &ctx.http,
                     CreateMessage::new()
                         .content(&ping_users)
                         .embeds(vec![CreateEmbed::new()
@@ -94,7 +94,7 @@ pub async fn bans_sync(ctx: &serenity::all::Context) -> Result<(), crate::Error>
                 .channels
                 .mod_logs
                 .send_message(
-                    &ctx,
+                    &ctx.http,
                     CreateMessage::new()
                         .content(&ping_users)
                         .embeds(vec![CreateEmbed::new()

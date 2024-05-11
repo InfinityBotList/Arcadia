@@ -96,7 +96,7 @@ pub async fn premium_remove(ctx: &serenity::client::Context) -> Result<(), crate
         crate::config::CONFIG
             .channels
             .mod_logs
-            .send_message(ctx, CreateMessage::new().content(msg))
+            .send_message(&ctx.http, CreateMessage::new().content(msg))
             .await?;
     }
 

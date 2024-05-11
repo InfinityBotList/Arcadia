@@ -57,7 +57,7 @@ pub async fn vote_resetter(ctx: &serenity::client::Context) -> Result<(), crate:
     crate::config::CONFIG
         .channels
         .mod_logs
-        .send_message(ctx, msg)
+        .send_message(&ctx.http, msg)
         .await?;
 
     Ok(())

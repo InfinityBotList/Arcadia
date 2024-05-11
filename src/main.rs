@@ -152,7 +152,7 @@ async fn event_listener<'a>(
                 // Send member join message
                 config::CONFIG.channels.system
                 .send_message(
-                    &ctx.serenity_context,
+                    &ctx.serenity_context.http,
                     CreateMessage::new()
                     .embed(
                         CreateEmbed::default()
@@ -187,7 +187,7 @@ async fn event_listener<'a>(
                 // Send member join message
                 config::CONFIG.channels.system
                 .send_message(
-                    &ctx.serenity_context,
+                    &ctx.serenity_context.http,
                     CreateMessage::new()
                     .embed(
                         CreateEmbed::default()

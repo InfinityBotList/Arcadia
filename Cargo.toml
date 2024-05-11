@@ -23,7 +23,7 @@ futures-util = "0.3"
 ring = "0.16"
 data-encoding = "2.3"
 indexmap = { version = "2", features = ["serde"] }
-ts-rs = { version = "8", features = ["chrono-impl"] }
+ts-rs = { version = "8", features = ["chrono-impl", "serde-json-impl"] }
 axum = { version = "0.6", default-features = true, features = [ "headers" ] }
 tower-http = { version = "0.3", features = ["cors"] }
 rand = "0.8"

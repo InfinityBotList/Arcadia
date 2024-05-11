@@ -199,7 +199,7 @@ pub async fn staff_guildleave(
         .await?
         .resolve();
 
-    if !perms::has_perm(&user_perms, &perms::build("arcadia", "leave_guilds")) {
+    if !perms::has_perm(&user_perms, &"arcadia.leave_guilds".into()) {
         return Err("You do not have permission to use this command".into());
     }
 

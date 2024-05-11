@@ -270,7 +270,7 @@ impl RPCMethod {
         // Next, ensure we have the permissions needed
         let user_perms = get_user_perms(&state.pool, &state.user_id).await?.resolve();
 
-        let required_perm = perms::build("rpc", &self.to_string());
+        let required_perm = format!("rpc.{}", self).into();
         if !perms::has_perm(&user_perms, &required_perm) {
             return Err(format!(
                 "You need {} permission to use {}",
@@ -428,7 +428,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -500,7 +500,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -606,7 +606,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 tx.commit().await?;
@@ -762,7 +762,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -810,7 +810,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
                 Ok(RPCSuccess::NoContent)
             }
@@ -858,7 +858,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -902,7 +902,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -945,7 +945,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -988,7 +988,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -1050,7 +1050,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -1105,7 +1105,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -1159,7 +1159,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 if *kick {
@@ -1221,7 +1221,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -1264,7 +1264,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -1322,7 +1322,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)
@@ -1386,7 +1386,7 @@ impl RPCMethod {
                 crate::config::CONFIG
                     .channels
                     .mod_logs
-                    .send_message(&state.cache_http, msg)
+                    .send_message(&state.cache_http.http, msg)
                     .await?;
 
                 Ok(RPCSuccess::NoContent)

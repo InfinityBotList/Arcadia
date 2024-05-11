@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{panelapi::types::staff_disciplinary::StaffDisciplinaryType, Error};
-use kittycat::perms::{PartialStaffPosition, StaffPermissions};
+use kittycat::perms::{PartialStaffPosition, Permission, StaffPermissions};
 use num_traits::cast::ToPrimitive;
 use sqlx::PgPool;
 
@@ -222,10 +222,18 @@ pub async fn get_staff_member(
             .map(|p| PartialStaffPosition {
                 id: p.id.hyphenated().to_string(),
                 index: p.index,
-                perms: p.perms.clone(),
+                perms: p
+                    .perms
+                    .iter()
+                    .map(|x| Permission::from_string(x))
+                    .collect::<Vec<Permission>>(),
             })
             .collect(),
-        perm_overrides: data.perm_overrides.clone(),
+        perm_overrides: data
+            .perm_overrides
+            .iter()
+            .map(|x| Permission::from_string(x))
+            .collect::<Vec<Permission>>(),
     };
 
     for position_data in pos {
@@ -255,7 +263,12 @@ pub async fn get_staff_member(
                 virtual_sp.user_positions.push(PartialStaffPosition {
                     id: disc.id.clone(),
                     index: 0,
-                    perms: disc.r#type.perm_limits.clone(),
+                    perms: disc
+                        .r#type
+                        .perm_limits
+                        .iter()
+                        .map(|x| Permission::from_string(x))
+                        .collect::<Vec<Permission>>(),
                 });
                 added_ids.push(disc.id.clone());
 
@@ -282,6 +295,7 @@ pub async fn get_staff_member(
         positions,
         disciplinaries,
         perm_overrides: data.perm_overrides,
+        resolved_perms_kc: resolved_perms.iter().map(|x| x.to_string()).collect(),
         resolved_perms,
         no_autosync: data.no_autosync,
         unaccounted: data.unaccounted,

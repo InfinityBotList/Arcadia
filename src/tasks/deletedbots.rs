@@ -116,7 +116,7 @@ pub async fn deleted_bots(ctx: &serenity::client::Context) -> Result<(), crate::
             crate::config::CONFIG
                 .channels
                 .mod_logs
-                .send_message(ctx, msg)
+                .send_message(&ctx.http, msg)
                 .await?;
 
             tx.commit().await?;

@@ -4,7 +4,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use kittycat::perms;
+use kittycat::perms::{self, Permission};
 use serenity::{
     all::UserId,
     builder::{CreateEmbed, CreateMessage},
@@ -216,7 +216,12 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
     let mut staff_unaccounted = HashSet::new();
 
     for member in staff.iter() {
-        staff_override_perms.insert(member.user_id.clone(), member.perm_overrides.clone());
+        staff_override_perms.insert(
+            member.user_id.clone(), 
+            member.perm_overrides.iter()
+            .map(|x| Permission::from_string(x))
+            .collect::<Vec<Permission>>(),
+        );
     }
 
     // This keeps track of any user_ids not accounted for
@@ -376,7 +381,9 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
                     old_sp.user_positions.push(perms::PartialStaffPosition {
                         id: pos.id.hyphenated().to_string(),
                         index: pos.index,
-                        perms: pos.perms.clone(),
+                        perms: pos.perms.iter()
+                        .map(|x| Permission::from_string(x))
+                        .collect::<Vec<Permission>>(),
                     });
                 }
             }
@@ -391,7 +398,9 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
                     new_sp.user_positions.push(perms::PartialStaffPosition {
                         id: pos.id.hyphenated().to_string(),
                         index: pos.index,
-                        perms: pos.perms.clone(),
+                        perms: pos.perms.iter()
+                        .map(|x| Permission::from_string(x))
+                        .collect::<Vec<Permission>>(),
                     });
                 }
             }
@@ -567,7 +576,9 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
                 old_sp.user_positions.push(perms::PartialStaffPosition {
                     id: pos.id.hyphenated().to_string(),
                     index: pos.index,
-                    perms: pos.perms.clone(),
+                    perms: pos.perms.iter()
+                    .map(|x| Permission::from_string(x))
+                    .collect::<Vec<Permission>>(),
                 });
             }
         }

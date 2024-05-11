@@ -109,7 +109,7 @@ pub async fn auto_unclaim(ctx: &serenity::all::Context) -> Result<(), crate::Err
         config::CONFIG
             .channels
             .testing_lounge
-            .send_message(ctx, msg)
+            .send_message(&ctx.http, msg)
             .await
             .map_err(|e| format!("Error while sending message in #lounge: {}", e))?;
 
@@ -119,7 +119,7 @@ pub async fn auto_unclaim(ctx: &serenity::all::Context) -> Result<(), crate::Err
 
         config::CONFIG.channels.mod_logs
         .send_message(
-            ctx,
+            &ctx.http,
             CreateMessage::default()
             .content(owners.mention_users())
             .embed(

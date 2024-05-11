@@ -1,4 +1,4 @@
-use kittycat::perms::{PartialStaffPosition, StaffPermissions};
+use kittycat::perms::{PartialStaffPosition, Permission, StaffPermissions};
 
 use sqlx::PgPool;
 
@@ -243,9 +243,17 @@ pub async fn get_user_perms(
             .map(|p| PartialStaffPosition {
                 id: p.id.hyphenated().to_string(),
                 index: p.index,
-                perms: p.perms.clone(),
+                perms: p
+                    .perms
+                    .iter()
+                    .map(|x| Permission::from_string(x))
+                    .collect::<Vec<Permission>>(),
             })
             .collect(),
-        perm_overrides: rec.perm_overrides,
+        perm_overrides: rec
+            .perm_overrides
+            .iter()
+            .map(|x| Permission::from_string(x))
+            .collect::<Vec<Permission>>(),
     })
 }

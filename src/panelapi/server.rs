@@ -18,6 +18,7 @@ use crate::panelapi::types::{
     entity::{PartialBot, PartialEntity, PartialServer},
     partners::{CreatePartner, Partner, PartnerAction, PartnerType, Partners},
     rpc::RPCWebAction,
+    rpclogs::RPCLogEntry,
     staff_disciplinary::StaffDisciplinaryTypeAction,
     staff_positions::StaffPosition,
     vote_credit_tiers::{VoteCreditTier, VoteCreditTierAction},
@@ -28,7 +29,7 @@ use axum::body::StreamBody;
 use axum::extract::DefaultBodyLimit;
 use axum::http::HeaderMap;
 use axum::Json;
-use kittycat::perms;
+use kittycat::perms::{self, Permission};
 
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -232,6 +233,11 @@ pub enum PanelQuery {
         /// Filtered
         filtered: bool,
     },
+    /// Gets the list of all RPC log entries made
+    GetRpcLogEntries {
+        /// Login token
+        login_token: String,
+    },
     /// Searches for a bot based on a query
     ///
     /// This is public to all staff members
@@ -361,11 +367,9 @@ pub enum PanelQuery {
 }
 
 /// CDN granularity: Check for [cdn].[permission] or [cdn#scope].[permission]
-fn has_cdn_perm(user_perms: &[String], cdn_scope: &str, perm: &str) -> bool {
-    perms::has_perm(
-        user_perms,
-        &perms::build(&("cdn#".to_string() + cdn_scope), perm),
-    ) || perms::has_perm(user_perms, &perms::build("cdn", perm))
+fn has_cdn_perm(user_perms: &[Permission], cdn_scope: &str, perm: &str) -> bool {
+    perms::has_perm(user_perms, &format!("cdn#{}.{}", cdn_scope, perm).into())
+        || perms::has_perm(user_perms, &format!("cdn.{}", perm).into())
 }
 
 /// Make Panel Query
@@ -996,7 +1000,7 @@ async fn query(
                 let variant = crate::rpc::core::RPCMethod::from_str(method).map_err(Error::new)?;
 
                 if filtered {
-                    let required_perm = perms::build("rpc", &variant.to_string());
+                    let required_perm = format!("rpc.{}", variant).into();
                     if !perms::has_perm(&user_perms, &required_perm) {
                         continue;
                     }
@@ -1014,6 +1018,46 @@ async fn query(
             }
 
             Ok((StatusCode::OK, Json(rpc_methods)).into_response())
+        }
+        PanelQuery::GetRpcLogEntries { login_token } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
+                .await
+                .map_err(Error::new)?
+                .resolve();
+
+            if !perms::has_perm(&user_perms, &"rpc_logs.view".into()) {
+                return Ok((
+                    StatusCode::FORBIDDEN,
+                    "You do not have permission to view rpc logs [rpc_logs.view]".to_string(),
+                )
+                    .into_response());
+            }
+
+            let entries = sqlx::query!(
+                "SELECT id, user_id, method, data, state, created_at FROM rpc_logs ORDER BY created_at DESC"
+            )
+            .fetch_all(&state.pool)
+            .await
+            .map_err(Error::new)?;
+
+            let mut rpc_log = vec![];
+
+            for entry in entries {
+                rpc_log.push(RPCLogEntry {
+                    id: entry.id.to_string(),
+                    user_id: entry.user_id,
+                    method: entry.method,
+                    data: entry.data,
+                    state: entry.state,
+                    created_at: entry.created_at,
+                });
+            }
+
+            Ok((StatusCode::OK, Json(rpc_log)).into_response())
         }
         PanelQuery::SearchEntitys {
             login_token,
@@ -1145,7 +1189,7 @@ async fn query(
                 .map_err(Error::new)?
                 .resolve();
 
-            if !perms::has_perm(&user_perms, &perms::build("cdn", "upload_chunk")) {
+            if !perms::has_perm(&user_perms, &"cdn.upload_chunk".into()) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to upload chunks to the CDN right now [cdn.upload_chunk]".to_string(),
@@ -1204,7 +1248,7 @@ async fn query(
                 .map_err(Error::new)?
                 .resolve();
 
-            if !perms::has_perm(&user_perms, &perms::build("cdn", "list_scopes")) {
+            if !perms::has_perm(&user_perms, &"cdnlist_scopes".into()) {
                 return Ok((
                     StatusCode::FORBIDDEN,
                     "You do not have permission to list the CDN's scopes right now [cdn.list_scopes]".to_string(),
@@ -1954,14 +1998,9 @@ async fn query(
 
                 // Ensure that image has been uploaded to CDN
                 // Get cdn path from cdn_scope hashmap
-                let cdn_scopes = crate::config::CONFIG
-                .panel
-                .cdn_scopes
-                .get();
+                let cdn_scopes = crate::config::CONFIG.panel.cdn_scopes.get();
 
-                let Some(cdn_path) = cdn_scopes
-                    .get(&crate::config::CONFIG.panel.main_scope)
-                else {
+                let Some(cdn_path) = cdn_scopes.get(&crate::config::CONFIG.panel.main_scope) else {
                     return Err("Main scope not found".into());
                 };
 
@@ -2073,7 +2112,7 @@ async fn query(
                         .into_response())
                 }
                 PartnerAction::Create { partner } => {
-                    if !perms::has_perm(&user_perms, &perms::build("partners", "create")) {
+                    if !perms::has_perm(&user_perms, &"partnerscreate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create partners [partners.create]"
@@ -2119,7 +2158,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 PartnerAction::Update { partner } => {
-                    if !perms::has_perm(&user_perms, &perms::build("partners", "update")) {
+                    if !perms::has_perm(&user_perms, &"partnersupdate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update partners [partners.update]"
@@ -2165,7 +2204,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 PartnerAction::Delete { id } => {
-                    if !perms::has_perm(&user_perms, &perms::build("partners", "delete")) {
+                    if !perms::has_perm(&user_perms, &"partnersdelete".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete partners [partners.delete]"
@@ -2191,13 +2230,9 @@ async fn query(
 
                     // Ensure that image has been uploaded to CDN
                     // Get cdn path from cdn_scope hashmap
-                    let cdn_scopes = crate::config::CONFIG
-                    .panel
-                    .cdn_scopes
-                    .get();
+                    let cdn_scopes = crate::config::CONFIG.panel.cdn_scopes.get();
 
-                    let Some(cdn_path) = cdn_scopes
-                        .get(&crate::config::CONFIG.panel.main_scope)
+                    let Some(cdn_path) = cdn_scopes.get(&crate::config::CONFIG.panel.main_scope)
                     else {
                         return Ok(
                             (StatusCode::BAD_REQUEST, "Main scope not found".to_string())
@@ -2287,7 +2322,7 @@ async fn query(
                     updated,
                     removed,
                 } => {
-                    if !perms::has_perm(&user_perms, &perms::build("changelogs", "create")) {
+                    if !perms::has_perm(&user_perms, &"changelogscreate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create changelog entries [changelogs.create]"
@@ -2341,7 +2376,7 @@ async fn query(
                     removed,
                     published,
                 } => {
-                    if !perms::has_perm(&user_perms, &perms::build("changelogs", "update")) {
+                    if !perms::has_perm(&user_perms, &"changelogsupdate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update changelog entries [changelogs.update]"
@@ -2388,7 +2423,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 ChangelogAction::DeleteEntry { version } => {
-                    if !perms::has_perm(&user_perms, &perms::build("changelogs", "delete")) {
+                    if !perms::has_perm(&user_perms, &"changelogsdelete".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete changelog entries [changelogs.delete]"
@@ -2478,7 +2513,7 @@ async fn query(
                     content,
                     tags,
                 } => {
-                    if !perms::has_perm(&user_perms, &perms::build("blog", "create_entry")) {
+                    if !perms::has_perm(&user_perms, &"blogcreate_entry".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create blog entries [blog.create_entry]"
@@ -2512,7 +2547,7 @@ async fn query(
                     tags,
                     draft,
                 } => {
-                    if !perms::has_perm(&user_perms, &perms::build("blog", "update_entry")) {
+                    if !perms::has_perm(&user_perms, &"blogupdate_entry".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update blog entries [blog.update_entry]"
@@ -2556,7 +2591,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 BlogAction::DeleteEntry { itag } => {
-                    if !perms::has_perm(&user_perms, &perms::build("blog", "delete_entry")) {
+                    if !perms::has_perm(&user_perms, &"blogdelete_entry".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete blog entries [blog.delete_entry]"
@@ -2638,10 +2673,7 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(
-                        &sm.resolved_perms,
-                        &perms::build("staff_positions", "swap_index"),
-                    ) {
+                    if !perms::has_perm(&sm.resolved_perms, &"staff_positionsswap_index".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to swap indexes of staff positions [staff_positions.swap_index]".to_string(),
@@ -2732,10 +2764,7 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(
-                        &sm.resolved_perms,
-                        &perms::build("staff_positions", "set_index"),
-                    ) {
+                    if !perms::has_perm(&sm.resolved_perms, &"staff_positionsset_index".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to set the indexes of staff positions [staff_positions.set_index]".to_string(),
@@ -2829,10 +2858,7 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(
-                        &sm.resolved_perms,
-                        &perms::build("staff_positions", "create"),
-                    ) {
+                    if !perms::has_perm(&sm.resolved_perms, &"staff_positionscreate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create staff positions [staff_positions.create]".to_string(),
@@ -2972,10 +2998,7 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(
-                        &sm.resolved_perms,
-                        &perms::build("staff_positions", "edit"),
-                    ) {
+                    if !perms::has_perm(&sm.resolved_perms, &"staff_positionsedit".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to edit staff positions [staff_positions.edit]".to_string(),
@@ -3011,9 +3034,18 @@ async fn query(
                     }
 
                     // Check perms
-                    if let Err(e) =
-                        perms::check_patch_changes(&sm.resolved_perms, &index.perms, &perms)
-                    {
+                    if let Err(e) = perms::check_patch_changes(
+                        &sm.resolved_perms,
+                        &index
+                            .perms
+                            .iter()
+                            .map(|x| Permission::from_string(x))
+                            .collect::<Vec<Permission>>(),
+                        &perms
+                            .iter()
+                            .map(|x| Permission::from_string(x))
+                            .collect::<Vec<Permission>>(),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             format!(
@@ -3112,10 +3144,7 @@ async fn query(
                     .await
                     .map_err(Error::new)?;
 
-                    if !perms::has_perm(
-                        &sm.resolved_perms,
-                        &perms::build("staff_positions", "delete"),
-                    ) {
+                    if !perms::has_perm(&sm.resolved_perms, &"staff_positionsdelete".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete staff positions [staff_positions.delete]".to_string(),
@@ -3151,9 +3180,15 @@ async fn query(
                     }
 
                     // Check perms
-                    if let Err(e) =
-                        perms::check_patch_changes(&sm.resolved_perms, &index.perms, &Vec::new())
-                    {
+                    if let Err(e) = perms::check_patch_changes(
+                        &sm.resolved_perms,
+                        &index
+                            .perms
+                            .iter()
+                            .map(|x| Permission::from_string(x))
+                            .collect::<Vec<Permission>>(),
+                        &Vec::new(),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             format!("You do not have permission to edit the following perms [neeed to delete position]: {}", e),
@@ -3237,8 +3272,7 @@ async fn query(
                             .await
                             .map_err(Error::new)?;
 
-                    if !perms::has_perm(&sm.resolved_perms, &perms::build("staff_members", "edit"))
-                    {
+                    if !perms::has_perm(&sm.resolved_perms, &"staff_membersedit".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to edit staff members [staff_members.edit]"
@@ -3377,10 +3411,7 @@ async fn query(
                     needs_approval,
                     max_expiry,
                 } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("staff_disciplinary_types", "create"),
-                    ) {
+                    if !perms::has_perm(&user_perms, &"staff_disciplinary_typescreate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create staff disciplinary types [staff_disciplinary_types.create]".to_string(),
@@ -3388,9 +3419,14 @@ async fn query(
                             .into_response());
                     }
 
-                    if let Err(e) =
-                        perms::check_patch_changes(&user_perms, &Vec::new(), &perm_limits)
-                    {
+                    if let Err(e) = perms::check_patch_changes(
+                        &user_perms,
+                        &Vec::new(),
+                        &perm_limits
+                            .iter()
+                            .map(|x| Permission::from_string(x))
+                            .collect::<Vec<Permission>>(),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             format!(
@@ -3429,10 +3465,7 @@ async fn query(
                     needs_approval,
                     max_expiry,
                 } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("staff_disciplinary_types", "update"),
-                    ) {
+                    if !perms::has_perm(&user_perms, &"staff_disciplinary_typesupdate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update staff disciplinary types [staff_disciplinary_types.update]".to_string(),
@@ -3440,9 +3473,14 @@ async fn query(
                             .into_response());
                     }
 
-                    if let Err(e) =
-                        perms::check_patch_changes(&user_perms, &Vec::new(), &perm_limits)
-                    {
+                    if let Err(e) = perms::check_patch_changes(
+                        &user_perms,
+                        &Vec::new(),
+                        &perm_limits
+                            .iter()
+                            .map(|x| Permission::from_string(x))
+                            .collect::<Vec<Permission>>(),
+                    ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             format!(
@@ -3491,10 +3529,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 StaffDisciplinaryTypeAction::DeleteDisciplinaryType { id } => {
-                    if !perms::has_perm(
-                        &user_perms,
-                        &perms::build("staff_disciplinary_types", "delete"),
-                    ) {
+                    if !perms::has_perm(&user_perms, &"staff_disciplinary_typesdelete".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete staff disciplinary types [staff_disciplinary_types.delete]".to_string(),
@@ -3573,7 +3608,7 @@ async fn query(
                     cents,
                     votes,
                 } => {
-                    if !perms::has_perm(&user_perms, &perms::build("vote_credit_tiers", "create")) {
+                    if !perms::has_perm(&user_perms, &"vote_credit_tierscreate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to create vote credit tiers [vote_credit_tiers.create]".to_string(),
@@ -3617,7 +3652,7 @@ async fn query(
                     cents,
                     votes,
                 } => {
-                    if !perms::has_perm(&user_perms, &perms::build("vote_credit_tiers", "update")) {
+                    if !perms::has_perm(&user_perms, &"vote_credit_tiersupdate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update vote credit tiers [vote_credit_tiers.update]".to_string(),
@@ -3672,7 +3707,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 VoteCreditTierAction::DeleteTier { id } => {
-                    if !perms::has_perm(&user_perms, &perms::build("vote_credit_tiers", "delete")) {
+                    if !perms::has_perm(&user_perms, &"vote_credit_tiers.delete".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete vote credit tiers [vote_credit_tiers.delete]".to_string(),
@@ -3742,7 +3777,7 @@ async fn query(
                     Ok((StatusCode::OK, Json(entries)).into_response())
                 }
                 BotWhitelistAction::Add { bot_id, reason } => {
-                    if !perms::has_perm(&user_perms, &perms::build("bot_whitelist", "create")) {
+                    if !perms::has_perm(&user_perms, &"bot_whitelist.create".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to add to the bot whitelist (bot_whitelist.create)".to_string(),
@@ -3764,7 +3799,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 BotWhitelistAction::Edit { bot_id, reason } => {
-                    if !perms::has_perm(&user_perms, &perms::build("bot_whitelist", "update")) {
+                    if !perms::has_perm(&user_perms, &"bot_whitelistupdate".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to update bot whitelist (bot_whitelist.update)".to_string(),
@@ -3804,7 +3839,7 @@ async fn query(
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }
                 BotWhitelistAction::Delete { bot_id } => {
-                    if !perms::has_perm(&user_perms, &perms::build("bot_whitelist", "delete")) {
+                    if !perms::has_perm(&user_perms, &"bot_whitelistdelete".into()) {
                         return Ok((
                             StatusCode::FORBIDDEN,
                             "You do not have permission to delete bot whitelist entries (bot_whitelist.delete)".to_string(),

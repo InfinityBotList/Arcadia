@@ -1,5 +1,6 @@
 use super::staff_disciplinary::StaffDisciplinary;
 use crate::impls::dovewing::PlatformUser;
+use kittycat::perms::Permission;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString, EnumVariantNames};
 use ts_rs::TS;
@@ -54,8 +55,13 @@ pub struct StaffMember {
     pub disciplinaries: Vec<StaffDisciplinary>,
     /// The permission overrides of the staff member
     pub perm_overrides: Vec<String>,
+    #[serde(skip)]
+    #[ts(skip)]
+    pub resolved_perms: Vec<Permission>,
+    #[serde(rename = "resolved_perms")]
+    #[ts(rename = "resolved_perms")]
     /// The resolved permissions available to the member
-    pub resolved_perms: Vec<String>,
+    pub resolved_perms_kc: Vec<String>,
     /// Whether or not the member is 'frozen' and cannot be updated in resyncs
     pub no_autosync: bool,
     /// Whether or not the member is 'known' to be 'unaccounted' for

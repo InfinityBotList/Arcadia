@@ -14,10 +14,10 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("staff_list", "staff_guildlist", "staff_guildleave", "staff_stats")
+    subcommands("staff_list", "staff_guildlist", "staff_guildleave", "staff_stats", "staff_leaderboard")
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``, ``staff_stats``")
+    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``, ``staff_stats``, ``staff_leaderboard``")
         .await?;
     Ok(())
 }
@@ -254,6 +254,45 @@ pub async fn staff_stats(
         } else {
             embed = embed.field(stat.method, count.to_string(), true);
         };
+    }
+
+    let msg = CreateReply::default().embed(embed);
+
+    ctx.send(msg).await?;
+    Ok(())
+}
+
+/// Staff Leaderboard
+#[poise::command(
+    rename = "leaderboard",
+    prefix_command,
+    slash_command
+)]
+pub async fn staff_leaderboard(
+    ctx: Context<'_>
+) -> Result<(), Error> {
+    let data = ctx.data();
+
+    let stats = sqlx::query!(
+        "SELECT user_id, SUM(CASE WHEN method = 'Approve' THEN 1 ELSE 0 END) AS approved_count, SUM(CASE WHEN method = 'Deny' THEN 1 ELSE 0 END) AS denied_count, SUM(CASE WHEN method IN ('Approve', 'Deny') THEN 1 ELSE 0 END) AS total_count FROM rpc_logs WHERE method IN ('Approve', 'Deny') GROUP BY user_id ORDER BY total_count DESC LIMIT 5;"
+    )
+    .fetch_all(&data.pool)
+    .await?;
+
+    let mut embed = CreateEmbed::default()
+        .title("Staff Leaderboard")
+        .description("Let's see who's been fighting bots the most :eyes:");
+
+    for (index, stat) in stats.iter().enumerate() {
+        let field_value = format!(
+            "User: <@{:?}>\nApproved: {:?}\nDenied: {:?}\nTotal: {:?}",
+            stat.user_id,
+            stat.approved_count,
+            stat.denied_count,
+            stat.total_count
+        );
+            
+        embed = embed.field(format!("Rank {}", index + 1), field_value, true);
     }
 
     let msg = CreateReply::default().embed(embed);

@@ -138,8 +138,10 @@ fn _queue_bot<'a>(qb: InternalQueueBot) -> CreateReply<'a> {
         ]),
         CreateActionRow::Buttons(vec![
             CreateButton::new_link(qb.invite).label("Invite"),
-            CreateButton::new_link(config::CONFIG.frontend_url.get().clone() + "/bots/" + &qb.bot_id)
-                .label("View Page"),
+            CreateButton::new_link(
+                config::CONFIG.frontend_url.get().clone() + "/bots/" + &qb.bot_id,
+            )
+            .label("View Page"),
         ]),
     ])
 }

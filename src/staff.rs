@@ -1,9 +1,9 @@
-use poise::serenity_prelude::GuildId;
-use poise::CreateReply;
-use poise::serenity_prelude::CreateEmbed;
-use poise::serenity_prelude::User;
 use crate::{checks, impls::utils::get_user_perms};
 use kittycat::perms;
+use poise::serenity_prelude::CreateEmbed;
+use poise::serenity_prelude::GuildId;
+use poise::serenity_prelude::User;
+use poise::CreateReply;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -14,7 +14,13 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("staff_list", "staff_guildlist", "staff_guildleave", "staff_stats", "staff_leaderboard")
+    subcommands(
+        "staff_list",
+        "staff_guildlist",
+        "staff_guildleave",
+        "staff_stats",
+        "staff_leaderboard"
+    )
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
     ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``, ``staff_stats``, ``staff_leaderboard``")
@@ -235,20 +241,18 @@ pub async fn staff_stats(
     .await?;
 
     let mut embed = CreateEmbed::default()
-            .title("Staff Statistics")
-            .thumbnail(
-                if let Some(avatar_url) = user.avatar_url() {
-                    avatar_url 
-                 } else {
-                    user.default_avatar_url()
-                 }
-            )
-            .field("Username", user.name.to_string(), true)
-            .field("User ID", user.id.to_string(), true);
+        .title("Staff Statistics")
+        .thumbnail(if let Some(avatar_url) = user.avatar_url() {
+            avatar_url
+        } else {
+            user.default_avatar_url()
+        })
+        .field("Username", user.name.to_string(), true)
+        .field("User ID", user.id.to_string(), true);
 
     for stat in stats {
         let count = stat.count.unwrap_or(0);
-        
+
         if count == 0 {
             continue;
         } else {
@@ -263,37 +267,33 @@ pub async fn staff_stats(
 }
 
 /// Staff Leaderboard
-#[poise::command(
-    rename = "leaderboard",
-    prefix_command,
-    slash_command
-)]
-pub async fn staff_leaderboard(
-    ctx: Context<'_>
-) -> Result<(), Error> {
+#[poise::command(rename = "leaderboard", prefix_command, slash_command)]
+pub async fn staff_leaderboard(ctx: Context<'_>) -> Result<(), Error> {
     let data = ctx.data();
 
     let stats = sqlx::query!(
-        "SELECT user_id, SUM(CASE WHEN method = 'Approve' THEN 1 ELSE 0 END) AS approved_count, SUM(CASE WHEN method = 'Deny' THEN 1 ELSE 0 END) AS denied_count, SUM(CASE WHEN method IN ('Approve', 'Deny') THEN 1 ELSE 0 END) AS total_count FROM rpc_logs WHERE method IN ('Approve', 'Deny') GROUP BY user_id ORDER BY total_count DESC LIMIT 5;"
+        "SELECT user_id, approved_count, denied_count, total_count FROM (SELECT rpc.user_id, SUM(CASE WHEN rpc.method = 'Approve' THEN 1 ELSE 0 END) AS approved_count, SUM(CASE WHEN rpc.method = 'Deny' THEN 1 ELSE 0 END) AS denied_count, SUM(CASE WHEN rpc.method IN ('Approve', 'Deny') THEN 1 ELSE 0 END) AS total_count FROM rpc_logs rpc LEFT JOIN staff_members sm ON rpc.user_id = sm.user_id WHERE rpc.method IN ('Approve', 'Deny') GROUP BY rpc.user_id) AS subquery WHERE total_count > 0 ORDER BY total_count DESC LIMIT 5;"
     )
     .fetch_all(&data.pool)
     .await?;
 
+    let mut desc = String::from("Let's see who's been fighting bots the most :eyes:\n\n");
     let mut embed = CreateEmbed::default()
         .title("Staff Leaderboard")
-        .description("Let's see who's been fighting bots the most :eyes:");
+        .description(desc.clone());
 
     for (index, stat) in stats.iter().enumerate() {
-        let field_value = format!(
-            "User: <@{}>\nApproved: {}\nDenied: {}\nTotal: {}",
+        desc.push_str(&format!(
+            "{}. User: <@{}> | Approved: {} | Denied: {} | Total: {}\n",
+            index + 1,
             stat.user_id,
             stat.approved_count.unwrap_or_default(),
             stat.denied_count.unwrap_or_default(),
             stat.total_count.unwrap_or_default()
-        );
-            
-        embed = embed.field(format!("Rank {}", index + 1), field_value, true);
+        ));
     }
+
+    embed = embed.description(desc);
 
     let msg = CreateReply::default().embed(embed);
 

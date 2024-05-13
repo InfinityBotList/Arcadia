@@ -217,10 +217,12 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
 
     for member in staff.iter() {
         staff_override_perms.insert(
-            member.user_id.clone(), 
-            member.perm_overrides.iter()
-            .map(|x| Permission::from_string(x))
-            .collect::<Vec<Permission>>(),
+            member.user_id.clone(),
+            member
+                .perm_overrides
+                .iter()
+                .map(|x| Permission::from_string(x))
+                .collect::<Vec<Permission>>(),
         );
     }
 
@@ -381,9 +383,11 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
                     old_sp.user_positions.push(perms::PartialStaffPosition {
                         id: pos.id.hyphenated().to_string(),
                         index: pos.index,
-                        perms: pos.perms.iter()
-                        .map(|x| Permission::from_string(x))
-                        .collect::<Vec<Permission>>(),
+                        perms: pos
+                            .perms
+                            .iter()
+                            .map(|x| Permission::from_string(x))
+                            .collect::<Vec<Permission>>(),
                     });
                 }
             }
@@ -398,9 +402,11 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
                     new_sp.user_positions.push(perms::PartialStaffPosition {
                         id: pos.id.hyphenated().to_string(),
                         index: pos.index,
-                        perms: pos.perms.iter()
-                        .map(|x| Permission::from_string(x))
-                        .collect::<Vec<Permission>>(),
+                        perms: pos
+                            .perms
+                            .iter()
+                            .map(|x| Permission::from_string(x))
+                            .collect::<Vec<Permission>>(),
                     });
                 }
             }
@@ -576,9 +582,11 @@ pub async fn staff_resync(ctx: &serenity::client::Context) -> Result<(), crate::
                 old_sp.user_positions.push(perms::PartialStaffPosition {
                     id: pos.id.hyphenated().to_string(),
                     index: pos.index,
-                    perms: pos.perms.iter()
-                    .map(|x| Permission::from_string(x))
-                    .collect::<Vec<Permission>>(),
+                    perms: pos
+                        .perms
+                        .iter()
+                        .map(|x| Permission::from_string(x))
+                        .collect::<Vec<Permission>>(),
                 });
             }
         }

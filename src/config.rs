@@ -1,20 +1,16 @@
+use crate::Error;
 use once_cell::sync::Lazy;
 use poise::serenity_prelude::{ChannelId, GuildId, RoleId, UserId};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::Write};
 use ts_rs::TS;
 use utoipa::ToSchema;
-use crate::Error;
 
-pub static CURRENT_ENV: Lazy<&str> = Lazy::new(
-    || {
-        let current_env = include_bytes!(
-            "../current-env"
-        );
+pub static CURRENT_ENV: Lazy<&str> = Lazy::new(|| {
+    let current_env = include_bytes!("../current-env");
 
-        std::str::from_utf8(current_env).unwrap()
-    }
-);
+    std::str::from_utf8(current_env).unwrap()
+});
 
 /// Global config object
 pub static CONFIG: Lazy<Config> = Lazy::new(|| Config::load().expect("Failed to load config"));
@@ -170,7 +166,7 @@ impl Default for Config {
             database_url: String::from(""),
             token: Differs {
                 staging: String::from(""),
-                prod: String::from("")
+                prod: String::from(""),
             },
             servers: Servers::default(),
             roles: Roles::default(),

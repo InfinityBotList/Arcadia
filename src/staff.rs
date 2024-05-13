@@ -1,5 +1,7 @@
 use poise::serenity_prelude::GuildId;
-
+use poise::CreateReply;
+use poise::serenity_prelude::CreateEmbed;
+use poise::serenity_prelude::User;
 use crate::{checks, impls::utils::get_user_perms};
 use kittycat::perms;
 
@@ -12,10 +14,10 @@ type Context<'a> = crate::Context<'a>;
     prefix_command,
     slash_command,
     guild_cooldown = 10,
-    subcommands("staff_list", "staff_guildlist", "staff_guildleave")
+    subcommands("staff_list", "staff_guildlist", "staff_guildleave", "staff_stats")
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``")
+    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``, ``staff_stats``")
         .await?;
     Ok(())
 }
@@ -209,5 +211,53 @@ pub async fn staff_guildleave(
 
     ctx.say("Removed guild").await?;
 
+    Ok(())
+}
+
+/// Staff Stats
+#[poise::command(
+    rename = "stats",
+    prefix_command,
+    slash_command,
+    check = "checks::staff_server"
+)]
+pub async fn staff_stats(
+    ctx: Context<'_>,
+    #[description = "The staff member you are looking for?"] user: User,
+) -> Result<(), Error> {
+    let data = ctx.data();
+
+    let stats = sqlx::query!(
+        "SELECT method, COUNT(*) FROM rpc_logs WHERE user_id = $1 GROUP BY method",
+        user.id.to_string()
+    )
+    .fetch_all(&data.pool)
+    .await?;
+
+    let mut embed = CreateEmbed::default()
+            .title("Staff Statistics")
+            .thumbnail(
+                if let Some(avatar_url) = user.avatar_url() {
+                    avatar_url 
+                 } else {
+                    user.default_avatar_url()
+                 }
+            )
+            .field("Username", user.name.to_string(), true)
+            .field("User ID", user.id.to_string(), true);
+
+    for stat in stats {
+        let count = stat.count.unwrap_or(0);
+        
+        if count == 0 {
+            continue;
+        } else {
+            embed = embed.field(stat.method, count.to_string(), true);
+        };
+    }
+
+    let msg = CreateReply::default().embed(embed);
+
+    ctx.send(msg).await?;
     Ok(())
 }

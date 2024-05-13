@@ -284,7 +284,7 @@ pub async fn staff_leaderboard(ctx: Context<'_>) -> Result<(), Error> {
 
     for (index, stat) in stats.iter().enumerate() {
         desc.push_str(&format!(
-            "{}. User: <@{}> | Approved: {} | Denied: {} | Total: {}\n",
+            "{}. <@{}> | Approved: {} | Denied: {} | Total: {}\n",
             index + 1,
             stat.user_id,
             stat.approved_count.unwrap_or_default(),

@@ -285,11 +285,11 @@ pub async fn staff_leaderboard(
 
     for (index, stat) in stats.iter().enumerate() {
         let field_value = format!(
-            "User: <@{:?}>\nApproved: {:?}\nDenied: {:?}\nTotal: {:?}",
+            "User: <@{}>\nApproved: {}\nDenied: {}\nTotal: {}",
             stat.user_id,
-            stat.approved_count,
-            stat.denied_count,
-            stat.total_count
+            stat.approved_count.unwrap_or_default(),
+            stat.denied_count.unwrap_or_default(),
+            stat.total_count.unwrap_or_default()
         );
             
         embed = embed.field(format!("Rank {}", index + 1), field_value, true);

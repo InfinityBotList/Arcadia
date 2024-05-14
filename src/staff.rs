@@ -22,11 +22,11 @@ type Context<'a> = crate::Context<'a>;
         "staff_guildleave",
         "staff_stats",
         "staff_leaderboard",
-        "staff_refresh"
+        "staff_refresh_top"
     )
 )]
 pub async fn staff(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``, ``staff_stats``, ``staff_leaderboard``, ``staff_refresh``")
+    ctx.say("Some available options are ``staff list``, ``staff guildlist``, ``staff_guildleave``, ``staff_stats``, ``staff_leaderboard``, ``staff_refresh_top``")
         .await?;
     Ok(())
 }
@@ -311,19 +311,19 @@ pub async fn staff_leaderboard(
 
 /// Force Refresh Staff Top Reviewers Role (bypasses Task)
 #[poise::command(
-    rename = "refresh", 
+    rename = "refresh_top", 
     prefix_command, 
     slash_command,
     check = "checks::staff_server"
 )]
-pub async fn staff_refresh(
+pub async fn staff_refresh_top(
     ctx: Context<'_>
 ) -> Result<(), Error> {
     let user_perms = get_user_perms(&ctx.data().pool, &ctx.author().id.to_string())
         .await?
         .resolve();
 
-    if !perms::has_perm(&user_perms, &"arcadia.force_staff_refresh".into()) {
+    if !perms::has_perm(&user_perms, &"arcadia.force_refresh_top".into()) {
         return Err("You do not have permission to use this command".into());
     }
 

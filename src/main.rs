@@ -297,6 +297,7 @@ async fn main() {
         event_handler: |ctx, event| Box::pin(event_listener(ctx, event)),
         commands: vec![
             age(),
+            analytics(),
             register(),
             help::simplehelp(),
             help::help(),

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT method, COUNT(*) FROM rpc_logs WHERE user_id = $1 GROUP BY method",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "method",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "ee9103cf26cdc8d765109a3b437fc61aea157b881af7fa022151dd86173314e3"
+}

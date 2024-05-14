@@ -1128,7 +1128,7 @@ async fn query(
                 TargetType::Server => {
                     let queue = sqlx::query!(
                         "
-                        SELECT server_id, name, avatar, total_members, online_members, short, type, votes, invite_clicks, 
+                        SELECT server_id, name, total_members, online_members, short, type, votes, invite_clicks, 
                         clicks, nsfw, tags, premium, claimed_by, last_claimed FROM servers
                         WHERE server_id = $1 OR name ILIKE $2 ORDER BY created_at
                         ",
@@ -1151,9 +1151,13 @@ async fn query(
                         .map_err(Error::new)?;
 
                         servers.push(PartialEntity::Server(PartialServer {
-                            server_id: server.server_id,
+                            server_id: server.server_id.clone(),
                             name: server.name,
-                            avatar: server.avatar,
+                            avatar: format!(
+                                "{}/servers/avatars/{}.webp",
+                                crate::config::CONFIG.cdn_url,
+                                server.server_id
+                            ),
                             total_members: server.total_members,
                             online_members: server.online_members,
                             short: server.short,

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT type as method, COUNT(*) FROM bots GROUP BY type;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "method",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "45c4a2c96d9e23b4c2a597ea63acd425ca5e57b3d9e70066d5f3e376c70c8b90"
+}

@@ -1,5 +1,5 @@
 use log::{error, info};
-use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp};
+use poise::{serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp}, CreateReply};
 use sqlx::postgres::PgPoolOptions;
 
 use botox::cache::CacheHttpImpl;
@@ -38,6 +38,51 @@ async fn age(
     let u = user.as_ref().unwrap_or_else(|| ctx.author());
     let response = format!("{}'s account was created at {}", u.name, u.created_at());
     ctx.say(response).await?;
+    Ok(())
+}
+
+/// Look at our site analytics!
+#[poise::command(category = "Stats", slash_command, prefix_command)]
+async fn analytics(
+    ctx: Context<'_>
+) -> Result<(), Error> {
+    let data = ctx.data();
+
+    let categorizedbotcount = sqlx::query!(
+        "SELECT type as method, COUNT(*) FROM bots GROUP BY type;"
+    ).fetch_all(&data.pool)
+    .await?;
+
+    let botcount = sqlx::query!(
+        "SELECT COUNT(*) FROM bots;"
+    )
+    .fetch_one(&data.pool)
+    .await?;
+
+    let usercount = sqlx::query!(
+        "SELECT COUNT(*) FROM users;"
+    )
+    .fetch_one(&data.pool)
+    .await?;
+
+    let mut embed = CreateEmbed::default()
+        .title("Infinity List Analytics")
+        .description("I hope it's good :eyes:")
+        .field("User Count:", usercount.count.unwrap_or_default().to_string(), true)
+        .field("Bot Count:", botcount.count.unwrap_or_default().to_string(), true);
+
+    for stat in categorizedbotcount {
+        let count = stat.count.unwrap_or(0);
+
+        if count == 0 {
+            continue;
+        } else {
+            embed = embed.field(stat.method, count.to_string(), true);
+        };
+    }
+
+    let msg = CreateReply::default().embed(embed);
+    ctx.send(msg).await?;
     Ok(())
 }
 

@@ -61,6 +61,7 @@ pub struct Roles {
     pub certified_developer: RoleId,
     pub bot_role: RoleId,
     pub bug_hunters: RoleId,
+    pub top_reviewers: RoleId,
 }
 
 impl Default for Roles {
@@ -71,6 +72,7 @@ impl Default for Roles {
             certified_developer: RoleId::new(759468303344992266),
             bot_role: RoleId::new(758652296459976715),
             bug_hunters: RoleId::new(1042546603795427398),
+            top_reviewers: RoleId::new(1239696066350420038)
         }
     }
 }

@@ -8,6 +8,7 @@ pub mod specrolesync;
 pub mod staffresync;
 pub mod teamcleaner;
 pub mod voterestter;
+pub mod topreviewersync;
 
 use botox::taskman::Task;
 use futures_util::FutureExt;
@@ -83,6 +84,13 @@ pub fn tasks() -> Vec<Task> {
             enabled: true,
             duration: std::time::Duration::from_secs(600),
             run: Box::new(move |ctx| crate::tasks::voterestter::vote_resetter(ctx).boxed()),
+        },
+        Task {
+            name: "topreviewer_sync",
+            description: "Sync top reviewers",
+            enabled: true,
+            duration: std::time::Duration::from_secs(7 * 24 * 60 * 60),
+            run: Box::new(move |ctx| crate::tasks::topreviewersync::topreviewersync(ctx).boxed()),
         },
     ]
 }

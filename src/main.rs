@@ -142,9 +142,6 @@ async fn event_listener<'a>(
                     ctx.serenity_context.clone(),
                 ));
             }
-
-            // Sync Top Reviewers
-            let _ = crate::tasks::topreviewersync::topreviewersync(ctx.serenity_context).await;
         }
         FullEvent::GuildMemberAddition { new_member } => {
             if *crate::config::CURRENT_ENV == "staging" {

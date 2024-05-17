@@ -72,7 +72,7 @@ impl Default for Roles {
             certified_developer: RoleId::new(759468303344992266),
             bot_role: RoleId::new(758652296459976715),
             bug_hunters: RoleId::new(1042546603795427398),
-            top_reviewers: RoleId::new(1239696066350420038)
+            top_reviewers: RoleId::new(1239696066350420038),
         }
     }
 }

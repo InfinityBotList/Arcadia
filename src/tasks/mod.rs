@@ -7,8 +7,8 @@ pub mod premium;
 pub mod specrolesync;
 pub mod staffresync;
 pub mod teamcleaner;
-pub mod voterestter;
 pub mod topreviewersync;
+pub mod voterestter;
 
 use botox::taskman::Task;
 use futures_util::FutureExt;

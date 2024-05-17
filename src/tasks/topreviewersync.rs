@@ -1,6 +1,6 @@
-use poise::serenity_prelude::CreateMessage;
-use poise::serenity_prelude::CacheHttp;
 use crate::config;
+use poise::serenity_prelude::CacheHttp;
+use poise::serenity_prelude::CreateMessage;
 
 pub async fn topreviewersync(ctx: &serenity::client::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
@@ -27,8 +27,18 @@ pub async fn topreviewersync(ctx: &serenity::client::Context) -> Result<(), crat
         // Check if the member has the specified role
         if member.roles.contains(&config::CONFIG.roles.top_reviewers) {
             // Remove the role from the member
-            if let Err(why) = member.remove_role(ctx.http(), config::CONFIG.roles.top_reviewers, Some("Syncing top reviewers, weekly job.")).await {
-                println!("Failed to remove role from member {}: {:?}", member.user.name, why);
+            if let Err(why) = member
+                .remove_role(
+                    ctx.http(),
+                    config::CONFIG.roles.top_reviewers,
+                    Some("Syncing top reviewers, weekly job."),
+                )
+                .await
+            {
+                println!(
+                    "Failed to remove role from member {}: {:?}",
+                    member.user.name, why
+                );
             }
         }
     }
@@ -45,7 +55,14 @@ pub async fn topreviewersync(ctx: &serenity::client::Context) -> Result<(), crat
 
         // Check if the user is in the main server
         if let Some(member) = guild.member(ctx.http(), user_id.into()).await.ok() {
-            if let Err(why) = member.add_role(ctx.http(), config::CONFIG.roles.top_reviewers, Some("Syncing top reviewers, weekly job.")).await {
+            if let Err(why) = member
+                .add_role(
+                    ctx.http(),
+                    config::CONFIG.roles.top_reviewers,
+                    Some("Syncing top reviewers, weekly job."),
+                )
+                .await
+            {
                 println!("Failed to add role to user {}: {:?}", user_id, why);
             }
         } else {

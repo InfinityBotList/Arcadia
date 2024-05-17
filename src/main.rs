@@ -1,5 +1,8 @@
 use log::{error, info};
-use poise::{serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp}, CreateReply};
+use poise::{
+    serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp},
+    CreateReply,
+};
 use sqlx::postgres::PgPoolOptions;
 
 use botox::cache::CacheHttpImpl;
@@ -43,43 +46,61 @@ async fn age(
 
 /// Look at our site analytics!
 #[poise::command(category = "Stats", slash_command, prefix_command)]
-async fn analytics(
-    ctx: Context<'_>
-) -> Result<(), Error> {
+async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
     let data = ctx.data();
 
-    let categorizedbotcount = sqlx::query!(
-        "SELECT type as method, COUNT(*) FROM bots GROUP BY type;"
-    ).fetch_all(&data.pool)
-    .await?;
+    let categorizedbots = sqlx::query!("SELECT type as method, COUNT(*) FROM bots GROUP BY type;")
+        .fetch_all(&data.pool)
+        .await?;
 
-    let botcount = sqlx::query!(
-        "SELECT COUNT(*) FROM bots;"
-    )
-    .fetch_one(&data.pool)
-    .await?;
+    let bots = sqlx::query!("SELECT COUNT(*) FROM bots;")
+        .fetch_one(&data.pool)
+        .await?;
 
-    let usercount = sqlx::query!(
-        "SELECT COUNT(*) FROM users;"
-    )
-    .fetch_one(&data.pool)
-    .await?;
+    let users = sqlx::query!("SELECT COUNT(*) FROM users;")
+        .fetch_one(&data.pool)
+        .await?;
 
-    let mut embed = CreateEmbed::default()
+    let guilds = sqlx::query!("SELECT COUNT(*) FROM servers;")
+        .fetch_one(&data.pool)
+        .await?;
+
+    let mut approved = 0;
+    let mut denied = 0;
+    let mut certified = 0;
+    for stat in categorizedbots {
+        if stat.method == "approved" {
+            approved = stat.count.unwrap_or_default();
+        }
+        if stat.method == "denied" {
+            denied = stat.count.unwrap_or_default();
+        }
+        if stat.method == "certified" {
+            certified = stat.count.unwrap_or_default();
+        }
+    }
+
+    let embed = CreateEmbed::default()
         .title("Infinity List Analytics")
         .description("I hope it's good :eyes:")
-        .field("User Count:", usercount.count.unwrap_or_default().to_string(), true)
-        .field("Bot Count:", botcount.count.unwrap_or_default().to_string(), true);
-
-    for stat in categorizedbotcount {
-        let count = stat.count.unwrap_or(0);
-
-        if count == 0 {
-            continue;
-        } else {
-            embed = embed.field(stat.method, count.to_string(), true);
-        };
-    }
+        .field(
+            "User Count:",
+            users.count.unwrap_or_default().to_string(),
+            true,
+        )
+        .field(
+            "Bot Count:",
+            bots.count.unwrap_or_default().to_string(),
+            true,
+        )
+        .field(
+            "Server Count:",
+            guilds.count.unwrap_or_default().to_string(),
+            true,
+        )
+        .field("Approved Bots:", approved.to_string(), true)
+        .field("Denied Bots:", denied.to_string(), true)
+        .field("Certified Bots:", certified.to_string(), true);
 
     let msg = CreateReply::default().embed(embed);
     ctx.send(msg).await?;

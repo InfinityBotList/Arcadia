@@ -1,11 +1,11 @@
+use crate::config;
 use crate::{checks, impls::utils::get_user_perms};
 use kittycat::perms;
 use poise::serenity_prelude::CreateEmbed;
+use poise::serenity_prelude::CreateMessage;
 use poise::serenity_prelude::GuildId;
 use poise::serenity_prelude::User;
 use poise::CreateReply;
-use poise::serenity_prelude::CreateMessage;
-use crate::config;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -272,7 +272,7 @@ pub async fn staff_stats(
 /// Staff Leaderboard
 #[poise::command(rename = "leaderboard", prefix_command, slash_command)]
 pub async fn staff_leaderboard(
-    ctx: Context<'_>, 
+    ctx: Context<'_>,
     #[description = "limit"] limit: Option<i64>,
 ) -> Result<(), Error> {
     let data = ctx.data();
@@ -311,14 +311,12 @@ pub async fn staff_leaderboard(
 
 /// Force Refresh Staff Top Reviewers Role (bypasses Task)
 #[poise::command(
-    rename = "refresh_top", 
-    prefix_command, 
+    rename = "refresh_top",
+    prefix_command,
     slash_command,
     check = "checks::staff_server"
 )]
-pub async fn staff_refresh_top(
-    ctx: Context<'_>
-) -> Result<(), Error> {
+pub async fn staff_refresh_top(ctx: Context<'_>) -> Result<(), Error> {
     let user_perms = get_user_perms(&ctx.data().pool, &ctx.author().id.to_string())
         .await?
         .resolve();
@@ -352,8 +350,18 @@ pub async fn staff_refresh_top(
         // Check if the member has the specified role
         if member.roles.contains(&config::CONFIG.roles.top_reviewers) {
             // Remove the role from the member
-            if let Err(why) = member.remove_role(ctx.http(), config::CONFIG.roles.top_reviewers, Some("Force syncing top reviewers")).await {
-                println!("Failed to remove role from member {}: {:?}", member.user.name, why);
+            if let Err(why) = member
+                .remove_role(
+                    ctx.http(),
+                    config::CONFIG.roles.top_reviewers,
+                    Some("Force syncing top reviewers"),
+                )
+                .await
+            {
+                println!(
+                    "Failed to remove role from member {}: {:?}",
+                    member.user.name, why
+                );
             }
         }
     }
@@ -370,7 +378,14 @@ pub async fn staff_refresh_top(
 
         // Check if the user is in the main server
         if let Some(member) = guild.member(ctx.http(), user_id.into()).await.ok() {
-            if let Err(why) = member.add_role(ctx.http(), config::CONFIG.roles.top_reviewers, Some("Force syncing top reviewers")).await {
+            if let Err(why) = member
+                .add_role(
+                    ctx.http(),
+                    config::CONFIG.roles.top_reviewers,
+                    Some("Force syncing top reviewers"),
+                )
+                .await
+            {
                 println!("Failed to add role to user {}: {:?}", user_id, why);
             }
         } else {

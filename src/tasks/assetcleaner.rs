@@ -6,6 +6,7 @@ pub async fn asset_cleaner(ctx: &serenity::all::Context) -> Result<(), crate::Er
 
     let type_id_map = indexmap::indexmap! {
         "bots" => "bot_id",
+        "users" => "user_id",
         "servers" => "server_id",
         "teams" => "id",
         "partners" => "id",

@@ -54,7 +54,7 @@ pub async fn topreviewersync(ctx: &serenity::client::Context) -> Result<(), crat
         };
 
         // Check if the user is in the main server
-        if let Some(member) = guild.member(ctx.http(), user_id.into()).await.ok() {
+        if let Ok(member) = guild.member(ctx.http(), user_id.into()).await {
             if let Err(why) = member
                 .add_role(
                     ctx.http(),

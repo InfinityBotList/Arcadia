@@ -377,7 +377,7 @@ pub async fn staff_refresh_top(ctx: Context<'_>) -> Result<(), Error> {
         };
 
         // Check if the user is in the main server
-        if let Some(member) = guild.member(ctx.http(), user_id.into()).await.ok() {
+        if let Ok(member) = guild.member(ctx.http(), user_id.into()).await {
             if let Err(why) = member
                 .add_role(
                     ctx.http(),

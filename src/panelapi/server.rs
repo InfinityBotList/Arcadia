@@ -3586,7 +3586,7 @@ async fn query(
             match action {
                 VoteCreditTierAction::ListTiers => {
                     let rows = sqlx::query!(
-                        "SELECT id, target_type, position, cents, votes, created_at FROM vote_credit_tiers ORDER BY created_at DESC"
+                        "SELECT id, target_type, position, cents, votes, created_at FROM vote_credit_tiers ORDER BY position ASC"
                     )
                     .fetch_all(&state.pool)
                     .await

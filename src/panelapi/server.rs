@@ -3647,6 +3647,7 @@ async fn query(
                     }
 
                     // Insert entry
+                    let mut tx = state.pool.begin().await.map_err(Error::new)?;
                     sqlx::query!(
                         "INSERT INTO vote_credit_tiers (id, target_type, position, cents, votes) VALUES ($1, $2, $3, $4, $5)",
                         id,
@@ -3655,9 +3656,46 @@ async fn query(
                         cents,
                         votes,
                     )
-                    .execute(&state.pool)
+                    .execute(&mut *tx)
                     .await
                     .map_err(Error::new)?;
+
+                    // Now keep shifting positions until they are all unique
+                    let mut index_a = position;
+
+                    loop {
+                        let rows = sqlx::query!(
+                            "SELECT id, position FROM vote_credit_tiers WHERE position = $1 AND id != $2",
+                            index_a,
+                            id,
+                        )
+                        .fetch_all(&mut *tx)
+                        .await
+                        .map_err(Error::new)?;
+
+                        if rows.is_empty() {
+                            break;
+                        }
+
+                        let mut index_b = index_a + 1;
+
+                        for row in rows {
+                            sqlx::query!(
+                                "UPDATE vote_credit_tiers SET position = $1 WHERE id = $2",
+                                index_b,
+                                row.id,
+                            )
+                            .execute(&mut *tx)
+                            .await
+                            .map_err(Error::new)?;
+
+                            index_b += 1;
+                        }
+
+                        index_a = index_b;
+                    }
+
+                    tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }

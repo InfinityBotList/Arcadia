@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO vote_credit_tiers (id, target_type, position, cents, votes) VALUES ($1, $2, $3, $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int4",
+        "Float8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3ecae864f22ad98448b07096b1bc47edbce19e94c1887d73bd2376532760d183"
+}

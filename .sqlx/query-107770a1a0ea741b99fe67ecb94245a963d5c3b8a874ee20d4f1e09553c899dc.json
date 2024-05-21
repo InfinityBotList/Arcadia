@@ -1,11 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE vote_credit_tiers SET position = $1, cents = $2, votes = $3 WHERE id = $4",
+  "query": "UPDATE vote_credit_tiers SET position = $1, target_type = $2, cents = $3, votes = $4 WHERE id = $5",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Int4",
+        "Text",
         "Float8",
         "Int4",
         "Text"
@@ -13,5 +14,5 @@
     },
     "nullable": []
   },
-  "hash": "462ebad6e6b5204710fa0495a52b9de00dc3d9612c42490586626a0162ee4021"
+  "hash": "107770a1a0ea741b99fe67ecb94245a963d5c3b8a874ee20d4f1e09553c899dc"
 }

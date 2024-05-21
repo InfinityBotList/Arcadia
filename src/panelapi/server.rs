@@ -3586,7 +3586,7 @@ async fn query(
             match action {
                 VoteCreditTierAction::ListTiers => {
                     let rows = sqlx::query!(
-                        "SELECT id, position, cents, votes, created_at FROM vote_credit_tiers ORDER BY created_at DESC"
+                        "SELECT id, target_type, position, cents, votes, created_at FROM vote_credit_tiers ORDER BY created_at DESC"
                     )
                     .fetch_all(&state.pool)
                     .await
@@ -3597,6 +3597,7 @@ async fn query(
                     for row in rows {
                         entries.push(VoteCreditTier {
                             id: row.id,
+                            target_type: row.target_type,
                             position: row.position,
                             cents: row.cents,
                             votes: row.votes,
@@ -3609,6 +3610,7 @@ async fn query(
                 VoteCreditTierAction::CreateTier {
                     id,
                     position,
+                    target_type,
                     cents,
                     votes,
                 } => {
@@ -3636,10 +3638,19 @@ async fn query(
                             .into_response());
                     }
 
+                    if target_type != "bot" && target_type != "server" {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Target type must be either 'bot' or 'server'".to_string(),
+                        )
+                            .into_response());
+                    }
+
                     // Insert entry
                     sqlx::query!(
-                        "INSERT INTO vote_credit_tiers (id, position, cents, votes) VALUES ($1, $2, $3, $4)",
+                        "INSERT INTO vote_credit_tiers (id, target_type, position, cents, votes) VALUES ($1, $2, $3, $4, $5)",
                         id,
+                        target_type,
                         position,
                         cents,
                         votes,
@@ -3653,6 +3664,7 @@ async fn query(
                 VoteCreditTierAction::EditTier {
                     id,
                     position,
+                    target_type,
                     cents,
                     votes,
                 } => {
@@ -3664,7 +3676,7 @@ async fn query(
                             .into_response());
                     }
 
-                    // Check if entry already exists with same vesion
+                    // Check if entry already exists with same id
                     if sqlx::query!("SELECT COUNT(*) FROM vote_credit_tiers WHERE id = $1", id)
                         .fetch_one(&state.pool)
                         .await
@@ -3696,17 +3708,65 @@ async fn query(
                             .into_response());
                     }
 
+                    if target_type != "bot" && target_type != "server" {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Target type must be either 'bot' or 'server'".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    let mut tx = state.pool.begin().await.map_err(Error::new)?;
+
                     // Update entry
                     sqlx::query!(
-                        "UPDATE vote_credit_tiers SET position = $1, cents = $2, votes = $3 WHERE id = $4",
+                        "UPDATE vote_credit_tiers SET position = $1, target_type = $2, cents = $3, votes = $4 WHERE id = $5",
                         position,
+                        target_type,
                         cents,
                         votes,
                         id,
                     )
-                    .execute(&state.pool)
+                    .execute(&mut *tx)
                     .await
                     .map_err(Error::new)?;
+
+                    // Now keep shifting positions until they are all unique
+                    let mut index_a = position;
+
+                    loop {
+                        let rows = sqlx::query!(
+                            "SELECT id, position FROM vote_credit_tiers WHERE position = $1 AND id != $2",
+                            index_a,
+                            id,
+                        )
+                        .fetch_all(&mut *tx)
+                        .await
+                        .map_err(Error::new)?;
+
+                        if rows.is_empty() {
+                            break;
+                        }
+
+                        let mut index_b = index_a + 1;
+
+                        for row in rows {
+                            sqlx::query!(
+                                "UPDATE vote_credit_tiers SET position = $1 WHERE id = $2",
+                                index_b,
+                                row.id,
+                            )
+                            .execute(&mut *tx)
+                            .await
+                            .map_err(Error::new)?;
+
+                            index_b += 1;
+                        }
+
+                        index_a = index_b;
+                    }
+
+                    tx.commit().await.map_err(Error::new)?;
 
                     Ok((StatusCode::NO_CONTENT, "").into_response())
                 }

@@ -21,6 +21,8 @@ use utoipa::ToSchema;
 pub struct VoteCreditTier {
     /// The ID of the tier
     pub id: String,
+    /// The target type of the tier
+    pub target_type: String,
     /// The position of the tier
     pub position: i32,
     /// The cents per vote
@@ -52,6 +54,8 @@ pub enum VoteCreditTierAction {
     CreateTier {
         /// The ID of the tier
         id: String,
+        /// The target type of the tier
+        target_type: String,
         /// The position of the tier
         position: i32,
         /// The cents per vote
@@ -65,6 +69,8 @@ pub enum VoteCreditTierAction {
     EditTier {
         /// The ID of the tier
         id: String,
+        /// The target type of the tier
+        target_type: String,
         /// The position of the tier
         position: i32,
         /// The cents per vote

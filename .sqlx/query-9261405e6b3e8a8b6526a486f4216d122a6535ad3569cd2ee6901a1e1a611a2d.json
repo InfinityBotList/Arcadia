@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, target_type, position, cents, votes, created_at FROM vote_credit_tiers ORDER BY created_at DESC",
+  "query": "SELECT id, target_type, position, cents, votes, created_at FROM vote_credit_tiers ORDER BY position ASC",
   "describe": {
     "columns": [
       {
@@ -46,5 +46,5 @@
       false
     ]
   },
-  "hash": "586130bd233a234fb2c3ecefb1376136bcad72d950ed1e87c741c3239fba048f"
+  "hash": "9261405e6b3e8a8b6526a486f4216d122a6535ad3569cd2ee6901a1e1a611a2d"
 }

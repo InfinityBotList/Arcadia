@@ -1,0 +1,80 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, name, cents, target_types, benefits, created_at, last_updated, created_by, updated_by, duration, description FROM shop_items ORDER BY created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "cents",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "target_types",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "benefits",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "last_updated",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "duration",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "description",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fd282481bf177d1bdfbc04ac1e965668dabe9cf19b6e6c540fd073cf8ba79702"
+}

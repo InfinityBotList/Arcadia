@@ -19,7 +19,10 @@ use crate::panelapi::types::{
     partners::{CreatePartner, Partner, PartnerAction, PartnerType, Partners},
     rpc::RPCWebAction,
     rpclogs::RPCLogEntry,
-    shop_items::{ShopItem, ShopItemAction, ShopItemBenefit, ShopItemBenefitAction},
+    shop_items::{
+        ShopCoupon, ShopCouponAction, ShopItem, ShopItemAction, ShopItemBenefit,
+        ShopItemBenefitAction,
+    },
     staff_disciplinary::StaffDisciplinaryTypeAction,
     staff_positions::StaffPosition,
     vote_credit_tiers::{VoteCreditTier, VoteCreditTierAction},
@@ -364,6 +367,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: ShopItemBenefitAction,
+    },
+    /// Fetch and update/modify shop coupons
+    UpdateShopCoupons {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: ShopCouponAction,
     },
     /// Fetch and update/modify bot whitelist
     UpdateBotWhitelist {
@@ -4112,7 +4122,7 @@ async fn query(
             match action {
                 ShopItemBenefitAction::List => {
                     let rows = sqlx::query!(
-                        "SELECT id, name, description, created_at, created_by, last_updated, updated_by FROM shop_item_benefits ORDER BY created_at DESC"
+                        "SELECT id, name, description, target_types, created_at, created_by, last_updated, updated_by FROM shop_item_benefits ORDER BY created_at DESC"
                     )
                     .fetch_all(&state.pool)
                     .await
@@ -4125,6 +4135,7 @@ async fn query(
                             id: row.id,
                             name: row.name,
                             description: row.description,
+                            target_types: row.target_types,
                             created_at: row.created_at,
                             created_by: row.created_by,
                             last_updated: row.last_updated,
@@ -4138,6 +4149,7 @@ async fn query(
                     id,
                     name,
                     description,
+                    target_types,
                 } => {
                     if !perms::has_perm(&user_perms, &"shop_item_benefits.create".into()) {
                         return Ok((
@@ -4149,10 +4161,11 @@ async fn query(
 
                     // Insert entry
                     sqlx::query!(
-                        "INSERT INTO shop_item_benefits (id, name, description, created_by, updated_by) VALUES ($1, $2, $3, $4, $5)",
+                        "INSERT INTO shop_item_benefits (id, name, description, target_types, created_by, updated_by) VALUES ($1, $2, $3, $4, $5, $6)",
                         id,
                         name,
                         description,
+                        &target_types,
                         &auth_data.user_id,
                         &auth_data.user_id,
                     )
@@ -4166,6 +4179,7 @@ async fn query(
                     id,
                     name,
                     description,
+                    target_types,
                 } => {
                     if !perms::has_perm(&user_perms, &"shop_item_benefits.update".into()) {
                         return Ok((
@@ -4193,10 +4207,11 @@ async fn query(
 
                     // Update entry
                     sqlx::query!(
-                        "UPDATE shop_item_benefits SET name = $1, description = $2, last_updated = NOW(), updated_by = $3 WHERE id = $4",
+                        "UPDATE shop_item_benefits SET name = $1, description = $2, last_updated = NOW(), updated_by = $3, target_types = $4 WHERE id = $5",
                         name,
                         description,
                         &auth_data.user_id,
+                        &target_types,
                         id,
                     )
                     .execute(&state.pool)
@@ -4251,6 +4266,267 @@ async fn query(
 
                     // Delete entry
                     sqlx::query!("DELETE FROM shop_item_benefits WHERE id = $1", id)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+            }
+        }
+        PanelQuery::UpdateShopCoupons {
+            login_token,
+            action,
+        } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
+                .await
+                .map_err(Error::new)?
+                .resolve();
+
+            match action {
+                ShopCouponAction::List => {
+                    if !perms::has_perm(&user_perms, &"shop_coupons.list".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to list shop coupons [shop_coupons.list]",
+                        )
+                            .into_response());
+                    }
+
+                    let rows = sqlx::query!(
+                        "SELECT id, code, public, max_uses, created_at, created_by, last_updated, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements FROM shop_coupons ORDER BY created_at DESC"
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut entries = Vec::new();
+
+                    for row in rows {
+                        entries.push(ShopCoupon {
+                            id: row.id,
+                            code: row.code,
+                            public: row.public,
+                            max_uses: row.max_uses,
+                            created_at: row.created_at,
+                            created_by: row.created_by,
+                            last_updated: row.last_updated,
+                            updated_by: row.updated_by,
+                            reuse_wait_duration: row.reuse_wait_duration,
+                            expiry: row.expiry,
+                            applicable_items: row.applicable_items,
+                            cents: row.cents,
+                            requirements: row.requirements,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(entries)).into_response())
+                }
+                ShopCouponAction::Create {
+                    id,
+                    code,
+                    public,
+                    max_uses,
+                    reuse_wait_duration,
+                    expiry,
+                    applicable_items,
+                    cents,
+                    requirements,
+                } => {
+                    if !perms::has_perm(&user_perms, &"shop_coupons.create".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create shop coupons [shop_coupons.create]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if max_uses.unwrap_or_default() <= 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Max uses must be greater than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if reuse_wait_duration.unwrap_or_default() <= 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Reuse wait duration must be greater than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if expiry.unwrap_or_default() <= 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Expiry must be greater than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if cents.unwrap_or_default() < 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Cents cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    for item in &applicable_items {
+                        let rows =
+                            sqlx::query!("SELECT COUNT(*) FROM shop_items WHERE id = $1", item)
+                                .fetch_one(&state.pool)
+                                .await
+                                .map_err(Error::new)?;
+
+                        if rows.count.unwrap_or(0) == 0 {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                format!("Item {:#?} does not exist", item),
+                            )
+                                .into_response());
+                        }
+                    }
+
+                    // Insert entry
+                    sqlx::query!(
+                        "INSERT INTO shop_coupons (id, code, public, max_uses, created_by, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements) VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9, $10)",
+                        id,
+                        code,
+                        public,
+                        max_uses,
+                        &auth_data.user_id,
+                        reuse_wait_duration,
+                        expiry,
+                        &applicable_items,
+                        cents,
+                        &requirements,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                ShopCouponAction::Edit {
+                    id,
+                    code,
+                    public,
+                    max_uses,
+                    reuse_wait_duration,
+                    expiry,
+                    applicable_items,
+                    cents,
+                    requirements,
+                } => {
+                    if !perms::has_perm(&user_perms, &"shop_coupons.update".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update shop coupons [shop_coupons.update]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if max_uses.unwrap_or_default() <= 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Max uses must be greater than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if reuse_wait_duration.unwrap_or_default() <= 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Reuse wait duration must be greater than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if expiry.unwrap_or_default() <= 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Expiry must be greater than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if cents.unwrap_or_default() < 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Cents cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    for item in &applicable_items {
+                        let rows =
+                            sqlx::query!("SELECT COUNT(*) FROM shop_items WHERE id = $1", item)
+                                .fetch_one(&state.pool)
+                                .await
+                                .map_err(Error::new)?;
+
+                        if rows.count.unwrap_or(0) == 0 {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                format!("Item {:#?} does not exist", item),
+                            )
+                                .into_response());
+                        }
+                    }
+
+                    // Insert entry
+                    sqlx::query!(
+                        "UPDATE shop_coupons SET code = $1, public = $2, max_uses = $3, reuse_wait_duration = $4, expiry = $5, applicable_items = $6, cents = $7, requirements = $8, updated_by = $9, last_updated = NOW() WHERE id = $10",
+                        code,
+                        public,
+                        max_uses,
+                        reuse_wait_duration,
+                        expiry,
+                        &applicable_items,
+                        cents,
+                        &requirements,
+                        &auth_data.user_id,
+                        id,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                ShopCouponAction::Delete { id } => {
+                    if !perms::has_perm(&user_perms, &"shop_coupons.delete".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete shop coupons [shop_coupons.delete]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!("SELECT COUNT(*) FROM shop_coupons WHERE id = $1", id)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete entry
+                    sqlx::query!("DELETE FROM shop_coupons WHERE id = $1", id)
                         .execute(&state.pool)
                         .await
                         .map_err(Error::new)?;

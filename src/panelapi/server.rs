@@ -4149,10 +4149,11 @@ async fn query(
 
                     // Insert entry
                     sqlx::query!(
-                        "INSERT INTO shop_item_benefits (id, name, description, created_by) VALUES ($1, $2, $3, $4)",
+                        "INSERT INTO shop_item_benefits (id, name, description, created_by, updated_by) VALUES ($1, $2, $3, $4, $5)",
                         id,
                         name,
                         description,
+                        &auth_data.user_id,
                         &auth_data.user_id,
                     )
                     .execute(&state.pool)

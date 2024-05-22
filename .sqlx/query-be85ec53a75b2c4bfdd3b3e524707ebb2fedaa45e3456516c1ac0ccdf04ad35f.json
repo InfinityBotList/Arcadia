@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM shop_coupons WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "be85ec53a75b2c4bfdd3b3e524707ebb2fedaa45e3456516c1ac0ccdf04ad35f"
+}

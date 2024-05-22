@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, code, public, max_uses, created_at, created_by, last_updated, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements FROM shop_coupons ORDER BY created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "public",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "max_uses",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "last_updated",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "reuse_wait_duration",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "expiry",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "applicable_items",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 11,
+        "name": "cents",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "requirements",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "019bd5d49113060b3d1453eee79f42191bf091bac59749bac2a92b91d6d67f97"
+}

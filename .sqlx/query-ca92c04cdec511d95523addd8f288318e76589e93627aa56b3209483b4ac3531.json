@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, description, created_at, created_by, last_updated, updated_by FROM shop_item_benefits ORDER BY created_at DESC",
+  "query": "SELECT id, name, description, target_types, created_at, created_by, last_updated, updated_by FROM shop_item_benefits ORDER BY created_at DESC",
   "describe": {
     "columns": [
       {
@@ -20,21 +20,26 @@
       },
       {
         "ordinal": 3,
+        "name": "target_types",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "created_by",
         "type_info": "Text"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "last_updated",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_by",
         "type_info": "Text"
       }
@@ -49,8 +54,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "b1eb0569e6eab75058a57706ff0709a2425799158a86057682528a784cfa9817"
+  "hash": "ca92c04cdec511d95523addd8f288318e76589e93627aa56b3209483b4ac3531"
 }

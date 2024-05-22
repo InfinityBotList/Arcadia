@@ -4227,6 +4227,25 @@ async fn query(
                             .into_response());
                     }
 
+                    // Check for shop items with this benefit
+                    if sqlx::query!(
+                        "SELECT COUNT(*) FROM shop_items WHERE $1 = ANY(benefits)",
+                        id
+                    )
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(Error::new)?
+                    .count
+                    .unwrap_or(0)
+                        > 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Cannot delete benefit as it is used by shop items".to_string(),
+                        )
+                            .into_response());
+                    }
+
                     // Delete entry
                     sqlx::query!("DELETE FROM shop_item_benefits WHERE id = $1", id)
                         .execute(&state.pool)

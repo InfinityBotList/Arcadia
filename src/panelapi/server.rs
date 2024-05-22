@@ -19,7 +19,7 @@ use crate::panelapi::types::{
     partners::{CreatePartner, Partner, PartnerAction, PartnerType, Partners},
     rpc::RPCWebAction,
     rpclogs::RPCLogEntry,
-    shop_items::{ShopItem, ShopItemAction},
+    shop_items::{ShopItem, ShopItemAction, ShopItemBenefit, ShopItemBenefitAction},
     staff_disciplinary::StaffDisciplinaryTypeAction,
     staff_positions::StaffPosition,
     vote_credit_tiers::{VoteCreditTier, VoteCreditTierAction},
@@ -106,6 +106,8 @@ pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl
             VoteCreditTierAction,
             ShopItem,
             ShopItemAction,
+            ShopItemBenefit,
+            ShopItemBenefitAction,
             BotWhitelistAction,
             Link,
         ))
@@ -355,6 +357,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: ShopItemAction,
+    },
+    /// Fetch and update/modify shop item benefits
+    UpdateShopItemBenefits {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: ShopItemBenefitAction,
     },
     /// Fetch and update/modify bot whitelist
     UpdateBotWhitelist {
@@ -4043,6 +4052,147 @@ async fn query(
 
                     // Delete entry
                     sqlx::query!("DELETE FROM shop_items WHERE id = $1", id)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+            }
+        }
+        PanelQuery::UpdateShopItemBenefits {
+            login_token,
+            action,
+        } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
+                .await
+                .map_err(Error::new)?
+                .resolve();
+
+            match action {
+                ShopItemBenefitAction::List => {
+                    let rows = sqlx::query!(
+                        "SELECT id, name, description, created_at, created_by, last_updated, updated_by FROM shop_item_benefits ORDER BY created_at DESC"
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut entries = Vec::new();
+
+                    for row in rows {
+                        entries.push(ShopItemBenefit {
+                            id: row.id,
+                            name: row.name,
+                            description: row.description,
+                            created_at: row.created_at,
+                            created_by: row.created_by,
+                            last_updated: row.last_updated,
+                            updated_by: row.updated_by,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(entries)).into_response())
+                }
+                ShopItemBenefitAction::Create {
+                    id,
+                    name,
+                    description,
+                } => {
+                    if !perms::has_perm(&user_perms, &"shop_item_benefits.create".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create shop item benefits [shop_item_benefits.create]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Insert entry
+                    sqlx::query!(
+                        "INSERT INTO shop_item_benefits (id, name, description) VALUES ($1, $2, $3)",
+                        id,
+                        name,
+                        description,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                ShopItemBenefitAction::Edit {
+                    id,
+                    name,
+                    description,
+                } => {
+                    if !perms::has_perm(&user_perms, &"shop_item_benefits.update".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update shop item benefits [shop_item_benefits.update]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same id
+                    if sqlx::query!("SELECT COUNT(*) FROM shop_item_benefits WHERE id = $1", id)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Update entry
+                    sqlx::query!(
+                        "UPDATE shop_item_benefits SET name = $1, description = $2 WHERE id = $3",
+                        name,
+                        description,
+                        id,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                ShopItemBenefitAction::Delete { id } => {
+                    if !perms::has_perm(&user_perms, &"shop_item_benefits.delete".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete shop item benefits [shop_item_benefits.delete]".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!("SELECT COUNT(*) FROM shop_item_benefits WHERE id = $1", id)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete entry
+                    sqlx::query!("DELETE FROM shop_item_benefits WHERE id = $1", id)
                         .execute(&state.pool)
                         .await
                         .map_err(Error::new)?;

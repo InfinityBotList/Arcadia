@@ -4149,10 +4149,11 @@ async fn query(
 
                     // Insert entry
                     sqlx::query!(
-                        "INSERT INTO shop_item_benefits (id, name, description) VALUES ($1, $2, $3)",
+                        "INSERT INTO shop_item_benefits (id, name, description, created_by) VALUES ($1, $2, $3, $4)",
                         id,
                         name,
                         description,
+                        &auth_data.user_id,
                     )
                     .execute(&state.pool)
                     .await
@@ -4191,9 +4192,10 @@ async fn query(
 
                     // Update entry
                     sqlx::query!(
-                        "UPDATE shop_item_benefits SET name = $1, description = $2 WHERE id = $3",
+                        "UPDATE shop_item_benefits SET name = $1, description = $2, last_updated = NOW(), updated_by = $3 WHERE id = $4",
                         name,
                         description,
+                        &auth_data.user_id,
                         id,
                     )
                     .execute(&state.pool)

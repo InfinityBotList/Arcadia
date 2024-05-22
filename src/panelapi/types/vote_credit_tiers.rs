@@ -64,8 +64,6 @@ pub enum VoteCreditTierAction {
         votes: i32,
     },
     /// Edit vote credit tier
-    ///
-    /// To edit index, use the `SwapIndex` action
     EditTier {
         /// The ID of the tier
         id: String,
@@ -83,20 +81,4 @@ pub enum VoteCreditTierAction {
         /// The ID of the tier
         id: String,
     },
-    /*
-        /// Swap the index of two vote credit tiers (A and B) such that the indexes change from (Ia, Ib) -> (Ib, Ia)
-    SwapIndex {
-        /// Vote Credit Tier A
-        a: String,
-        /// Vote Credit Tier B
-        b: String,
-    },
-    /// Sets the new index of a vote credit tier
-    SetIndex {
-        /// The ID of the tier
-        id: String,
-        /// The new index of the tier
-        index: i32,
-    },
-     */
 }

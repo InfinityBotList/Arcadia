@@ -8,6 +8,7 @@ pub mod entity;
 pub mod partners;
 pub mod rpc;
 pub mod rpclogs;
+pub mod shop_items;
 pub mod staff_disciplinary;
 pub mod staff_members;
 pub mod staff_positions;

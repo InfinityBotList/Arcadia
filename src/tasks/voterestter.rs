@@ -1,7 +1,5 @@
 use serenity::builder::{CreateEmbed, CreateEmbedFooter, CreateMessage};
 
-const ENTITY_TYPES: [&str; 4] = ["bots", "servers", "teams", "packs"];
-
 pub async fn vote_resetter(ctx: &serenity::client::Context) -> Result<(), crate::Error> {
     let data = ctx.data::<crate::Data>();
     let pool = &data.pool;
@@ -26,17 +24,10 @@ pub async fn vote_resetter(ctx: &serenity::client::Context) -> Result<(), crate:
 
     // Set voided to true
     sqlx::query!(
-        "UPDATE entity_votes SET void = TRUE, void_reason = 'Automated votes reset', voided_at = NOW() WHERE void = false"
+        "UPDATE entity_votes SET void = TRUE, void_reason = 'Automated votes reset', voided_at = NOW() WHERE void = false AND immutable = false"
     )
     .execute(&mut *tx)
     .await?;
-
-    // Clear entity-specific tables
-    for entity_type in ENTITY_TYPES.iter() {
-        sqlx::query(&format!("UPDATE {} SET votes = 0", entity_type))
-            .execute(&mut *tx)
-            .await?;
-    }
 
     // Insert into automated_vote_resets
     sqlx::query!("INSERT INTO automated_vote_resets (created_at) VALUES (NOW())")

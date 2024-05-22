@@ -19,6 +19,7 @@ use crate::panelapi::types::{
     partners::{CreatePartner, Partner, PartnerAction, PartnerType, Partners},
     rpc::RPCWebAction,
     rpclogs::RPCLogEntry,
+    shop_items::{ShopItem, ShopItemAction},
     staff_disciplinary::StaffDisciplinaryTypeAction,
     staff_positions::StaffPosition,
     vote_credit_tiers::{VoteCreditTier, VoteCreditTierAction},
@@ -103,6 +104,8 @@ pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl
             StaffMemberAction,
             StaffDisciplinaryTypeAction,
             VoteCreditTierAction,
+            ShopItem,
+            ShopItemAction,
             BotWhitelistAction,
             Link,
         ))
@@ -345,6 +348,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: VoteCreditTierAction,
+    },
+    /// Fetch and update/modify shop items
+    UpdateShopItems {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: ShopItemAction,
     },
     /// Fetch and update/modify bot whitelist
     UpdateBotWhitelist {
@@ -3835,6 +3845,204 @@ async fn query(
 
                     // Delete entry
                     sqlx::query!("DELETE FROM vote_credit_tiers WHERE id = $1", id)
+                        .execute(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+            }
+        }
+        PanelQuery::UpdateShopItems {
+            login_token,
+            action,
+        } => {
+            let auth_data = super::auth::check_auth(&state.pool, &login_token)
+                .await
+                .map_err(Error::new)?;
+
+            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
+                .await
+                .map_err(Error::new)?
+                .resolve();
+
+            match action {
+                ShopItemAction::List => {
+                    let rows = sqlx::query!(
+                        "SELECT id, name, cents, target_types, benefits, created_at, last_updated, created_by, updated_by, duration, description FROM shop_items ORDER BY created_at DESC"
+                    )
+                    .fetch_all(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    let mut entries = Vec::new();
+
+                    for row in rows {
+                        entries.push(ShopItem {
+                            id: row.id,
+                            name: row.name,
+                            cents: row.cents,
+                            target_types: row.target_types,
+                            benefits: row.benefits,
+                            created_at: row.created_at,
+                            last_updated: row.last_updated,
+                            created_by: row.created_by,
+                            updated_by: row.updated_by,
+                            duration: row.duration,
+                            description: row.description,
+                        });
+                    }
+
+                    Ok((StatusCode::OK, Json(entries)).into_response())
+                }
+                ShopItemAction::Create {
+                    id,
+                    name,
+                    cents,
+                    target_types,
+                    benefits,
+                    duration,
+                    description,
+                } => {
+                    if !perms::has_perm(&user_perms, &"shop_items.create".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to create shop items [shop_items.create]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if cents < 0.0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Cents cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if duration < 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Duration cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Insert entry
+                    sqlx::query!(
+                        "INSERT INTO shop_items (id, name, cents, target_types, benefits, created_by, updated_by, duration, description) VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8)",
+                        id,
+                        name,
+                        cents,
+                        &target_types,
+                        &benefits,
+                        &auth_data.user_id,
+                        duration,
+                        description,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                ShopItemAction::Edit {
+                    id,
+                    name,
+                    cents,
+                    target_types,
+                    benefits,
+                    duration,
+                    description,
+                } => {
+                    if !perms::has_perm(&user_perms, &"shop_items.update".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to update shop items [shop_items.update]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if cents < 0.0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Cents cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    if duration < 0 {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Duration cannot be lower than 0".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same id
+                    if sqlx::query!("SELECT COUNT(*) FROM shop_items WHERE id = $1", id)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Update entry
+                    sqlx::query!(
+                        "UPDATE shop_items SET name = $1, cents = $2, target_types = $3, benefits = $4, last_updated = NOW(), updated_by = $5, duration = $6, description = $7 WHERE id = $8",
+                        name,
+                        cents,
+                        &target_types,
+                        &benefits,
+                        &auth_data.user_id,
+                        duration,
+                        description,
+                        id,
+                    )
+                    .execute(&state.pool)
+                    .await
+                    .map_err(Error::new)?;
+
+                    Ok((StatusCode::NO_CONTENT, "").into_response())
+                }
+                ShopItemAction::Delete { id } => {
+                    if !perms::has_perm(&user_perms, &"shop_items.delete".into()) {
+                        return Ok((
+                            StatusCode::FORBIDDEN,
+                            "You do not have permission to delete shop items [shop_items.delete]"
+                                .to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Check if entry already exists with same vesion
+                    if sqlx::query!("SELECT COUNT(*) FROM shop_items WHERE id = $1", id)
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?
+                        .count
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        return Ok((
+                            StatusCode::BAD_REQUEST,
+                            "Entry with same id does not already exist".to_string(),
+                        )
+                            .into_response());
+                    }
+
+                    // Delete entry
+                    sqlx::query!("DELETE FROM shop_items WHERE id = $1", id)
                         .execute(&state.pool)
                         .await
                         .map_err(Error::new)?;

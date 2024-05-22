@@ -998,43 +998,9 @@ impl RPCMethod {
                     return Err("Reason must be lower than/equal to 300 characters".into());
                 }
 
-                let mut tx = state.pool.begin().await?;
-
-                // Clear any entity specific caches
-                match state.target_type {
-                    TargetType::Bot => {
-                        sqlx::query!("UPDATE bots SET votes = 0 WHERE bot_id = $1", target_id)
-                            .execute(&mut *tx)
-                            .await?;
-                    }
-                    TargetType::Server => {
-                        sqlx::query!(
-                            "UPDATE servers SET votes = 0 WHERE server_id = $1",
-                            target_id
-                        )
-                        .execute(&mut *tx)
-                        .await?;
-                    }
-                    TargetType::Team => {
-                        sqlx::query!(
-                            "UPDATE teams SET votes = 0 WHERE id = $1",
-                            sqlx::types::Uuid::parse_str(target_id)?
-                        )
-                        .execute(&mut *tx)
-                        .await?;
-                    }
-                    TargetType::Pack => {
-                        sqlx::query!("UPDATE packs SET votes = 0 WHERE url = $1", target_id)
-                            .execute(&mut *tx)
-                            .await?;
-                    }
-                };
-
                 sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (single entity) reset', voided_at = NOW() WHERE target_type = $1 AND target_id = $2 AND void = FALSE", state.target_type.to_string(), target_id)
-                    .execute(&mut *tx)
+                    .execute(&state.pool)
                     .await?;
-
-                tx.commit().await?;
 
                 let msg = CreateMessage::default().embed(
                     CreateEmbed::default()
@@ -1062,31 +1028,7 @@ impl RPCMethod {
 
                 let mut tx = state.pool.begin().await?;
 
-                // Clear any entity specific caches
-                match state.target_type {
-                    TargetType::Bot => {
-                        sqlx::query!("UPDATE bots SET votes = 0")
-                            .execute(&mut *tx)
-                            .await?;
-                    }
-                    TargetType::Server => {
-                        sqlx::query!("UPDATE servers SET votes = 0")
-                            .execute(&mut *tx)
-                            .await?;
-                    }
-                    TargetType::Team => {
-                        sqlx::query!("UPDATE teams SET votes = 0")
-                            .execute(&mut *tx)
-                            .await?;
-                    }
-                    TargetType::Pack => {
-                        sqlx::query!("UPDATE packs SET votes = 0")
-                            .execute(&mut *tx)
-                            .await?;
-                    }
-                };
-
-                sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (all entities) reset', voided_at = NOW() WHERE target_type = $1", state.target_type.to_string())
+                sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (all entities) reset', voided_at = NOW() WHERE target_type = $1 AND immutable = false", state.target_type.to_string())
                     .execute(&mut *tx)
                     .await?;
 

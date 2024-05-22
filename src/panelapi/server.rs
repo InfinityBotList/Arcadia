@@ -3938,6 +3938,24 @@ async fn query(
                             .into_response());
                     }
 
+                    for benefit in &benefits {
+                        let rows = sqlx::query!(
+                            "SELECT COUNT(*) FROM shop_item_benefits WHERE id = $1",
+                            benefit
+                        )
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
+                        if rows.count.unwrap_or(0) == 0 {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                format!("Benefit {} does not exist", benefit),
+                            )
+                                .into_response());
+                        }
+                    }
+
                     // Insert entry
                     sqlx::query!(
                         "INSERT INTO shop_items (id, name, cents, target_types, benefits, created_by, updated_by, duration, description) VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8)",
@@ -3988,6 +4006,24 @@ async fn query(
                             "Duration cannot be lower than 0".to_string(),
                         )
                             .into_response());
+                    }
+
+                    for benefit in &benefits {
+                        let rows = sqlx::query!(
+                            "SELECT COUNT(*) FROM shop_item_benefits WHERE id = $1",
+                            benefit
+                        )
+                        .fetch_one(&state.pool)
+                        .await
+                        .map_err(Error::new)?;
+
+                        if rows.count.unwrap_or(0) == 0 {
+                            return Ok((
+                                StatusCode::BAD_REQUEST,
+                                format!("Benefit {} does not exist", benefit),
+                            )
+                                .into_response());
+                        }
                     }
 
                     // Check if entry already exists with same id

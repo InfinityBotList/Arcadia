@@ -200,6 +200,10 @@ pub struct ShopCoupon {
     pub allowed_users: Vec<String>,
     /// Whether or not the coupon is usable or not
     pub usable: bool,
+    /// The target types the coupon can be applied to
+    ///
+    /// If empty, the coupon is applicable to all target types
+    pub target_types: Vec<String>,
 }
 
 #[derive(
@@ -254,6 +258,10 @@ pub enum ShopCouponAction {
         allowed_users: Vec<String>,
         /// Whether or not the coupon is usable or not
         usable: bool,
+        /// The target types the coupon can be applied to
+        ///
+        /// If empty, the coupon is applicable to all target types
+        target_types: Vec<String>,
     },
     /// Edit a shop coupon
     Edit {
@@ -289,6 +297,10 @@ pub enum ShopCouponAction {
         allowed_users: Vec<String>,
         /// Whether or not the coupon is usable or not
         usable: bool,
+        /// The target types the coupon can be applied to
+        ///
+        /// If empty, the coupon is applicable to all target types
+        target_types: Vec<String>,
     },
     /// Deletes a shop coupon
     Delete {

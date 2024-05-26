@@ -4298,7 +4298,7 @@ async fn query(
                     }
 
                     let rows = sqlx::query!(
-                        "SELECT id, code, public, max_uses, created_at, created_by, last_updated, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements FROM shop_coupons ORDER BY created_at DESC"
+                        "SELECT id, code, public, max_uses, created_at, created_by, last_updated, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements, allowed_users, usable FROM shop_coupons ORDER BY created_at DESC"
                     )
                     .fetch_all(&state.pool)
                     .await
@@ -4321,6 +4321,8 @@ async fn query(
                             applicable_items: row.applicable_items,
                             cents: row.cents,
                             requirements: row.requirements,
+                            allowed_users: row.allowed_users,
+                            usable: row.usable,
                         });
                     }
 
@@ -4336,6 +4338,8 @@ async fn query(
                     applicable_items,
                     cents,
                     requirements,
+                    allowed_users,
+                    usable,
                 } => {
                     if !perms::has_perm(&user_perms, &"shop_coupons.create".into()) {
                         return Ok((
@@ -4395,7 +4399,7 @@ async fn query(
 
                     // Insert entry
                     sqlx::query!(
-                        "INSERT INTO shop_coupons (id, code, public, max_uses, created_by, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements) VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9, $10)",
+                        "INSERT INTO shop_coupons (id, code, public, max_uses, created_by, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements, allowed_users, usable) VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9, $10, $11, $12)",
                         id,
                         code,
                         public,
@@ -4406,6 +4410,8 @@ async fn query(
                         &applicable_items,
                         cents,
                         &requirements,
+                        &allowed_users,
+                        usable,
                     )
                     .execute(&state.pool)
                     .await
@@ -4423,6 +4429,8 @@ async fn query(
                     applicable_items,
                     cents,
                     requirements,
+                    allowed_users,
+                    usable,
                 } => {
                     if !perms::has_perm(&user_perms, &"shop_coupons.update".into()) {
                         return Ok((
@@ -4482,7 +4490,7 @@ async fn query(
 
                     // Insert entry
                     sqlx::query!(
-                        "UPDATE shop_coupons SET code = $1, public = $2, max_uses = $3, reuse_wait_duration = $4, expiry = $5, applicable_items = $6, cents = $7, requirements = $8, updated_by = $9, last_updated = NOW() WHERE id = $10",
+                        "UPDATE shop_coupons SET code = $1, public = $2, max_uses = $3, reuse_wait_duration = $4, expiry = $5, applicable_items = $6, cents = $7, requirements = $8, updated_by = $9, last_updated = NOW(), allowed_users = $10, usable = $11 WHERE id = $12",
                         code,
                         public,
                         max_uses,
@@ -4492,6 +4500,8 @@ async fn query(
                         cents,
                         &requirements,
                         &auth_data.user_id,
+                        &allowed_users,
+                        usable,
                         id,
                     )
                     .execute(&state.pool)

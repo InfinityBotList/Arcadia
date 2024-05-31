@@ -598,7 +598,6 @@ impl RPCMethod {
                             )
                             .field("Feedback", reason, true)
                             .field("Moderator", "<@!".to_string() + &state.user_id + ">", true)
-                            .field("", "<@!".to_string() + target_id + ">", true)
                             .footer(CreateEmbedFooter::new("Well done, young traveller!"))
                             .color(0x00ff00),
                     );
@@ -732,7 +731,6 @@ impl RPCMethod {
                         .description(format!("<@{}> has denied <@{}>", &state.user_id, target_id))
                         .field("Reason", reason, true)
                         .field("Moderator", "<@!".to_string() + &state.user_id + ">", true)
-                        .field("", "<@!".to_string() + target_id + ">", true)
                         .footer(CreateEmbedFooter::new(
                             "Well done, young traveller at getting denied from the club!",
                         ))

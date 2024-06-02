@@ -16,6 +16,7 @@ pub enum TargetType {
     Server,
     Team,
     Pack,
+    User,
 }
 
 impl Display for TargetType {
@@ -25,6 +26,7 @@ impl Display for TargetType {
             TargetType::Server => write!(f, "server"),
             TargetType::Team => write!(f, "team"),
             TargetType::Pack => write!(f, "pack"),
+            TargetType::User => write!(f, "user"),
         }
     }
 }
@@ -37,6 +39,7 @@ impl TargetType {
             TargetType::Server => true,
             TargetType::Team => true,
             TargetType::Pack => true,
+            TargetType::User => false,
         }
     }
 
@@ -47,6 +50,7 @@ impl TargetType {
             TargetType::Server => "server_id".to_string(),
             TargetType::Team => "id".to_string(),
             TargetType::Pack => "url".to_string(),
+            TargetType::User => "user_id".to_string(),
         }
     }
 }

@@ -97,6 +97,14 @@ pub enum RPCMethod {
         reason: String,
         new_team: String,
     },
+    AppBanUser {
+        target_id: String,
+        reason: String,
+    },
+    AppUnbanUser {
+        target_id: String,
+        reason: String,
+    },
 }
 
 impl Default for RPCMethod {
@@ -204,6 +212,8 @@ impl RPCMethod {
             RPCMethod::CertifyRemove { .. } => vec![TargetType::Bot],
             RPCMethod::BotTransferOwnershipUser { .. } => vec![TargetType::Bot],
             RPCMethod::BotTransferOwnershipTeam { .. } => vec![TargetType::Bot],
+            RPCMethod::AppBanUser { .. } => vec![TargetType::User],
+            RPCMethod::AppUnbanUser { .. } => vec![TargetType::User],
         }
     }
 
@@ -235,6 +245,8 @@ impl RPCMethod {
             Self::BotTransferOwnershipTeam { .. } => {
                 "Transfers the ownership of a bot to a new team"
             }
+            Self::AppBanUser { .. } => "Ban user from apps",
+            Self::AppUnbanUser { .. } => "Unban user from apps",
         }
         .to_string()
     }
@@ -257,6 +269,8 @@ impl RPCMethod {
             Self::CertifyRemove { .. } => "Uncertify",
             Self::BotTransferOwnershipUser { .. } => "Set Bot Owner [User]",
             Self::BotTransferOwnershipTeam { .. } => "Set Bot Owner [Team]",
+            Self::AppBanUser { .. } => "Ban from apps [User]",
+            Self::AppUnbanUser { .. } => "Unban from apps [User]",
         }
         .to_string()
     }
@@ -1331,6 +1345,92 @@ impl RPCMethod {
 
                 Ok(RPCSuccess::NoContent)
             }
+            RPCMethod::AppBanUser { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
+                // Ensure the user actually exists
+                let user = sqlx::query!("SELECT COUNT(*) FROM users WHERE user_id = $1", target_id)
+                    .fetch_one(&state.pool)
+                    .await?;
+
+                if user.count.unwrap_or_default() == 0 {
+                    return Err(" does not exist".into());
+                }
+
+                // Set app_banned to true
+                sqlx::query!(
+                    "UPDATE users SET app_banned = true WHERE user_id = $1",
+                    target_id
+                )
+                .execute(&state.pool)
+                .await?;
+
+                let msg = CreateMessage::new().embed(
+                    CreateEmbed::default()
+                        .title("[Apps] Banned User")
+                        .description(format!(
+                            "<@{}> has banned <@{}> from using apps.",
+                            state.user_id, target_id
+                        ))
+                        .field("Reason", reason, true)
+                        .footer(CreateEmbedFooter::new(
+                            "Well done, young traveller. Sad to see you go...",
+                        ))
+                        .color(0xFF0000),
+                );
+
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
+                    .send_message(&state.cache_http.http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            }
+            RPCMethod::AppUnbanUser { target_id, reason } => {
+                if reason.len() > 300 {
+                    return Err("Reason must be lower than/equal to 300 characters".into());
+                }
+
+                // Ensure the user actually exists
+                let user = sqlx::query!("SELECT COUNT(*) FROM users WHERE user_id = $1", target_id)
+                    .fetch_one(&state.pool)
+                    .await?;
+
+                if user.count.unwrap_or_default() == 0 {
+                    return Err(" does not exist".into());
+                }
+
+                // Set app_banned to false
+                sqlx::query!(
+                    "UPDATE users SET app_banned = false WHERE user_id = $1",
+                    target_id
+                )
+                .execute(&state.pool)
+                .await?;
+
+                let msg = CreateMessage::new().embed(
+                    CreateEmbed::default()
+                        .title("[Apps] Unbanned User")
+                        .description(format!(
+                            "<@{}> has unbanned <@{}> from using apps.",
+                            state.user_id, target_id
+                        ))
+                        .field("Reason", reason, true)
+                        .footer(CreateEmbedFooter::new("Welcome, back!"))
+                        .color(0xFF0000),
+                );
+
+                crate::config::CONFIG
+                    .channels
+                    .mod_logs
+                    .send_message(&state.cache_http.http, msg)
+                    .await?;
+
+                Ok(RPCSuccess::NoContent)
+            }
         }
     }
 
@@ -1402,6 +1502,8 @@ impl RPCMethod {
                 },
                 RPCField::reason(),
             ],
+            RPCMethod::AppBanUser { .. } => vec![RPCField::target_id(), RPCField::reason()],
+            RPCMethod::AppUnbanUser { .. } => vec![RPCField::target_id(), RPCField::reason()],
         }
     }
 }

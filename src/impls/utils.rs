@@ -114,6 +114,30 @@ pub async fn get_entity_managers(
         }
         TargetType::Team => sqlx::types::Uuid::parse_str(target_id)
             .map_err(|e| format!("Error while parsing team id {}: {}", target_id, e))?,
+        TargetType::User => {
+            let user = sqlx::query!("SELECT user_id FROM users WHERE user_id = $1", target_id)
+                .fetch_one(pool)
+                .await;
+
+            match user {
+                Ok(record) => {
+                    return Ok(EntityManagers {
+                        users: vec![Manager {
+                            mentionable: true,
+                            user: record.user_id,
+                        }],
+                    });
+                }
+                Err(sqlx::Error::RowNotFound) => {
+                    return Err(format!("User {} not found.", target_id).into())
+                }
+                Err(e) => {
+                    return Err(
+                        format!("Error while checking for user {}: {}", target_id, e).into(),
+                    )
+                }
+            }
+        }
         TargetType::Pack => {
             return Err("Packs are not supported yet!".into());
         }

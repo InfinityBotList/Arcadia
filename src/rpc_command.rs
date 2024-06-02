@@ -43,6 +43,7 @@ pub enum TargetTypeChoice {
     Server,
     Team,
     Pack,
+    User
 }
 
 impl From<TargetTypeChoice> for TargetType {
@@ -52,6 +53,7 @@ impl From<TargetTypeChoice> for TargetType {
             TargetTypeChoice::Server => TargetType::Server,
             TargetTypeChoice::Team => TargetType::Team,
             TargetTypeChoice::Pack => TargetType::Pack,
+            TargetTypeChoice::User => TargetType::User,
         }
     }
 }

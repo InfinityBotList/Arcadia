@@ -546,15 +546,6 @@ impl RPCMethod {
                     .into());
                 }
 
-                // Find bot in testing server
-                if !member_on_guild(
-                    &state.cache_http,
-                    crate::config::CONFIG.servers.testing,
-                    target_id.parse()?,
-                ) {
-                    return Err("Entity is not in testing server. Please ensure this bot is in the testing server when approving so it can be kicked".into());
-                }
-
                 let owners = crate::impls::utils::get_entity_managers(
                     TargetType::Bot,
                     target_id,
@@ -750,26 +741,6 @@ impl RPCMethod {
                         ))
                         .color(0x00ff00),
                 );
-
-                // Kick the bot from the testing server
-                if member_on_guild(
-                    &state.cache_http,
-                    crate::config::CONFIG.servers.testing,
-                    target_id.parse()?,
-                ) {
-                    if let Err(e) = state
-                        .cache_http
-                        .http
-                        .kick_member(
-                            crate::config::CONFIG.servers.testing,
-                            target_id.parse()?,
-                            Some("Bot denied"),
-                        )
-                        .await
-                    {
-                        error!("Failed to kick bot from testing server: {}", e);
-                    }
-                }
 
                 crate::config::CONFIG
                     .channels

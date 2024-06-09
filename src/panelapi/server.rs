@@ -932,7 +932,7 @@ async fn query(
 
             let queue = sqlx::query!(
                 "SELECT bot_id, client_id, last_claimed, claimed_by, type, approval_note, short, 
-                invite, votes, shards, library, invite_clicks, clicks, servers 
+                invite, approximate_votes, shards, library, invite_clicks, clicks, servers 
                 FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at"
             )
             .fetch_all(&state.pool)
@@ -967,7 +967,7 @@ async fn query(
                     approval_note: bot.approval_note,
                     short: bot.short,
                     r#type: bot.r#type,
-                    votes: bot.votes,
+                    votes: bot.approximate_votes,
                     shards: bot.shards,
                     library: bot.library,
                     invite_clicks: bot.invite_clicks,
@@ -1101,7 +1101,7 @@ async fn query(
                 TargetType::Bot => {
                     let queue = sqlx::query!(
                         "
-                        SELECT bot_id, client_id, type, votes, shards, library, invite_clicks, clicks,
+                        SELECT bot_id, client_id, type, approximate_votes, shards, library, invite_clicks, clicks,
                         servers, last_claimed, claimed_by, approval_note, short, invite FROM bots 
                         INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id
                         WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at
@@ -1137,7 +1137,7 @@ async fn query(
                             client_id: bot.client_id,
                             user,
                             r#type: bot.r#type,
-                            votes: bot.votes,
+                            votes: bot.approximate_votes,
                             shards: bot.shards,
                             library: bot.library,
                             invite_clicks: bot.invite_clicks,
@@ -1157,7 +1157,7 @@ async fn query(
                 TargetType::Server => {
                     let queue = sqlx::query!(
                         "
-                        SELECT server_id, name, total_members, online_members, short, type, votes, invite_clicks, 
+                        SELECT server_id, name, total_members, online_members, short, type, approximate_votes, invite_clicks, 
                         clicks, nsfw, tags, premium, claimed_by, last_claimed FROM servers
                         WHERE server_id = $1 OR name ILIKE $2 ORDER BY created_at
                         ",
@@ -1191,7 +1191,7 @@ async fn query(
                             online_members: server.online_members,
                             short: server.short,
                             r#type: server.r#type,
-                            votes: server.votes,
+                            votes: server.approximate_votes,
                             invite_clicks: server.invite_clicks,
                             clicks: server.clicks,
                             nsfw: server.nsfw,

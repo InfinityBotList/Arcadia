@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, code, public, max_uses, created_at, created_by, last_updated, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements FROM shop_coupons ORDER BY created_at DESC",
+  "query": "SELECT id, code, public, max_uses, created_at, created_by, last_updated, updated_by, reuse_wait_duration, expiry, applicable_items, cents, requirements, allowed_users, usable, target_types FROM shop_coupons ORDER BY created_at DESC",
   "describe": {
     "columns": [
       {
@@ -67,6 +67,21 @@
         "ordinal": 12,
         "name": "requirements",
         "type_info": "TextArray"
+      },
+      {
+        "ordinal": 13,
+        "name": "allowed_users",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 14,
+        "name": "usable",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "target_types",
+        "type_info": "TextArray"
       }
     ],
     "parameters": {
@@ -85,8 +100,11 @@
       true,
       false,
       true,
+      false,
+      false,
+      false,
       false
     ]
   },
-  "hash": "019bd5d49113060b3d1453eee79f42191bf091bac59749bac2a92b91d6d67f97"
+  "hash": "85acce0e27ef7644a2b4600da5989c15fa2eb016bf28c1afd718ca4457040caa"
 }

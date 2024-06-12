@@ -32,69 +32,6 @@ pub struct Data {
     pool: sqlx::PgPool,
 }
 
-/// Look at our site analytics!
-#[poise::command(category = "Stats", slash_command, prefix_command)]
-async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
-    let data = ctx.data();
-
-    let categorizedbots = sqlx::query!("SELECT type as method, COUNT(*) FROM bots GROUP BY type;")
-        .fetch_all(&data.pool)
-        .await?;
-
-    let bots = sqlx::query!("SELECT COUNT(*) FROM bots;")
-        .fetch_one(&data.pool)
-        .await?;
-
-    let users = sqlx::query!("SELECT COUNT(*) FROM users;")
-        .fetch_one(&data.pool)
-        .await?;
-
-    let guilds = sqlx::query!("SELECT COUNT(*) FROM servers;")
-        .fetch_one(&data.pool)
-        .await?;
-
-    let mut approved = 0;
-    let mut denied = 0;
-    let mut certified = 0;
-    for stat in categorizedbots {
-        if stat.method == "approved" {
-            approved = stat.count.unwrap_or_default();
-        }
-        if stat.method == "denied" {
-            denied = stat.count.unwrap_or_default();
-        }
-        if stat.method == "certified" {
-            certified = stat.count.unwrap_or_default();
-        }
-    }
-
-    let embed = CreateEmbed::default()
-        .title("Infinity List Analytics")
-        .description("I hope it's good :eyes:")
-        .field(
-            "User Count:",
-            users.count.unwrap_or_default().to_string(),
-            true,
-        )
-        .field(
-            "Bot Count:",
-            bots.count.unwrap_or_default().to_string(),
-            true,
-        )
-        .field(
-            "Server Count:",
-            guilds.count.unwrap_or_default().to_string(),
-            true,
-        )
-        .field("Approved Bots:", approved.to_string(), true)
-        .field("Denied Bots:", denied.to_string(), true)
-        .field("Certified Bots:", certified.to_string(), true);
-
-    let msg = CreateReply::default().embed(embed);
-    ctx.send(msg).await?;
-    Ok(())
-}
-
 #[poise::command(prefix_command)]
 async fn register(ctx: Context<'_>) -> Result<(), Error> {
     poise::builtins::register_application_commands_buttons(ctx).await?;

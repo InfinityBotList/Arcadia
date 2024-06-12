@@ -42,7 +42,7 @@ pub async fn invite(
         format!(
             "https://discord.com/api/v10/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot%20applications.commands&guild_id={guild_id}", 
             client_id = invite_data.client_id,
-            guild_id = crate::config::CONFIG.servers.main
+            guild_id = crate::config::CONFIG.servers.testing
         )
     ).await?;
     Ok(())
@@ -69,6 +69,7 @@ struct InternalQueueBot {
     index: usize,
     total_bots: usize,
     bot_id: String,
+    client_id: String,
     queue_name: String,
     text_msg: bool,
     claimed_by: Option<String>,
@@ -133,7 +134,14 @@ fn _queue_bot<'a>(qb: InternalQueueBot) -> CreateReply<'a> {
                 .disabled(qb.index >= qb.total_bots - 1),
         ]),
         CreateActionRow::Buttons(vec![
-            CreateButton::new_link(qb.invite).label("Invite"),
+            CreateButton::new_link(
+                format!(
+                    "https://discord.com/api/v10/oauth2/authorize?client_id={client_id}&permissions=0&scope=bot%20applications.commands&guild_id={guild_id}", 
+                    client_id = qb.client_id,
+                    guild_id = crate::config::CONFIG.servers.testing
+                )
+            ).label("Invite"),
+            CreateButton::new_link(qb.invite).label("Invite (DB, Unsafe)"),
             CreateButton::new_link(
                 config::CONFIG.frontend_url.get().clone() + "/bots/" + &qb.bot_id,
             )
@@ -153,7 +161,7 @@ pub async fn queue(
     let data = ctx.data();
 
     let bots = sqlx::query!(
-        "SELECT claimed_by, bot_id, approval_note, short, invite FROM bots WHERE type = 'pending' ORDER BY created_at ASC",
+        "SELECT claimed_by, bot_id, approval_note, short, invite, client_id FROM bots WHERE type = 'pending' ORDER BY created_at ASC",
     )
     .fetch_all(&data.pool)
     .await?;
@@ -187,6 +195,7 @@ pub async fn queue(
             index: current_bot,
             total_bots: bot_len,
             bot_id: bot.bot_id.clone(),
+            client_id: bot.client_id.clone(),
             queue_name: bot_partial.display_name,
             text_msg: !embed,
             claimed_by: bot.claimed_by.clone(),
@@ -252,6 +261,7 @@ pub async fn queue(
                 index: current_bot,
                 total_bots: bot_len,
                 bot_id: bot.bot_id.clone(),
+                client_id: bot.client_id.clone()
                 queue_name: bot_partial.display_name,
                 text_msg: !embed,
                 claimed_by: bot.claimed_by.clone(),

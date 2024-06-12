@@ -13,26 +13,22 @@ type Context<'a> = crate::Context<'a>;
 
 /// Gets the invite to a bot
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
-pub async fn invite(
+pub async fn invite_db(
     ctx: Context<'_>,
     #[description = "The invite to the bot"] bot: String,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
-    let row = sqlx::query!(
-        "SELECT client_id FROM bots WHERE bot_id = $1 ORDER BY created_at DESC LIMIT 1",
-        bot
-    )
-    .fetch_one(&data.pool)
-    .await?;
+    let invite_data = sqlx::query!(
+        "SELECT invite FROM bots WHERE bot_id = $1 ORDER BY created_at DESC LIMIT 1",
 
-    ctx.say(&format!("Invite: https://discord.com/api/oauth2/authorize?client_id={}&scope=bot", invite_data.client_id)).await?;
+    ctx.say(&format!("Invite: {}", invite_data.invite)).await?;
     Ok(())
 }
 
 /// Gets a safe invite to a bot
 #[poise::command(prefix_command, slash_command, user_cooldown = 3, category = "Testing")]
-pub async fn invitesafe(
+pub async fn invite(
     ctx: Context<'_>,
     #[description = "The invite to the bot"] bot: String,
 ) -> Result<(), Error> {

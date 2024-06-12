@@ -43,7 +43,7 @@ pub enum TargetTypeChoice {
     Server,
     Team,
     Pack,
-    User
+    User,
 }
 
 impl From<TargetTypeChoice> for TargetType {

@@ -36,7 +36,7 @@ pub async fn stats(ctx: Context<'_>) -> Result<(), Error> {
 
 /// Look at our site analytics!
 #[poise::command(category = "Stats", slash_command, prefix_command)]
-async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
     let data = ctx.data();
 
     let categorizedbots = sqlx::query!("SELECT type as method, COUNT(*) FROM bots GROUP BY type;")

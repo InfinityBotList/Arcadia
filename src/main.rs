@@ -1,7 +1,6 @@
 use log::{error, info};
 use poise::{
     serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp},
-    CreateReply,
 };
 use sqlx::postgres::PgPoolOptions;
 
@@ -242,7 +241,6 @@ async fn main() {
         },
         event_handler: |ctx, event| Box::pin(event_listener(ctx, event)),
         commands: vec![
-            analytics(),
             register(),
             help::help(),
             explain::explainme(),
@@ -255,6 +253,7 @@ async fn main() {
             testing::approve(),
             testing::deny(),
             testing::staffguide(),
+            stats::analytics(),
             stats::stats(),
             botowners::getbotroles(),
             rpc_command::rpc(),

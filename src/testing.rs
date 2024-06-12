@@ -21,6 +21,10 @@ pub async fn invite_db(
 
     let invite_data = sqlx::query!(
         "SELECT invite FROM bots WHERE bot_id = $1 ORDER BY created_at DESC LIMIT 1",
+        bot
+    )
+    .fetch_one(&data.pool)
+    .await?;
 
     ctx.say(&format!("Invite: {}", invite_data.invite)).await?;
     Ok(())
@@ -261,7 +265,7 @@ pub async fn queue(
                 index: current_bot,
                 total_bots: bot_len,
                 bot_id: bot.bot_id.clone(),
-                client_id: bot.client_id.clone()
+                client_id: bot.client_id.clone(),
                 queue_name: bot_partial.display_name,
                 text_msg: !embed,
                 claimed_by: bot.claimed_by.clone(),

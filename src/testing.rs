@@ -19,14 +19,14 @@ pub async fn invite(
 ) -> Result<(), Error> {
     let data = ctx.data();
 
-    let invite_data = sqlx::query!(
-        "SELECT invite FROM bots WHERE bot_id = $1 ORDER BY created_at DESC LIMIT 1",
+    let row = sqlx::query!(
+        "SELECT client_id FROM bots WHERE bot_id = $1 ORDER BY created_at DESC LIMIT 1",
         bot
     )
     .fetch_one(&data.pool)
     .await?;
 
-    ctx.say(&format!("Invite: {}", invite_data.invite)).await?;
+    ctx.say(&format!("Invite: https://discord.com/api/oauth2/authorize?client_id={}&scope=bot", invite_data.client_id)).await?;
     Ok(())
 }
 

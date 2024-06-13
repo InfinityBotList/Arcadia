@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE partners SET name = $2, short = $3, links = $4, type = $5, user_id = $6, associated_bots = $7 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Text",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "01c10b4d8d25dc702653f39e2fadbc0981f3175e2f68c93ba58b737f974e4305"
+}

@@ -1,7 +1,5 @@
 use log::{error, info};
-use poise::{
-    serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp},
-};
+use poise::serenity_prelude::{self as serenity, CreateEmbed, CreateMessage, FullEvent, Timestamp};
 use sqlx::postgres::PgPoolOptions;
 
 use botox::cache::CacheHttpImpl;

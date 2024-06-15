@@ -277,7 +277,7 @@ pub enum PanelQuery {
         /// Login token
         login_token: String,
     },
-    /// Returns the main CDN scope for Infinity Bot List
+    /// Returns the main CDN scope for Infinity List
     ///
     /// This is public to all staff members
     GetMainCdnScope {
@@ -627,7 +627,7 @@ async fn query(
                             // Your big corp title
                             "staff@infinitybots.gg",
                             // Your big corp issuer
-                            "Infinity Bot List",
+                            "Infinity List",
                             // The counter (Only HOTP)
                             None,
                         )

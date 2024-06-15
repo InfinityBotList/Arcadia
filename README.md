@@ -6,11 +6,11 @@
 
 ## What is it?
 
-A set of microservices and supporting infrastructure for Infinity Bot List as well as being a bot for staff to use.
+A set of microservices and supporting infrastructure for Infinity List as well as being a bot for staff to use.
 
 ## Database Seeds
 
-You can find a seed of the Infinity Bot List database at https://reedwhisker.infinitybots.gg/help/contribute/seedguide. This seed is public and available for all contributors
+You can find a seed of the Infinity List database at https://reedwhisker.infinitybots.gg/help/contribute/seedguide. This seed is public and available for all contributors
 
 ## Contributing
 

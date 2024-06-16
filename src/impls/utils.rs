@@ -178,7 +178,7 @@ pub async fn get_entity_managers(
 
 #[allow(dead_code)]
 pub struct OwnedBy {
-    pub target_type: String,
+    pub target_type: TargetType,
     pub target_id: String,
     pub entity_state: String,
 }
@@ -199,7 +199,7 @@ pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, 
 
     for bot in owned {
         owned_by.push(OwnedBy {
-            target_type: "bot".to_string(),
+            target_type: TargetType::Bot,
             target_id: bot.bot_id,
             entity_state: bot.r#type,
         });
@@ -230,9 +230,30 @@ pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, 
 
         for bot in team_bots {
             owned_by.push(OwnedBy {
-                target_type: "bot".to_string(),
+                target_type: TargetType::Bot,
                 target_id: bot.bot_id,
                 entity_state: bot.r#type,
+            });
+        }
+
+        let team_servers = sqlx::query!(
+            "SELECT server_id, type FROM servers WHERE team_owner = $1",
+            team.team_id
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(|e| {
+            format!(
+                "Error while checking for team owned servers of team {}: {}",
+                team.team_id, e
+            )
+        })?;
+
+        for server in team_servers {
+            owned_by.push(OwnedBy {
+                target_type: TargetType::Server,
+                target_id: server.server_id,
+                entity_state: server.r#type,
             });
         }
     }

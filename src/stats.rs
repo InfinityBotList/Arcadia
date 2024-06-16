@@ -1,4 +1,5 @@
-use poise::{serenity_prelude::CreateEmbed, CreateReply};
+use poise::serenity_prelude::{CreateEmbed, Color};
+use poise::CreateReply;
 
 type Error = crate::Error;
 type Context<'a> = crate::Context<'a>;
@@ -13,21 +14,21 @@ pub const CARGO_PROFILE: &str = env!("VERGEN_CARGO_PROFILE");
 pub const RUSTC_VERSION: &str = env!("VERGEN_RUSTC_SEMVER");
 
 #[poise::command(category = "Stats", prefix_command, slash_command, user_cooldown = 1)]
-pub async fn stats(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn info(ctx: Context<'_>) -> Result<(), Error> {
     let msg = CreateReply::default().embed(
         CreateEmbed::default()
-            .title("Bot Stats")
-            .field("Bot version", VERSION, true)
-            .field("rustc", RUSTC_VERSION, true)
+            .title("Bot Information:")
+            .color(Color::from_rgb(0, 255, 0))
+            .field("Bot Version:", VERSION, true)
+            .field("RustC Version:", RUSTC_VERSION, true)
             .field(
-                "Git Commit",
+                "Git Commit:",
                 GIT_SHA.to_string() + "(semver=" + GIT_SEMVER + ")",
                 true,
             )
-            //.field("Uptime", format!("{}", chrono::Duration::from_std(std::time::SystemTime::now().duration_since(start_time)).unwrap()), true)
-            .field("Commit Message", GIT_COMMIT_MSG, true)
-            .field("Built On", BUILD_CPU, true)
-            .field("Cargo Profile", CARGO_PROFILE, true),
+            .field("Commit Message:", GIT_COMMIT_MSG, true)
+            .field("Built On:", BUILD_CPU, true)
+            .field("Cargo Profile:", CARGO_PROFILE, true),
     );
 
     ctx.send(msg).await?;
@@ -47,6 +48,10 @@ pub async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
         .fetch_one(&data.pool)
         .await?;
 
+    let teams = sqlx::query!("SELECT COUNT(*) FROM teams;")
+        .fetch_one(&data.pool)
+        .await?;
+
     let users = sqlx::query!("SELECT COUNT(*) FROM users;")
         .fetch_one(&data.pool)
         .await?;
@@ -58,6 +63,7 @@ pub async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
     let mut approved = 0;
     let mut denied = 0;
     let mut certified = 0;
+    let mut testbot = 0;
     for stat in categorizedbots {
         if stat.method == "approved" {
             approved = stat.count.unwrap_or_default();
@@ -68,14 +74,23 @@ pub async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
         if stat.method == "certified" {
             certified = stat.count.unwrap_or_default();
         }
+        if stat.method == "testbot" {
+            testbot = stat.count.unwrap_or_default();
+        }
     }
 
     let embed = CreateEmbed::default()
         .title("Infinity List Analytics")
         .description("I hope it's good :eyes:")
+        .color(Color::from_rgb(0, 255, 0))
         .field(
             "User Count:",
             users.count.unwrap_or_default().to_string(),
+            true,
+        )
+        .field(
+            "Team Count:",
+            teams.count.unwrap_or_default().to_string(),
             true,
         )
         .field(
@@ -90,7 +105,8 @@ pub async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
         )
         .field("Approved Bots:", approved.to_string(), true)
         .field("Denied Bots:", denied.to_string(), true)
-        .field("Certified Bots:", certified.to_string(), true);
+        .field("Certified Bots:", certified.to_string(), true)
+        .field("Test Bots (hidden):", testbot.to_string(), true);
 
     let msg = CreateReply::default().embed(embed);
     ctx.send(msg).await?;

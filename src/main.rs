@@ -11,6 +11,7 @@ mod config;
 mod explain;
 mod help;
 mod impls;
+mod leaderboard;
 mod panelapi;
 mod rpc;
 mod rpc_command;
@@ -24,6 +25,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
+
 // User data, which is stored and accessible in all command invocations
 pub struct Data {
     pool: sqlx::PgPool,
@@ -252,7 +254,9 @@ async fn main() {
             testing::deny(),
             testing::staffguide(),
             stats::analytics(),
-            stats::stats(),
+            stats::info(),
+            leaderboard::leaderboard(),
+            leaderboard::refresh(),
             botowners::getbotroles(),
             rpc_command::rpc(),
             rpc_command::rpclist(),

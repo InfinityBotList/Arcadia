@@ -191,7 +191,7 @@ pub struct ShopCoupon {
     /// The cents the shop coupon is worth
     ///
     /// If none, the shop coupon is worth the total cost of the items it is being used on
-    pub cents: Option<i32>,
+    pub cents: Option<f64>,
     /// The requirements to use the shop coupon
     pub requirements: Vec<String>,
     /// The users the coupon is applicable for
@@ -249,7 +249,7 @@ pub enum ShopCouponAction {
         /// The cents the shop coupon is worth
         ///
         /// If none, the shop coupon is worth the total cost of the items it is being used on
-        cents: Option<i32>,
+        cents: Option<f64>,
         /// The requirements to use the shop coupon
         requirements: Vec<String>,
         /// The users the coupon is applicable for
@@ -288,7 +288,7 @@ pub enum ShopCouponAction {
         /// The cents the shop coupon is worth
         ///
         /// If none, the shop coupon is worth the total cost of the items it is being used on
-        cents: Option<i32>,
+        cents: Option<f64>,
         /// The requirements to use the shop coupon
         requirements: Vec<String>,
         /// The users the coupon is applicable for

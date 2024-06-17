@@ -186,13 +186,21 @@ pub struct OwnedBy {
 pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, crate::Error> {
     let query = sqlx::query!(
         r#"
-        SELECT bot_id, type
-        FROM bots
-        WHERE owner = $1
-        UNION
-        SELECT bot_id, type
+        SELECT bot_id as id, type, 'bot' as entity
         FROM bots
         WHERE team_owner IN (SELECT team_id FROM team_members WHERE user_id = $1)
+
+        UNION
+
+        SELECT server_id as id, type, 'server' as entity
+        FROM servers
+        WHERE team_owner IN (SELECT team_id FROM team_members WHERE user_id = $1)
+
+        UNION
+
+        SELECT url as id, 'pack' as type, 'pack' as entity
+        FROM packs
+        WHERE owner = $1
         "#,
         user_id
     )
@@ -203,11 +211,26 @@ pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, 
     let mut owned_by = Vec::new();
 
     for row in query {
-        owned_by.push(OwnedBy {
-            target_type: TargetType::Bot,
-            target_id: row.bot_id.unwrap(),
-            entity_state: row.r#type.unwrap(),
-        });
+        let target = match row.entity.unwrap().as_str() {
+            "bot" => Ok(TargetType::Bot),
+            "server" => Ok(TargetType::Server),
+            "pack" => Ok(TargetType::Pack),
+            _ => Err("Unknown entity type encountered"),
+        };
+
+        let entry = match target {
+            Ok(target_type) => OwnedBy {
+                target_type,
+                target_id: row.id.unwrap(),
+                entity_state: row.r#type.unwrap(),
+            },
+            Err(err) => {
+                eprintln!("Error: {}", err);
+                continue;
+            }
+        };
+
+        owned_by.push(entry);
     }
 
     Ok(owned_by)

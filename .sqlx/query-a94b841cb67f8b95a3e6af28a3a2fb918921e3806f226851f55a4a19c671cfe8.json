@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT bot_id, type FROM bots WHERE owner = $1",
+  "query": "\n        SELECT bot_id, type\n        FROM bots\n        WHERE owner = $1\n        UNION\n        SELECT bot_id, type\n        FROM bots\n        WHERE team_owner IN (SELECT team_id FROM team_members WHERE user_id = $1)\n        ",
   "describe": {
     "columns": [
       {
@@ -20,9 +20,9 @@
       ]
     },
     "nullable": [
-      false,
-      false
+      null,
+      null
     ]
   },
-  "hash": "bea7e48a794e4f492faab80a90af04df5b4d17dcf0690f18fb68380b2a976f01"
+  "hash": "a94b841cb67f8b95a3e6af28a3a2fb918921e3806f226851f55a4a19c671cfe8"
 }

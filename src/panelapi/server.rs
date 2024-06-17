@@ -3341,17 +3341,22 @@ async fn query(
                             .into_response());
                     }
 
-                    // Check perms currently with override versus perms without override
-                    let mut resolved_perms_without_overrides = sm_target.resolved_perms.clone();
+                    let perm_overrides = perm_overrides
+                        .iter()
+                        .map(|x| Permission::from_string(x))
+                        .collect::<Vec<Permission>>();
 
-                    for perm in &perm_overrides {
-                        resolved_perms_without_overrides.retain(|p| p != perm);
+                    // Check perms with resolved perms following addition of overrides
+                    let new_resolved_perms = perms::StaffPermissions {
+                        perm_overrides: perm_overrides.clone(),
+                        ..sm_target.staff_permission
                     }
+                    .resolve();
 
                     if let Err(e) = perms::check_patch_changes(
                         &sm.resolved_perms,
                         &sm_target.resolved_perms,
-                        &resolved_perms_without_overrides,
+                        &new_resolved_perms,
                     ) {
                         return Ok((
                             StatusCode::FORBIDDEN,
@@ -3375,7 +3380,7 @@ async fn query(
 
                     // Update the member
                     sqlx::query!("UPDATE staff_members SET perm_overrides = $1, no_autosync = $2, unaccounted = $3 WHERE user_id = $4",
-                        &perm_overrides,
+                        &perm_overrides.iter().map(|x| x.to_string()).collect::<Vec<String>>(),
                         no_autosync,
                         unaccounted,
                         user_id

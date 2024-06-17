@@ -42,6 +42,13 @@ pub enum StaffMemberAction {
     },
 }
 
+fn _sp_default() -> kittycat::perms::StaffPermissions {
+    kittycat::perms::StaffPermissions {
+        user_positions: vec![],
+        perm_overrides: vec![],
+    }
+}
+
 #[derive(Serialize, Deserialize, TS, Clone)]
 #[ts(export, export_to = ".generated/StaffMember.ts")]
 pub struct StaffMember {
@@ -51,6 +58,9 @@ pub struct StaffMember {
     pub user: PlatformUser,
     /// The positions of the staff member
     pub positions: Vec<StaffPosition>,
+    #[serde(skip, default = "_sp_default")]
+    #[ts(skip)]
+    pub staff_permission: kittycat::perms::StaffPermissions,
     /// The disciplinary actions recieved by the member
     pub disciplinaries: Vec<StaffDisciplinary>,
     /// The permission overrides of the staff member

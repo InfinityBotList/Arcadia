@@ -254,6 +254,7 @@ pub async fn get_staff_member(
 
     let resolved_perms = {
         if disciplinaries.is_empty() {
+            let sp = sp.clone();
             sp.resolve()
         } else {
             let mut virtual_sp = sp.clone();
@@ -297,6 +298,7 @@ pub async fn get_staff_member(
         perm_overrides: data.perm_overrides,
         resolved_perms_kc: resolved_perms.iter().map(|x| x.to_string()).collect(),
         resolved_perms,
+        staff_permission: sp,
         no_autosync: data.no_autosync,
         unaccounted: data.unaccounted,
         mfa_verified: data.mfa_verified,

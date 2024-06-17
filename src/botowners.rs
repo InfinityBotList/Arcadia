@@ -20,7 +20,7 @@ pub async fn getbotroles(ctx: Context<'_>) -> Result<(), Error> {
     if let Some(member) = member {
         let owned = crate::impls::utils::get_owned_by(&id, &data.pool).await?;
 
-        let owned_bots: Vec<crate::impls::utils::OwnedBy> = owned.iter().filter(|x| x.target_type == crate::impls::target_type::TargetType::Bot).collect();
+        let owned_bots = owned.iter().filter(|x| x.target_type == crate::impls::target_types::TargetType::Bot).collect::<Vec<_>>();
         
         if owned_bots.is_empty() {
             return Err("You are not the owner/additional owner of any bots".into());

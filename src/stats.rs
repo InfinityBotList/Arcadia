@@ -1,4 +1,4 @@
-use poise::serenity_prelude::{CreateEmbed, Color};
+use poise::serenity_prelude::{Color, CreateEmbed};
 use poise::CreateReply;
 
 type Error = crate::Error;
@@ -20,7 +20,7 @@ pub async fn info(ctx: Context<'_>) -> Result<(), Error> {
             .title("Bot Information:")
             .color(Color::from_rgb(0, 255, 0))
             .field("Bot Version:", VERSION, true)
-            .field("RustC Version:", RUSTC_VERSION, true)
+            .field("Rustc Version:", RUSTC_VERSION, true)
             .field(
                 "Git Commit:",
                 GIT_SHA.to_string() + "(semver=" + GIT_SEMVER + ")",

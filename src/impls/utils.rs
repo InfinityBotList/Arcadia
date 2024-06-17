@@ -184,78 +184,35 @@ pub struct OwnedBy {
 }
 
 pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, crate::Error> {
-    // Check for directly owned first
-    let owned = sqlx::query!("SELECT bot_id, type FROM bots WHERE owner = $1", user_id)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| {
-            format!(
-                "Error while checking for owned bots of user {}: {}",
-                user_id, e
-            )
-        })?;
-
-    let mut owned_by = Vec::new();
-
-    for bot in owned {
-        owned_by.push(OwnedBy {
-            target_type: TargetType::Bot,
-            target_id: bot.bot_id,
-            entity_state: bot.r#type,
-        });
-    }
-
-    // Check for team owned
-    let user_teams = sqlx::query!(
-        "SELECT team_id FROM team_members WHERE user_id = $1",
+    let query = sqlx::query!(
+        r#"
+        SELECT bot_id, type
+        FROM bots
+        WHERE owner = $1
+        UNION
+        SELECT bot_id, type
+        FROM bots
+        WHERE team_owner IN (SELECT team_id FROM team_members WHERE user_id = $1)
+        "#,
         user_id
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| format!("Error while checking for teams of user {}: {}", user_id, e))?;
-
-    for team in user_teams {
-        let team_bots = sqlx::query!(
-            "SELECT bot_id, type FROM bots WHERE team_owner = $1",
-            team.team_id
+    .map_err(|e| {
+        format!(
+            "Error while executing query for user {}: {}",
+            user_id, e
         )
-        .fetch_all(pool)
-        .await
-        .map_err(|e| {
-            format!(
-                "Error while checking for team owned bots of team {}: {}",
-                team.team_id, e
-            )
-        })?;
+    })?;
 
-        for bot in team_bots {
-            owned_by.push(OwnedBy {
-                target_type: TargetType::Bot,
-                target_id: bot.bot_id,
-                entity_state: bot.r#type,
-            });
-        }
+    let mut owned_by = Vec::new();
 
-        let team_servers = sqlx::query!(
-            "SELECT server_id, type FROM servers WHERE team_owner = $1",
-            team.team_id
-        )
-        .fetch_all(pool)
-        .await
-        .map_err(|e| {
-            format!(
-                "Error while checking for team owned servers of team {}: {}",
-                team.team_id, e
-            )
-        })?;
-
-        for server in team_servers {
-            owned_by.push(OwnedBy {
-                target_type: TargetType::Server,
-                target_id: server.server_id,
-                entity_state: server.r#type,
-            });
-        }
+    for row in query {
+        owned_by.push(OwnedBy {
+            target_type: TargetType::Bot,
+            target_id: row.bot_id.unwrap(),
+            entity_state: row.r#type.unwrap(),
+        });
     }
 
     Ok(owned_by)

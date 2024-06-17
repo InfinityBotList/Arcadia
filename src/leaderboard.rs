@@ -1,7 +1,7 @@
 use crate::config;
 use crate::{checks, impls::utils::get_user_perms};
 use kittycat::perms;
-use poise::serenity_prelude::{CreateEmbed, CreateMessage, Color};
+use poise::serenity_prelude::{Color, CreateEmbed, CreateMessage};
 use poise::CreateReply;
 
 type Error = crate::Error;
@@ -12,7 +12,7 @@ type Context<'a> = crate::Context<'a>;
     category = "Leaderboard",
     rename = "leaderboard",
     prefix_command,
-    slash_command,
+    slash_command
 )]
 pub async fn leaderboard(
     ctx: Context<'_>,
@@ -28,16 +28,23 @@ pub async fn leaderboard(
     .fetch_all(&data.pool)
     .await?;
 
-    let mut desc = String::from("Let's see who's been fighting bots the most :eyes:\n\n");
+    let mut desc = String::from("Oh, hello there! Let's see who's been fighting bots the most :eyes:\n\n");
     let mut embed = CreateEmbed::default()
         .title("Staff Leaderboard")
         .color(Color::from_rgb(0, 255, 0))
         .description(desc.clone());
 
     for (index, stat) in stats.iter().enumerate() {
+        let emoji = match index {
+            0 => "🥇",
+            1 => "🥈",
+            2 => "🥉",
+            _ => "",
+        };
+
         desc.push_str(&format!(
-            "{}. <@{}> | Approved: {} | Denied: {} | Total: {}\n",
-            index + 1,
+            "{} <@{}> | **Approved: {}** | **Denied: {}** | **Total: {}**\n",
+            emoji,
             stat.user_id,
             stat.approved_count.unwrap_or_default(),
             stat.denied_count.unwrap_or_default(),

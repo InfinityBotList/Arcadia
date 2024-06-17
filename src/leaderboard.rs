@@ -28,7 +28,8 @@ pub async fn leaderboard(
     .fetch_all(&data.pool)
     .await?;
 
-    let mut desc = String::from("Oh, hello there! Let's see who's been fighting bots the most :eyes:\n\n");
+    let mut desc =
+        String::from("Oh, hello there! Let's see who's been fighting bots the most :eyes:\n\n");
     let mut embed = CreateEmbed::default()
         .title("Staff Leaderboard")
         .color(Color::from_rgb(0, 255, 0))

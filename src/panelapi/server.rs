@@ -4322,7 +4322,7 @@ async fn query(
                             reuse_wait_duration: row.reuse_wait_duration,
                             expiry: row.expiry,
                             applicable_items: row.applicable_items,
-                            cents: row.cents,
+                            cents: row.cents.map(|cents| cents as f64),
                             requirements: row.requirements,
                             allowed_users: row.allowed_users,
                             usable: row.usable,
@@ -4378,7 +4378,7 @@ async fn query(
                             .into_response());
                     }
 
-                    if cents.unwrap_or_default() < 0 {
+                    if cents.unwrap_or_default() < 0.0 {
                         return Ok((
                             StatusCode::BAD_REQUEST,
                             "Cents cannot be lower than 0".to_string(),
@@ -4413,7 +4413,7 @@ async fn query(
                         reuse_wait_duration,
                         expiry,
                         &applicable_items,
-                        cents,
+                        cents.map(|cents| cents as i32),
                         &requirements,
                         &allowed_users,
                         usable,
@@ -4471,7 +4471,7 @@ async fn query(
                             .into_response());
                     }
 
-                    if cents.unwrap_or_default() < 0 {
+                    if cents.unwrap_or_default() < 0.0 {
                         return Ok((
                             StatusCode::BAD_REQUEST,
                             "Cents cannot be lower than 0".to_string(),
@@ -4504,7 +4504,7 @@ async fn query(
                         reuse_wait_duration,
                         expiry,
                         &applicable_items,
-                        cents,
+                        cents.map(|cents| cents as i32),
                         &requirements,
                         &auth_data.user_id,
                         &allowed_users,

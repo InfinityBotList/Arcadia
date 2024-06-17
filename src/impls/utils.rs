@@ -198,12 +198,7 @@ pub async fn get_owned_by(user_id: &str, pool: &PgPool) -> Result<Vec<OwnedBy>, 
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| {
-        format!(
-            "Error while executing query for user {}: {}",
-            user_id, e
-        )
-    })?;
+    .map_err(|e| format!("Error while executing query for user {}: {}", user_id, e))?;
 
     let mut owned_by = Vec::new();
 

@@ -29,7 +29,6 @@ use crate::panelapi::types::{
     webcore::{CoreConstants, InstanceConfig, PanelServers},
 };
 use crate::rpc::core::{RPCHandle, RPCMethod};
-use axum::body::StreamBody;
 use axum::extract::DefaultBodyLimit;
 use axum::http::HeaderMap;
 use axum::Json;
@@ -169,17 +168,15 @@ pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl
                 .allow_headers(Any),
         );
 
-    let addr = format!("127.0.0.1:{}", crate::config::CONFIG.server_port.get())
-        .parse()
-        .expect("Invalid RPC server address");
+    let addr = format!("127.0.0.1:{}", crate::config::CONFIG.server_port.get());
+    info!("Starting server on {}", addr);
 
-    info!("Starting PanelAPI server on {}", addr);
-
-    if let Err(e) = axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(addr)
         .await
-    {
-        panic!("PanelAPI server error: {}", e);
+        .expect("Failed to bind to port");
+
+    if let Err(e) = axum::serve(listener, app.into_make_service()).await {
+        panic!("RPC server error: {}", e);
     }
 }
 
@@ -412,7 +409,7 @@ fn has_cdn_perm(user_perms: &[Permission], cdn_scope: &str, perm: &str) -> bool 
         (status = BAD_REQUEST, description = "An error occured", body = String),
     ),
 )]
-#[axum_macros::debug_handler]
+#[axum::debug_handler]
 async fn query(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PanelQuery>,
@@ -1493,7 +1490,7 @@ async fn query(
                     };
 
                     let stream = tokio_util::io::ReaderStream::new(file);
-                    let body = StreamBody::new(stream);
+                    let body = axum::body::Body::from_stream(stream);
 
                     let headers = [(axum::http::header::CONTENT_TYPE, "application/octet-stream")];
 
@@ -4733,8 +4730,8 @@ async fn query(
 
             let status = res.status();
             let resp = res.text().await.map_err(Error::new)?;
-
-            Ok((status, resp).into_response())
+            let http_status = StatusCode::from_u16(status.as_u16()).unwrap();
+            Ok((http_status, resp).into_response())
         }
     }
 }

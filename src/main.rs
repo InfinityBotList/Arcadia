@@ -256,6 +256,7 @@ async fn main() {
             stats::analytics(),
             stats::info(),
             leaderboard::leaderboard(),
+            leaderboard::test_leaderboard(),
             leaderboard::refresh(),
             botowners::getbotroles(),
             rpc_command::rpc(),

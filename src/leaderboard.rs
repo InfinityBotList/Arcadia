@@ -97,11 +97,9 @@ pub async fn test_leaderboard(
         };
 
         desc.push_str(&format!(
-            "{} <@{}> | **Approved: {}** | **Denied: {}**\n",
+            "{} <@{}>\n",
             emoji,
-            stat.user_id,
-            stat.approved_count.unwrap_or_default(),
-            stat.denied_count.unwrap_or_default()
+            stat.user_id,        
         ));
     }
 

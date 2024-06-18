@@ -63,7 +63,7 @@ pub async fn leaderboard(
 /// Test Leaderboard
 #[poise::command(
     category = "Leaderboard",
-    rename = "leaderboard",
+    rename = "test-leaderboard",
     prefix_command,
     slash_command
 )]

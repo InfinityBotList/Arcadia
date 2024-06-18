@@ -82,7 +82,7 @@ pub async fn test_leaderboard(
     .await?;
 
     let mut desc =
-        String::from("Oh, hello there! Let's see who our most active users are :eyes:");
+        String::from("Oh, hello there! Let's see who our most active users are :eyes:\n\n");
     let mut embed = CreateEmbed::default()
         .title("Leaderboard")
         .color(Color::from_rgb(0, 255, 0))

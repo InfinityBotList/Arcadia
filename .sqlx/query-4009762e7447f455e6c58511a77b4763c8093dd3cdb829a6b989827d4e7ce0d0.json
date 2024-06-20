@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE partners SET name = $2, short = $3, links = $4, type = $5, user_id = $6, associated_bots = $7 WHERE id = $1",
+  "query": "INSERT INTO partners (id, name, short, links, type, user_id, bot_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -11,10 +11,10 @@
         "Jsonb",
         "Text",
         "Text",
-        "TextArray"
+        "Text"
       ]
     },
     "nullable": []
   },
-  "hash": "01c10b4d8d25dc702653f39e2fadbc0981f3175e2f68c93ba58b737f974e4305"
+  "hash": "4009762e7447f455e6c58511a77b4763c8093dd3cdb829a6b989827d4e7ce0d0"
 }

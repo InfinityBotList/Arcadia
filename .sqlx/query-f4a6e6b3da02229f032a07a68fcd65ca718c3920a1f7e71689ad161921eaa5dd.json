@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT bot_id, client_id, last_claimed, claimed_by, type, approval_note, short, \n                invite, approximate_votes, shards, library, invite_clicks, clicks, servers \n                FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at",
+  "query": "SELECT bot_id, client_id, last_claimed, claimed_by, type, approval_note, short,\n                invite, approximate_votes, shards, library, invite_clicks, clicks, servers\n                FROM bots WHERE type = 'pending' OR type = 'claimed' ORDER BY created_at",
   "describe": {
     "columns": [
       {
@@ -94,5 +94,5 @@
       false
     ]
   },
-  "hash": "e99e43ade9a5ca2e6827570511607bf24af82ea1ddacd3907d79a055fa15d3f8"
+  "hash": "f4a6e6b3da02229f032a07a68fcd65ca718c3920a1f7e71689ad161921eaa5dd"
 }

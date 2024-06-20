@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                        SELECT bot_id, client_id, type, approximate_votes, shards, library, invite_clicks, clicks,\n                        servers, last_claimed, claimed_by, approval_note, short, invite FROM bots \n                        INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id\n                        WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at\n                        ",
+  "query": "\n                        SELECT bot_id, client_id, type, approximate_votes, shards, library, invite_clicks, clicks,\n                        servers, last_claimed, claimed_by, approval_note, short, invite FROM bots\n                        INNER JOIN internal_user_cache__discord discord_users ON bots.bot_id = discord_users.id\n                        WHERE bot_id = $1 OR client_id = $1 OR discord_users.username ILIKE $2 ORDER BY bots.created_at\n                        ",
   "describe": {
     "columns": [
       {
@@ -97,5 +97,5 @@
       false
     ]
   },
-  "hash": "d64cfaf5cd065fba9e7b601c697d3b77bd8da5cc663caaa932fd3fb839eea1fc"
+  "hash": "b84a691ead056ae20cee9667bad552a044e1dea491f417c62817977de1051d0c"
 }

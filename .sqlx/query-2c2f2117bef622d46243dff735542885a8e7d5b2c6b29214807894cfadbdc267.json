@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, short, links, type, created_at, user_id, associated_bots FROM partners",
+  "query": "SELECT id, name, short, links, type, created_at, user_id, bot_id FROM partners",
   "describe": {
     "columns": [
       {
@@ -40,8 +40,8 @@
       },
       {
         "ordinal": 7,
-        "name": "associated_bots",
-        "type_info": "TextArray"
+        "name": "bot_id",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -55,8 +55,8 @@
       false,
       false,
       false,
-      false
+      true
     ]
   },
-  "hash": "7d32a34b98b41f146f7761083aef271f41833fd3b017d910683833743be2934b"
+  "hash": "2c2f2117bef622d46243dff735542885a8e7d5b2c6b29214807894cfadbdc267"
 }

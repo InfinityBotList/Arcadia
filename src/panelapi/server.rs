@@ -1638,7 +1638,7 @@ async fn query(
             match action {
                 PartnerAction::List => {
                     let prec = sqlx::query!(
-                        "SELECT id, name, short, links, type, created_at, user_id, associated_bots FROM partners"
+                        "SELECT id, name, short, links, type, created_at, user_id, bot_id FROM partners"
                     )
                     .fetch_all(&state.pool)
                     .await
@@ -1655,7 +1655,7 @@ async fn query(
                             r#type: partner.r#type,
                             created_at: partner.created_at,
                             user_id: partner.user_id,
-                            associated_bots: partner.associated_bots,
+                            bot_id: partner.bot_id,
                         })
                     }
 
@@ -1718,14 +1718,14 @@ async fn query(
 
                     // Insert partner
                     sqlx::query!(
-                        "INSERT INTO partners (id, name, short, links, type, user_id, associated_bots) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                        "INSERT INTO partners (id, name, short, links, type, user_id, bot_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                         partner.id,
                         partner.name,
                         partner.short,
                         serde_json::to_value(partner.links).map_err(Error::new)?,
                         partner.r#type,
                         partner.user_id,
-                        &partner.associated_bots
+                        partner.bot_id
                     )
                     .execute(&state.pool)
                     .await
@@ -1765,14 +1765,14 @@ async fn query(
 
                     // Update partner
                     sqlx::query!(
-                        "UPDATE partners SET name = $2, short = $3, links = $4, type = $5, user_id = $6, associated_bots = $7 WHERE id = $1",
+                        "UPDATE partners SET name = $2, short = $3, links = $4, type = $5, user_id = $6, bot_id = $7 WHERE id = $1",
                         partner.id,
                         partner.name,
                         partner.short,
                         serde_json::to_value(partner.links).map_err(Error::new)?,
                         partner.r#type,
                         partner.user_id,
-                        &partner.associated_bots
+                        partner.bot_id
                     )
                     .execute(&state.pool)
                     .await

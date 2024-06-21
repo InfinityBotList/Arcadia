@@ -3635,8 +3635,6 @@ async fn query(
                     let mut entries = Vec::new();
 
                     for row in rows {
-                        let cents = row.cents.map(|x| x as f64);
-
                         entries.push(ShopCoupon {
                             id: row.id,
                             code: row.code,
@@ -3649,7 +3647,7 @@ async fn query(
                             reuse_wait_duration: row.reuse_wait_duration,
                             expiry: row.expiry,
                             applicable_items: row.applicable_items,
-                            cents: cents,
+                            cents: row.cents,
                             requirements: row.requirements,
                             allowed_users: row.allowed_users,
                             usable: row.usable,
@@ -3740,7 +3738,7 @@ async fn query(
                         reuse_wait_duration,
                         expiry,
                         &applicable_items,
-                        cents.map(|x| x as i32),
+                        cents,
                         &requirements,
                         &allowed_users,
                         usable,
@@ -3831,7 +3829,7 @@ async fn query(
                         reuse_wait_duration,
                         expiry,
                         &applicable_items,
-                        cents.map(|x| x as i32),
+                        cents,
                         &requirements,
                         &auth_data.user_id,
                         &allowed_users,

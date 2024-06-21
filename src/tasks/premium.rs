@@ -1,7 +1,6 @@
+use crate::impls::target_types::TargetType;
 use poise::serenity_prelude::{CreateMessage, UserId};
 use serenity::all::Mentionable;
-
-use crate::impls::target_types::TargetType;
 
 struct BotData {
     bot_id: UserId,

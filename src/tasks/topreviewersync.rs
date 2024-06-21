@@ -22,6 +22,7 @@ pub async fn topreviewersync(ctx: &serenity::client::Context) -> Result<(), crat
             return Ok(());
         }
     };
+
     // Iterate over each member of the guild
     for member in guild.members.iter() {
         // Check if the member has the specified role

@@ -85,7 +85,7 @@ struct InternalQueueBot {
 
 fn _queue_bot<'a>(qb: InternalQueueBot) -> CreateReply<'a> {
     let reply = if qb.text_msg {
-        let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Queue name:** {name}\n**Owner:** {owner}\n**Invite:** {invite}", 
+        let text_msg = format!("**{name} [{c_bot}/{bot_len}]**\n**ID:** {id}\n**Claimed by:** {claimed_by}\n**Approval note:** {approve_note}\n**Short:** {short}\n**Owner:** {owner}\n**Invite:** {invite}", 
             name = qb.queue_name,
             c_bot = qb.index + 1,
             bot_len = qb.total_bots,
@@ -117,7 +117,6 @@ fn _queue_bot<'a>(qb: InternalQueueBot) -> CreateReply<'a> {
                 false,
             )
             .field("Approval note", qb.approval_note, true)
-            .field("Queue name", qb.queue_name, true)
             .field("Invite", format!("[Invite Bot]({})", qb.invite), true);
 
         CreateReply::default().embed(embed)

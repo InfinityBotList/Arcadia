@@ -53,7 +53,8 @@ pub async fn hello(
                     }
                 },
                 warnings: vec![
-                    "The panel is currently undergoing large-scale changes while it is being rewritten. Please report any bugs you find to the staff team.".to_string(),
+                    "Oh, hello there. This panel is currently being rewritten, and may have some issues. If you find any issues, please contact a Lead Developer in the `Staff Center` Discord Server!".to_string(),
+                    "[Warning]: `panel.infinitybots.gg` will soon be unaccessible as we move our panel into the main site.".to_string()
                 ],
             },
             auth_data,

@@ -60,10 +60,15 @@ pub async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
         .fetch_one(&data.pool)
         .await?;
 
+    let packs = sqlx::query!("SELECT COUNT(*) FROM packs;")
+        .fetch_one(&data.pool)
+        .await?;
+
     let mut approved = 0;
     let mut denied = 0;
     let mut certified = 0;
     let mut testbot = 0;
+
     for stat in categorizedbots {
         if stat.method == "approved" {
             approved = stat.count.unwrap_or_default();
@@ -101,6 +106,11 @@ pub async fn analytics(ctx: Context<'_>) -> Result<(), Error> {
         .field(
             "Server Count:",
             guilds.count.unwrap_or_default().to_string(),
+            true,
+        )
+        .field(
+            "Pack Count:",
+            packs.count.unwrap_or_default().to_string(),
             true,
         )
         .field("Approved Bots:", approved.to_string(), true)

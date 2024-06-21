@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use std::os::unix::prelude::PermissionsExt;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -6,11 +5,11 @@ use std::time::Duration;
 
 use crate::impls::link::Link;
 use crate::impls::{target_types::TargetType, utils::get_user_perms};
+use crate::panelapi::panel_query::PanelQuery;
 use crate::panelapi::types::staff_disciplinary::StaffDisciplinaryType;
-use crate::panelapi::types::webcore::{Hello, StartAuth};
 use crate::panelapi::types::{
     analytics::BaseAnalytics,
-    auth::{AuthorizeAction, MfaLogin, MfaLoginSecret},
+    auth::AuthorizeAction,
     blog::{BlogAction, BlogPost},
     bot_whitelist::{BotWhitelist, BotWhitelistAction},
     cdn::{CdnAssetAction, CdnAssetItem},
@@ -26,7 +25,7 @@ use crate::panelapi::types::{
     staff_disciplinary::StaffDisciplinaryTypeAction,
     staff_positions::StaffPosition,
     vote_credit_tiers::{VoteCreditTier, VoteCreditTierAction},
-    webcore::{CoreConstants, InstanceConfig, PanelServers},
+    webcore::InstanceConfig,
 };
 use crate::rpc::core::{RPCHandle, RPCMethod};
 use axum::extract::DefaultBodyLimit;
@@ -34,13 +33,12 @@ use axum::http::HeaderMap;
 use axum::Json;
 use kittycat::perms::{self, Permission};
 
-use axum::response::{IntoResponse, Response};
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{extract::State, http::StatusCode, Router};
 use log::info;
 use moka::future::Cache;
-use rand::Rng;
-use serenity::all::{RoleId, User};
+use serenity::all::RoleId;
 use sqlx::PgPool;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tower_http::cors::{Any, CorsLayer};
@@ -49,17 +47,10 @@ use super::core::{AppState, Error};
 use super::types::staff_members::StaffMemberAction;
 use super::types::staff_positions::{CorrespondingServer, StaffPositionAction};
 use crate::impls::dovewing::DovewingSource;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
 use strum::VariantNames;
-use strum_macros::{Display, EnumVariantNames};
-use ts_rs::TS;
-use utoipa::ToSchema;
 
 use num_traits::ToPrimitive;
-
-const HELLO_VERSION: u16 = 5;
-const AUTH_VERSION: u16 = 5;
 
 pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl) {
     use utoipa::OpenApi;
@@ -153,218 +144,6 @@ pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl
     if let Err(e) = axum::serve(listener, app.into_make_service()).await {
         panic!("RPC server error: {}", e);
     }
-}
-
-#[derive(Serialize, Deserialize, ToSchema, TS, Display, Clone, EnumVariantNames)]
-#[ts(export, export_to = ".generated/PanelQuery.ts")]
-pub enum PanelQuery {
-    /// Authorization-related commands
-    Authorize {
-        /// Authorize protocol version, should be `AUTH_VERSION`
-        version: u16,
-        /// Action to take
-        action: AuthorizeAction,
-    },
-    /// Returns configuration data for the panel
-    Hello {
-        /// Login token
-        login_token: String,
-        /// Hello protocol version, should be `HELLO_VERSION`
-        version: u16,
-    },
-    /// Returns base analytics
-    BaseAnalytics {
-        /// Login token
-        login_token: String,
-    },
-    /// Returns user information given a user id, returning a dovewing PartialUser
-    GetUser {
-        /// Login token
-        login_token: String,
-        /// User ID to fetch details for
-        user_id: String,
-    },
-    /// Returns the bot queue
-    ///
-    /// This is public to all staff members
-    BotQueue {
-        /// Login token
-        login_token: String,
-    },
-    /// Executes an RPC on a target
-    ///
-    /// The endpoint itself is public to all staff members however RPC will only execute if the user has permission for the RPC method
-    ExecuteRpc {
-        /// Login token
-        login_token: String,
-        /// Target Type
-        target_type: TargetType,
-        /// RPC Method
-        method: RPCMethod,
-    },
-    /// Returns all RPC actions available
-    ///
-    /// Setting filtered will filter RPC actions to that what the user has access to
-    ///
-    /// This is public to all staff members
-    GetRpcMethods {
-        /// Login token
-        login_token: String,
-        /// Filtered
-        filtered: bool,
-    },
-    /// Gets the list of all RPC log entries made
-    GetRpcLogEntries {
-        /// Login token
-        login_token: String,
-    },
-    /// Searches for a bot based on a query
-    ///
-    /// This is public to all staff members
-    SearchEntitys {
-        /// Login token
-        login_token: String,
-        /// Target type
-        target_type: TargetType,
-        /// Query
-        query: String,
-    },
-    /// Uploads a chunk of data returning a chunk ID
-    ///
-    /// Chunks expire after 10 minutes and are stored in memory
-    ///
-    /// After uploading all chunks for a file, use `AddFile` to create the file
-    ///
-    /// Needs `cdn.upload_chunk` permission
-    UploadCdnFileChunk {
-        /// Login token
-        login_token: String,
-        /// Array of bytes of the chunk contents
-        chunk: Vec<u8>,
-    },
-    /// Lists all available CDN scopes
-    ///
-    /// Needs `cdn.list_scopes` permission
-    ListCdnScopes {
-        /// Login token
-        login_token: String,
-    },
-    /// Returns the main CDN scope for Infinity List
-    ///
-    /// This is public to all staff members
-    GetMainCdnScope {
-        /// Login token
-        login_token: String,
-    },
-    /// Updates/handles an asset on the CDN
-    ///
-    /// Needs `cdn.update_asset` permission. Not yet granular/action specific
-    UpdateCdnAsset {
-        /// Login token
-        login_token: String,
-        /// CDN scope
-        ///
-        /// This describes a location where the CDN may be stored on disk and should be a full path to it
-        ///
-        /// Currently the panel uses the following scopes:
-        ///
-        /// `ibl@main`
-        cdn_scope: String,
-        /// Asset name
-        name: String,
-        /// Path
-        path: String,
-        /// Action to take
-        action: CdnAssetAction,
-    },
-    /// Updates/handles partners
-    UpdatePartners {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: PartnerAction,
-    },
-    /// Updates/handles the changelog of the list
-    UpdateChangelog {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: ChangelogAction,
-    },
-    /// Updates/handles the blog of the list
-    UpdateBlog {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: BlogAction,
-    },
-    /// Fetch and modify staff positions
-    UpdateStaffPositions {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: StaffPositionAction,
-    },
-    /// Fetch and modify staff members
-    UpdateStaffMembers {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: StaffMemberAction,
-    },
-    /// Fetch and update staff disciplinary types
-    UpdateStaffDisciplinaryType {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: StaffDisciplinaryTypeAction,
-    },
-    /// Fetch and update/modify vote credit tiers
-    UpdateVoteCreditTiers {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: VoteCreditTierAction,
-    },
-    /// Fetch and update/modify shop items
-    UpdateShopItems {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: ShopItemAction,
-    },
-    /// Fetch and update/modify shop item benefits
-    UpdateShopItemBenefits {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: ShopItemBenefitAction,
-    },
-    /// Fetch and update/modify shop coupons
-    UpdateShopCoupons {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: ShopCouponAction,
-    },
-    /// Fetch and update/modify bot whitelist
-    UpdateBotWhitelist {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: BotWhitelistAction,
-    },
-    /// Create a request to a/an Popplio staff endpoint
-    PopplioStaff {
-        /// Login token
-        login_token: String,
-        /// Path
-        path: String,
-        /// Method
-        method: String,
-        /// Body
-        body: String,
-    },
 }
 
 /// CDN granularity: Check for [cdn].[permission] or [cdn#scope].[permission]
@@ -3856,6 +3635,8 @@ async fn query(
                     let mut entries = Vec::new();
 
                     for row in rows {
+                        let cents = row.cents.map(|x| x as f64);
+
                         entries.push(ShopCoupon {
                             id: row.id,
                             code: row.code,
@@ -3868,7 +3649,7 @@ async fn query(
                             reuse_wait_duration: row.reuse_wait_duration,
                             expiry: row.expiry,
                             applicable_items: row.applicable_items,
-                            cents: row.cents,
+                            cents: cents,
                             requirements: row.requirements,
                             allowed_users: row.allowed_users,
                             usable: row.usable,
@@ -3959,7 +3740,7 @@ async fn query(
                         reuse_wait_duration,
                         expiry,
                         &applicable_items,
-                        cents,
+                        cents.map(|x| x as i32),
                         &requirements,
                         &allowed_users,
                         usable,
@@ -4050,7 +3831,7 @@ async fn query(
                         reuse_wait_duration,
                         expiry,
                         &applicable_items,
-                        cents,
+                        cents.map(|x| x as i32),
                         &requirements,
                         &auth_data.user_id,
                         &allowed_users,

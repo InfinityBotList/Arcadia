@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 pub struct BaseAnalytics {
     pub bot_counts: std::collections::HashMap<String, i64>,
     pub server_counts: std::collections::HashMap<String, i64>,
-    pub ticket_counts: std::collections::HashMap<bool, i64>,
+    pub ticket_counts: std::collections::HashMap<String, i64>,
     pub total_users: i64,
     pub changelogs_count: i64,
 }

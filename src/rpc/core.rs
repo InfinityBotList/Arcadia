@@ -580,7 +580,8 @@ impl RPCMethod {
                     .send()
                     .await?
                     .json::<BorealisCacheServer>()
-                    .await?;
+                    .await
+                    .map_err(|e| format!("Error decoding borealis response: {:?}", e))?;
 
                 let msg = CreateMessage::default()
                     .content(owners.mention_users())

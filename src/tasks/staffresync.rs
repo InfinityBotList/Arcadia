@@ -100,6 +100,22 @@ async fn modify_corresponding_roles(
 
     let http = &cache_http.http;
     for (server_id, roles) in remove {
+        // Ensure user exists in the server
+        {
+            let guild = match cache_http.cache.guild(server_id) {
+                Some(guild) => guild,
+                None => {
+                    log::warn!("Failed to get guild for server_id: {}", server_id);
+                    continue;
+                }
+            };
+            
+            if !guild.members.contains_key(&user) {
+                log::warn!("User not found in server: {}", user);
+                continue;
+            }
+        }
+
         for role in roles.iter() {
             http.remove_member_role(server_id, user, *role, Some("Removing corresponding role"))
                 .await?;
@@ -107,6 +123,22 @@ async fn modify_corresponding_roles(
     }
 
     for (server_id, roles) in add {
+        // Ensure user exists in the server
+        {
+            let guild = match cache_http.cache.guild(server_id) {
+                Some(guild) => guild,
+                None => {
+                    log::warn!("Failed to get guild for server_id: {}", server_id);
+                    continue;
+                }
+            };
+            
+            if !guild.members.contains_key(&user) {
+                log::warn!("User not found in server: {}", user);
+                continue;
+            }
+        }        
+
         for role in roles.iter() {
             http.add_member_role(server_id, user, *role, Some("Adding corresponding role"))
                 .await?;

@@ -752,8 +752,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::Unverify { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists

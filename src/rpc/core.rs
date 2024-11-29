@@ -448,8 +448,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::Unclaim { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Check if its claimed by someone
@@ -520,8 +520,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::Approve { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 let claimed = sqlx::query!(
@@ -686,8 +686,8 @@ impl RPCMethod {
                 )
             }
             RPCMethod::Deny { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 let claimed = sqlx::query!(
@@ -803,8 +803,8 @@ impl RPCMethod {
                 reason,
                 time_period_hours,
             } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -848,8 +848,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::PremiumRemove { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -892,8 +892,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::VoteBanAdd { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -935,8 +935,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::VoteBanRemove { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -978,8 +978,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::VoteReset { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 sqlx::query!("UPDATE entity_votes SET void = TRUE, void_reason = 'Votes (single entity) reset', voided_at = NOW() WHERE target_type = $1 AND target_id = $2 AND void = FALSE", state.target_type.to_string(), target_id)
@@ -1006,8 +1006,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::VoteResetAll { reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 let mut tx = state.pool.begin().await?;
@@ -1041,8 +1041,8 @@ impl RPCMethod {
                 reason,
                 kick,
             } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -1112,8 +1112,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::CertifyAdd { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -1153,8 +1153,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::CertifyRemove { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -1200,8 +1200,8 @@ impl RPCMethod {
                 new_owner,
                 reason,
             } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -1258,8 +1258,8 @@ impl RPCMethod {
                 new_team,
                 reason,
             } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the bot actually exists
@@ -1318,8 +1318,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::AppBanUser { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the user actually exists
@@ -1362,8 +1362,8 @@ impl RPCMethod {
                 Ok(RPCSuccess::NoContent)
             }
             RPCMethod::AppUnbanUser { target_id, reason } => {
-                if reason.len() > 300 {
-                    return Err("Reason must be lower than/equal to 300 characters".into());
+                if reason.len() > 2000 {
+                    return Err("Reason must be lower than/equal to 2000 characters".into());
                 }
 
                 // Ensure the user actually exists

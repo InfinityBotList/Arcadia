@@ -86,7 +86,7 @@ pub async fn japi_updater(ctx: &serenity::all::Context) -> Result<(), crate::Err
     let pool = &data.pool;
 
     let bots_to_update = sqlx::query!(
-        "SELECT bot_id FROM bots WHERE (type = 'approved' OR type = 'certified') AND NOW() - last_stats_post > INTERVAL '2 weeks' AND NOW() - last_japi_update > INTERVAL '2 weeks' ORDER BY RANDOM() LIMIT 2"
+        "SELECT bot_id FROM bots WHERE (type = 'approved' OR type = 'certified') AND NOW() - last_stats_post > INTERVAL '1 week' AND NOW() - last_japi_update > INTERVAL '1 week' ORDER BY RANDOM() LIMIT 2"
     )
     .fetch_all(pool)
     .await?;

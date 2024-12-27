@@ -152,6 +152,7 @@ pub struct Config {
     pub owners: Vec<UserId>,
     pub protected_bots: Vec<UserId>,
     pub panel: PanelConfig,
+    pub japi_key: String,
 }
 
 impl Default for Config {
@@ -188,6 +189,7 @@ impl Default for Config {
                 UserId::new(1019662370278228028), // Reedwhisker (PTB) - Main Bot
             ],
             panel: PanelConfig::default(),
+            japi_key: String::from(""),
         }
     }
 }

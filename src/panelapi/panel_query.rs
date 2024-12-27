@@ -20,7 +20,6 @@ use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, ToSchema, TS, Display, Clone, EnumVariantNames)]
 #[ts(export, export_to = ".generated/PanelQuery.ts")]
-
 pub enum PanelQuery {
     /// Authorization-related commands
     Authorize {

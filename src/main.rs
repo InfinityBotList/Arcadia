@@ -91,8 +91,8 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     }
 }
 
-async fn event_listener<'a>(
-    ctx: poise::FrameworkContext<'a, Data, Error>,
+async fn event_listener(
+    ctx: poise::FrameworkContext<'_, Data, Error>,
     event: &FullEvent,
 ) -> Result<(), Error> {
     let user_data = ctx.serenity_context.data::<Data>();

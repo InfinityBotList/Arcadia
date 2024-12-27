@@ -3,6 +3,7 @@ pub mod autounclaim;
 pub mod bans;
 pub mod deletedbots;
 pub mod genericcleaner;
+pub mod japiupdate;
 pub mod premium;
 pub mod specrolesync;
 pub mod staffresync;
@@ -91,6 +92,13 @@ pub fn tasks() -> Vec<Task> {
             enabled: true,
             duration: std::time::Duration::from_secs(7 * 24 * 60 * 60),
             run: Box::new(move |ctx| crate::tasks::topreviewersync::topreviewersync(ctx).boxed()),
+        },
+        Task {
+            name: "japi_updater",
+            description: "JAPI Updater",
+            enabled: true,
+            duration: std::time::Duration::from_secs(60 * 2),
+            run: Box::new(move |ctx| crate::tasks::japiupdate::japi_updater(ctx).boxed()),
         },
     ]
 }

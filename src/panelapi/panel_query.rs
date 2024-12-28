@@ -5,8 +5,6 @@ use crate::panelapi::types::{
     auth::AuthorizeAction,
     blog::BlogAction,
     bot_whitelist::BotWhitelistAction,
-    cdn::CdnAssetAction,
-    changelogs::ChangelogAction,
     partners::PartnerAction,
     shop_items::{ShopCouponAction, ShopItemAction, ShopItemBenefitAction},
     staff_disciplinary::StaffDisciplinaryTypeAction,
@@ -92,67 +90,12 @@ pub enum PanelQuery {
         /// Query
         query: String,
     },
-    /// Uploads a chunk of data returning a chunk ID
-    ///
-    /// Chunks expire after 10 minutes and are stored in memory
-    ///
-    /// After uploading all chunks for a file, use `AddFile` to create the file
-    ///
-    /// Needs `cdn.upload_chunk` permission
-    UploadCdnFileChunk {
-        /// Login token
-        login_token: String,
-        /// Array of bytes of the chunk contents
-        chunk: Vec<u8>,
-    },
-    /// Lists all available CDN scopes
-    ///
-    /// Needs `cdn.list_scopes` permission
-    ListCdnScopes {
-        /// Login token
-        login_token: String,
-    },
-    /// Returns the main CDN scope for Infinity List
-    ///
-    /// This is public to all staff members
-    GetMainCdnScope {
-        /// Login token
-        login_token: String,
-    },
-    /// Updates/handles an asset on the CDN
-    ///
-    /// Needs `cdn.update_asset` permission. Not yet granular/action specific
-    UpdateCdnAsset {
-        /// Login token
-        login_token: String,
-        /// CDN scope
-        ///
-        /// This describes a location where the CDN may be stored on disk and should be a full path to it
-        ///
-        /// Currently the panel uses the following scopes:
-        ///
-        /// `ibl@main`
-        cdn_scope: String,
-        /// Asset name
-        name: String,
-        /// Path
-        path: String,
-        /// Action to take
-        action: CdnAssetAction,
-    },
     /// Updates/handles partners
     UpdatePartners {
         /// Login token
         login_token: String,
         /// Action
         action: PartnerAction,
-    },
-    /// Updates/handles the changelog of the list
-    UpdateChangelog {
-        /// Login token
-        login_token: String,
-        /// Action
-        action: ChangelogAction,
     },
     /// Updates/handles the blog of the list
     UpdateBlog {
@@ -216,16 +159,5 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: BotWhitelistAction,
-    },
-    /// Create a request to a/an Popplio staff endpoint
-    PopplioStaff {
-        /// Login token
-        login_token: String,
-        /// Path
-        path: String,
-        /// Method
-        method: String,
-        /// Body
-        body: String,
     },
 }

@@ -3,8 +3,6 @@ use once_cell::sync::Lazy;
 use poise::serenity_prelude::{ChannelId, GuildId, RoleId, UserId};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::Write};
-use ts_rs::TS;
-use utoipa::ToSchema;
 
 pub static CURRENT_ENV: Lazy<&str> = Lazy::new(|| {
     let current_env = include_bytes!("../current-env");
@@ -124,8 +122,7 @@ pub struct PanelConfig {
     pub panel_response_scope: String,
 }
 
-#[derive(Serialize, Deserialize, TS, ToSchema, Clone, Default)]
-#[ts(export, export_to = ".generated/CdnScopeData.ts")]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct CdnScopeData {
     /// Path in local fs (or remote if support is added)
     pub path: String,

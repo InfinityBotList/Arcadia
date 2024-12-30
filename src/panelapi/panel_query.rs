@@ -6,7 +6,7 @@ use crate::panelapi::types::{
     blog::BlogAction,
     bot_whitelist::BotWhitelistAction,
     partners::PartnerAction,
-    shop_items::{ShopCouponAction, ShopItemAction, ShopItemBenefitAction},
+    shop_items::{ShopCouponAction, ShopHoldAction, ShopItemAction, ShopItemBenefitAction},
     staff_disciplinary::StaffDisciplinaryTypeAction,
     vote_credit_tiers::VoteCreditTierAction,
 };
@@ -152,6 +152,13 @@ pub enum PanelQuery {
         login_token: String,
         /// Action
         action: ShopCouponAction,
+    },
+    /// Fetch and update/modify shop holds
+    UpdateShopHolds {
+        /// Login token
+        login_token: String,
+        /// Action
+        action: ShopHoldAction,
     },
     /// Fetch and update/modify bot whitelist
     UpdateBotWhitelist {

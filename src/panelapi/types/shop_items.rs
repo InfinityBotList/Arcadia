@@ -308,3 +308,75 @@ pub enum ShopCouponAction {
         id: String,
     },
 }
+
+/// Shop holds store items which are owned by entities
+#[derive(Serialize, Deserialize, TS, Clone, ToSchema)]
+#[ts(export, export_to = ".generated/ShopHold.ts")]
+pub struct ShopHold {
+    #[ts(type = "string")]
+    /// The ID of the shop hold
+    pub id: sqlx::types::uuid::Uuid,
+    /// Target ID
+    pub target_id: String,
+    /// Target type
+    pub target_type: String,
+    /// Item
+    pub item: String,
+    /// Created at
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Duration, in *seconds*
+    pub duration: Option<i64>,
+}
+
+#[derive(
+    Serialize,
+    Deserialize,
+    ToSchema,
+    TS,
+    EnumString,
+    EnumVariantNames,
+    Display,
+    Clone,
+    PartialEq,
+    Default,
+)]
+#[ts(export, export_to = ".generated/ShopHoldAction.ts")]
+pub enum ShopHoldAction {
+    /// List all current shop holds
+    #[default]
+    List,
+
+    /// Create a new shop hold
+    Create {
+        /// Target ID
+        target_id: String,
+        /// Target type
+        target_type: String,
+        /// Item
+        item: String,
+        /// Duration, in *seconds*
+        duration: Option<i32>,
+    },
+
+    /// Edit a shop hold
+    Edit {
+        #[ts(type = "string")]
+        /// The ID of the shop hold
+        id: sqlx::types::uuid::Uuid,
+        /// Target ID
+        target_id: String,
+        /// Target type
+        target_type: String,
+        /// Item
+        item: String,
+        /// Duration, in *seconds*
+        duration: Option<i32>,
+    },
+
+    /// Deletes a shop hold
+    Delete {
+        #[ts(type = "string")]
+        /// The ID of the shop hold
+        id: sqlx::types::uuid::Uuid,
+    },
+}

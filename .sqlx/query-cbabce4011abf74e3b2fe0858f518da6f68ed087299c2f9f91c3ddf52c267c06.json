@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO shop_holds (target_id, target_type, item, duration) VALUES ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Interval"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cbabce4011abf74e3b2fe0858f518da6f68ed087299c2f9f91c3ddf52c267c06"
+}

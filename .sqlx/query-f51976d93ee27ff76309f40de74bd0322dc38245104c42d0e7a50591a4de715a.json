@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM changelogs WHERE version = $1",
+  "query": "UPDATE bots SET last_japi_update = NOW() WHERE bot_id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "63c9b866a1d4c52db542c4a976c18499ae20a193735d6f0c0eb43652ab4266d4"
+  "hash": "f51976d93ee27ff76309f40de74bd0322dc38245104c42d0e7a50591a4de715a"
 }

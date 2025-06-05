@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT COUNT(*) FROM changelogs WHERE version = $1",
+  "query": "SELECT COUNT(*) FROM shop_holds WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -11,12 +11,12 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
       null
     ]
   },
-  "hash": "d93496e8ee3f1ee7e5b63c827299adc62fb4f44c360ef519f7fe45e6388dbc90"
+  "hash": "9b9ecdcf9263e9f4c4b9a07567516246d336675c109c0d138d7c476cecb70820"
 }

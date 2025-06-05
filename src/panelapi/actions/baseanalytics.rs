@@ -32,11 +32,6 @@ pub async fn base_analytics(state: &AppState, login_token: String) -> Result<Res
         .await
         .map_err(Error::new)?;
 
-    let total_changelogs = sqlx::query!("SELECT COUNT(*) FROM changelogs")
-        .fetch_one(&state.pool)
-        .await
-        .map_err(Error::new)?;
-
     Ok((
         StatusCode::OK,
         Json(BaseAnalytics {
@@ -62,7 +57,7 @@ pub async fn base_analytics(state: &AppState, login_token: String) -> Result<Res
                 })
                 .collect(),
             total_users: total_users.count.unwrap_or_default(),
-            changelogs_count: total_changelogs.count.unwrap_or_default(),
+            changelogs_count: 0, // remove later
         }),
     )
         .into_response())

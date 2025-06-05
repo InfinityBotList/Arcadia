@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE shop_holds SET target_id = $1, target_type = $2, item = $3, duration = $4 WHERE id = $5",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Interval",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3bda474874986d84a0b0686bd436a74d2f49fdb8775a1cfc2f0be2fde0c7eb0f"
+}

@@ -2,7 +2,6 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use moka::future::Cache;
 use std::fmt::Display;
 
 pub struct Error {
@@ -28,5 +27,4 @@ impl IntoResponse for Error {
 pub struct AppState {
     pub cache_http: botox::cache::CacheHttpImpl,
     pub pool: sqlx::PgPool,
-    pub cdn_file_chunks_cache: Cache<String, Vec<u8>>,
 }

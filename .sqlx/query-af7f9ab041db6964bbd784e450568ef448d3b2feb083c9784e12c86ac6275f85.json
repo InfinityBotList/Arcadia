@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                        SELECT server_id, name, total_members, online_members, short, type, approximate_votes, invite_clicks,\n                        clicks, nsfw, tags, premium, claimed_by, last_claimed FROM servers\n                        WHERE server_id = $1 OR name ILIKE $2 ORDER BY created_at\n                        ",
+  "query": "\n            SELECT server_id, name, total_members, online_members, short, type, approximate_votes, invite_clicks,\n            clicks, nsfw, tags, premium, claimed_by, last_claimed FROM servers\n            WHERE server_id = $1 OR name ILIKE $2 ORDER BY created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -97,5 +97,5 @@
       true
     ]
   },
-  "hash": "d9f0766cdd98a96e7dd5575969aa52b1cd497788ceac23ea55b060ad5365b39c"
+  "hash": "af7f9ab041db6964bbd784e450568ef448d3b2feb083c9784e12c86ac6275f85"
 }

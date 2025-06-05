@@ -134,7 +134,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl
                 .allow_headers(Any),
         );
 
-    let addr = format!("127.0.0.1:{}", crate::config::CONFIG.server_port.get());
+    let addr = format!("0.0.0.0:{}", crate::config::CONFIG.server_port.get());
     info!("Starting server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr)
@@ -201,11 +201,6 @@ async fn query(
                 .await
                 .map_err(Error::new)?;
 
-            let total_changelogs = sqlx::query!("SELECT COUNT(*) FROM changelogs")
-                .fetch_one(&state.pool)
-                .await
-                .map_err(Error::new)?;
-
             Ok((
                 StatusCode::OK,
                 Json(BaseAnalytics {
@@ -231,7 +226,7 @@ async fn query(
                         })
                         .collect(),
                     total_users: total_users.count.unwrap_or_default(),
-                    changelogs_count: total_changelogs.count.unwrap_or_default(),
+                    changelogs_count: 0,
                 }),
             )
                 .into_response())
@@ -1640,191 +1635,14 @@ async fn query(
             }
         }
         PanelQuery::UpdateChangelog {
-            login_token,
-            action,
+            ..
         } => {
-            let auth_data = super::auth::check_auth(&state.pool, &login_token)
-                .await
-                .map_err(Error::new)?;
-
-            let user_perms = get_user_perms(&state.pool, &auth_data.user_id)
-                .await
-                .map_err(Error::new)?
-                .resolve();
-
-            match action {
-                ChangelogAction::ListEntries => {
-                    let rows = sqlx::query!(
-                        "SELECT version, added, updated, removed, github_html, created_at, extra_description, prerelease, published FROM changelogs ORDER BY version::semver DESC"
-                    )
-                    .fetch_all(&state.pool)
-                    .await
-                    .map_err(Error::new)?;
-
-                    let mut entries = Vec::new();
-
-                    for row in rows {
-                        entries.push(ChangelogEntry {
-                            version: row.version,
-                            added: row.added,
-                            updated: row.updated,
-                            removed: row.removed,
-                            github_html: row.github_html,
-                            created_at: row.created_at,
-                            extra_description: row.extra_description,
-                            prerelease: row.prerelease,
-                            published: row.published,
-                        });
-                    }
-
-                    Ok((StatusCode::OK, Json(entries)).into_response())
-                }
-                ChangelogAction::CreateEntry {
-                    version,
-                    extra_description,
-                    prerelease,
-                    added,
-                    updated,
-                    removed,
-                } => {
-                    if !perms::has_perm(&user_perms, &"changelogs.create".into()) {
-                        return Ok((
-                            StatusCode::FORBIDDEN,
-                            "You do not have permission to create changelog entries [changelogs.create]"
-                                .to_string(),
-                        )
-                            .into_response());
-                    }
-
-                    // Check if entry already exists with same vesion
-                    if sqlx::query!(
-                        "SELECT COUNT(*) FROM changelogs WHERE version = $1",
-                        version
-                    )
-                    .fetch_one(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .count
-                    .unwrap_or(0)
-                        > 0
-                    {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Entry with same version already exists".to_string(),
-                        )
-                            .into_response());
-                    }
-
-                    // Insert entry
-                    sqlx::query!(
-                        "INSERT INTO changelogs (version, extra_description, prerelease, added, updated, removed) VALUES ($1, $2, $3, $4, $5, $6)",
-                        version,
-                        extra_description,
-                        prerelease,
-                        &added,
-                        &updated,
-                        &removed,
-                    )
-                    .execute(&state.pool)
-                    .await
-                    .map_err(Error::new)?;
-
-                    Ok((StatusCode::NO_CONTENT, "").into_response())
-                }
-                ChangelogAction::UpdateEntry {
-                    version,
-                    extra_description,
-                    github_html,
-                    prerelease,
-                    added,
-                    updated,
-                    removed,
-                    published,
-                } => {
-                    if !perms::has_perm(&user_perms, &"changelogs.update".into()) {
-                        return Ok((
-                            StatusCode::FORBIDDEN,
-                            "You do not have permission to update changelog entries [changelogs.update]"
-                                .to_string(),
-                        )
-                            .into_response());
-                    }
-
-                    // Check if entry already exists with same vesion
-                    if sqlx::query!(
-                        "SELECT COUNT(*) FROM changelogs WHERE version = $1",
-                        version
-                    )
-                    .fetch_one(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .count
-                    .unwrap_or(0)
-                        == 0
-                    {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Entry with same version does not already exist".to_string(),
-                        )
-                            .into_response());
-                    }
-
-                    // Update entry
-                    sqlx::query!(
-                        "UPDATE changelogs SET extra_description = $2, github_html = $3, prerelease = $4, added = $5, updated = $6, removed = $7, published = $8 WHERE version = $1",
-                        version,
-                        extra_description,
-                        github_html,
-                        prerelease,
-                        &added,
-                        &updated,
-                        &removed,
-                        published
-                    )
-                    .execute(&state.pool)
-                    .await
-                    .map_err(Error::new)?;
-
-                    Ok((StatusCode::NO_CONTENT, "").into_response())
-                }
-                ChangelogAction::DeleteEntry { version } => {
-                    if !perms::has_perm(&user_perms, &"changelogs.delete".into()) {
-                        return Ok((
-                            StatusCode::FORBIDDEN,
-                            "You do not have permission to delete changelog entries [changelogs.delete]"
-                                .to_string(),
-                        )
-                            .into_response());
-                    }
-
-                    // Check if entry already exists with same vesion
-                    if sqlx::query!(
-                        "SELECT COUNT(*) FROM changelogs WHERE version = $1",
-                        version
-                    )
-                    .fetch_one(&state.pool)
-                    .await
-                    .map_err(Error::new)?
-                    .count
-                    .unwrap_or(0)
-                        == 0
-                    {
-                        return Ok((
-                            StatusCode::BAD_REQUEST,
-                            "Entry with same version does not already exist".to_string(),
-                        )
-                            .into_response());
-                    }
-
-                    // Delete entry
-                    sqlx::query!("DELETE FROM changelogs WHERE version = $1", version)
-                        .execute(&state.pool)
-                        .await
-                        .map_err(Error::new)?;
-
-                    Ok((StatusCode::NO_CONTENT, "").into_response())
-                }
-            }
+            return Ok((
+                StatusCode::FORBIDDEN,
+                    "You do not have permission to create changelog entries [not implemented]"
+                    .to_string(),
+            )
+            .into_response());
         }
         PanelQuery::UpdateBlog {
             login_token,

@@ -115,7 +115,7 @@ pub async fn init_panelapi(pool: PgPool, cache_http: botox::cache::CacheHttpImpl
                 .allow_headers(Any),
         );
 
-    let addr = format!("127.0.0.1:{}", crate::config::CONFIG.server_port.get());
+    let addr = format!("0.0.0.0:{}", crate::config::CONFIG.server_port.get());
     info!("Starting server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr)
